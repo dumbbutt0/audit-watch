@@ -162,6 +162,40 @@ def _advisory_section() -> list[str]:
     return out
 
 
+def _submission_risk_section() -> list[str]:
+    """Pre-READY submission-risk advisories (reachability/novelty/design). ADVISORY-ONLY.
+
+    Reads output/submission_risk.json (written by submission_risk_audit.py). Robust: missing/malformed/empty
+    -> [] (no section, no error). These are NEVER added to `findings` and never change a finding's state — they
+    flag the bounty-rejection axes (reachability / duplicate-novelty / design-accepted) so effort isn't spent
+    submitting a finding likely to bounce, per the real-world calibration_lessons.
+    """
+    try:
+        p = audit_path("output", "submission_risk.json")
+        if not p.exists():
+            return []
+        doc = json.loads(p.read_text())
+    except (OSError, ValueError):
+        return []
+    rows = [r for r in (doc.get("findings") or []) if r.get("overall") in ("high", "review")]
+    if not rows:
+        return []
+    out = [
+        "", "---", "",
+        "## Submission-risk — ADVISORY (likely bounty-rejection axes; NOT a rejection)", "",
+        "> **Advisory only.** Flags axes — *deployment-reachability, duplicate/novelty, design-accepted* — that "
+        "sink real, valid PoCs at triage. A flag is a **prompt to verify before submitting**, not a finding "
+        "verdict: it does **not** change any finding's state and these rows are **excluded from the Validated "
+        "Findings table/count**. `checklist_required` => answer via `agents/submission_risk_review.md`.", "",
+        "| Finding | Overall | Advisories |", "|---|---|---|",
+    ]
+    for r in rows:
+        adv = "<br>".join(a.replace("|", "/") for a in r.get("advisories", [])) or "—"
+        out.append(f"| {r.get('finding_id', '?')} | {r.get('overall', '?')} | {adv} |")
+    out += [""]
+    return out
+
+
 def _value_provenance_section() -> list[str]:
     """P139: render value-provenance deep-pass auto-run results as an advisory-only subsection.
 
@@ -338,6 +372,8 @@ def main() -> None:
     lines += _advisory_section()
     # P139: value-provenance deep-pass auto-run results (advisory-only subsection). Same isolation guarantee.
     lines += _value_provenance_section()
+    # Pre-READY submission-risk advisories (reachability/novelty/design). Advisory-only; never changes state.
+    lines += _submission_risk_section()
     # P315: necessary-file coverage summary — make under-coverage explicit in the deliverable (never silent).
     lines += _coverage_section()
 

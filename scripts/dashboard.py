@@ -433,6 +433,7 @@ def _build_state() -> Dict[str, Any]:
             "raw_severity": raw_sev,
             "state": canon_finding.get("state"),
             "readiness_blockers": canon_finding.get("readiness_blockers", []),
+            "readiness_advisories": canon_finding.get("readiness_advisories", []),
             "who_loses": canon_finding.get("who_loses"),
             "who_gains": canon_finding.get("who_gains"),
             "suggested_fix": canon_finding.get("suggested_fix"),

@@ -51,9 +51,11 @@ def overlay(finding: dict, rec: dict | None) -> dict:
     if not rec:
         finding.setdefault("state", None)
         finding.setdefault("readiness_blockers", [])
+        finding.setdefault("readiness_advisories", [])
         return finding
     finding["state"] = rec.get("state")
     finding["readiness_blockers"] = rec.get("readiness_blockers", [])
+    finding["readiness_advisories"] = rec.get("readiness_advisories", [])  # advisory-only (submission_risk)
     finding["submission_ready"] = is_ready(rec)
     ev = rec.get("evidence") or {}
     finding["who_loses"] = ev.get("who_loses")

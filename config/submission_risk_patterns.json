@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "description": "Pre-READY submission-risk patterns (ADVISORY-ONLY). Flags findings likely to be rejected by a bounty on axes OTHER than PoC validity. Seeded from the first real-world adjudicated outcomes (2026-06): the PoCs were valid; rejections clustered on deployment-reachability, duplicate/novelty, and design-accepted/known-pattern. Consumed read-only by scripts/submission_risk_audit.py. NEVER a gate; NEVER auto-rejects; NEVER written to rejection_rules.jsonl. Human-editable.",
+  "_honesty_note": "These are HEURISTIC text-signal matches over the finding's title/description/recommendation. A match is a PROMPT TO VERIFY before submitting, not a verdict. Deployment-reachability mostly cannot be decided from finding text alone -> the scorer emits checklist_required rather than a confident score. design_acceptance matches carry the real-outcome provenance that motivated them.",
+
+  "design_acceptance": [
+    {
+      "id": "nav_oracle_settlement_tolerance",
+      "name": "NAV / oracle settlement tolerance (design-level)",
+      "all": ["nav"],
+      "any": ["tolerance", "request-time", "request time", "settlement", "two-step withdraw", "rounding", "1%"],
+      "outcome_provenance": "solvbtc-solana (HackenProof 2026-06-15: known design characteristic; program excludes design-level NAV/oracle settlement)",
+      "rationale": "NAV/oracle settlement tolerance is frequently a documented design property and program-excluded; confirm the program does not exclude design-level NAV/settlement before submitting."
+    },
+    {
+      "id": "reward_principal_commingling",
+      "name": "reward/principal fund commingling, no reserve (known pattern)",
+      "all": ["principal"],
+      "any": ["reward", "reserve", "commingling", "commingled", "solvency", "same balance", "shared balance"],
+      "outcome_provenance": "idos-nodestaking (HackenProof 2026-06-13: matches a prior submission assessed out of scope)",
+      "rationale": "Reward/principal commingling with no on-chain reserve is a recurring staking pattern often ruled out-of-scope or duplicate; check for a prior submission and the program's scope rules."
+    },
+    {
+      "id": "adaptor_stale_accumulator",
+      "name": "third-party adaptor stale accumulator / unsettled yield",
+      "any": ["adaptor", "accumulator", "acc_reward_per_share", "stale reward", "stale accumulator", "unsettled", "pending reward", "undervalue"],
+      "outcome_provenance": "volo (HackenProof 2026-06-16: third-party adaptor, no direct fund loss, known pattern -> Not applicable)",
+      "rationale": "Mis-valuation from an unsettled third-party-integration accumulator is often rated not-applicable (no direct loss / third-party) or a known pattern; confirm a direct, in-scope fund-loss path."
+    }
+  ],
+
+  "deployment_reachability_signals": {
+    "_note": "Light signals that the vulnerable path may NOT be wired in the live deployment. A hit lowers confidence but does NOT decide; absence of a hit yields checklist_required (the wiring cannot be known from finding text).",
+    "null_or_noop_fallback": ["nullmargincheck", "no-op", "noop", "null fallback", "falls back to", "not wired", "not registered", "unregistered"],
+    "profile_or_feature_gated": ["profile", "feature flag", "feature-flag", "deployment", "not deployed", "perp engine", "only the predict", "predict profile"]
+  },
+
+  "novelty_signals": {
+    "_note": "Used only when output/kb_crossref.md (KB/solodit similarity) is present. High similarity to a known public finding => likely duplicate/known. Absent KB => checklist_required.",
+    "high_similarity_markers": ["similar", "duplicate", "known", "prior report", "matches"]
+  }
+}

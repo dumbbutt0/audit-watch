@@ -82,6 +82,10 @@ coverage_review_gate() {
   # Canonical per-finding record: join merged_findings + gates + confirmation + triage + poc into ONE record per
   # finding (output/candidates/<id>.json) with a single derived `state`. This is where READY is defined and where
   # unconfirmed High/Critical are routed to human_pending. The dashboard/report should read this, not re-join.
+  # ADVISORY-ONLY pre-READY submission-risk flags (reachability/novelty/design). Runs BEFORE the canonical
+  # record so it can overlay readiness_advisories; never changes finding state, never gates.
+  "${PYTHON}" "${ROOT}/scripts/submission_risk_audit.py" --quiet 2>/dev/null || true
+
   run_step "build_candidate_records" "${PYTHON}" "${ROOT}/scripts/build_candidate_records.py"
 
   # MEASUREMENT-ONLY: attribute advisory-lens hits to the findings they became (canonical state), so lens
@@ -365,6 +369,13 @@ print(json.loads(m.read_text()).get('contract_path','') if m.exists() else '')
     # (Re)build the canonical per-finding records (output/candidates/<id>.json + candidates_index.json).
     require_audit
     run_step "build_candidate_records" "${PYTHON}" "${ROOT}/scripts/build_candidate_records.py"
+    ;;
+
+  submission-risk)
+    # ADVISORY-ONLY: flag findings likely to bounce at bounty triage on reachability/novelty/design axes
+    # (output/submission_risk.json). Never changes state, never gates. checklist_required -> submission_risk_review.
+    require_audit
+    "${PYTHON}" "${ROOT}/scripts/submission_risk_audit.py"
     ;;
 
   calibration-worklist)

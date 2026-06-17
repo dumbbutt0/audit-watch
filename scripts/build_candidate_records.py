@@ -97,6 +97,10 @@ def build() -> dict:
     confirm_gate = _json(out_dir / "confirm" / "confirm_gate.json", {})
     reach_blocking = {b.get("finding_id"): b.get("status") for b in confirm_gate.get("blocking", [])} \
         if isinstance(confirm_gate, dict) else {}
+    # ADVISORY-ONLY pre-READY submission-risk flags (reachability/novelty/design). These are surfaced as
+    # readiness_ADVISORIES (non-blocking) — they never enter `state` derivation or readiness_blockers.
+    srisk = _json(out_dir / "submission_risk.json", {})
+    srisk_by_id = {r.get("finding_id"): r for r in srisk.get("findings", [])} if isinstance(srisk, dict) else {}
 
     out_records_dir = out_dir / "candidates"
     out_records_dir.mkdir(parents=True, exist_ok=True)
@@ -204,6 +208,8 @@ def build() -> dict:
             "triage_status": tstatus,
             "state": state,
             "readiness_blockers": blockers,
+            # ADVISORY-ONLY: flags likely bounty-rejection axes; does NOT affect `state` above.
+            "readiness_advisories": (srisk_by_id.get(fid) or {}).get("advisories", []),
         }
         (out_records_dir / f"{fid}.json").write_text(json.dumps(rec, indent=2) + "\n")
         records.append(rec)
