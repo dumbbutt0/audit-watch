@@ -35,9 +35,11 @@ LABELS = {"STRONG", "SAME_AREA", "SUBSYSTEM_ONLY", "MISSED", "UNADJUDICATED"}
 RECALLED = {"STRONG", "SAME_AREA", "SUBSYSTEM_ONLY"}  # count toward recall_of_surfaced
 # Awarded findings appear as: ## [[H-01] title](url)  /  ## [[M-02] title](url)  under "# High/Medium Risk Findings"
 _AWARD_RE = re.compile(r"^##\s*\[\[([A-Z]+-\d+)\]\s*(.+?)\]\(", re.MULTILINE)
-_SEV_RE = re.compile(r"^#\s*(High|Medium|Low|Critical)\s+Risk\s+Findings", re.IGNORECASE | re.MULTILINE)
+_SEV_RE = re.compile(r"^#{1,3}\s*(High|Medium|Low|Critical)\s+Risk\s+Findings", re.IGNORECASE | re.MULTILINE)
 # Sherlock format: "# Issue M-1: title"  /  "# Issue H-2: title" — severity is encoded in the ID prefix.
 _SHERLOCK_RE = re.compile(r"^#{1,3}\s*Issue\s+([A-Z]+-\d+)\s*:\s*(.+?)\s*$", re.MULTILINE)
+# Bullet format: "- H-01 | title — detail"  /  "* M-02: title"  under "## High/Medium Risk Findings".
+_BULLET_RE = re.compile(r"^\s*[-*]\s*([A-Z]+-\d+)\s*[|:]\s*(.+?)\s*$", re.MULTILINE)
 _SEV_BY_PREFIX = {"C": "Critical", "H": "High", "M": "Medium", "L": "Low", "Q": "Low"}
 
 
@@ -77,6 +79,21 @@ def parse_awarded(report_path: Path) -> list[dict]:
             continue
         seen.add(fid)
         sev = _SEV_BY_PREFIX.get(fid.split("-")[0][:1].upper(), "Unknown")
+        if sev == "Low":  # exclude Low/QA from the awarded reach denominator
+            continue
+        out.append({"id": fid, "severity": sev, "title": title})
+    if out:
+        return out
+    # Fallback: bullet list "- H-01 | title — detail" under "## High/Medium Risk Findings". Severity from the
+    # section header when present, else from the ID prefix (H->High, M->Medium, ...).
+    for m in _BULLET_RE.finditer(text):
+        fid, title = m.group(1), m.group(2).strip()
+        if fid in seen:
+            continue
+        seen.add(fid)
+        # The ID prefix (H/M/L/C) is the unambiguous severity for the bullet format; fall back to the section
+        # header only when the prefix is unrecognized.
+        sev = _SEV_BY_PREFIX.get(fid.split("-")[0][:1].upper()) or sev_at(m.start())
         if sev == "Low":  # exclude Low/QA from the awarded reach denominator
             continue
         out.append({"id": fid, "severity": sev, "title": title})

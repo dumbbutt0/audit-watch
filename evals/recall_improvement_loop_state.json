@@ -1,0 +1,34 @@
+{
+  "schema": "recall_improvement_loop/v1",
+  "started_at": "2026-06-17",
+  "note": "Self-paced /loop: Track A mines the 33 on-disk contaminated answer-key contests (logic improvement, NOT blind recall); Track B sources FRESH blind audits per language toward 100% across 4. Stop a language at blind_100_count>=4 OR no web-fetchable source. Blind-only honesty; eval-only.",
+  "track_a": {
+    "queue_total": 33,
+    "reincorporated": 21,
+    "pending": 12,
+    "cursor": 21
+  },
+  "track_b": {
+    "solidity": {"blind_100_count": 0, "audits": [], "unfetchable_log": [], "stopped": false, "stop_reason": null},
+    "rust":     {"blind_100_count": 0, "audits": [], "unfetchable_log": [], "stopped": false, "stop_reason": null},
+    "move":     {"blind_100_count": 0, "audits": [], "unfetchable_log": [], "stopped": false, "stop_reason": null}
+  },
+  "iterations": [
+    {
+      "n": 1,
+      "date": "2026-06-17",
+      "track": "A (logic improvement)",
+      "finding": "adjudicate.py answer-key parser missed the '- H-01 | title — detail' bullet format + '##' section headers -> silently parsed awarded=0 for traitforge (and zeroed recall measurement for any bullet-format report).",
+      "fix": "parse_awarded: added _BULLET_RE + relaxed _SEV_RE to #{1,3}; severity from ID prefix (Low excluded). traitforge 0->25 awarded; +3 regression tests in tests/coverage/test_sherlock_parser.py.",
+      "stub_answer_keys_need_webfetch": ["secondswap-2024-12-blind", "iq-ai-2025-01-blind", "nudgexyz-2025-03-blind"],
+      "unfetchable_private": ["chainlink-2026-03-blind (report PRIVATE/UNSCOREABLE)"]
+    }
+  ],
+  "iter1_traitforge_adjudication": {
+    "awarded": 25, "recall_of_surfaced": 0.24, "strong": 0.0,
+    "labels": {"SUBSYSTEM_ONLY": 6, "MISSED": 19},
+    "note": "All MISSED are auto-heuristic read_file=false (coverage-gap, unconfirmed) -> ADVISORY ONLY, not banked / not §-authored without per-finding confirmation vs awarded text + cold-pass coverage. The parser fix unblocked MEASUREMENT, not a pile of reincorporations."
+  },
+  "strategy_note": "Most pending Track A contests' cold passes can't be honestly split coverage-vs-reasoning by the heuristic, so high-yield Track A = SYSTEMIC logic fixes (like the parser) that stop the full run silently missing whole report formats. Per-finding §-authoring needs confirmation. Track B (fresh blind) remains the honest 100%x4 driver but is heavy + source-gated.",
+  "next_iteration": "On suite-green: commit iter-1 (parser fix). Then web-fetch the 3 stub answer keys (secondswap/iq-ai/nudgexyz). Then Track B fresh blind sourcing per language."
+}

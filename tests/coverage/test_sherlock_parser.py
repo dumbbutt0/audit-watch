@@ -41,6 +41,34 @@ def test_c4_format_still_parses_and_takes_precedence(tmp_path):
     assert rows[0]["title"] == "C4 style bug"
 
 
+def test_bullet_format_under_h2_section(tmp_path):
+    # "- H-01 | title — detail" bullets under "## High/Medium Risk Findings" (the traitforge format).
+    # Previously parsed to [] (## section header + bullet items unrecognized) -> silently awarded=0.
+    txt = ("## High Risk Findings\n"
+           "- H-01 | Wrong minting logic — checks _tokenIds instead of generationMintCounts.\n"
+           "- H-02 | Griefing on airdrop benefits.\n"
+           "## Medium Risk Findings\n"
+           "- M-01 | Uninitialized entropySlots read.\n"
+           "* L-03 | a low to exclude\n")
+    rows = {r["id"]: r for r in _parse(tmp_path, txt)}
+    assert set(rows) == {"H-01", "H-02", "M-01"}            # Low excluded
+    assert rows["H-01"]["severity"] == "High" and rows["M-01"]["severity"] == "Medium"
+    assert "Wrong minting logic" in rows["H-01"]["title"]
+
+
+def test_bullet_severity_falls_back_to_id_prefix(tmp_path):
+    # bullets with no Risk-Findings section header -> severity from the ID prefix.
+    rows = {r["id"]: r for r in _parse(tmp_path, "- H-01 | a high\n- M-02 | a medium\n")}
+    assert rows["H-01"]["severity"] == "High" and rows["M-02"]["severity"] == "Medium"
+
+
+def test_real_traitforge_report_parses(tmp_path):
+    rp = Path(__file__).resolve().parents[2] / "audits" / "traitforge-2024-07-blind" / "_sealed_answer_key" / "report.md"
+    if rp.exists():
+        rows = adj.parse_awarded(rp)
+        assert len(rows) >= 20 and {r["severity"] for r in rows} <= {"High", "Medium", "Critical"}
+
+
 def test_real_cap_report_yields_ten(tmp_path):
     rp = Path(__file__).resolve().parents[2] / "audits" / "cap-2025-07-eval" / "_sealed_answer_key" / "report.md"
     if rp.exists():
