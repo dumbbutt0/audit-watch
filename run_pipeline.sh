@@ -375,7 +375,7 @@ print(json.loads(m.read_text()).get('contract_path','') if m.exists() else '')
     # ADVISORY-ONLY: flag findings likely to bounce at bounty triage on reachability/novelty/design axes
     # (output/submission_risk.json). Never changes state, never gates. checklist_required -> submission_risk_review.
     require_audit
-    "${PYTHON}" "${ROOT}/scripts/submission_risk_audit.py"
+    "${PYTHON}" "${ROOT}/scripts/submission_risk_audit.py" "${@:2}"
     ;;
 
   calibration-worklist)

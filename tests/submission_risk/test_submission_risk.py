@@ -70,6 +70,36 @@ def test_reachability_defaults_to_checklist(patched):
     assert _risk(patched, "R-1")["deployment_reachability_risk"]["level"] == "checklist_required"
 
 
+def _manifest(tmp, monkeypatch, m):
+    (tmp / "deployment_manifest.json").write_text(json.dumps(m))
+    monkeypatch.setattr(sra, "audit_path", lambda *p: tmp.joinpath(*p))
+
+
+def test_manifest_marks_inactive_module_not_wired(patched, monkeypatch):
+    # TipRun shape: perp Risk engine present in source but NOT wired in the predict deployment.
+    _merged(patched, [{"id": "P-1", "title": "margin bypass in Risk.checkValidTransition",
+                       "description": "maintenance-margin enforcement flaw",
+                       "location": {"file": "src/core/risk/Risk.sol", "function": "checkValidTransition"}}])
+    _manifest(patched, monkeypatch, {"inactive_modules": ["Risk"], "active_profiles": ["predict"],
+                                     "noop_fallbacks": ["NullMarginCheck"]})
+    sra.build()
+    r = _risk(patched, "P-1")["deployment_reachability_risk"]
+    assert r["level"] == "not_wired" and r["matched"]["term"] == "Risk"
+    assert _risk(patched, "P-1")["overall"] == "high"
+    assert any("LIKELY OUT OF SCOPE" in a for a in _risk(patched, "P-1")["advisories"])
+
+
+def test_manifest_confirms_active_module_wired(patched, monkeypatch):
+    _merged(patched, [{"id": "P-2", "title": "predict market settlement bug",
+                       "description": "x", "location": {"file": "src/predict/Market.sol", "function": "settle"}}])
+    _manifest(patched, monkeypatch, {"active_modules": ["Market"], "inactive_modules": ["Risk"]})
+    sra.build()
+    r = _risk(patched, "P-2")["deployment_reachability_risk"]
+    assert r["level"] == "wired" and r["matched"]["term"] == "Market"
+    # 'wired' does not raise overall on its own
+    assert _risk(patched, "P-2")["overall"] in ("review", "low")
+
+
 def test_reachability_flags_null_fallback(patched):
     _merged(patched, [{"id": "R-2", "title": "margin check bypass",
                        "description": "CAP_MARGIN_CHECK falls back to NullMarginCheck in the predict profile"}])

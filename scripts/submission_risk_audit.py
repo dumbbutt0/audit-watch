@@ -48,6 +48,39 @@ def _finding_text(f: dict) -> str:
     return " ".join(str(p) for p in parts).lower()
 
 
+def _finding_locus(f: dict) -> str:
+    """Finding text PLUS its location (file/function/contract) — what deployment-manifest terms match against."""
+    loc = f.get("location")
+    locbits = []
+    if isinstance(loc, dict):
+        locbits = [loc.get("file") or "", loc.get("function") or "", loc.get("contract") or ""]
+    elif isinstance(loc, str):
+        locbits = [loc]
+    locbits.append(f.get("_contract") or "")
+    return (_finding_text(f) + " " + " ".join(str(b) for b in locbits)).lower()
+
+
+_MANIFEST_TEMPLATE = {
+    "schema": "deployment_manifest/v1",
+    "_note": "Human-authored LIVE-deployment facts for this audit. submission_risk_audit.py matches these terms "
+             "(token-boundary) against each finding's file/function/contract/title to AUTO-decide deployment "
+             "reachability (not_wired => likely OUT OF SCOPE) instead of asking. Leave a list empty if unknown. "
+             "Advisory-only: it never changes a finding's state.",
+    "active_profiles": [], "inactive_profiles": [],
+    "active_modules": [], "inactive_modules": [],
+    "unregistered_handlers": [], "noop_fallbacks": [],
+    "notes": "",
+}
+
+
+def _deployment_manifest() -> dict | None:
+    p = audit_path("deployment_manifest.json")
+    if not p.exists():
+        return None
+    m = _load(p, None)
+    return m if isinstance(m, dict) else None
+
+
 def _has(text: str, kw: str) -> bool:
     """Token-boundary match (not substring): 'nav' must not match 'navigation'/'Aerodrome'. The keyword may be
     a phrase or contain non-alnum chars (request-time, acc_reward_per_share, 1%) — bordered by non-alnum/edges."""
@@ -75,21 +108,46 @@ def _design_axis(text: str, cfg: dict) -> dict:
     return {"level": "low", "rationale": "no known design-accepted/known-pattern shape matched"}
 
 
-def _reachability_axis(text: str, cfg: dict) -> dict:
+_INACTIVE_KEYS = ("inactive_profiles", "inactive_modules", "unregistered_handlers", "noop_fallbacks")
+_ACTIVE_KEYS = ("active_profiles", "active_modules")
+
+
+def _first_hit(locus: str, manifest: dict, keys) -> tuple[str, str] | None:
+    """Return (key, term) for the first manifest term (token-boundary) found in the finding's locus."""
+    for k in keys:
+        for term in manifest.get(k, []) or []:
+            if _has(locus, term):
+                return k, term
+    return None
+
+
+def _reachability_axis(locus: str, cfg: dict, manifest: dict | None) -> dict:
+    # 1) Deployment manifest (human-supplied live-deployment facts) — auto-decides where it can.
+    if manifest:
+        inactive = _first_hit(locus, manifest, _INACTIVE_KEYS)
+        if inactive:
+            return {"level": "not_wired", "matched": {"field": inactive[0], "term": inactive[1]},
+                    "rationale": f"deployment manifest marks '{inactive[1]}' ({inactive[0]}) as NOT live — the "
+                                 f"vulnerable path is likely UNREACHABLE in the deployment (probable OUT OF SCOPE); "
+                                 f"verify against the deployed config before submitting"}
+        active = _first_hit(locus, manifest, _ACTIVE_KEYS)
+        if active:
+            return {"level": "wired", "matched": {"field": active[0], "term": active[1]},
+                    "rationale": f"deployment manifest confirms '{active[1]}' ({active[0]}) is live — reachable"}
+        # manifest present but silent on this finding -> fall through to signals/checklist
+    # 2) Text signals (heuristic hint).
     sig = cfg.get("deployment_reachability_signals", {})
-    hits = []
-    for label in ("null_or_noop_fallback", "profile_or_feature_gated"):
-        if any(_has(text, k) for k in sig.get(label, [])):
-            hits.append(label)
+    hits = [label for label in ("null_or_noop_fallback", "profile_or_feature_gated")
+            if any(_has(locus, k) for k in sig.get(label, []))]
     if hits:
         return {"level": "flag", "signals": sorted(set(hits)),
                 "rationale": "finding text hints the path may be feature/profile-gated or behind a no-op "
                              "fallback — verify it is wired in the LIVE deployment before submitting"}
-    # Cannot decide from finding text — the wiring is deployment knowledge, not source.
+    # 3) Cannot decide — wiring is deployment knowledge, not source. Ask (fill the manifest or the checklist).
     return {"level": "checklist_required",
-            "rationale": "confirm the vulnerable path is WIRED in the live deployment profile (not "
-                         "feature-flagged off / Null-fallback / unregistered handler) — see "
-                         "agents/submission_risk_review.md"}
+            "rationale": "confirm the vulnerable path is WIRED in the live deployment (not feature-flagged off / "
+                         "Null-fallback / unregistered handler) — fill audits/<id>/deployment_manifest.json "
+                         "(run_pipeline submission-risk --init-manifest) or see agents/submission_risk_review.md"}
 
 
 def _novelty_axis(text: str, kb_present: bool) -> dict:
@@ -109,7 +167,9 @@ def _advisories(fid: str, design: dict, reach: dict, nov: dict) -> list[str]:
         out.append(f"submission_risk[design_acceptance]: matches '{design['name']}' "
                    f"(program-excluded/known shape; provenance: {design['outcome_provenance']}). "
                    f"{design['rationale']}")
-    if reach["level"] == "flag":
+    if reach["level"] == "not_wired":
+        out.append(f"submission_risk[deployment_reachability]: LIKELY OUT OF SCOPE — {reach['rationale']}")
+    elif reach["level"] == "flag":
         out.append(f"submission_risk[deployment_reachability]: {reach['rationale']} "
                    f"(signals: {', '.join(reach['signals'])})")
     elif reach["level"] == "checklist_required":
@@ -124,6 +184,7 @@ def build() -> dict:
     merged = _load(out_dir / "merged_findings.json", {})
     findings = merged.get("findings", []) if isinstance(merged, dict) else (merged or [])
     cfg = _load(PATTERNS, {})
+    manifest = _deployment_manifest()
     kb_present = (out_dir / "kb_crossref.md").exists()
 
     records = []
@@ -133,12 +194,12 @@ def build() -> dict:
             continue
         text = _finding_text(f)
         design = _design_axis(text, cfg)
-        reach = _reachability_axis(text, cfg)
+        reach = _reachability_axis(_finding_locus(f), cfg, manifest)
         nov = _novelty_axis(text, kb_present)
         advisories = _advisories(fid, design, reach, nov)
-        # overall: high if a design/known shape matched OR reachability flagged; review if anything needs a
-        # human checklist; low otherwise. (Advisory severity only — never a gate verdict.)
-        if design["level"] == "match" or reach["level"] == "flag":
+        # overall: high if a design/known shape matched OR reachability is not_wired/flagged; review if anything
+        # needs a human checklist; low otherwise. (Advisory severity only — never a gate verdict.)
+        if design["level"] == "match" or reach["level"] in ("not_wired", "flag"):
             overall = "high"
         elif any(x["level"] == "checklist_required" for x in (reach, nov)):
             overall = "review"
@@ -155,6 +216,7 @@ def build() -> dict:
                 "changes finding state, never auto-rejects. checklist_required => answer via "
                 "agents/submission_risk_review.md.",
         "kb_crossref_present": kb_present,
+        "deployment_manifest_present": manifest is not None,
         "counts": {lvl: sum(1 for r in records if r["overall"] == lvl) for lvl in ("high", "review", "low")},
         "findings": records,
     }
@@ -165,7 +227,18 @@ def build() -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--init-manifest", action="store_true",
+                    help="write a deployment_manifest.json template for the auditor to fill (won't overwrite)")
     args = ap.parse_args()
+    if args.init_manifest:
+        p = audit_path("deployment_manifest.json")
+        if p.exists():
+            print(f"deployment_manifest.json already exists: {p} (left untouched)")
+            return 0
+        p.write_text(json.dumps(_MANIFEST_TEMPLATE, indent=2) + "\n")
+        print(f"Wrote deployment-manifest template: {p}\n  Fill active_/inactive_ profiles+modules, "
+              f"unregistered_handlers, noop_fallbacks — then re-run submission-risk.")
+        return 0
     d = build()
     if not args.quiet:
         c = d["counts"]

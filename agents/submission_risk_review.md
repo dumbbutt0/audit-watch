@@ -22,6 +22,15 @@ Is the vulnerable code path actually **wired in the LIVE deployment**, not merel
 - Verdict: `REACHABLE` (cite the wiring) · `NOT_WIRED` (cite the gate/fallback — likely OUT OF SCOPE) ·
   `UNKNOWN` (what to check).
 
+**Make it mechanical — fill the deployment manifest once.** Instead of answering this per-finding, record the
+deployment facts once in `audits/<id>/deployment_manifest.json` (`run_pipeline.sh submission-risk --init-manifest`
+writes a template). `submission_risk_audit.py` then matches its terms against every finding's
+file/function/contract/title and auto-decides `not_wired` (likely OOS) vs `wired`, instead of `checklist_required`.
+Fields: `active_profiles` / `inactive_profiles`, `active_modules` / `inactive_modules`, `unregistered_handlers`,
+`noop_fallbacks`. Example (TipRun): `inactive_profiles:["perp"]`, `active_profiles:["predict"]`,
+`inactive_modules:["Risk","liquidation"]`, `noop_fallbacks:["NullMarginCheck"]` → the perp/Risk findings flag
+`not_wired` automatically. This is human-authored deployment knowledge; it remains advisory (never changes state).
+
 ## Axis 2 — Novelty / duplicate
 Has this exact root cause already been reported (program history, public reports, known-pattern KB/solodit)?
 - Search the KB/solodit crossref and the program's prior disclosures for the same root cause + component.
