@@ -367,6 +367,12 @@ print(json.loads(m.read_text()).get('contract_path','') if m.exists() else '')
     run_step "build_candidate_records" "${PYTHON}" "${ROOT}/scripts/build_candidate_records.py"
     ;;
 
+  calibration-worklist)
+    # READ-ONLY: enumerate real-world accepted findings with no recorded outcome + emit record_outcome.py
+    # stubs (documentation/metrics/outcome_worklist.md). Closing them moves FP/recall off 'unmeasured'.
+    "${PYTHON}" "${ROOT}/scripts/calibration_worklist.py"
+    ;;
+
   advisory-lens-value)
     # MEASUREMENT-ONLY: per-audit attribution (default) or --rollup the cross-audit lens-value table
     # (evals/advisory_lens_value.md) — the artifact a future review reads to decide keep-vs-shelve (J5).

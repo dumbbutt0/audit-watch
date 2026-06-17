@@ -1,6 +1,6 @@
 # Pipeline Metrics (cross-audit)
 
-_Generated 2026-06-12T03:05:53.994887+00:00 · 4 audits · 0 ground-truth records._
+_Generated 2026-06-17T18:08:58.725678+00:00 · 11 audits · 0 ground-truth records._
 
 > Rates are over findings that HAVE a recorded human outcome. Low ground_truth_records ⇒ metrics are directional, not yet robust.
 

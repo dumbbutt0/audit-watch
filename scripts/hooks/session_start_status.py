@@ -112,6 +112,15 @@ def _proposed_count() -> int:
     return total
 
 
+def _outcomes_pending() -> int:
+    """Real-world accepted findings with no recorded outcome (closing them measures FP/recall). Write-free."""
+    try:
+        import calibration_worklist as cw
+        return cw.pending_count()
+    except Exception:
+        return 0
+
+
 def build_state() -> dict:
     aid = h.active_audit_id()
     try:
@@ -131,6 +140,7 @@ def build_state() -> dict:
         "llm_preflight": _preflight(),
         "calibration": _metrics_headline(),
         "active_ground_truth_records": len(gt),
+        "outcomes_pending": _outcomes_pending(),
         "needs_human_review_pending": len(nhr),
         "unpromoted_learning_candidates": _proposed_count(),
         "last_failed_gate": _last_failed_gate(),
@@ -157,6 +167,8 @@ def render_md(s: dict) -> str:
         "",
         "## Backlog (this audit)",
         f"- Ground-truth records: {s.get('active_ground_truth_records')}",
+        f"- Accepted findings awaiting an outcome: {s.get('outcomes_pending')} "
+        f"(record via scripts/record_outcome.py to close calibration)",
         f"- needs_human_review pending: {s.get('needs_human_review_pending')}",
         f"- Unpromoted learning candidates: {s.get('unpromoted_learning_candidates')}",
         f"- Last failed gate: {s.get('last_failed_gate') or 'none'}",
@@ -185,6 +197,7 @@ def render_console(s: dict) -> str:
         f"  calibration: FP={cal.get('false_positive_rate', 'n/a')}  "
         f"recall={cal.get('recall_on_valid', 'n/a')}  PoC={cal.get('poc_success_rate', 'n/a')}",
         f"  backlog: needs_human_review={s.get('needs_human_review_pending')}  "
+        f"outcomes_pending={s.get('outcomes_pending')}  "
         f"unpromoted_learning={s.get('unpromoted_learning_candidates')}  "
         f"last_failed_gate={s.get('last_failed_gate') or 'none'}",
     ]

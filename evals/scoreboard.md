@@ -1,6 +1,6 @@
 # Recall Lab — Scoreboard
 
-_generated 2026-06-17T17:56:51Z_
+_generated 2026-06-17T18:17:26Z_
 
 Eval-only. Does not affect the real-world dashboard.
 
