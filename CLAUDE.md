@@ -185,9 +185,13 @@ Full step details, gate rules, PoC levels, and quality checklist: **`docs/pipeli
 2. /ite-audit                                # Step 2 specialist agents (Claude Code skill)
    /coverage-sweep                           # close the coverage long tail (evidence-anchored clears)
 3. ./run_pipeline.sh full                    # Steps 2.5→4 (synthesis → gates → triage → PAUSE)
+   /confirm → python scripts/confirm_write.py  # Step 3.5 multi-pass confirmation (in-session, api-free)
    /triage → python scripts/triage_write.py → ./run_pipeline.sh review-gate   # zero-API triage
 ```
 Every LLM stage runs in-session via skills — no Anthropic API calls. See `documentation/refinement/api_free_pipeline.md`.
+**Step 3.5 confirmation is NOT inert in api-free.** It used to silently skip without an API key; `/confirm`
+(confirm_prepare → in-session passes → confirm_write) now supplies the confirmation record, and the canonical
+record (`output/candidates/<id>.json`) hard-blocks any unconfirmed High/Critical from reaching READY.
 **Coverage gate (Step 3.9):** `full`/`review-gate` BLOCK until every in-scope coverage-manifest item is examined/cleared/finding/deferred with evidence (`documentation/coverage_system.md`). Commands: `coverage-manifest` · `coverage-sweep` · `coverage-gate` · `coverage-status`. Override: `AUDITWATCH_COVERAGE_OVERRIDE=1`.
 (To re-enable the API path: set `api_free=false` and uncomment the key in `.env`.)
 
@@ -229,6 +233,9 @@ harness/oracle artifact is ruled out via tie-break/negative-control) → the `fu
 reads ONLY `confirmed` evidence + source + `attack_surface.json` and writes `output/findings_fuzz_synthesis.json`
 → that finding rides the **unchanged** gauntlet (3.4→3.9). The synthesis agent never sets final severity/triage.
 Config: `config/agent_policy.json → fuzz_synthesis` (`enabled`, `require_cause_confirmation`, `never_set_severity`).
+**Honesty caveat:** the fuzz lane is validated on a repro package (sui-amm-swap eval: H-1 falsified→confirmed→FZ-001
+traversed the gauntlet; M-1 K-invariant held→not promoted), NOT on a live hunt. It has not yet landed a real
+finding through the gauntlet in the wild — do not read its existence as runtime-proven recall.
 
 **Budget gates** (read `config/agent_policy.json → active_mode` before any step):
 - **fast**: triage only

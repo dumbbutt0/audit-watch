@@ -99,6 +99,7 @@ import candidate_detail as cd  # candidate-validation detail view (read-only)
 import funnel  # blind-to-reproducible funnel (read-only; tracks discovery->PoC->submission readiness)
 import findings_overview as fo  # unified read-only "findings at a glance" across all 3 research tracks
 import finding_detail as fd  # unified read-only candidate-detail resolver across all 3 research tracks
+import candidate_records as cr  # READ side of the ONE canonical per-finding record (READY/state source, task 2)
 import submission_readiness_review as srr  # human-owned submission-readiness overlay (research-only)
 from research import option_a_campaign as oac  # Option-A campaign ledger + scorecard (research-only, read-only here)
 
@@ -289,6 +290,10 @@ def _build_state() -> Dict[str, Any]:
         all_findings = merged if isinstance(merged, list) else []
     compound_notes = merged.get("compound_risk_notes", []) if isinstance(merged, dict) else []
 
+    # ONE canonical record (task 2): READY/state come from output/candidates/<id>.json so the dashboard
+    # cards can't disagree with the gate verdicts. Empty when the record hasn't been built — legacy fallback.
+    canon_records = cr.load_records(_ap("output"))
+
     finding_defs = _read_dir_json(FINDINGS_DIR(), key="finding_id")
 
     triage_submit = _read_jsonl(TRIAGE_SUBMIT())
@@ -416,11 +421,21 @@ def _build_state() -> Dict[str, Any]:
             except Exception:  # noqa: BLE001 - the display panel must never break the dashboard
                 _l3_panel = None
 
+        # Overlay the canonical record: when present it OWNS `submission_ready` (== state 'ready') and
+        # carries `state` + `readiness_blockers` + the report fields. Absent -> keep the legacy heuristic.
+        canon_finding = cr.overlay({"submission_ready": submission_ready}, canon_records.get(fid))
+        submission_ready = canon_finding["submission_ready"]
+
         findings_out.append({
             "id": fid,
             "title": f.get("title") or defn.get("title") or fid,
             "agent": agent,
             "raw_severity": raw_sev,
+            "state": canon_finding.get("state"),
+            "readiness_blockers": canon_finding.get("readiness_blockers", []),
+            "who_loses": canon_finding.get("who_loses"),
+            "who_gains": canon_finding.get("who_gains"),
+            "suggested_fix": canon_finding.get("suggested_fix"),
             "triage_status": triage_status,
             "triage_score": triage_score,
             "recommended_severity": tri.get("recommended_severity"),

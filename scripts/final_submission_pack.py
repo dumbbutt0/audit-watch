@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from audit_context import audit_path
+import candidate_records as cr  # READ side of the ONE canonical per-finding record (READY source, task 2)
 
 TRIAGE_DIR  = audit_path("data/triage")
 OUTPUT_DIR  = audit_path("output")
@@ -535,6 +536,8 @@ def main():
                         help="Skip gate_results.jsonl check (not recommended)")
     parser.add_argument("--bypass-poc", action="store_true",
                         help="Skip PoC completeness enforcement (not recommended)")
+    parser.add_argument("--bypass-canonical", action="store_true",
+                        help="Skip the canonical-record READY check (include submit findings the record blocks)")
     args, _ = parser.parse_known_args()
 
     OUTPUT_DIR.mkdir(exist_ok=True)
@@ -548,6 +551,22 @@ def main():
 
     submit_triage = load_jsonl(TRIAGE_DIR / "submit.jsonl")
     poc_triage = load_jsonl(TRIAGE_DIR / "poc_required.jsonl")
+
+    # ── Canonical READY enforcement (task 2) ───────────────────────────────────
+    # The pack's "submit" set must agree with the ONE canonical record. A finding triage put in submit
+    # but the canonical record does NOT mark `ready` (unconfirmed High/Critical, failed gate, no L3 PoC,
+    # missing report fields) is held back — so the pack can't ship something the gauntlet would reject.
+    canon_records = cr.load_records(OUTPUT_DIR)
+    if canon_records and not args.bypass_canonical:
+        submit_triage, held = cr.apply_canonical_ready(submit_triage, canon_records)
+        if held:
+            print(f"\n  [canonical] held {len(held)} submit finding(s) not READY in output/candidates/:")
+            for h in held:
+                fid = h.get("finding_id") or h.get("id")
+                blk = "; ".join(h.get("_readiness_blockers", [])) or "(no blocker detail)"
+                print(f"    {fid}: state={h.get('_canonical_state')} — {blk}")
+            print("    (re-run /confirm + PoC, or pass --bypass-canonical to include anyway)\n")
+
     downgraded = load_downgraded()
     merged = load_merged_findings()
 

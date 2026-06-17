@@ -84,6 +84,10 @@ coverage_review_gate() {
   # unconfirmed High/Critical are routed to human_pending. The dashboard/report should read this, not re-join.
   run_step "build_candidate_records" "${PYTHON}" "${ROOT}/scripts/build_candidate_records.py"
 
+  # MEASUREMENT-ONLY: attribute advisory-lens hits to the findings they became (canonical state), so lens
+  # LIVE value is measurable instead of guessed (review J5). Never routes/gates/sets severity; pure read-only.
+  "${PYTHON}" "${ROOT}/scripts/advisory_lens_attribution.py" --quiet 2>/dev/null || true
+
   # Step 3.85 — MANDATORY full-coverage drive (reach every necessary file). Specialists deep-dive the hot
   # clusters; this guarantees EVERY remaining in-scope manifest item is examined with evidence before the
   # review gate. Proactively (re)stage the long-tail sweep over ALL in-scope items so the drive loop is always
@@ -361,6 +365,17 @@ print(json.loads(m.read_text()).get('contract_path','') if m.exists() else '')
     # (Re)build the canonical per-finding records (output/candidates/<id>.json + candidates_index.json).
     require_audit
     run_step "build_candidate_records" "${PYTHON}" "${ROOT}/scripts/build_candidate_records.py"
+    ;;
+
+  advisory-lens-value)
+    # MEASUREMENT-ONLY: per-audit attribution (default) or --rollup the cross-audit lens-value table
+    # (evals/advisory_lens_value.md) — the artifact a future review reads to decide keep-vs-shelve (J5).
+    if [[ "${2:-}" == "--rollup" ]]; then
+      "${PYTHON}" "${ROOT}/scripts/advisory_lens_attribution.py" --rollup
+    else
+      require_audit
+      "${PYTHON}" "${ROOT}/scripts/advisory_lens_attribution.py"
+    fi
     ;;
 
   status)
