@@ -751,8 +751,19 @@ print(s.get('unassigned', 0) + s.get('assigned_only', 0) + s.get('examined', 0))
       "${PYTHON}" "${ROOT}/scripts/assert_blind.py" reveal "${2}" 2>/dev/null || true
       "${PYTHON}" "${ROOT}/scripts/assert_blind.py" leakage "${2}" || \
         log "WARNING: possible answer-key leakage — verify the cold pass was blind before trusting recall."
+      # Workspace-integrity preflight: never score a workspace whose findings don't match its meta (a
+      # different audit overwrote it). Blocks on CONTAMINATED unless AUDITWATCH_INTEGRITY_OVERRIDE=1.
+      if ! "${PYTHON}" "${ROOT}/scripts/check_audit_integrity.py" "${2}"; then
+        die "Workspace integrity check FAILED for ${2} (findings don't match meta — likely contaminated). Clean/re-run the workspace, or set AUDITWATCH_INTEGRITY_OVERRIDE=1 to score anyway."
+      fi
     fi
     "${PYTHON}" "${ROOT}/scripts/adjudicate.py" "${@:2}"
+    ;;
+
+  audit-integrity)
+    # READ-ONLY workspace-integrity check (meta.language vs findings extension; empty _sources w/ findings).
+    #   audit-integrity [<audit-id>] [--all]   (exit 2 if any CONTAMINATED)
+    "${PYTHON}" "${ROOT}/scripts/check_audit_integrity.py" "${@:2}"
     ;;
 
   eval-detect-misses)
