@@ -1,0 +1,127 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "schema": "p105_benchmark_corpus_v1",
+  "purpose": "Retrospective reproducibility benchmark of the autonomous SURFACING layer (inventory coverage + invariant enumeration) across already-burned blind subjects. run_subject() is deterministic and never reads answer keys; awarded-finding rows below are taken from ALREADY-DOCUMENTED prior-phase results (memory project_phase8x..104 + assisted_mode phase docs), NOT by re-opening any sealed key.",
+  "caveats": [
+    "RETROSPECTIVE CEILING, not a blind result: every subject's key was opened in P81e-P102. Enumeration/coverage are objective (the code cannot see the key); only the relevance labels below are post-hoc.",
+    "FUNCTION-GROUNDED SUBSET: each subject scores the awarded findings I can map to a concrete public/external entrypoint that exists in the located source. Several contests had additional findings (severity-demoted, missing-function, cross-contract-only, or NOT_RUN buckets) that are not function-grounded here; recall is reported over THIS benchmark subset and labelled as such.",
+    "WHOLE-FILE SIGNALS: run_subject passes the entire contract source_text to enumerate(), so most keyword signals fire and category coverage is near-saturated. The MEANINGFUL recall metric is therefore function_enumerated (inventory coverage, the P103 repair); category_match is reported but flagged near-trivial.",
+    "run_subject keys source_text by FILE STEM == contract name; functions in a contract whose name != filename stem get empty source_text (core-4 invariants + low confidence) but are STILL enumerated. function_enumerated stays robust.",
+    "Only IQ-AI M-01 carries validation+PoC evidence (P104, CONFIRMED). All other validation/PoC columns are honestly NOT_ATTEMPTED (recall-layer benchmark; no per-subject evidence supplied)."
+  ],
+  "exclude_substrings": ["/test", "/tests", "/mock", "Mock", "/interfaces/", "node_modules", "/lib/", "/out/", "/cache/", "forge-std", "openzeppelin", "/script", "/docs/"],
+  "subjects": [
+    {
+      "id": "vultisig-2024-06",
+      "contest": "Vultisig ILO",
+      "phase": "P81e",
+      "source_roots": ["/tmp/p81e-vultisig/src"],
+      "benchmark_findings_are_subset": true,
+      "subset_note": "P81e surfaced 5/6, selected 4/6. Only H-01 (claim) is function-grounded here; M-01 was a missing-function class (no enumerable entrypoint) and is recorded surfaceable=false.",
+      "awarded_findings": [
+        {"finding_id": "VUL-H-01", "contract": "ILOPool", "function": "claim", "invariant_category": "reward_fee_distribution", "severity": "High", "surfaceable": true, "surfaceable_reason": "permissionless claim() entrypoint", "grounding": "high"},
+        {"finding_id": "VUL-M-01", "contract": "ILOPool", "function": null, "invariant_category": "negative_space_missing_update", "severity": "Medium", "surfaceable": false, "surfaceable_reason": "missing-function class: the bug is an absent function/check, so there is no enumerable entrypoint to surface", "grounding": "high"}
+      ]
+    },
+    {
+      "id": "munchables-2024-07",
+      "contest": "Munchables LandManager",
+      "phase": "P85",
+      "source_roots": ["/tmp/p85-munchables/src/managers"],
+      "benchmark_findings_are_subset": true,
+      "subset_note": "P85 in-scope was LandManager.sol. H-05 (dirty-flag-never-reset) grounded to transferToUnoccupiedPlot (inferred). updateTaxRate is excluded (it was a P85 severity FP, awarded Low, not a true positive).",
+      "awarded_findings": [
+        {"finding_id": "MUN-H-05", "contract": "LandManager", "function": "transferToUnoccupiedPlot", "invariant_category": "negative_space_missing_update", "severity": "High", "surfaceable": true, "surfaceable_reason": "permissionless plot-transfer entrypoint leaves stale state", "grounding": "inferred"}
+      ]
+    },
+    {
+      "id": "traitforge-2024-07",
+      "contest": "TraitForge",
+      "phase": "P87",
+      "source_roots": ["/tmp/p87-traitforge/contracts"],
+      "benchmark_findings_are_subset": true,
+      "subset_note": "H-01 mintWithBudget (_tokenIds global-vs-per-gen) + M-18 forgeWithListed (involuntary fee-reduction race), both function-grounded.",
+      "awarded_findings": [
+        {"finding_id": "TRF-H-01", "contract": "TraitForgeNft", "function": "mintWithBudget", "invariant_category": "index_array_integrity", "severity": "High", "surfaceable": true, "surfaceable_reason": "public mint entrypoint with global token-id index", "grounding": "high"},
+        {"finding_id": "TRF-M-18", "contract": "EntityForging", "function": "forgeWithListed", "invariant_category": "ordering_race", "severity": "Medium", "surfaceable": true, "surfaceable_reason": "public forge entrypoint subject to listing-state race", "grounding": "high"}
+      ]
+    },
+    {
+      "id": "phi-2024-08",
+      "contest": "Phi Cred",
+      "phase": "P89",
+      "source_roots": ["/tmp/p89-phi/src"],
+      "benchmark_findings_are_subset": true,
+      "subset_note": "H-05 (_removeCredIdPerAddress public despite underscore name) tests inventory visibility detection directly. M-07 buyShareCredFor sell-lock DoS. H-01/H-03 (reward-dist) not function-grounded here (NOT_RUN / separate contract).",
+      "awarded_findings": [
+        {"finding_id": "PHI-H-05", "contract": "Cred", "function": "_removeCredIdPerAddress", "invariant_category": "role_access", "severity": "High", "surfaceable": true, "surfaceable_reason": "underscore-named function declared public -> reachable; tests inventory visibility detection", "grounding": "high"},
+        {"finding_id": "PHI-M-07", "contract": "Cred", "function": "buyShareCredFor", "invariant_category": "ordering_race", "severity": "Medium", "surfaceable": true, "surfaceable_reason": "public buy-for entrypoint with sell-lock timing", "grounding": "inferred"}
+      ]
+    },
+    {
+      "id": "kleidi-2024-10",
+      "contest": "Kleidi Timelock",
+      "phase": "P91",
+      "source_roots": ["/tmp/p91-kleidi/src"],
+      "benchmark_findings_are_subset": true,
+      "subset_note": "Hardened subject (3 Mediums, all in Timelock). M-02 calldata-index off-by-one grounded to checkCalldata (inferred). Other two Mediums not function-grounded here.",
+      "awarded_findings": [
+        {"finding_id": "KLD-M-02", "contract": "Timelock", "function": "checkCalldata", "invariant_category": "index_array_integrity", "severity": "Medium", "surfaceable": true, "surfaceable_reason": "public calldata-check view with index arithmetic", "grounding": "inferred"}
+      ]
+    },
+    {
+      "id": "ramses-2024-10",
+      "contest": "Ramses Exchange (CL)",
+      "phase": "P93",
+      "source_roots": ["/tmp/p93-ramses/contracts/CL/core", "/tmp/p93-ramses/contracts/CL/gauge"],
+      "benchmark_findings_are_subset": true,
+      "subset_note": "M-02 RamsesV3Pool.flash (paid0/feeProtocol miscalc) + M-01 GaugeV3 skipped-period inflation grounded to getPeriodReward (inferred; the underlying read is in the pool).",
+      "awarded_findings": [
+        {"finding_id": "RAM-M-02", "contract": "RamsesV3Pool", "function": "flash", "invariant_category": "reward_fee_distribution", "severity": "Medium", "surfaceable": true, "surfaceable_reason": "public flash entrypoint computing protocol fee", "grounding": "high"},
+        {"finding_id": "RAM-M-01", "contract": "GaugeV3", "function": "getPeriodReward", "invariant_category": "reward_fee_distribution", "severity": "Medium", "surfaceable": true, "surfaceable_reason": "public reward entrypoint; inflation via skipped-period accounting", "grounding": "inferred"}
+      ]
+    },
+    {
+      "id": "wildcat-2024-08",
+      "contest": "Wildcat",
+      "phase": "P95",
+      "source_roots": ["/tmp/p95-wildcat/src"],
+      "benchmark_findings_are_subset": true,
+      "subset_note": "H-01 executeWithdrawal lives in WildcatMarketWithdrawals.sol (sibling of WildcatMarket.sol) -> tests recursive in-scope coverage. M-05 grantRole role-provider expiry bypass.",
+      "awarded_findings": [
+        {"finding_id": "WLD-H-01", "contract": "WildcatMarketWithdrawals", "function": "executeWithdrawal", "invariant_category": "per_user_accounting", "severity": "High", "surfaceable": true, "surfaceable_reason": "public withdrawal entrypoint; closed-market pro-rata over-withdrawal", "grounding": "high"},
+        {"finding_id": "WLD-M-05", "contract": "AccessControlHooks", "function": "grantRole", "invariant_category": "role_access", "severity": "Medium", "surfaceable": true, "surfaceable_reason": "public role-grant entrypoint with provider-expiry bypass", "grounding": "high"}
+      ]
+    },
+    {
+      "id": "secondswap-2024-12",
+      "contest": "SecondSwap",
+      "phase": "P97",
+      "source_roots": ["/tmp/p97-secondswap/contracts"],
+      "benchmark_findings_are_subset": true,
+      "subset_note": "H-01/H-02 stepsClaimed inheritance grounded to transferVesting; H-03 releaseRate grounded to claimable; M-11 self-purchase maxSellPercent bypass grounded to spotPurchase (the assisted-mode REPRODUCED finding, P98).",
+      "awarded_findings": [
+        {"finding_id": "SS-H-01", "contract": "SecondSwap_StepVesting", "function": "transferVesting", "invariant_category": "per_user_accounting", "severity": "High", "surfaceable": true, "surfaceable_reason": "public transfer entrypoint copies stepsClaimed", "grounding": "high"},
+        {"finding_id": "SS-H-03", "contract": "SecondSwap_StepVesting", "function": "claimable", "invariant_category": "per_user_accounting", "severity": "High", "surfaceable": true, "surfaceable_reason": "public claimable view driven by releaseRate", "grounding": "inferred"},
+        {"finding_id": "SS-M-11", "contract": "SecondSwap_Marketplace", "function": "spotPurchase", "invariant_category": "cap_limit", "severity": "Medium", "surfaceable": true, "surfaceable_reason": "public purchase entrypoint; self-purchase inflates bought -> maxSellPercent cap bypass", "grounding": "high"}
+      ]
+    },
+    {
+      "id": "iq-ai-2025-01",
+      "contest": "IQ-AI",
+      "phase": "P102/P103/P104",
+      "source_roots": ["/tmp/p102-inscope"],
+      "benchmark_findings_are_subset": true,
+      "subset_note": "M-01 moveLiquidity migration adopts attacker-pre-created pair -> the lone CONVERSION data point (VALIDATED + reproduced PoC, P104). H-01 was a constructor-constant out-of-scope finding (surfaceable=false).",
+      "awarded_findings": [
+        {"finding_id": "IQ-M-01", "contract": "LiquidityManager", "function": "moveLiquidity", "invariant_category": "cross_contract_consistency", "severity": "Medium", "surfaceable": true, "surfaceable_reason": "permissionless migration entrypoint adopts external pair", "grounding": "high",
+         "conversion": {"validated": true, "poc_attempted": true, "poc_succeeded": true, "evidence_ref": "P104 (documentation/research/assisted_mode/p104_m01_poc_handoff.md)"}},
+        {"finding_id": "IQ-H-01", "contract": "AgentFactory", "function": null, "invariant_category": "value_conservation", "severity": "High", "surfaceable": false, "surfaceable_reason": "constructor-constant / out-of-scope: not an enumerable runtime public/external entrypoint", "grounding": "high"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "group_id": "T-02-chainId",
+  "verdicts": [
+    {
+      "id": "DPF-001",
+      "verdict": "confirmed_finding",
+      "title": "EIP-712 domain separator hardcodes chainId=1 across LibTokenPermit, LibSiloPermit, and LibTractor; reseed deploys to Arbitrum L2 (chainid 42161)",
+      "confirmed_finding": {
+        "manifest_refs": [
+          "contracts/C.sol",
+          "contracts/libraries/Token/LibTokenPermit.sol",
+          "contracts/libraries/Silo/LibSiloPermit.sol",
+          "contracts/libraries/LibTractor.sol",
+          "contracts/beanstalk/farm/TokenFacet.sol",
+          "contracts/beanstalk/silo/SiloFacet/SiloFacet.sol"
+        ],
+        "attacker_entrypoint": "Standard EOA-reachable EIP-712 flows: TokenFacet.permitToken() -> LibTokenPermit.permit -> _domainSeparatorV4(); Silo deposit permit path -> LibSiloPermit -> _domainSeparatorV4(); and Tractor blueprint execution -> LibTractor.verifyBlueprint domain check. All recompute the domain with C.getChainId().",
+        "external_reachability": "permissionless / standard-user. permitToken is an external facet function; deposit permits and Tractor blueprint submission are user-facing. No privileged keys required to trigger the broken verification.",
+        "violated_invariant": "EIP-712 domain separator MUST commit to the chain the contract is deployed on (block.chainid). Here C.getChainId() is `pure` and returns the hardcoded constant CHAIN_ID = 1 (C.sol:22,108-110), so on the Arbitrum reseed target (chainid 42161) the on-chain domain commits chainId=1 instead of 42161.",
+        "impact": "Two coupled consequences: (1) DoS / functional break: any signer that constructs the EIP-712 domain from the true deployment chainId (42161) — the EIP-712/EIP-2612 spec behaviour for compliant wallets and signing libraries — produces a digest that the contract recomputes with chainId=1, so ECDSA.recover yields signer != owner and the `require(signer == owner, ...)` reverts (LibTokenPermit.sol:50-51; same pattern in LibSiloPermit and LibTractor). Token permits, Silo deposit permits, and Tractor blueprints all fail verification. (2) Replay/anti-cross-chain protection is defeated: the chainId field, whose sole purpose is cross-deployment replay separation, is a constant, so a signature valid against this domain is not chain-bound by chainId (separation then rests only on verifyingContract = address(this)).",
+        "severity_ceiling": "High",
+        "evidence_spans": [
+          "C.sol:22  uint256 private constant CHAIN_ID = 1;",
+          "C.sol:108-110  function getChainId() internal pure returns (uint256) { return CHAIN_ID; }",
+          "LibTokenPermit.sol:82  keccak256(abi.encode(typeHash, name, version, C.getChainId(), address(this)))",
+          "LibTokenPermit.sol:49-51  hash=_hashTypedDataV4(structHash); signer=ECDSA.recover(...); require(signer==owner,...)",
+          "LibSiloPermit.sol:164  keccak256(abi.encode(typeHash, name, version, C.getChainId(), address(this)))",
+          "LibTractor.sol:173-184  _domainSeparatorV4() abi.encode(BLUEPRINT_TYPE_HASH, name, version, C.getChainId(), address(this))",
+          "TokenFacet.sol:154-164  external permitToken(...) -> LibTokenPermit.permit(...)",
+          "init/reseed/L2/ + migration/BeanL1RecieverFacet.sol + L2ContractMigrationFacet.sol confirm the deployment target is Arbitrum L2"
+        ],
+        "duplicate_check": "Distinct from AC-003 (LibTractor uses a wrong/mismatched blueprint typehash — a struct-hash/typehash defect) and from CC-005 (a migration-specific signature/domain concern in the L1->L2 receiver). DPF-001 is specifically the chainId field of the live permit/blueprint EIP-712 domain being a hardcoded constant (=1) rather than block.chainid, affecting three independent libraries simultaneously. Overlap with AC-003 is only that both touch LibTractor; the root causes are orthogonal (typehash vs chainId).",
+        "min_poc_or_existing_proof": "Statically provable that chainId is hardcoded (C.sol:22,108-110) and is consumed verbatim in all three domain builders — no fork needed to prove the static defect. The DoS *severity* depends on whether off-chain signing tooling derives the domain from the true chainid (spec-compliant => revert) or reads the on-chain tokenPermitDomainSeparator()/published separator (=> permits still work, but cross-chain replay separation via chainId is lost). A fork PoC on Arbitrum showing a wallet-derived (chainId=42161) permit signature reverting in permitToken() would pin the High DoS impact; absent that, the chainId-hardcoding and replay-separation weakness are confirmed by code.",
+        "reasoning_summary": "C.getChainId() is pure and returns the literal constant 1; it is the only chainId source for the EIP-712 domain in LibTokenPermit (_buildDomainSeparator:82), LibSiloPermit (_buildDomainSeparator:164), and LibTractor (_domainSeparatorV4:180). The reseed/migration L2 contracts confirm deployment to Arbitrum (chainid 42161), so the domain mis-commits the chain. Verified the verification path reverts on a domain mismatch (require signer==owner). Hypothesis confirmed as written; the static chainId defect is certain and the L2 DoS is its direct consequence."
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "trace": {
+    "localized_mechanism": "approve(feeDist, amount) then feeDist.notifyRewardAmount",
+    "controlled_inputs": "permissionless; pool arg",
+    "pre_state": "token allowance(this->feeDist); treasuryFees",
+    "operation_trace": "collectProtocol(this,max,max); amount=balanceOf(this); split treasury%; token.approve(feeDist,amount); feeDist.notifyRewardAmount(token,amount)",
+    "boundary_cases": "if reward token is approve-race (USDT-like) AND feeDist.notifyRewardAmount transfers LESS than amount (fee-on-transfer), residual allowance remains -> next collectProtocolFees approve(amount) from non-zero reverts (DoS). Whether notifyRewardAmount consumes the FULL allowance is in the out-of-scope FeeDistributor.",
+    "post_state": "depends on out-of-scope FeeDistributor.notifyRewardAmount transfer semantics",
+    "recovery_paths": "treasury could rescue? not in scope",
+    "concrete_outcome": "NEEDS_CONTEXT",
+    "missing_evidence_if_any": {
+      "named_dependency": "IFeeDistributor.notifyRewardAmount (out-of-scope) transfer/allowance consumption",
+      "missing_value": "whether it transferFroms the FULL approved amount (leaving 0 allowance) for FoT/USDT-like reward tokens",
+      "next_step": "obtain/read the FeeDistributor.notifyRewardAmount implementation"
+    },
+    "recommended_verdict": "NEEDS_CONTEXT"
+  },
+  "localized_depth_trace_result": {
+    "recommended_verdict": "NEEDS_CONTEXT",
+    "trace_complete": true,
+    "missing_fields": [],
+    "reasons": [
+      "NEEDS_CONTEXT honored: trace performed and a specific missing dependency + next step are named"
+    ]
+  }
+}

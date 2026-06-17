@@ -1,0 +1,98 @@
+{
+  "finding_id": "SG-001",
+  "title": "TractorFacet omits Invariable fundsSafu net that sibling entrypoints enforce",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/farm/TractorFacet.sol",
+    "function": "tractor",
+    "line_start": 19,
+    "line_end": 124
+  },
+  "description": "Beanstalk applies a consistent guard architecture: every external writing facet inherits `Invariable` and wraps fund-touching logic in solvency/flow modifiers. The two arbitrary/batch execution wrappers FarmFacet (`farm`, `advancedFarm`) and DepotFacet (`pipe`, `multiPipe`, `advancedPipe`, `etherPipe`) both inherit Invariable and carry `fundsSafu` (Depot additionally `noSupplyIncrease`). TractorFacet, which executes an arbitrary `AdvancedFarmCall[]` batch via `LibFarm._advancedFarm` (facet.delegatecall) AS THE PUBLISHER (LibTractor._user() returns blueprint.publisher inside the diamond), does NOT inherit Invariable (`contract TractorFacet` with no base) and its `tractor()` entrypoint carries only `verifyRequisition` + `runBlueprint`. It is the sole fund-executing batch entrypoint with no wrapper-level `fundsSafu`/flow guard. This is an asymmetric, incomplete guard relative to the otherwise-uniform Invariable architecture documented in Invariable.sol ('Every external writing function should use as many non-redundant invariant modifiers as possible. Excepting Diamond functions.').",
+  "impact": "Defense-in-depth solvency loss on the tractor path. Each inner delegatecall into a guarded facet (deposit/withdraw/convert/claim) re-checks `fundsSafu` at its own boundary, so a single inner call cannot leave the protocol insolvent. The residual exposure is that tractor executes a publisher-authorized batch with no batch-level net check: any unguarded inner sink reachable through a blueprint (a facet selector that moves funds but lacks `fundsSafu` itself), or an interleaving that is solvent at each inner checkpoint yet net-adverse across the batch, would execute with the publisher's delegated context and no final solvency assertion. FarmFacet closes exactly this gap with a wrapper `fundsSafu`; Tractor cannot because it does not inherit Invariable.",
+  "ite": {
+    "intent": "Preserve the uniform Invariable solvency net across every fund-executing entrypoint, including the publisher-delegated tractor batch",
+    "technique": "TractorFacet is declared without `is Invariable`, so tractor() cannot and does not apply fundsSafu; the only guards are signature/nonce/time. The wrapper-level solvency assertion that FarmFacet uses is absent on the equivalent Tractor batch path.",
+    "evasion": "Operator submits a publisher-signed blueprint whose AdvancedFarmCall[] either reaches a fund-moving facet selector that itself lacks fundsSafu, or composes guarded calls in an order solvent at each inner checkpoint but net-adverse across the batch; no batch-level fundsSafu fires."
+  },
+  "ice_chain": {
+    "corrupted_state": "Beanstalk token solvency invariant (balances[i] >= entitlements[i]) is not asserted at the tractor batch boundary",
+    "impact": "Potential protocol-level under-collateralization executed under a publisher's delegated context without a batch-level solvency revert; concrete fund loss depends on whether a reachable inner sink lacks its own fundsSafu",
+    "consumer_found": false,
+    "exploit_path": "tractor(blueprint) -> _setPublisher(publisher) -> for each AdvancedFarmCall: facet.delegatecall -> [no wrapper fundsSafu] -> _resetPublisher. Confirming/denying impact requires enumerating every diamond selector reachable from a blueprint and proving each fund-moving one carries its own fundsSafu; that selector-completeness proof is not closeable from source alone, so this is routed for human verification rather than cleared."
+  },
+  "source_slice": "1: /**\n2:  * SPDX-License-Identifier: MIT\n3:  **/\n4: \n5: pragma solidity ^0.8.20;\n6: \n7: import {ECDSA} from \"@openzeppelin/contracts/utils/cryptography/ECDSA.sol\";\n8: import {MessageHashUtils} from \"@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol\";\n9: import {LibBytes} from \"../../libraries/LibBytes.sol\";\n10: import {LibRedundantMath256} from \"contracts/libraries/LibRedundantMath256.sol\";\n11: \n12: import {LibTractor} from \"../../libraries/LibTractor.sol\";\n13: import {AdvancedFarmCall, LibFarm} from \"../../libraries/LibFarm.sol\";\n14: import {LibBytes} from \"contracts/libraries/LibBytes.sol\";\n15: /**\n16:  * @title TractorFacet handles tractor and blueprint operations.\n17:  * @author funderberker, 0xm00neth\n18:  */\n19: contract TractorFacet {\n20:     using LibBytes for bytes32;\n21:     using LibRedundantMath256 for uint256;\n22: \n23:     event PublishRequisition(LibTractor.Requisition requisition);\n24: \n25:     event CancelBlueprint(bytes32 blueprintHash);\n26: \n27:     event Tractor(address indexed operator, bytes32 blueprintHash);\n28: \n29:     /**\n30:      * @notice Ensure requisition hash matches blueprint data and signer is publisher.\n31:      */\n32:     modifier verifyRequisition(LibTractor.Requisition calldata requisition) {\n33:         bytes32 blueprintHash = LibTractor._getBlueprintHash(requisition.blueprint);\n34:         require(blueprintHash == requisition.blueprintHash, \"TractorFacet: invalid hash\");\n35:         address signer = ECDSA.recover(\n36:             MessageHashUtils.toEthSignedMessageHash(requisition.blueprintHash),\n37:             requisition.signature\n38:         );\n39:         require(signer == requisition.blueprint.publisher, \"TractorFacet: signer mismatch\");\n40:         _;\n41:     }\n42: \n43:     /**\n44:      * @notice Verify nonce and time are acceptable, increment nonce, set publisher, clear publisher.\n45:      */\n46:     modifier runBlueprint(LibTractor.Requisition calldata requisition) {\n47:         require(\n48:             LibTractor._getBlueprintNonce(requisition.blueprintHash) <\n49:                 requisition.blueprint.maxNonce,\n50:             \"TractorFacet: maxNonce reached\"\n51:         );\n52:         require(\n53:             requisition.blueprint.startTime <= block.timestamp &&\n54:                 block.timestamp <= requisition.blueprint.endTime,\n55:             \"TractorFacet: blueprint is not active\"\n56:         );\n57:         LibTractor._incrementBlueprintNonce(requisition.blueprintHash);\n58:         LibTractor._setPublisher(payable(requisition.blueprint.publisher));\n59:         _;\n60:         LibTractor._resetPublisher();\n61:     }\n62: \n63:     /**\n64:      * @notice Publish a new blueprint by emitting its data in an event.\n65:      */\n66:     function publishRequisition(\n67:         LibTractor.Requisition calldata requisition\n68:     ) external verifyRequisition(requisition) {\n69:         emit PublishRequisition(requisition);\n70:     }\n71: \n72:     /**\n73:      * @notice Destroy existing blueprint\n74:      */\n75:     function cancelBlueprint(\n76:         LibTractor.Requisition calldata requisition\n77:     ) external verifyRequisition(requisition) {\n78:         require(msg.sender == requisition.blueprint.publisher, \"TractorFacet: not publisher\");\n79:         LibTractor._cancelBlueprint(requisition.blueprintHash);\n80:         emit CancelBlueprint(requisition.blueprintHash);\n81:     }\n82: \n83:     /**\n84:      * @notice Execute a Tractor blueprint as an operator.\n85:      */\n86:     function tractor(\n87:         LibTractor.Requisition calldata requisition,\n88:         bytes memory operatorData\n89:     )\n90:         external\n91:         payable\n92:         verifyRequisition(requisition)\n93:         runBlueprint(requisition)\n94:         returns (bytes[] memory results)\n95:     {\n96:         require(requisition.blueprint.data.length > 0, \"Tractor: data empty\");\n97: \n98:         // Decode and execute advanced farm calls.\n99:         // Cut out blueprint calldata selector.\n100:         AdvancedFarmCall[] memory calls = abi.decode(\n101:             LibBytes.sliceFrom(requisition.blueprint.data, 4),\n102:             (AdvancedFarmCall[])\n103:         );\n104: \n105:         // Update data with operator-defined fillData.\n106:         for (uint256 i; i < requisition.blueprint.operatorPasteInstrs.length; ++i) {\n107:             bytes32 operatorPasteInstr = requisition.blueprint.operatorPasteInstrs[i];\n108:             uint80 pasteCallIndex = operatorPasteInstr.getIndex1();\n109:             require(calls.length > pasteCallIndex, \"Tractor: pasteCallIndex OOB\");\n110: \n111:             LibBytes.pasteBytesTractor(\n112:                 operatorPasteInstr,\n113:                 operatorData,\n114:                 calls[pasteCallIndex].callData\n115:             );\n116:         }\n117: \n118:         results = new bytes[](calls.length);\n119:         for (uint256 i = 0; i < calls.length; ++i) {\n120:             require(calls[i].callData.length != 0, \"Tractor: empty AdvancedFarmCall\");\n121:             results[i] = LibFarm._advancedFarm(calls[i], results);\n122:         }\n123:         emit Tractor(msg.sender, requisition.blueprintHash);\n124:     }\n125: \n126:     /**\n127:      * @notice Get current counter value.\n128:      * @return count Counter value\n129:      */\n130:     function getCounter(bytes32 counterId) public view returns (uint256 count) {\n131:         return\n132:             LibTractor._tractorStorage().blueprintCounters[\n133:                 LibTractor._tractorStorage().activePublisher\n134:             ][counterId];\n135:     }\n136: \n137:     /**\n138:      * @notice Update counter value.\n139:      * @return count New value of counter\n140:      */\n141:     function updateCounter(\n142:         bytes32 counterId,\n143:         LibTractor.CounterUpdateType updateType,\n144:         uint256 amount\n145:     ) external returns (uint256 count) {\n146:         uint256 newCount;\n147:         if (updateType == LibTractor.CounterUpdateType.INCREASE) {\n148:             newCount = getCounter(counterId).add(amount);\n149:         } else if (updateType == LibTractor.CounterUpdateType.DECREASE) {\n150:             newCount = getCounter(counterId).sub(amount);\n151:         }\n152:         LibTractor._tractorStorage().blueprintCounters[\n153:             LibTractor._tractorStorage().activePublisher\n154:         ][counterId] = newCount;",
+  "gate_verdict": {
+    "finding_id": "SG-001",
+    "severity": "Medium",
+    "vuln_type": "access-control",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.543954+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

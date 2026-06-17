@@ -1,0 +1,96 @@
+{
+  "finding_id": "DS-005",
+  "title": "ReseedInternalBalances: no farmers/balances length check, OOB revert DoS",
+  "agent": "",
+  "claimed_severity": "Low",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedInternalBalances.sol",
+    "function": "setInternalBalances",
+    "line_start": 44,
+    "line_end": 64,
+    "code_snippet": "for (uint i; i < internalBalances.farmers.length; i++) {\n    s.accts[internalBalances.farmers[i]].internalTokenBalance[IERC20(internalBalances.token)] = internalBalances.balances[i];  // no length-equality precondition\n    ...\n}"
+  },
+  "description": "setInternalBalances iterates `i` over `internalBalances.farmers.length` and reads `internalBalances.balances[i]` without first requiring `farmers.length == balances.length`. If the supplied `balances` array is shorter than `farmers`, `balances[i]` reverts with an array-out-of-bounds panic, aborting the internal-balance reseed step (and thus the whole migration upgrade). If `balances` is longer, trailing entries are silently ignored but the subsequent `require(totalInternalBalance == internalBalances.totalInternalBalance)` guard catches the mismatch and reverts cleanly. This is DT-011. The defect only triggers on malformed upgrade input supplied by the privileged migration caller (no permissionless attacker), so impact is bounded to a recoverable migration-step revert with a non-descriptive panic.",
+  "impact": "A malformed (shorter-balances) input array reverts the internal-balance reseed step of the migration with an opaque OOB panic rather than a clear precondition error. Bounded to the privileged upgrade path and recoverable by resubmitting correct data; the totalInternalBalance guard already catches most mismatches. Low (best-practice / robustness of a one-shot privileged init).",
+  "ite": {},
+  "ice_chain": {
+    "corrupted_state": "n/a (revert) or silently truncated credits caught by the totalInternalBalance guard",
+    "impact": "Internal-balance reseed step reverts on malformed input, aborting that migration step until correct data is supplied.",
+    "consumer_found": true,
+    "consumer_function": "LibBalance internal-balance consumers depend on a completed reseed",
+    "exploit_path": "init with farmers.length > balances.length -> balances[i] OOB -> Panic revert"
+  },
+  "source_slice": "14:  * @notice Reseed re-initializes the Internal Balance of Farmers.\n15:  * @dev non Bean assets cannot be transfered to L2, due to the lack of garentee of the asset's Liquidity.\n16:  */\n17: contract ReseedInternalBalances {\n18:     AppStorage internal s;\n19:     event InternalBalanceChanged(address indexed user, IERC20 indexed token, int256 delta);\n20: \n21:     struct BeanstalkInternalBalance {\n22:         address token;\n23:         address[] farmers;\n24:         uint256[] balances;\n25:         uint256 totalInternalBalance;\n26:     }\n27: \n28:     function init(\n29:         BeanstalkInternalBalance calldata beanBalances,\n30:         BeanstalkInternalBalance calldata beanEthBalances,\n31:         BeanstalkInternalBalance calldata beanWstethBalances,\n32:         BeanstalkInternalBalance calldata beanStableBalances,\n33:         BeanstalkInternalBalance calldata urBeanBalances,\n34:         BeanstalkInternalBalance calldata urBeanLpBalances\n35:     ) external {\n36:         setInternalBalances(beanBalances);\n37:         setInternalBalances(beanEthBalances);\n38:         setInternalBalances(beanWstethBalances);\n39:         setInternalBalances(beanStableBalances);\n40:         setInternalBalances(urBeanBalances);\n41:         setInternalBalances(urBeanLpBalances);\n42:     }\n43: \n44:     function setInternalBalances(BeanstalkInternalBalance calldata internalBalances) internal {\n45:         uint256 totalInternalBalance;\n46:         for (uint i; i < internalBalances.farmers.length; i++) {\n47:             s.accts[internalBalances.farmers[i]].internalTokenBalance[\n48:                 IERC20(internalBalances.token)\n49:             ] = internalBalances.balances[i];\n50:             totalInternalBalance += internalBalances.balances[i];\n51:             emit InternalBalanceChanged(\n52:                 internalBalances.farmers[i],\n53:                 IERC20(internalBalances.token),\n54:                 int256(internalBalances.balances[i])\n55:             );\n56:         }\n57: \n58:         require(\n59:             totalInternalBalance == internalBalances.totalInternalBalance,\n60:             \"ReseedInternalBalances: totalInternalBalance mismatch\"\n61:         );\n62: \n63:         s.sys.internalTokenBalanceTotal[IERC20(internalBalances.token)] = totalInternalBalance;\n64:     }\n65: }",
+  "gate_verdict": {
+    "finding_id": "DS-005",
+    "severity": "Low",
+    "vuln_type": "dos",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.544833+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

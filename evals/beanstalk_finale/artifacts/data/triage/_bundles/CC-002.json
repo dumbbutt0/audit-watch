@@ -1,0 +1,99 @@
+{
+  "finding_id": "CC-002",
+  "title": "BeanL1RecieverFacet caps migrated L1 Beans at EXTERNAL_L1_BEANS = 0, so every L2 mint reverts after the user's L1 Beans are already burned (permanent cross-chain fund loss)",
+  "agent": "",
+  "claimed_severity": "Critical",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/migration/BeanL1RecieverFacet.sol",
+    "function": "recieveL1Beans",
+    "line_start": 22,
+    "line_end": 44
+  },
+  "description": "The L1->L2 Bean migration is a burn-then-mint cross-chain flow: BeanL2MigrationFacet.migrateL2Beans() calls C.bean().burnFrom(msg.sender, amount) on L1 and then relays a cross-chain message to BeanL1RecieverFacet.recieveL1Beans(reciever, amount) on L2. On L2, recieveL1Beans does `s.sys.migration.migratedL1Beans += amount;` then `require(EXTERNAL_L1_BEANS >= s.sys.migration.migratedL1Beans, ...)` before `C.bean().mint(reciever, amount)`. EXTERNAL_L1_BEANS is a hardcoded constant equal to 0. For any amount > 0 the post-increment value of migratedL1Beans is positive, so the require evaluates `0 >= positive` = false and reverts. The L1 burn has already executed and is not rolled back on L2 (separate chains, asynchronous message). Therefore every honest external Bean migrant loses their L1 Beans with no corresponding L2 issuance.",
+  "impact": "Direct, permanent loss of all externally-held L1 Beans that attempt migration: L1 burn succeeds, the corresponding L2 mint always reverts because the migration cap is 0. No attacker is required; the migration path is fully bricked and every user who uses it loses funds. Critical under Immunefi v2.2 (permanent loss of user funds).",
+  "ite": {
+    "intent": "Re-issue externally-held L1 Beans on L2 up to the migratable supply",
+    "technique": "Migration cap constant left at 0 placeholder makes the post-increment require always fail",
+    "evasion": "No attacker; the bug self-triggers for every legitimate migrant because the L1 burn precedes and is independent of the always-reverting L2 mint"
+  },
+  "ice_chain": {
+    "corrupted_state": "control flow: require(0 >= migratedL1Beans) always reverts; user's L1 Beans already burned via burnFrom",
+    "consumer_found": true,
+    "consumer_function": "C.bean().mint(reciever, amount) is never reached",
+    "impact": "Burned L1 Beans with no L2 issuance -> direct, permanent fund loss and a fully DoS'd external migration path",
+    "exploit_path": "migrateL2Beans burns on L1 -> bridge relays recieveL1Beans on L2 -> migratedL1Beans += amount -> require(0 >= amount) reverts -> mint never executes"
+  },
+  "source_slice": "1: /**\n2:  * SPDX-License-Identifier: MIT\n3:  **/\n4: \n5: pragma solidity ^0.8.20;\n6: \n7: import \"contracts/C.sol\";\n8: import \"../ReentrancyGuard.sol\";\n9: \n10: /**\n11:  * @author Brean\n12:  * @title\n13:  * @notice Allows beanstalk to recieve data from an L1, specifically to mint beans. see {BeanL2MigrationFacet} for more details.\n14:  * The Facet implmentation may need to change depending on the L2 that the beanstalk DAO chooses to migrate to.\n15:  **/\n16: \n17: interface IL2Messenger {\n18:     function xDomainMessageSender() external view returns (address);\n19: }\n20: \n21: contract BeanL1RecieverFacet is ReentrancyGuard {\n22:     uint256 constant EXTERNAL_L1_BEANS = 0;\n23: \n24:     address constant BRIDGE = address(0x4200000000000000000000000000000000000007);\n25:     address constant L1BEANSTALK = address(0xC1E088fC1323b20BCBee9bd1B9fC9546db5624C5);\n26: \n27:     /**\n28:      * @notice migrates `amount` of Beans to L2,\n29:      * issued to `reciever`.\n30:      */\n31:     function recieveL1Beans(address reciever, uint256 amount) external nonReentrant {\n32:         // verify msg.sender is the cross-chain messenger address, and\n33:         // the xDomainMessageSender is the L1 Beanstalk contract.\n34:         require(\n35:             msg.sender == address(BRIDGE) &&\n36:                 IL2Messenger(BRIDGE).xDomainMessageSender() == L1BEANSTALK\n37:         );\n38:         s.sys.migration.migratedL1Beans += amount;\n39:         require(\n40:             EXTERNAL_L1_BEANS >= s.sys.migration.migratedL1Beans,\n41:             \"L2Migration: exceeds maximum migrated\"\n42:         );\n43:         C.bean().mint(reciever, amount);\n44:     }\n45: }",
+  "gate_verdict": {
+    "finding_id": "CC-002",
+    "severity": "Critical",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.534796+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

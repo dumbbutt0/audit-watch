@@ -1,0 +1,99 @@
+{
+  "finding_id": "AC-003",
+  "title": "LibTractor domain separator uses wrong typehash (BLUEPRINT not EIP712Domain)",
+  "agent": "",
+  "claimed_severity": "Low",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/LibTractor.sol",
+    "function": "_domainSeparatorV4",
+    "line_start": 173,
+    "line_end": 184
+  },
+  "description": "LibTractor._domainSeparatorV4() (line 173-184) computes the EIP-712 domain separator as keccak256(abi.encode(BLUEPRINT_TYPE_HASH, TRACTOR_HASHED_NAME, TRACTOR_HASHED_VERSION, C.getChainId(), address(this))). It uses BLUEPRINT_TYPE_HASH (the Blueprint struct typehash, line 28) as the domain typehash, while the correctly-defined EIP712_TYPE_HASH constant (the EIP712Domain typehash, line 24-27) is never referenced. This is a malformed domain separator: it does not match the EIP-712 standard digest that off-chain signers / wallets (eth_signTypedData) and verifying tools produce. Note this does NOT create a signature-replay or auth-bypass vulnerability: the same (non-standard) separator is used consistently on-chain by both the signer-recovery path and the verifier, chainId IS included via C.getChainId(), and TractorFacet uses a per-blueprintHash nonce incremented in runBlueprint with a maxNonce ceiling, so blueprint replay is bounded. The impact is interoperability/standards-correctness: signatures produced by a standards-compliant EIP-712 signer will not verify, and any tooling assuming a standard domain will fail. It does not advance to Medium under ICE because no privilege escalation or unauthorized state change results (consumer impact is signature non-verification, i.e. self-DoS of legitimate signers, already a likely usability issue rather than an attacker capability).",
+  "impact": "Non-standard EIP-712 domain separator: signatures from standard tooling will not verify against Tractor blueprints. No auth bypass, no replay (chainId present, per-blueprint nonce enforced). Severity Low (standards/interoperability correctness).",
+  "ite": {
+    "intent": "(no attacker intent) - standards/correctness defect, not an exploit",
+    "technique": "Domain separator hashes the Blueprint struct typehash in place of the EIP712Domain typehash",
+    "evasion": "Dedicated EIP712_TYPE_HASH constant exists but is unused; the wrong constant is consistent on-chain so internal verification still self-validates"
+  },
+  "ice_chain": {
+    "corrupted_state": "Tractor EIP-712 domain separator / blueprint signing digest",
+    "impact": "Standards-compliant off-chain signatures do not verify; no unauthorized capability is granted",
+    "consumer_found": true,
+    "consumer_function": "TractorFacet.verifyRequisition (ECDSA.recover against _hashTypedDataV4)",
+    "exploit_path": "No exploit path - legitimate standard signatures fail verification (self-DoS/usability), not attacker privilege gain"
+  },
+  "source_slice": "143:                     abi.encode(\n144:                         BLUEPRINT_TYPE_HASH,\n145:                         blueprint.publisher,\n146:                         keccak256(blueprint.data),\n147:                         keccak256(abi.encodePacked(blueprint.operatorPasteInstrs)),\n148:                         blueprint.maxNonce,\n149:                         blueprint.startTime,\n150:                         blueprint.endTime\n151:                     )\n152:                 )\n153:             );\n154:     }\n155: \n156:     /**\n157:      * @notice Hashes in an EIP712 compliant way.\n158:      * @dev Returns an Ethereum Signed Typed Data, created from a\n159:      * `domainSeparator` and a `structHash`. This produces hash corresponding\n160:      * to the one signed with the\n161:      * https://eips.ethereum.org/EIPS/eip-712[`eth_signTypedData`]\n162:      * JSON-RPC method as part of EIP-712.\n163:      *\n164:      * Sourced from OpenZeppelin 0.8 ECDSA lib.\n165:      */\n166:     function _hashTypedDataV4(bytes32 structHash) internal view returns (bytes32) {\n167:         return keccak256(abi.encodePacked(\"\\x19\\x01\", _domainSeparatorV4(), structHash));\n168:     }\n169: \n170:     /**\n171:      * @notice Returns the domain separator for the current chain.\n172:      */\n173:     function _domainSeparatorV4() internal view returns (bytes32) {\n174:         return\n175:             keccak256(\n176:                 abi.encode(\n177:                     BLUEPRINT_TYPE_HASH,\n178:                     TRACTOR_HASHED_NAME,\n179:                     TRACTOR_HASHED_VERSION,\n180:                     C.getChainId(),\n181:                     address(this)\n182:                 )\n183:             );\n184:     }\n185: }",
+  "gate_verdict": {
+    "finding_id": "AC-003",
+    "severity": "Low",
+    "vuln_type": "signature-replay",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.544450+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": false
+}

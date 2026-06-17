@@ -1,0 +1,450 @@
+{
+  "_meta": {
+    "phase": "P201",
+    "corpus": "zetachain-2023-10-holdout",
+    "eval_harness_only": true,
+    "routes_in_production": false,
+    "note": "Refined mechanism-level gate applied to FROZEN blind outputs, answer-key-blind. FREEZE 2.",
+    "oracle_class_B": "UNVALIDATED_OUT_OF_SAMPLE (no oracle findings in zetachain)"
+  },
+  "calibration": [
+    {
+      "id": "zeta-01",
+      "surface": "deposit",
+      "file": "evm/ERC20Custody.sol",
+      "blind_verdict": "MEDIUM_THREAD",
+      "mechanisms": [
+        {
+          "m": "fee-avoidance when zetaFee=0",
+          "class": "D/economic",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "permissionless but bounded fee-revenue loss; economic/DoS, not theft -> Medium"
+        },
+        {
+          "m": "zero-amount deposit spam",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "griefing/spam -> Medium"
+        },
+        {
+          "m": "zeta==asset double-deposit",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "depends on unseen cross-chain validator crediting both events -> harness"
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "zeta-02",
+      "surface": "withdraw (onlyTSS)",
+      "file": "evm/ERC20Custody.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "withdraw lacks whenNotPaused (asymmetric pause)",
+          "class": "E/D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "drain actor is onlyTSS (trusted/authorized); invariant bug but admin-prereq -> Medium"
+        },
+        {
+          "m": "fee-on-transfer accounting mismatch",
+          "class": "C",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "per-token bounded accounting drift -> Medium"
+        },
+        {
+          "m": "TSSAddressUpdater compromise drain",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "requires compromise of authorized updater key -> admin-prereq cap Medium"
+        }
+      ],
+      "summary_label": "MEDIUM_OR_LOWER_CALIBRATED"
+    },
+    {
+      "id": "zeta-03",
+      "surface": "updateTSSAddress / updateTSSAddressUpdater / whitelist",
+      "file": "evm/ERC20Custody.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "updateTSSAddress hijack -> drain",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "requires compromised TSSAddressUpdater (authorized key) -> admin-prereq cap Medium"
+        },
+        {
+          "m": "unwhitelist-all permanent fund lock",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "permanent lock but actor is onlyTSS (authorized); admin-griefing -> Medium"
+        }
+      ],
+      "summary_label": "MEDIUM_OR_LOWER_CALIBRATED"
+    },
+    {
+      "id": "zeta-04",
+      "surface": "updateTssAddress / pause / unpause",
+      "file": "evm/ZetaConnector.base.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "post-renounce single-key TSS collapse",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "requires compromised TSS key (authorized) -> admin-prereq cap Medium"
+        },
+        {
+          "m": "single-key unpause / pause DoS",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "DoS via authorized pauser key -> Medium"
+        }
+      ],
+      "summary_label": "MEDIUM_OR_LOWER_CALIBRATED"
+    },
+    {
+      "id": "zeta-05",
+      "surface": "send / onReceive / onRevert",
+      "file": "evm/ZetaConnector.eth.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "onReceive CEI reentrancy (TSS entry)",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "double-spend depends on TSS honoring phantom ZetaSent (unseen) -> harness"
+        },
+        {
+          "m": "onRevert reentrancy (permissionless sender)",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "permissionless entry but double-spend depends on TSS dedup/replay (unseen) -> harness"
+        },
+        {
+          "m": "tx.origin attribution in ZetaSent",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "permissionless but forged-attribution magnitude unproven; phishing-class -> Medium"
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "zeta-06",
+      "surface": "send / onReceive / onRevert",
+      "file": "evm/ZetaConnector.non-eth.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "onReceive lacks whenNotPaused (mint during pause)",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "actor onlyTssAddress (authorized) -> admin-prereq cap Medium"
+        },
+        {
+          "m": "CEI mint-before-callback phantom send",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "depends on TSS honoring phantom ZetaSent (unseen) -> harness"
+        },
+        {
+          "m": "replay double-mint via internalSendHash",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "depends on unseen mint() hash-uniqueness enforcement -> harness"
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "zeta-07",
+      "surface": "setMaxSupply / mint path",
+      "file": "evm/ZetaConnector.non-eth.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "CEI mint-before-callback reentrancy",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "exploit depends on unseen receiver/cross-chain logic -> harness"
+        },
+        {
+          "m": "callback-revert: burn-on-source no-mint-on-dest (fund loss)",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "permanent-loss path depends on unseen TSS retry/finality -> harness"
+        },
+        {
+          "m": "maxSupply stale-snapshot bypass",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "concurrency/callback-burn unproven -> harness"
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "zeta-08",
+      "surface": "isValidMessageCall / isValidRevertCall / setInteractorByChainId",
+      "file": "evm/tools/ZetaInteractor.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "owner overwrites interactor registry -> spoof",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "requires owner (authorized) action -> admin-prereq cap Medium"
+        },
+        {
+          "m": "ZERO_BYTES sentinel: empty interactor lets zetaTxSenderAddress=empty pass (permissionless auth bypass)",
+          "class": "E",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "permissionless + executable-from-source, but loss magnitude depends on inheriting contracts (unseen) -> harness (strongest candidate)"
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "zeta-09",
+      "surface": "deposit (onlySystem)",
+      "file": "zevm/ZRC20.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "mutable SYSTEM_CONTRACT_ADDRESS -> mint",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "requires compromised fungible-module/system addr (authorized) -> admin-prereq cap Medium"
+        },
+        {
+          "m": "no mint cap / replay double-mint",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "depends on unseen cross-chain replay + privileged caller -> harness"
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "zeta-10",
+      "surface": "withdraw / withdrawGasFee",
+      "file": "zevm/ZRC20.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "withdraw invalid `to` -> burned, undeliverable (permanent loss)",
+          "class": "A",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "permissionless+permanent loss but self-inflicted (caller supplies bad `to`), not attacker-extractable -> Medium"
+        },
+        {
+          "m": "transferFrom-before-burn",
+          "class": "A",
+          "label": "SOURCE_REFUTED",
+          "rationale": "EVM atomicity reverts both (agent-rejected) -> source-refuted"
+        },
+        {
+          "m": "uncapped gasFee DoS / gasZRC20==this double-charge",
+          "class": "C/D",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "privileged fee-set DoS + same-token-accounting question -> harness"
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "zeta-11",
+      "surface": "updateSystemContractAddress / updateGasLimit (onlyFungible)",
+      "file": "zevm/ZRC20.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "SYSTEM_CONTRACT_ADDRESS redirect -> mint",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "authorized-key compromise -> admin-prereq cap Medium"
+        },
+        {
+          "m": "malicious ISystem DoS on withdraw",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "DoS via authorized setter -> Medium"
+        },
+        {
+          "m": "unbounded GAS_LIMIT economic DoS",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "DoS via authorized setter -> Medium"
+        }
+      ],
+      "summary_label": "MEDIUM_OR_LOWER_CALIBRATED"
+    },
+    {
+      "id": "zeta-12",
+      "surface": "burn / transferFrom / approve",
+      "file": "zevm/ZRC20.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "transferFrom check-after-effect",
+          "class": "A",
+          "label": "INSUFFICIENT_EVIDENCE",
+          "rationale": "agent: no current net harm (atomic revert); latent only if _transfer overridden -> insufficient"
+        },
+        {
+          "m": "permissionless burn() permanent loss (no CCTX)",
+          "class": "A",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "permissionless permanent loss but self-inflicted user-error (caller burns own tokens) -> Medium"
+        }
+      ],
+      "summary_label": "MEDIUM_OR_LOWER_CALIBRATED"
+    },
+    {
+      "id": "zeta-13",
+      "surface": "depositAndCall / onCrossChainCall",
+      "file": "zevm/SystemContract.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "depositAndCall CEI reentrancy (user-controlled target)",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "entry onlyFungible; re-entry impact depends on unseen ZRC20/target logic -> harness"
+        },
+        {
+          "m": "stale amount forwarded to onCrossChainCall (fee-on-transfer)",
+          "class": "C",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "depends on ZRC20 fee behavior (unseen) -> harness"
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "zeta-14",
+      "surface": "setGasPrice / setGasCoinZRC20 / updateSystemContractAddress",
+      "file": "zevm/SystemContract.sol",
+      "blind_verdict": "MEDIUM_THREAD",
+      "mechanisms": [
+        {
+          "m": "no zero-address check setGasCoinZRC20",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "DoS via authorized setter; sibling-asymmetry -> Medium"
+        },
+        {
+          "m": "no bounds setGasPrice (0/huge)",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "economic DoS via authorized setter -> Medium"
+        }
+      ],
+      "summary_label": "MEDIUM_OR_LOWER_CALIBRATED"
+    },
+    {
+      "id": "zeta-15",
+      "surface": "send / withdraw",
+      "file": "zevm/ZetaConnectorZEVM.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "tx.origin attribution in ZetaSent",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "permissionless but magnitude unproven; phishing-class -> Medium"
+        },
+        {
+          "m": "no input validation -> invalid destination fund loss",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "depends on unseen fungible-module destination validation -> harness"
+        },
+        {
+          "m": "reentrancy via mutable wzeta",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "requires authorized wzeta set + reentrancy unproven -> harness"
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "zeta-16",
+      "surface": "deposit / withdraw / transferFrom",
+      "file": "zevm/WZETA.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "balanceOf overflow (0.4.18)",
+          "class": "A",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "requires accumulating ~2^256 tokens (infeasible) -> impractical, Medium"
+        },
+        {
+          "m": "withdraw transfer 2300-gas reentrancy (fork-dependent)",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "fork gas-cost unknown -> harness"
+        },
+        {
+          "m": "totalSupply()=this.balance forced-ETH divergence",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "depends on unseen cross-chain supply-oracle use -> harness"
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "zeta-17",
+      "surface": "getZetaFromEth / getEthFromZeta",
+      "file": "evm/tools/ZetaTokenConsumerUniV2.strategy.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "minAmountOut=0 sandwich/slippage",
+          "class": "C/D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "permissionless MEV but bounded/caller-supplied-zero slippage -> Medium"
+        },
+        {
+          "m": "safeApprove non-zero-to-non-zero DoS",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "swap-path DoS -> Medium"
+        },
+        {
+          "m": "cross-chain amountOut understatement",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "rationale": "depends on unseen caller cross-chain credit use -> harness"
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "zeta-18",
+      "surface": "mint / burn (connector-gated)",
+      "file": "evm/Zeta.non-eth.sol",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "m": "TSS-compromise connector reassign -> unbounded mint",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "requires compromised TSS/updater (authorized key) -> admin-prereq cap Medium"
+        },
+        {
+          "m": "deployment-window mint/burn DoS",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "rationale": "temporary bounded unavailability -> Medium"
+        }
+      ],
+      "summary_label": "MEDIUM_OR_LOWER_CALIBRATED"
+    }
+  ]
+}

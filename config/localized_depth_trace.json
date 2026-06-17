@@ -1,0 +1,28 @@
+{
+  "_doc": "P92 localized-mechanism depth-trace completeness check (RESEARCH-ONLY, advisory, UN-WIRED). After the deep pass localizes a suspicious mechanism (deep_pass_depth_trace_v3.md), this validates that a CONCRETE execution trace was performed before any NEEDS_CONTEXT / harmless / Low conclusion is honored. It makes NEEDS_CONTEXT (and generic 'harmless') HARDER to emit, without weakening reject-first and WITHOUT touching severity_impact_gate (frozen 193abf9f). It never sets severity, never routes. Repairs the P91 M-02 near-miss (calldata endIndex-startIndex off-by-one localized but not traced to its concrete revert). is_gate:false research_only:true routes_in_production:false.",
+  "_flags": {"is_gate": false, "research_only": true, "review_only": true, "routes_in_production": false, "routed_manifest_ids": []},
+
+  "required_trace_fields": ["localized_mechanism", "controlled_inputs", "pre_state", "operation_trace", "boundary_cases", "post_state"],
+  "outcome_values": ["PASS", "REJECT", "NEEDS_CONTEXT"],
+  "needs_context_required_evidence": ["named_dependency", "missing_value", "next_step"],
+
+  "_p94_completion": "P93 showed v3 stopped one step short twice: M-02 (RamsesV3Pool.flash) named next_step 'read flash body' but did NOT execute the IN-SCOPE read (missed paid0/feeProtocol); M-01 (GaugeV3) stopped at the IN-SCOPE staticcall boundary positionPeriodSecondsInRange instead of tracing into the in-scope pool. P94 adds a COMPLETION gate: when a next_step is an in-scope source read / in-scope callee trace (or callee_in_scope=true), it MUST be resolved before ANY conclusion (NEEDS_CONTEXT/REJECT/PASS) -- else INSUFFICIENT_TRACE. NEEDS_CONTEXT is allowed only for genuinely out-of-scope/runtime/execution dependencies. This is a COMPLETION requirement, NOT an escalation rule: it never forces a positive verdict; a completed bounded/no-impact trace still REJECTs and a completed bug-path still PASSes. Fields are optional (legacy P92 traces unaffected); enforced only when next_step_type is in-scope or callee_in_scope=true.",
+  "next_step_types": ["IN_SCOPE_READ", "IN_SCOPE_CALL_TRACE", "OUT_OF_SCOPE_DEPENDENCY", "RUNTIME_VALUE", "EXECUTION_REQUIRED"],
+  "in_scope_next_step_types": ["IN_SCOPE_READ", "IN_SCOPE_CALL_TRACE"],
+  "out_of_scope_next_step_types": ["OUT_OF_SCOPE_DEPENDENCY", "RUNTIME_VALUE", "EXECUTION_REQUIRED"],
+  "completion_fields": ["next_step_type", "next_step_resolved", "resolved_evidence_ref", "unresolved_reason", "callee_in_scope", "final_trace_after_resolution"],
+
+  "_policy": "evaluate(trace): (0) all required_trace_fields must be present + non-empty, else recommended_verdict=INSUFFICIENT_TRACE (complete the trace). (1) PASS honored only if operation_trace AND boundary_cases AND post_state are non-empty and reach a concrete consequence; else INSUFFICIENT_TRACE. (2) REJECT (harmless/bounded/Low) honored only if boundary_cases AND post_state show a source-backed self-correction / bounded-no-concrete outcome; a bare/generic harmless with empty boundary_cases -> INSUFFICIENT_TRACE (reject-first preserved; but a TRACED bounded REJECT IS allowed, e.g. updateTaxRate). (3) NEEDS_CONTEXT honored only if ALL needs_context_required_evidence fields are non-empty AND operation_trace+boundary_cases were attempted (non-empty); else INSUFFICIENT_TRACE ('trace the operation or name the specific missing dependency + next step'). The check ECHOES the analyst's outcome when the trace earns it, else returns INSUFFICIENT_TRACE. It never escalates/demotes severity (that is severity_impact_gate's job) and never converts a REJECT into a finding.",
+
+  "target_miss_classes": [
+    "calldata_index_length_offset_arithmetic",
+    "counter_scope_global_vs_local",
+    "self_inflicted_vs_involuntary_race",
+    "admin_footgun_vs_externally_triggerable_user_harm",
+    "precision_rounding_rate_computation",
+    "stale_flag_lifecycle_reset",
+    "array_index_corruption",
+    "state_mutation_before_or_after_validation",
+    "missing_negative_space_function_or_cleanup_path"
+  ]
+}

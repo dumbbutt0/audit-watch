@@ -1,0 +1,1215 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "SUPERVISED_EVAL_DERIVED_EVIDENCE",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "packages": [
+    {
+      "candidate_id": "coverage_manifest:LRTDepositPool:getTotalAssetDeposits:5",
+      "award_class": "UNKNOWN_OTHER",
+      "contract_function": "LRTDepositPool.getTotalAssetDeposits",
+      "source_refs": "LRTDepositPool.getTotalAssetDeposits function getTotalAssetDeposits(address asset) public view override returns (uint256 totalAssetDeposit) {",
+      "mechanism_hypothesis": "[T8] LRTDepositPool.getTotalAssetDeposits: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "LRTDepositPool.getTotalAssetDeposits function getTotalAssetDeposits(address asset) public view override returns (uint256 totalAssetDeposit) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "LRTDepositPool.getTotalAssetDeposits is public/view - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function getTotalAssetDeposits(address asset) public view override returns (uint",
+      "victim_gainer": "victim = users/LPs of LRTDepositPool (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "read-only - no state delta",
+      "invariant_expected": "LRTDepositPool.getTotalAssetDeposits preserves the relevant protocol invariant",
+      "invariant_broken": "LRTDepositPool.getTotalAssetDeposits violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls LRTDepositPool.getTotalAssetDeposits with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert LRTDepositPool.getTotalAssetDeposits produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=public, mutability=view, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "LOW",
+          "source_basis": "mutability is view/pure"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "LOW",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [
+          "assets"
+        ],
+        "state_write": false,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/kelp-2023-11-holdout/contracts/src/LRTDepositPool.sol",
+        "source_span": [
+          47,
+          51
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [
+          "assets"
+        ],
+        "value_movement_or_accounting_write": false,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [47, 51] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/kelp-2023-11-holdout/contracts/src/LRTDepositPool.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "LRTDepositPool.getTotalAssetDeposits",
+            "callee": "LRTDepositPool.getAssetDistributionData",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "LRTDepositPool.getAssetDistributionData",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "IERC20",
+          "balanceOf",
+          "onlySupportedAsset",
+          "returns"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from LRTDepositPool.getTotalAssetDeposits",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [
+          "totalAssetDeposit"
+        ],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": "totalAssetDepositAfter - totalAssetDepositBefore == minted/burned amount",
+        "confidence": "LOW",
+        "source_basis": "local conservation equation extracted (assertion scaffold only; no deviation)",
+        "unresolved_assumptions": [
+          "before/after equation present but no deviation detector corroborates"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LRTDepositPool:getRsETHAmountToMint:6",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "LRTDepositPool.getRsETHAmountToMint",
+      "source_refs": "LRTDepositPool.getRsETHAmountToMint function getRsETHAmountToMint( address asset, uint256 amount ) public view override returns (uint256 rsethAmountToMint) {",
+      "mechanism_hypothesis": "[T8] LRTDepositPool.getRsETHAmountToMint: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "LRTDepositPool.getRsETHAmountToMint function getRsETHAmountToMint( address asset, uint256 amount ) public view override returns (uint256 rsethAmountToMint) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker times stale/unnormalized price to mis-value",
+      "attacker_controlled_inputs": "msg.sender + args of function getRsETHAmountToMint( address asset, uint256 amount ) public view overr",
+      "victim_gainer": "protocol solvency / counterparties",
+      "state_value_liveness_delta": "oracle value enters collateral/debt/value path missing decimals normalization + staleness check",
+      "invariant_expected": "share<->asset conversion in LRTDepositPool.getRsETHAmountToMint conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "apply feed-decimals scaling and staleness check before valuation",
+      "tx_sequence": [
+        "attacker calls LRTDepositPool.getRsETHAmountToMint with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert valuation uses an unnormalized/stale price vs the normalized reference",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "MEDIUM",
+          "source_basis": "P284 invariant-delta: oracle markers present; normalization/staleness markers absent"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "MEDIUM",
+          "source_basis": "P284 invariant-delta: oracle markers present; normalization/staleness markers absent"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "LOW",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "price"
+        ],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/kelp-2023-11-holdout/contracts/src/LRTDepositPool.sol",
+        "source_span": [
+          95,
+          110
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "price"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [95, 110] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/kelp-2023-11-holdout/contracts/src/LRTDepositPool.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_UNRESOLVED",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "ILRTOracle",
+          "getAssetPrice",
+          "getContract",
+          "returns"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from LRTDepositPool.getRsETHAmountToMint",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "REFERENCE_FOUND",
+        "derivation_type": "D4.6_oracle_normalization",
+        "reference_basis": "oracle read feeding a value computation",
+        "observed_expression_or_flow": "price/oracle value used in valuation without decimals normalization + staleness check",
+        "expected_expression_or_flow": "apply feed-decimals scaling and staleness check before valuation",
+        "delta_hypothesis": "oracle value enters collateral/debt/value path missing decimals normalization + staleness check",
+        "affected_variables": [
+          "oracle price"
+        ],
+        "attacker_influence_link": "attacker times stale/unnormalized price to mis-value",
+        "victim_gainer": "protocol solvency / counterparties",
+        "poc_assertion": "assert valuation uses an unnormalized/stale price vs the normalized reference",
+        "confidence": "MEDIUM",
+        "source_basis": "oracle markers present; normalization/staleness markers absent",
+        "unresolved_assumptions": [
+          "normalization/staleness may occur in a helper not in this span"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:RSETH:burnFrom:7",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "RSETH.burnFrom",
+      "source_refs": "RSETH.burnFrom function burnFrom(address account, uint256 amount) external onlyRole(BURNER_ROLE) whenNotPaused {",
+      "mechanism_hypothesis": "[T2] RSETH.burnFrom: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "RSETH.burnFrom function burnFrom(address account, uint256 amount) external onlyRole(BURNER_ROLE) whenNotPaused {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "RSETH.burnFrom is guarded by modifier(s) ['onlyRole', 'BURNER_ROLE', 'whenNotPaused']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function burnFrom(address account, uint256 amount) external onlyRole(BURNER_ROLE",
+      "victim_gainer": "victim = users/LPs of RSETH (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in RSETH via burnFrom (value-moving op)",
+      "invariant_expected": "share<->asset conversion in RSETH.burnFrom conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "RSETH.burnFrom rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls RSETH.burnFrom with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through RSETH.burnFrom nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyRole', 'BURNER_ROLE', 'whenNotPaused'] would be the CORE exploitability claim - needs source review",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyRole', 'BURNER_ROLE', 'whenNotPaused'], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyRole', 'BURNER_ROLE', 'whenNotPaused'], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [
+          {
+            "token": "notpaused",
+            "context": "UNKNOWN_READ",
+            "guard_strength": "NONE",
+            "source_snippet": "nal onlyRole(BURNER_ROLE) whenNotPaused {         _burn(account, amoun",
+            "source_basis": "offset 90; not in any require/if-revert/modifier gate",
+            "reason": "token used as unknown read, not an access guard"
+          },
+          {
+            "token": "onlyrole(",
+            "context": "UNKNOWN_READ",
+            "guard_strength": "NONE",
+            "source_snippet": "unt, uint256 amount) external onlyRole(BURNER_ROLE) whenNotPaused {",
+            "source_basis": "offset 64; not in any require/if-revert/modifier gate",
+            "reason": "token used as unknown read, not an access guard"
+          },
+          {
+            "token": "whennotpaused",
+            "context": "UNKNOWN_READ",
+            "guard_strength": "NONE",
+            "source_snippet": "xternal onlyRole(BURNER_ROLE) whenNotPaused {         _burn(account, a",
+            "source_basis": "offset 86; not in any require/if-revert/modifier gate",
+            "reason": "token used as unknown read, not an access guard"
+          },
+          {
+            "token": "modifier_auth(only*)",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "",
+            "source_basis": "modifier or custom-error revert",
+            "reason": "modifier / custom-error revert gates execution"
+          }
+        ],
+        "guard_markers": [
+          "modifier_auth(only*)",
+          "notpaused",
+          "onlyrole(",
+          "whennotpaused"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "_burn"
+        ],
+        "state_write": false,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/kelp-2023-11-holdout/contracts/src/RSETH.sol",
+        "source_span": [
+          54,
+          56
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [
+          "_burn"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [54, 56] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/kelp-2023-11-holdout/contracts/src/RSETH.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_UNRESOLVED",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "_burn",
+          "onlyRole"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from RSETH.burnFrom",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LRTDepositPool:getAssetDistributionData:8",
+      "award_class": "UNKNOWN_OTHER",
+      "contract_function": "LRTDepositPool.getAssetDistributionData",
+      "source_refs": "LRTDepositPool.getAssetDistributionData function getAssetDistributionData(address asset) public view override onlySupportedAsset(asset) returns (uint256 assetLyingInDepositPool, uint256 assetLyingInNDCs, uint256 assetStakedInEigenLayer) {",
+      "mechanism_hypothesis": "[T8] LRTDepositPool.getAssetDistributionData: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "LRTDepositPool.getAssetDistributionData function getAssetDistributionData(address asset) public view override onlySupportedAsset(asset) returns (uint256 assetLyingInDepositPool, uint256 assetLyingInNDCs, uint256 assetStakedInEigenLayer) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "LRTDepositPool.getAssetDistributionData is public/view - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function getAssetDistributionData(address asset) public view override onlySuppor",
+      "victim_gainer": "victim = users/LPs of LRTDepositPool (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "read-only - no state delta",
+      "invariant_expected": "LRTDepositPool.getAssetDistributionData preserves the relevant protocol invariant",
+      "invariant_broken": "LRTDepositPool.getAssetDistributionData violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls LRTDepositPool.getAssetDistributionData with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert LRTDepositPool.getAssetDistributionData produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=public, mutability=view, modifiers=['onlySupportedAsset', 'asset'], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "LOW",
+          "source_basis": "mutability is view/pure"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "LOW",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [
+          {
+            "token": "modifier_auth(only*)",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "",
+            "source_basis": "modifier or custom-error revert",
+            "reason": "modifier / custom-error revert gates execution"
+          }
+        ],
+        "guard_markers": [
+          "modifier_auth(only*)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "+=",
+          "assets",
+          "balanceof"
+        ],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/kelp-2023-11-holdout/contracts/src/LRTDepositPool.sol",
+        "source_span": [
+          71,
+          89
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "+=",
+          "assets",
+          "balanceof"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [71, 89] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/kelp-2023-11-holdout/contracts/src/LRTDepositPool.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_TOO_DYNAMIC",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "IERC20",
+          "balanceOf",
+          "onlySupportedAsset",
+          "returns"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from LRTDepositPool.getAssetDistributionData",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [
+          "balanceBefore",
+          "balanceAfter"
+        ],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": "balanceAfter - balanceBefore == expectedReceived",
+        "confidence": "LOW",
+        "source_basis": "local before/after equation extracted (assertion scaffold only; no deviation)",
+        "unresolved_assumptions": [
+          "before/after equation present but no deviation detector corroborates"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LRTConfig:addNewSupportedAsset:11",
+      "award_class": "ACCESS_CONTROL_AUTHORIZATION",
+      "contract_function": "LRTConfig.addNewSupportedAsset",
+      "source_refs": "LRTConfig.addNewSupportedAsset function addNewSupportedAsset(address asset, uint256 depositLimit) external onlyRole(LRTConstants.MANAGER) {",
+      "mechanism_hypothesis": "[T8] LRTConfig.addNewSupportedAsset: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "LRTConfig.addNewSupportedAsset function addNewSupportedAsset(address asset, uint256 depositLimit) external onlyRole(LRTConstants.MANAGER) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "LRTConfig.addNewSupportedAsset is guarded by modifier(s) ['onlyRole', 'LRTConstants', 'MANAGER']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function addNewSupportedAsset(address asset, uint256 depositLimit) external only",
+      "victim_gainer": "victim = users/LPs of LRTConfig (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in LRTConfig via addNewSupportedAsset (value-moving op)",
+      "invariant_expected": "only an authorized principal may execute the state-changing path in LRTConfig.addNewSupportedAsset",
+      "invariant_broken": "an unauthorized caller mutates protected state via LRTConfig.addNewSupportedAsset",
+      "tx_sequence": [
+        "attacker calls LRTConfig.addNewSupportedAsset with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Is there an internal/inherited guard not captured as a modifier? Is the mutated state actually sensitive?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert an unauthorized EOA can call LRTConfig.addNewSupportedAsset and change protected state that should be restricted",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyRole', 'LRTConstants', 'MANAGER'] would be the CORE exploitability claim - needs source review"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyRole', 'LRTConstants', 'MANAGER'], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyRole', 'LRTConstants', 'MANAGER'], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [
+          {
+            "token": "onlyrole(",
+            "context": "UNKNOWN_READ",
+            "guard_strength": "NONE",
+            "source_snippet": "int256 depositLimit) external onlyRole(LRTConstants.MANAGER) {",
+            "source_basis": "offset 80; not in any require/if-revert/modifier gate",
+            "reason": "token used as unknown read, not an access guard"
+          },
+          {
+            "token": "modifier_auth(only*)",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "",
+            "source_basis": "modifier or custom-error revert",
+            "reason": "modifier / custom-error revert gates execution"
+          }
+        ],
+        "guard_markers": [
+          "modifier_auth(only*)",
+          "onlyrole("
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": false,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/kelp-2023-11-holdout/contracts/src/LRTConfig.sol",
+        "source_span": [
+          73,
+          75
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": false,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [73, 75] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/kelp-2023-11-holdout/contracts/src/LRTConfig.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_PARTIAL",
+        "trace_path": [
+          {
+            "caller": "LRTConfig.addNewSupportedAsset",
+            "callee": "LRTConfig._addNewSupportedAsset",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "LRTConfig._addNewSupportedAsset",
+            "callee": "UtilLib.checkNonZeroAddress",
+            "edge": "library_or_inherited",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 2,
+        "unresolved_callees": [
+          "AddedNewSupportedAsset",
+          "AssetAlreadySupported",
+          "onlyRole"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from LRTConfig.addNewSupportedAsset",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LRTConfig:updateAssetDepositLimit:12",
+      "award_class": "ACCESS_CONTROL_AUTHORIZATION",
+      "contract_function": "LRTConfig.updateAssetDepositLimit",
+      "source_refs": "LRTConfig.updateAssetDepositLimit function updateAssetDepositLimit( address asset, uint256 depositLimit ) external onlyRole(LRTConstants.MANAGER) onlySupportedAsset(asset) {",
+      "mechanism_hypothesis": "[T8] LRTConfig.updateAssetDepositLimit: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "LRTConfig.updateAssetDepositLimit function updateAssetDepositLimit( address asset, uint256 depositLimit ) external onlyRole(LRTConstants.MANAGER) onlySupportedAsset(asset) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "LRTConfig.updateAssetDepositLimit is guarded by modifier(s) ['onlyRole', 'LRTConstants', 'MANAGER', 'onlySupportedAsset', 'asset']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function updateAssetDepositLimit( address asset, uint256 depositLimit ) external",
+      "victim_gainer": "victim = users/LPs of LRTConfig (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in LRTConfig via updateAssetDepositLimit (value-moving op)",
+      "invariant_expected": "only an authorized principal may execute the state-changing path in LRTConfig.updateAssetDepositLimit",
+      "invariant_broken": "an unauthorized caller mutates protected state via LRTConfig.updateAssetDepositLimit",
+      "tx_sequence": [
+        "attacker calls LRTConfig.updateAssetDepositLimit with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Is there an internal/inherited guard not captured as a modifier? Is the mutated state actually sensitive?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert an unauthorized EOA can call LRTConfig.updateAssetDepositLimit and change protected state that should be restricted",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyRole', 'LRTConstants', 'MANAGER', 'onlySupportedAsset', 'asset'] would be the CORE exploitability claim - needs source review"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyRole', 'LRTConstants', 'MANAGER', 'onlySupportedAsset', 'asset'], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyRole', 'LRTConstants', 'MANAGER', 'onlySupportedAsset', 'asset'], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [
+          {
+            "token": "onlyrole(",
+            "context": "UNKNOWN_READ",
+            "guard_strength": "NONE",
+            "source_snippet": ")         external         onlyRole(LRTConstants.MANAGER)         o",
+            "source_basis": "offset 121; not in any require/if-revert/modifier gate",
+            "reason": "token used as unknown read, not an access guard"
+          },
+          {
+            "token": "modifier_auth(only*)",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "",
+            "source_basis": "modifier or custom-error revert",
+            "reason": "modifier / custom-error revert gates execution"
+          }
+        ],
+        "guard_markers": [
+          "modifier_auth(only*)",
+          "onlyrole("
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/kelp-2023-11-holdout/contracts/src/LRTConfig.sol",
+        "source_span": [
+          94,
+          104
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [94, 104] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/kelp-2023-11-holdout/contracts/src/LRTConfig.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_UNRESOLVED",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "AssetDepositLimitUpdate",
+          "onlyRole",
+          "onlySupportedAsset"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from LRTConfig.updateAssetDepositLimit",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

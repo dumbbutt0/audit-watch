@@ -1,0 +1,25 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "subject": "iq-ai-2025-01",
+  "repo": "iq-ai",
+  "commit": "db0d369b",
+  "contract": "LiquidityManager",
+  "function": "moveLiquidity",
+  "entrypoint": "moveLiquidity",
+  "candidate_invariant": "moveLiquidity migrates the bootstrap liquidity into a protocol-created pool at the protocol's intended trading fee; it must not adopt an externally pre-created pool whose fee/price an attacker chose",
+  "suspected_break": "addLiquidityToFraxswap uses getPair(currency,agent) and adopts any pre-existing pair, setting the intended fee only in the create-branch; createPair is permissionless",
+  "affected_actor": "the agent and its LPs (lost ongoing swap-fee revenue)",
+  "attacker_or_trigger_actor": "any EOA that pre-creates the pair before the permissionless migration",
+  "source_refs": [
+    "src/LiquidityManager.sol:moveLiquidity",
+    "src/LiquidityManager.sol:addLiquidityToFraxswap"
+  ],
+  "expected_impact": "migrated pool charges the attacker's fee (1 bps) instead of the intended 100 bps",
+  "confidence": "high",
+  "supplied_by": "p112_dry_run (workflow coherence test)",
+  "requested_check": "POC_HANDOFF"
+}

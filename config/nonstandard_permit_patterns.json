@@ -1,0 +1,26 @@
+{
+  "lens": "nonstandard_permit",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Generalized CLASS of the P302 pooltogether M-08 miss: a contract hard-codes the EIP-2612 7-arg `permit(owner,spender,value,deadline,v,r,s)` interface against a CONFIGURABLE/external asset (whatever asset the vault/yield source uses), with NO resilience (no try/catch, no Permit2 fallback, no DAI allowed-based / non-2612 handling). Non-standard-permit assets (DAI allowed/nonce-based, USDC-on-some-chains, no-permit tokens) make the permit path REVERT -> deposit/permit DoS. Three-signal AND gate: S1 EIP-2612 permit consumption + S2 the permitted token is a configurable/external asset (not the contract's own 2612 share token) + S3 missing resilience. Suppress: permit-primitive libraries; self/own-share-token permits; routers (caller-supplied token param); Permit2/try-catch resilient flows. Anchor: PrizeVault.depositWithPermit (PrizeVault.sol:524-546) IERC20Permit(address(_asset)).permit(...). Does NOT detect permit replay / front-run / asset-binding (see permit_asset_binding) / signature malleability.",
+
+  "s1_permit_consume": [".permit(", "ierc20permit(", "ierc2612", "erc20permit"],
+  "s1_2612_fingerprint": ["deadline", "uint8", "bytes32", " v,", "_v,", " v ,", "v, r, s", "v,r,s", "_v, _r, _s"],
+
+  "s2_external_asset": ["_asset", "asset)", "asset(", "asset,", "underlying", "want", "stable", "lendingtoken", "collateraltoken", "yieldvault.asset", ".asset(", "ierc20permit(address(_asset", "ierc20permit(address(asset"],
+  "s2_strong_external_asset": ["ierc20permit(address(_asset", "ierc20permit(address(asset", "ierc20permit(address(underlying", "immutable"],
+
+  "s3_resilience_present": ["try ", "try{", "} catch", "catch ", "catch{", "ipermit2", "permit2.", "permittransferfrom", "permitwitnesstransferfrom", "idaipermit", "daipermit", "ipermitallowed", "permitallowed", ".nonces(", "allowed,", "noncebasedpermit", "trypermit"],
+
+  "suppress_self_token": ["ierc20permit(address(this))", "permit(address(this)", "ierc20permit(this)", "sharetoken", "ierc20permit(address(stakingtoken", "ierc20permit(governance", "ierc20permit(address(token))"],
+  "suppress_router_names": ["router", "aggregator", "aggregat", "swaprouter", "zap", "bridge", "periphery", "universalrouter", "dexrouter"],
+  "suppress_param_token_terms": ["address tokenin", "address tokenout", "address[] ", "address[] calldata", "tokens[", "route[", "path", "address token,", "address _token,", "address token)", "ierc20 token", "currency"],
+  "suppress_library_contracts": ["permit2", "signaturetransfer", "allowancetransfer", "safeerc20", "permit", "selfpermit", "erc20permit", "permithelper", "permit2lib", "eip2612"],
+
+  "fp_controls": {
+    "three_signal_required": "S1 EIP-2612 permit consumption AND S2 configurable/external asset AND S3 missing-resilience; a bare `.permit(` on a self/own share token never fires.",
+    "self_token_suppression": "permit on address(this) / the contract's own ERC20Permit share token (2612 by construction) -> suppressed.",
+    "resilience_suppression": "a try/catch around permit, OR a Permit2 (permitTransferFrom) / DAI-allowed (IDaiPermit/nonces/allowed) alternate path -> resilient -> suppressed.",
+    "router_suppression": "router/aggregator/bridge by name OR a caller-supplied token/path parameter (asset-agnostic) -> suppressed.",
+    "library_suppression": "the permit primitive itself (Permit2/SelfPermit/ERC20Permit/EIP2612) is not an integrator -> suppressed."
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "description": "Taxonomy of dynamic-weight / Balancer-V3-style weight-lifecycle surfaces whose safety depends on the weight-set/update lifecycle invariants (normalized-sum, per-weight bounds, epsilon guard-rail, updateInterval, interpolation-horizon/staleness) being enforced on EVERY permissionless update path. Drives dynamic_weight_lifecycle_audit.py and validate_dynamic_weight_lifecycle_clears.py via dynamic_weight_lifecycle_taxonomy.classify(). RE-SURFACE ONLY: a clear of these surfaces is routed to needs_deep_pass (dynamic_weight_lifecycle_review); it never mints a finding, sets severity, or routes. Motivated by the QuantAMM strict-eval lifecycle MISSES (H-04 stale lastUpdateIntervalTime, M-04 setWeights length-check DoS, M-08 maxTradeSizeRatio bypass, M-09 post-init minWeight bypass, M-12 computeBalance boundary revert, M-14 missing updateInterval) — the weight-set lifecycle family that the math_estimator lens (rule/estimator math) does not cover.",
+  "_fp_note": "TWO-SIGNAL RULE is the FP backbone: lifecycle_sensitive only when a DOMAIN term (set-weights / weight-update / interpolation / updateInterval / maxTradeSizeRatio / minWeight-maxWeight / computeBalance / normalized-sum / epsilon-guard / lastUpdateIntervalTime) co-occurs with a STRUCTURAL signal (a state-mutating weight setter/update entrypoint, a loop over a weights array, or a per-block interpolation) UNLESS an UNAMBIGUOUS token fires (setWeights, setWeightsManually, _setInitialWeights, _setIntermediateValues, performUpdate, calculateNewWeights, computeBalance, onSwap). Pure getters (view/pure), single +/- arithmetic, plain balance/transfer math, and an admin-ONLY-gated setter with no permissionless update path are NOT tagged (FP control — keeps the bar on permissionless, state-mutating weight lifecycle).",
+  "domain_terms": ["setweights", "set weights", "weight update", "updateweight", "weights", "interpolation",
+                   "updateinterval", "update interval", "maxtradesizeratio", "max trade size", "minweight",
+                   "maxweight", "min weight", "max weight", "computebalance", "normalize", "normalis",
+                   "normalized sum", "sum of weights", "epsilon", "guard rail", "guardrail",
+                   "lastupdateintervaltime", "lastinterpolationtime", "weight guard", "rebalanc"],
+  "structural_signals": ["for\\s*\\(", "while\\s*\\(", "\\bweights\\b\\s*\\[", "\\[\\s*\\w+\\s*\\]\\s*=",
+                         "interpolat", "_setIntermediateValues", "multiplier", "deltaWeight"],
+  "unambiguous_tokens": ["setweights", "setweightsmanually", "_setinitialweights", "setinitialweights",
+                         "_setintermediatevalues", "performupdate", "calculatenewweights",
+                         "calculateunguardedweights", "computebalance", "onswap", "_getnormalisedweight"],
+  "lifecycle_checks": ["normalized_sum", "per_weight_bounds", "epsilon_guard", "update_interval", "staleness"],
+  "lifecycle_check_signals": {
+    "normalized_sum": ["sum", "normaliz", "normalis", "total == ", "totalweight", "_sum"],
+    "per_weight_bounds": ["minweight", "maxweight", "min_weight", "max_weight", "_clampweights",
+                          "_guardquantammweights", "requireweight", "bound"],
+    "epsilon_guard": ["epsilon", "guard rail", "guardrail", "guard-rail"],
+    "update_interval": ["updateinterval", "update interval", "interval", "lastupdate", "block.timestamp"],
+    "staleness": ["staleness", "lastupdateintervaltime", "lastinterpolationtime", "stale", "freeze"]
+  },
+  "role_gate_tokens": ["onlyowner", "onlyrole", "onlyadmin", "onlygovernance", "onlymanager"],
+  "getter_tokens": ["view", "pure"]
+}

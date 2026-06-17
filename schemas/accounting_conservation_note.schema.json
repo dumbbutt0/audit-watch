@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://audit-watch/schemas/accounting_conservation_note.schema.json",
+  "title": "Accounting Conservation Note",
+  "description": "Structured justification REQUIRED to clear a high-risk DeFi accounting function (per scripts/defi_accounting_taxonomy.is_high_risk). Makes the Zaros Part 2 failure a permanent rule: a debt/credit/vault/market accounting function is not cleared just because it looks locally safe — the clear must name the conservation invariant it preserves. Attached to a coverage/deep-pass decision as `accounting_conservation_note` and persisted on the disposition entry. Read by scripts/validate_accounting_clears.py.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "accounting_domains",
+    "value_in",
+    "value_out",
+    "ledger_side_updated",
+    "matching_ledger_side",
+    "conservation_property",
+    "why_conserved",
+    "stale_state_risk",
+    "oracle_or_price_dependency",
+    "signed_unsigned_or_precision_risk",
+    "global_vs_local_consistency",
+    "evidence_span",
+    "duplicate_or_existing_finding_check"
+  ],
+  "properties": {
+    "accounting_domains": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1,
+      "description": "Domains this function touches (vault, market, engine, credit, debt, assets, liquidity, collateral, rewards, pnl, funding, liquidation, withdrawals, rebalance, oracle_scaled_values, global_totals, user_totals)."
+    },
+    "value_in": {"type": "string", "minLength": 1, "description": "What accounting value enters the function (e.g. 'realized debt delta in USD, SD59x18')."},
+    "value_out": {"type": "string", "minLength": 1, "description": "What accounting value leaves / is written (e.g. 'vault.marketsRealizedDebtUsd decreased, usdcAvailableForEngine increased')."},
+    "ledger_side_updated": {"type": "string", "minLength": 1, "description": "Which side of the ledger this function writes."},
+    "matching_ledger_side": {"type": "string", "minLength": 1, "description": "The counter-value / matching side that must move with it, and where it is updated (this function or a named caller). 'none' is NOT acceptable for a high-risk clear unless justified."},
+    "conservation_property": {"type": "string", "minLength": 1, "description": "The invariant that must hold (e.g. 'Σ per-vault realized debt == market realized debt distributed', 'every usdcAvailableForEngine increment has a matching decrement')."},
+    "why_conserved": {"type": "string", "minLength": 1, "description": "Why the code actually preserves that invariant — the concrete reason, verified against the source, not the NatSpec."},
+    "stale_state_risk": {"type": "string", "minLength": 1, "description": "Can state read become stale between read and write (must a recalc run first)? State the finding ('none — recalculateVaultsCreditCapacity runs first', or the risk)."},
+    "oracle_or_price_dependency": {"type": "string", "minLength": 1, "description": "Does the value depend on an oracle-scaled price? Is the scale/decimals consistent with consumers? ('none' if no price involved)."},
+    "signed_unsigned_or_precision_risk": {"type": "string", "minLength": 1, "description": "Are signed/unsigned (int/uint, int128/uint128, SD59x18/UD60x18) values mixed safely, no truncation/sign-flip, decimals consistent? State the finding."},
+    "global_vs_local_consistency": {"type": "string", "minLength": 1, "description": "Does a per-entity update keep its global total consistent (Σ parts == total)? State why or 'n/a — no global total touched'."},
+    "evidence_span": {"type": "string", "minLength": 1, "description": "file:line range actually read to justify the clear (e.g. 'Vault.sol:369-443')."},
+    "duplicate_or_existing_finding_check": {"type": "string", "minLength": 1, "description": "Whether this overlaps an existing finding; name the id, or 'no existing finding covers this'."}
+  },
+  "x_completeness_required_nonempty": [
+    "accounting_domains",
+    "value_in",
+    "value_out",
+    "ledger_side_updated",
+    "matching_ledger_side",
+    "conservation_property",
+    "why_conserved",
+    "stale_state_risk",
+    "oracle_or_price_dependency",
+    "signed_unsigned_or_precision_risk",
+    "global_vs_local_consistency",
+    "evidence_span",
+    "duplicate_or_existing_finding_check"
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "finding_id": "I-2",
+  "title": "triggerFactor unset-default of 0 means inject-on-any-drawdown (inverted-safe default)",
+  "root_cause": "The off sentinel is type(uint256).max but the unset DataStore default is 0, which means inject on any drawdown>0. A fee-collecting market whose insuranceFundDrawdownTriggerFactor isn't set to max auto-drains its reserve on the slightest realized drawdown.",
+  "affected_contracts": [
+    "contracts/insurance/InsuranceFundUtils.sol"
+  ],
+  "affected_functions": [
+    "InsuranceFundUtils.attemptInjectPool (~196-205)"
+  ],
+  "attacker_entrypoint": "market collects insurance fees (reserve > 0)",
+  "attacker_capabilities": [
+    "config admin leaves triggerFactor unset on a fee-collecting market"
+  ],
+  "privilege_required": "admin",
+  "scope_status": "in_scope",
+  "in_scope_asset": "InsuranceFundUtils (attemptInjectPool)",
+  "out_of_scope_risks": [],
+  "impact_category": "accounting_corruption",
+  "severity_claim": "Low",
+  "severity_justification": {
+    "worst_case": "A misconfigured market silently auto-drains its insurance reserve.",
+    "realistic_case": "Config footgun; admin/deploy-script dependent.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "0xMarkets",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": true,
+    "scope_reference": "0xMarkets contest (0xMarkets_contract-main @ e94daee); GMX Synthetics fork (ships GMX audits)."
+  },
+  "call_trace": [
+    "market collects insurance fees (reserve > 0)",
+    "insuranceFundDrawdownTriggerFactor never set to type(uint256).max (default 0)",
+    "any realized drawdown > 0 triggers injection -> reserve drained"
+  ],
+  "state_transition": {
+    "before": "reserve > 0, triggerFactor unset (=0)",
+    "after": "reserve drained on slight drawdown",
+    "slots_or_balances": []
+  },
+  "asset_delta": "Insurance reserve silently drained into the pool for a misconfigured market (bounded by reserve).",
+  "proof_type": "static_proof",
+  "poc_path": "",
+  "poc_status": "none",
+  "reproduction_steps": [
+    "code analysis \u2014 see report.md + vulnerable/ source (no standalone PoC: standalone PoC needs the full GMX build (@openzeppelin-v4 + MarketUtils/DataStore deps); code-verified config finding.)"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [
+    "GMX core is audited (ABDK/Certora/Dedaub/Guardian); this is the 0xMarkets delta / a GMX-inherited fact"
+  ],
+  "false_positive_risks": [
+    "Config footgun; admin/deploy-script dependent."
+  ],
+  "invalidating_conditions": [
+    "standalone PoC needs the full GMX build (@openzeppelin-v4 + MarketUtils/DataStore deps); code-verified config finding."
+  ],
+  "defense_analysis": [
+    {
+      "defense": "deploy-script sets triggerFactor=max for non-onboarded markets",
+      "blocks_path": true,
+      "uncertain": true,
+      "why_it_fails": "relies on operator discipline; the on-chain default is fail-open"
+    }
+  ],
+  "assumptions": [
+    "GMX Synthetics fork; insurance module is the 0xMarkets delta"
+  ],
+  "evidence_links": [
+    "contracts/insurance/InsuranceFundUtils.sol:attemptInjectPool lines ~196-205 (off=type(uint256).max; unset default 0)",
+    "reports/0xmarkets-2026-06-13/submissions/I-2/vulnerable/InsuranceFundUtils.sol"
+  ],
+  "triager_summary": "triggerFactor unset-default of 0 means inject-on-any-drawdown (inverted-safe default) \u2014 code-verified (no standalone PoC)",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Unsecure Design \u2192 Violation of Secure Design Principles (`triggerFactor` unset-default 0 means inject-on-any-drawdown; the disable sentinel is `uint256` max, an unsafe default)",
+  "cvss": [
+    {
+      "aspect": "Unsafe default trigger config",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:N/I:L/A:N",
+      "score": 2.2,
+      "severity": "Low"
+    }
+  ]
+}

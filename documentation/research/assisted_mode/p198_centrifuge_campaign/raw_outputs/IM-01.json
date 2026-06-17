@@ -1,0 +1,26 @@
+{
+  "surface": "InvestmentManager.handleExecutedCollectInvest",
+  "mechanism_inventory": [
+    "missing invariant enforcement — trancheTokensPayout never validated non-zero (currencyPayout is)",
+    "stale accounting snapshot — lpValues.maxDeposit/maxMint accumulate with += each Gateway message; replay double-credits",
+    "access-control mismatch — recipient is Gateway-supplied, not validated against original depositor",
+    "wrong lifecycle ordering — _updateLiquidityPoolPrice called AFTER mint",
+    "precision/normalization edge — uint128 raw accumulation, no decimal normalization before price update",
+    "value exceeds bound — trancheTokensPayout==0 still mints + updates price (ghost maxMint)"
+  ],
+  "selected_mechanisms": [
+    {"root_cause":"trancheTokensPayout not required non-zero (only currencyPayout guarded); _updateLiquidityPoolPrice(.,currencyPayout,0) -> div-by-zero / degenerate price",
+     "who_loses":"all LP users (pool-wide price corruption / DoS)","who_gains":"griefer / manipulator","why_carried":"currencyPayout has guard, trancheTokensPayout has none; price update unconditional; >=Medium"},
+    {"root_cause":"recipient address Gateway-supplied with no cross-check vs original depositor -> invest credit redirected","who_loses":"legitimate investor (locked currency, credit to attacker)","who_gains":"attacker recipient","why_carried":"recipient param unverified in this function; potentially High/Critical fund redirection"}
+  ],
+  "unresolved_mechanisms": [
+    {"mechanism":"replay/double-credit (+= maxDeposit/maxMint, no idempotency)","unresolved_question":"does Gateway enforce exactly-once?","who_loses":"protocol/Escrow","status":"NEEDS_HARNESS"},
+    {"mechanism":"price-update-after-mint ordering race","unresolved_question":"_updateLiquidityPoolPrice internals not shown","who_loses":"later redeemers","status":"NEEDS_HARNESS"}
+  ],
+  "rejected_mechanisms": [
+    {"mechanism":"uint128 overflow on accumulation","claimed_locus":"lpValues.maxDeposit + currencyPayout","rejecting_source_fact":"Solidity 0.8 checked arithmetic reverts on overflow","why_unexploitable":"reverts, no silent corruption","leans_on_unproven_guard":false}
+  ],
+  "impact_direction":"attacker receives redirected tranche-token claim credit (recipient spoof) or corrupts pool NAV via zero-payout; victim investor loses claim; not dust/admin/timing",
+  "stop_condition":"more_mechanisms_pending: replay + price-ordering NEEDS_HARNESS",
+  "verdict":"HIGH_THREAD"
+}

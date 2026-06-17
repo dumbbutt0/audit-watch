@@ -1,0 +1,513 @@
+{
+  "schema_version": 1,
+  "description": "Taxonomy of cross-chain / deployment-sensitive constants. Drives manifest tagging (build_coverage_manifest.py via cross_chain_taxonomy.py) and the cross_chain_constants_audit.py detector + review lane. A constant matches a category by name_patterns (case-insensitive substring/regex on the declared name) and/or value_patterns (regex on the assigned literal). The point is to surface values whose correctness depends on WHICH CHAIN the contract is deployed on \u2014 the class that produced eval misses #142 (BRIDGE), #133/#135 (token/oracle addr on L2), #320 (MERKLE_ROOT), #469 (block-time), #267 (heartbeat).",
+  "numeric_timing_requires_context": true,
+  "_numeric_timing_note": "Bare numeric literals (1e18, 100, precision/scale constants) are NEVER tagged on value alone. A numeric constant is tagged timing only when its NAME implies cross-chain/oracle/season/heartbeat semantics (block_time, heartbeat, timeout, window, deadline, sequencer, season). This is the primary false-positive control.",
+  "high_risk_categories": [
+    "bridge",
+    "messenger",
+    "inbox_outbox",
+    "mailbox",
+    "endpoint",
+    "trusted_remote",
+    "merkle_root",
+    "chain_id",
+    "oracle_aggregator",
+    "sequencer_feed",
+    "l1_token",
+    "l2_token",
+    "token_mapping"
+  ],
+  "categories": {
+    "bridge": {
+      "name_patterns": [
+        "bridge",
+        "l1bridge",
+        "l2bridge",
+        "standardbridge",
+        "crossdomain",
+        "xdomain"
+      ],
+      "value_patterns": [
+        "^0x4200000000000000000000000000000000000010$"
+      ],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address",
+        "bridge_dependency"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "A hardcoded bridge address is chain-specific. Confirm it is the correct canonical bridge on the DEPLOYMENT chain (OP-stack L1StandardBridge vs L2 predeploy 0x4200..0010 vs Arbitrum inbox). A wrong/stale bridge address breaks L1<->L2 message routing and can brick or misroute migration.",
+      "examples": [
+        "BRIDGE = 0x4200000000000000000000000000000000000010",
+        "L1_BRIDGE immutable"
+      ]
+    },
+    "messenger": {
+      "name_patterns": [
+        "messenger",
+        "crossdomainmessenger",
+        "l1messenger",
+        "l2messenger",
+        "cdm"
+      ],
+      "value_patterns": [
+        "^0x4200000000000000000000000000000000000007$"
+      ],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address",
+        "bridge_dependency"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Cross-domain messenger address is chain-specific. Verify xDomainMessageSender / message-validation uses the canonical messenger for the deployment chain.",
+      "examples": [
+        "MESSENGER = 0x4200000000000000000000000000000000000007"
+      ]
+    },
+    "inbox_outbox": {
+      "name_patterns": [
+        "inbox",
+        "outbox",
+        "arbsys",
+        "arbitruminbox"
+      ],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address",
+        "bridge_dependency"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Arbitrum inbox/outbox or ArbSys address is chain-specific; wrong value breaks retryable/withdrawal message flow.",
+      "examples": [
+        "INBOX immutable",
+        "ARB_SYS = 0x0000000000000000000000000000000000000064"
+      ]
+    },
+    "mailbox": {
+      "name_patterns": [
+        "mailbox"
+      ],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address",
+        "bridge_dependency"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Hyperlane mailbox address is per-chain; verify it matches the deployment domain.",
+      "examples": [
+        "MAILBOX immutable"
+      ]
+    },
+    "endpoint": {
+      "name_patterns": [
+        "endpoint",
+        "lzendpoint",
+        "lz_endpoint"
+      ],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address",
+        "bridge_dependency"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "LayerZero endpoint address is per-chain; a wrong endpoint breaks message send/receive.",
+      "examples": [
+        "LZ_ENDPOINT = 0x..."
+      ]
+    },
+    "trusted_remote": {
+      "name_patterns": [
+        "trustedremote",
+        "remotechain",
+        "remoteaddress",
+        "peer",
+        "srcchainid",
+        "dstchainid",
+        "dsteid",
+        "wormhole",
+        "layerzero",
+        "hyperlane"
+      ],
+      "risk_tags": [
+        "chain_specific",
+        "bridge_dependency",
+        "hardcoded_chain_assumption"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Trusted-remote / peer / chain-id mapping for a messaging protocol. Wrong remote address or domain id lets messages be spoofed or routed to the wrong chain.",
+      "examples": [
+        "trustedRemote[chainId]",
+        "DST_EID = 30110"
+      ]
+    },
+    "merkle_root": {
+      "name_patterns": [
+        "merkle_root",
+        "merkleroot",
+        "claimroot",
+        "airdroproot",
+        "migration_root",
+        "migrationroot"
+      ],
+      "value_patterns": [
+        "^0x[a-fA-F0-9]{64}$"
+      ],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_chain_assumption"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "A hardcoded merkle root binds the contract to a specific snapshot/distribution. If it is a placeholder, zero, or for the wrong snapshot, migration/claim verification is unusable or wrong. Verify the root matches the intended deployment snapshot.",
+      "examples": [
+        "MERKLE_ROOT = 0x0000... (placeholder)",
+        "MIGRATION_ROOT"
+      ]
+    },
+    "chain_id": {
+      "name_patterns": [
+        "chainid",
+        "chain_id",
+        "legacy_chain_id",
+        "source_chain",
+        "src_chain",
+        "dest_chain"
+      ],
+      "value_patterns": [
+        "^1$",
+        "^10$",
+        "^42161$",
+        "^8453$",
+        "^137$"
+      ],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_chain_assumption"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "A hardcoded chain id (vs block.chainid) bakes a single deployment chain into signatures / replay protection / routing. On any other chain it breaks EIP-712 verification or cross-chain replay separation.",
+      "examples": [
+        "CHAIN_ID = 1",
+        "uint256 constant LEGACY_CHAIN_ID = 1"
+      ]
+    },
+    "domain_separator": {
+      "name_patterns": [
+        "domain_separator",
+        "domainseparator",
+        "eip712domain",
+        "_domain"
+      ],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_chain_assumption"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "EIP-712 domain separator must commit to block.chainid and address(this). A cached/hardcoded domain separator is invalid after a fork or on a different chain.",
+      "examples": [
+        "bytes32 DOMAIN_SEPARATOR",
+        "_domainSeparatorV4"
+      ]
+    },
+    "permit_domain": {
+      "name_patterns": [
+        "permit_typehash",
+        "permittypehash",
+        "permit_domain",
+        "blueprint_type_hash",
+        "type_hash",
+        "typehash"
+      ],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_chain_assumption"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Permit / blueprint typehash + domain. Confirm the typehash matches the struct and the domain is rebuilt per chain; a mismatch breaks permit/blueprint verification.",
+      "examples": [
+        "PERMIT_TYPEHASH",
+        "BLUEPRINT_TYPE_HASH"
+      ]
+    },
+    "heartbeat": {
+      "name_patterns": [
+        "heartbeat",
+        "staleness",
+        "stale_threshold",
+        "max_delay",
+        "grace_period",
+        "max_age",
+        "freshness"
+      ],
+      "risk_tags": [
+        "timing_dependency",
+        "oracle_dependency",
+        "hardcoded_chain_assumption"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Oracle heartbeat / staleness threshold is feed- and chain-specific (e.g. ETH/USD 1h on L1 vs different on L2). A wrong heartbeat accepts stale prices or rejects fresh ones (DoS).",
+      "examples": [
+        "CHAINLINK_HEARTBEAT = 3600",
+        "STALE_THRESHOLD = 86400"
+      ]
+    },
+    "block_time": {
+      "name_patterns": [
+        "block_time",
+        "blocktime",
+        "blocks_per",
+        "seconds_per_block",
+        "l1_block_time",
+        "l2_block_time"
+      ],
+      "risk_tags": [
+        "timing_dependency",
+        "hardcoded_chain_assumption"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Block-time assumption (e.g. 12s L1 vs ~2s L2). Code that converts blocks<->seconds or paces auctions/morning-temperature by block time mis-paces on a chain with a different block time.",
+      "examples": [
+        "L1_BLOCK_TIME = 12",
+        "L2_BLOCK_TIME = 2",
+        "BLOCKS_PER_SEASON"
+      ]
+    },
+    "timestamp_window": {
+      "name_patterns": [
+        "window",
+        "timeout",
+        "deadline",
+        "duration",
+        "period",
+        "interval",
+        "ttl",
+        "expiry"
+      ],
+      "risk_tags": [
+        "timing_dependency"
+      ],
+      "severity_ceiling_hint": "Low",
+      "review_hint": "Timing window/timeout/period. Only cross-chain-relevant when paced by block time or oracle freshness; otherwise likely benign. Confirm units (blocks vs seconds) and chain assumptions.",
+      "examples": [
+        "AUCTION_DURATION",
+        "COMMIT_WINDOW"
+      ]
+    },
+    "l1_token": {
+      "name_patterns": [
+        "l1_token",
+        "l1token",
+        "l1bean",
+        "l1_",
+        "mainnet_"
+      ],
+      "value_patterns": [],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "L1-side token address used on/after migration. Confirm it is the real L1 token and that the L1<->L2 pairing is correct; a wrong L1 token breaks migration accounting.",
+      "examples": [
+        "L1_BEAN = 0xBEA0..."
+      ]
+    },
+    "l2_token": {
+      "name_patterns": [
+        "l2_token",
+        "l2token",
+        "l2bean",
+        "l2_"
+      ],
+      "value_patterns": [],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "L2-side token address. On a CREATE2/reseed deploy the real L2 token address may differ from a hardcoded vanity constant \u2014 verify constant == deployed instance.",
+      "examples": [
+        "L2_BEAN",
+        "BEAN (read on L2 but hardcoded mainnet vanity)"
+      ]
+    },
+    "token_mapping": {
+      "name_patterns": [
+        "tokenmapping",
+        "remotetoken",
+        "pairedtoken",
+        "l1tol2",
+        "l2tol1",
+        "wrappedtoken"
+      ],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address",
+        "bridge_dependency"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "L1<->L2 token pairing. A wrong mapping mis-credits migrated balances.",
+      "examples": [
+        "remoteToken[l1] = l2"
+      ]
+    },
+    "oracle_aggregator": {
+      "name_patterns": [
+        "aggregator",
+        "pricefeed",
+        "price_feed",
+        "chainlink",
+        "feed",
+        "datafeed",
+        "_oracle",
+        "oracle_"
+      ],
+      "value_patterns": [],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address",
+        "oracle_dependency"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Hardcoded Chainlink/oracle aggregator address is per-chain. On another chain it has no code / wrong feed -> latestRoundData reverts or returns 0 -> pricing DoS or manipulation.",
+      "examples": [
+        "ETH_USD_CHAINLINK_PRICE_AGGREGATOR = 0x5f4e..."
+      ]
+    },
+    "sequencer_feed": {
+      "name_patterns": [
+        "sequencer",
+        "sequenceruptime",
+        "sequencer_feed",
+        "uptimefeed"
+      ],
+      "value_patterns": [],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address",
+        "oracle_dependency",
+        "timing_dependency"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "L2 sequencer-uptime feed. Required on L2 to detect sequencer downtime; absent/wrong on L1. Missing/incorrect feed lets stale prices through during downtime.",
+      "examples": [
+        "SEQUENCER_UPTIME_FEED = 0x..."
+      ]
+    },
+    "create2_salt": {
+      "name_patterns": [
+        "salt",
+        "_salt",
+        "bean_salt",
+        "create2",
+        "deploysalt"
+      ],
+      "value_patterns": [],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_chain_assumption"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "CREATE2 salt. A deterministic address from CREATE2 depends on deployer + initcode + salt; a hardcoded address constant will NOT match a CREATE2-deployed instance if deployer/initcode differ across chains.",
+      "examples": [
+        "BEAN_ETH_SALT = bytes32(0)",
+        "salt: 0x01"
+      ]
+    },
+    "proxy_admin": {
+      "name_patterns": [
+        "proxyadmin",
+        "proxy_admin",
+        "admin_slot",
+        "beacon"
+      ],
+      "value_patterns": [],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Proxy admin / beacon address. Confirm it is the intended governance on the deployment chain.",
+      "examples": [
+        "PROXY_ADMIN = 0x..."
+      ]
+    },
+    "implementation": {
+      "name_patterns": [
+        "implementation",
+        "implmentation",
+        "_impl",
+        "logic_contract",
+        "aquifier",
+        "aquifer",
+        "well_implementation"
+      ],
+      "value_patterns": [],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Implementation/logic address for a proxy/factory. A placeholder address(0) or wrong-chain implementation reverts proxy construction (deploy-DoS) or points at no code.",
+      "examples": [
+        "WELL_IMPLMENTATION = address(0) // TODO",
+        "AQUIFIER = address(0)"
+      ]
+    },
+    "deployer": {
+      "name_patterns": [
+        "deployer",
+        "factory",
+        "create2factory",
+        "deployment"
+      ],
+      "value_patterns": [],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Deployer/factory address feeding CREATE2 address derivation; differs across chains and changes resulting addresses.",
+      "examples": [
+        "AQUIFER / FACTORY = 0x..."
+      ]
+    },
+    "owner": {
+      "name_patterns": [
+        "owner",
+        "governance",
+        "guardian",
+        "multisig",
+        "pcv",
+        "beneficiary"
+      ],
+      "value_patterns": [],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Hardcoded owner/governance/multisig. Confirm the address exists and is controlled on the deployment chain (an EOA/multisig on L1 may not be deployed at the same address on L2).",
+      "examples": [
+        "OWNER = 0xBcd4...",
+        "BENEFICIARY"
+      ]
+    },
+    "hardcoded_address": {
+      "name_patterns": [],
+      "value_patterns": [
+        "^0x[a-fA-F0-9]{40}$"
+      ],
+      "risk_tags": [
+        "chain_specific",
+        "hardcoded_address"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "A hardcoded (non-zero) address literal is chain-specific by construction. Confirm the address has the intended code on the DEPLOYMENT chain (mainnet vanity addresses, CREATE2 instances, and EOAs/multisigs do not generally exist at the same address on another chain).",
+      "examples": [
+        "C.BEAN = 0xBEA0...",
+        "PIPELINE = 0xb1bE..."
+      ]
+    }
+  }
+}

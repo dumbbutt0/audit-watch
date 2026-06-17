@@ -1,0 +1,91 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "TraitForgeNft.mintWithBudget",
+  "detector_family": "surface_recall_lens",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "TraitForgeNft",
+    "function": "mintWithBudget",
+    "lines": null,
+    "suspicious_pattern": "external_executor,refund_path,auth_boundary",
+    "detector_claim": "security-relevant surface; mechanism uncertain"
+  },
+  "context_summary": {
+    "source_available": true,
+    "source_resolved": true,
+    "reachability": "public"
+  },
+  "attacker_reachability": "public",
+  "defense_ledger": {
+    "onlyWhitelisted": {
+      "classification": "irrelevant",
+      "evidence": "L209 only gates during whitelist window"
+    },
+    "nonReentrant": {
+      "classification": "irrelevant",
+      "evidence": "orthogonal"
+    },
+    "per_generation_count_check": {
+      "classification": "does_not_cover",
+      "evidence": "loop guard uses GLOBAL _tokenIds not generationMintCounts[currentGeneration]"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "mintWithBudget must mint while the CURRENT GENERATION has capacity (generationMintCounts[currentGeneration] < maxTokensPerGen) and budget remains; it wrongly gates on the global _tokenIds counter",
+    "why_defenses_do_not_block": "no guard re-maps the loop to the per-generation count"
+  },
+  "exploit_path": {
+    "attacker_profile": "any user (permissionless)",
+    "entrypoint": "mintWithBudget",
+    "preconditions": "global supply has reached maxTokensPerGen (e.g. gen1 fully minted, or forged tokens push _tokenIds to 10000)",
+    "transaction_sequence": "once _tokenIds >= maxTokensPerGen(10000), mintWithBudget's `while (budgetLeft>=mintPrice && _tokenIds < maxTokensPerGen)` (L215) is false on entry -> loop body never runs -> 0 tokens minted, full budget refunded; the path is permanently unusable from gen2 onward.",
+    "state_before": "_tokenIds>=10000, currentGeneration>=2 with capacity",
+    "state_after": "0 minted; budget refunded; feature bricked",
+    "rejection_case": "Maybe _tokenIds is per-generation. It is NOT: _tokenIds is the global monotonic id counter (L49, L285 `_tokenIds++` never reset), while maxTokensPerGen is the PER-GENERATION cap (L22, enforced per-gen via generationMintCounts at L281/L317). mintToken uses no such global guard. Not falsified.",
+    "source_evidence": "mintWithBudget L215 (guard); _tokenIds global L49/L285; maxTokensPerGen per-gen L22/L281/L317"
+  },
+  "impact_analysis": {
+    "impact_category": "denial of intended asset movement (budget-mint path permanently unusable past 10000 global tokens)",
+    "minimum_profit_or_damage_condition": "every mintWithBudget call after global supply hits maxTokensPerGen mints 0 for all users for the rest of the game"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED",
+  "_hygiene": {
+    "ok": true,
+    "violations": [],
+    "recommended": "POC_REQUIRED"
+  },
+  "_severity_gate": {
+    "kept": true,
+    "recommended": "POC_REQUIRED",
+    "reason": "material impact (medium) \u2014 promotion preserved"
+  }
+}

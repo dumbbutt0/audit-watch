@@ -1,0 +1,1654 @@
+{
+  "module": "recall_first_harness",
+  "generated_at": "2026-06-09T19:17:44.954987+00:00",
+  "mode": "shadow",
+  "contest": "coverage_manifest",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "emits_findings": false,
+  "concludes_vulnerability": false,
+  "output_type": "advisory_recall_candidates",
+  "guard_violations": 0,
+  "caps": {
+    "max_swept_loci_json": 25,
+    "max_high_priority_md": 15,
+    "max_mechs_per_locus": 5,
+    "max_total_mechs_to_ranking": 30
+  },
+  "truncated": true,
+  "advisory_candidates": [
+    {
+      "candidate_id": "coverage_manifest:SiloVault:withdraw:0",
+      "locus": "SiloVault:withdraw",
+      "contract": "SiloVault",
+      "function": "withdraw",
+      "source_span": {
+        "start_line": 603,
+        "end_line": 622,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 0.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling",
+        "T3_reentrancy_accounting_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] SiloVault.withdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "SiloVault.withdraw function withdraw( uint256 _assets, address _receiver, address _owner ) public virtual override returns (uint256 shares) {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T3_reentrancy_accounting_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T3_reentrancy_accounting_boundary",
+          "mechanism_summary": "[T3] SiloVault.withdraw: An external call/transfer/callback may occur before accounting/index/share/debt state is finalized.",
+          "source_backed_trigger": "SiloVault.withdraw function withdraw( uint256 _assets, address _receiver, address _owner ) public virtual override returns (uint256 shares) {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T3_reentrancy_accounting_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Is there a call/transfer to an arbitrary party before all relevant state is written?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T3_reentrancy_accounting_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling",
+          "T3_reentrancy_accounting_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A2_conservation', 'A3_double_counting', 'A4_shared_balance_depletion', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:redeem:1",
+      "locus": "SiloVault:redeem",
+      "contract": "SiloVault",
+      "function": "redeem",
+      "source_span": {
+        "start_line": 625,
+        "end_line": 644,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 1.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T1_external_dependency_availability",
+        "T2_redemption_withdrawal_state_coupling",
+        "T3_reentrancy_accounting_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T1_external_dependency_availability",
+          "mechanism_summary": "[T1] SiloVault.redeem: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+          "source_backed_trigger": "SiloVault.redeem function redeem( uint256 _shares, address _receiver, address _owner ) public virtual override returns (uint256 assets) {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T3_reentrancy_accounting_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T1_external_dependency_availability"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] SiloVault.redeem: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "SiloVault.redeem function redeem( uint256 _shares, address _receiver, address _owner ) public virtual override returns (uint256 assets) {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T3_reentrancy_accounting_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T3_reentrancy_accounting_boundary",
+          "mechanism_summary": "[T3] SiloVault.redeem: An external call/transfer/callback may occur before accounting/index/share/debt state is finalized.",
+          "source_backed_trigger": "SiloVault.redeem function redeem( uint256 _shares, address _receiver, address _owner ) public virtual override returns (uint256 assets) {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T3_reentrancy_accounting_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Is there a call/transfer to an arbitrary party before all relevant state is written?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T3_reentrancy_accounting_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T1_external_dependency_availability",
+          "T2_redemption_withdrawal_state_coupling"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A2_conservation', 'A3_double_counting', 'A4_shared_balance_depletion', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:updateWithdrawQueue:2",
+      "locus": "SiloVault:updateWithdrawQueue",
+      "contract": "SiloVault",
+      "function": "updateWithdrawQueue",
+      "source_span": {
+        "start_line": 305,
+        "end_line": 349,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 2.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling",
+        "T5_statemachine_liveness_terminality",
+        "T6_cross_transaction_drift"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] SiloVault.updateWithdrawQueue: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "SiloVault.updateWithdrawQueue function updateWithdrawQueue(uint256[] calldata _indexes) external virtual onlyAllocatorRole {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T5_statemachine_liveness_terminality",
+            "T6_cross_transaction_drift"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T5_statemachine_liveness_terminality",
+          "mechanism_summary": "[T5] SiloVault.updateWithdrawQueue: A state transition may make a required later operation impossible, stuck, delayed, or incorrectly successful.",
+          "source_backed_trigger": "SiloVault.updateWithdrawQueue function updateWithdrawQueue(uint256[] calldata _indexes) external virtual onlyAllocatorRole {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T5_statemachine_liveness_terminality",
+            "T6_cross_transaction_drift"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "After this transition, can a needed later step (claim/finalize/withdraw) still complete correctly?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T5_statemachine_liveness_terminality"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T6_cross_transaction_drift",
+          "mechanism_summary": "[T6] SiloVault.updateWithdrawQueue: Separate txs/epochs/delayed checkpoints may create a stale or double-counted accounting view.",
+          "source_backed_trigger": "SiloVault.updateWithdrawQueue function updateWithdrawQueue(uint256[] calldata _indexes) external virtual onlyAllocatorRole {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T5_statemachine_liveness_terminality",
+            "T6_cross_transaction_drift"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Across two transactions/epochs, can an index/accrual be applied twice or skipped?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T6_cross_transaction_drift"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling",
+          "T5_statemachine_liveness_terminality"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A5_index_arithmetic_exactness', 'S3_dual_state_inconsistency', 'S4_branch_consequence_not_traced']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:_accruedFeeShares:3",
+      "locus": "SiloVault:_accruedFeeShares",
+      "contract": "SiloVault",
+      "function": "_accruedFeeShares",
+      "source_span": {
+        "start_line": 953,
+        "end_line": 969,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 3.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T6_cross_transaction_drift"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T6_cross_transaction_drift",
+          "mechanism_summary": "[T6] SiloVault._accruedFeeShares: Separate txs/epochs/delayed checkpoints may create a stale or double-counted accounting view.",
+          "source_backed_trigger": "SiloVault._accruedFeeShares function _accruedFeeShares() internal view virtual returns (uint256 feeShares, uint256 newTotalAssets) {",
+          "matched_markers": [
+            "T6_cross_transaction_drift"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Across two transactions/epochs, can an index/accrual be applied twice or skipped?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T6_cross_transaction_drift"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T6_cross_transaction_drift"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A2_conservation', 'A3_double_counting', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:maxMint:4",
+      "locus": "SiloVault:maxMint",
+      "contract": "SiloVault",
+      "function": "maxMint",
+      "source_span": {
+        "start_line": 524,
+        "end_line": 528,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 4.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword"
+      ],
+      "templates_applied": [
+        "T8_shareprice_donation_inflation"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T8_shareprice_donation_inflation",
+          "mechanism_summary": "[T8] SiloVault.maxMint: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+          "source_backed_trigger": "SiloVault.maxMint function maxMint(address) public view virtual override returns (uint256) {",
+          "matched_markers": [
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T8_shareprice_donation_inflation"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T8_shareprice_donation_inflation"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A3_double_counting', 'A4_shared_balance_depletion', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:claimRewards:5",
+      "locus": "SiloVault:claimRewards",
+      "contract": "SiloVault",
+      "function": "claimRewards",
+      "source_span": {
+        "start_line": 495,
+        "end_line": 502,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 5.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] SiloVault.claimRewards: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "SiloVault.claimRewards function claimRewards() public virtual {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A2_conservation', 'A4_shared_balance_depletion', 'S4_branch_consequence_not_traced']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:PublicAllocator:reallocateTo:6",
+      "locus": "PublicAllocator:reallocateTo",
+      "contract": "PublicAllocator",
+      "function": "reallocateTo",
+      "source_span": {
+        "start_line": 94,
+        "end_line": 148,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 6.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] PublicAllocator.reallocateTo: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "PublicAllocator.reallocateTo function reallocateTo( ISiloVault vault, Withdrawal[] calldata withdrawals, IERC4626 supplyMarket ) external payable virtual {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/PublicAllocator.sol",
+        "checkpoint:['A1_rounding_direction', 'A3_double_counting', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:deposit:7",
+      "locus": "SiloVault:deposit",
+      "contract": "SiloVault",
+      "function": "deposit",
+      "source_span": {
+        "start_line": 569,
+        "end_line": 583,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 7.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T3_reentrancy_accounting_boundary",
+        "T8_shareprice_donation_inflation"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T3_reentrancy_accounting_boundary",
+          "mechanism_summary": "[T3] SiloVault.deposit: An external call/transfer/callback may occur before accounting/index/share/debt state is finalized.",
+          "source_backed_trigger": "SiloVault.deposit function deposit(uint256 _assets, address _receiver) public virtual override returns (uint256 shares) {",
+          "matched_markers": [
+            "T3_reentrancy_accounting_boundary",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Is there a call/transfer to an arbitrary party before all relevant state is written?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T3_reentrancy_accounting_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T8_shareprice_donation_inflation",
+          "mechanism_summary": "[T8] SiloVault.deposit: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+          "source_backed_trigger": "SiloVault.deposit function deposit(uint256 _assets, address _receiver) public virtual override returns (uint256 shares) {",
+          "matched_markers": [
+            "T3_reentrancy_accounting_boundary",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T8_shareprice_donation_inflation"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T3_reentrancy_accounting_boundary",
+          "T8_shareprice_donation_inflation"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A2_conservation', 'A4_shared_balance_depletion']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:mint:8",
+      "locus": "SiloVault:mint",
+      "contract": "SiloVault",
+      "function": "mint",
+      "source_span": {
+        "start_line": 586,
+        "end_line": 600,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 8.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T3_reentrancy_accounting_boundary",
+        "T8_shareprice_donation_inflation"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T3_reentrancy_accounting_boundary",
+          "mechanism_summary": "[T3] SiloVault.mint: An external call/transfer/callback may occur before accounting/index/share/debt state is finalized.",
+          "source_backed_trigger": "SiloVault.mint function mint(uint256 _shares, address _receiver) public virtual override returns (uint256 assets) {",
+          "matched_markers": [
+            "T3_reentrancy_accounting_boundary",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Is there a call/transfer to an arbitrary party before all relevant state is written?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T3_reentrancy_accounting_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T8_shareprice_donation_inflation",
+          "mechanism_summary": "[T8] SiloVault.mint: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+          "source_backed_trigger": "SiloVault.mint function mint(uint256 _shares, address _receiver) public virtual override returns (uint256 assets) {",
+          "matched_markers": [
+            "T3_reentrancy_accounting_boundary",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T8_shareprice_donation_inflation"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T3_reentrancy_accounting_boundary",
+          "T8_shareprice_donation_inflation"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A2_conservation', 'A4_shared_balance_depletion']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:maxRedeem:9",
+      "locus": "SiloVault:maxRedeem",
+      "contract": "SiloVault",
+      "function": "maxRedeem",
+      "source_span": {
+        "start_line": 540,
+        "end_line": 544,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 9.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "checkpoint_hit_name_keyword"
+      ],
+      "templates_applied": [
+        "T1_external_dependency_availability",
+        "T2_redemption_withdrawal_state_coupling"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T1_external_dependency_availability",
+          "mechanism_summary": "[T1] SiloVault.maxRedeem: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+          "source_backed_trigger": "SiloVault.maxRedeem function maxRedeem(address _owner) public view virtual override returns (uint256) {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T1_external_dependency_availability"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] SiloVault.maxRedeem: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "SiloVault.maxRedeem function maxRedeem(address _owner) public view virtual override returns (uint256) {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T1_external_dependency_availability",
+          "T2_redemption_withdrawal_state_coupling"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A4_shared_balance_depletion', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:_maxWithdraw:10",
+      "locus": "SiloVault:_maxWithdraw",
+      "contract": "SiloVault",
+      "function": "_maxWithdraw",
+      "source_span": {
+        "start_line": 663,
+        "end_line": 672,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 10.0,
+      "sweep_inclusion_reason": [
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] SiloVault._maxWithdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "SiloVault._maxWithdraw function _maxWithdraw( address _owner ) internal view virtual returns (uint256 assets, uint256 newTotalSupply, uint256 newTotalAssets) {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A2_conservation', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:_convertToShares:11",
+      "locus": "SiloVault:_convertToShares",
+      "contract": "SiloVault",
+      "function": "_convertToShares",
+      "source_span": {
+        "start_line": 705,
+        "end_line": 712,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 11.0,
+      "sweep_inclusion_reason": [
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T4_migration_conversion_residue",
+        "T8_shareprice_donation_inflation",
+        "T9_math_units_convergence_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T4_migration_conversion_residue",
+          "mechanism_summary": "[T4] SiloVault._convertToShares: Value/rewards/shares/debt/indexes/permissions may be lost, duplicated, or mispriced across old/new domains.",
+          "source_backed_trigger": "SiloVault._convertToShares function _convertToShares( uint256 _assets, Math.Rounding _rounding ) internal view virtual override returns (uint256) {",
+          "matched_markers": [
+            "T4_migration_conversion_residue",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Across this conversion/migration/split/merge, is every unit and right conserved exactly?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T4_migration_conversion_residue"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T8_shareprice_donation_inflation",
+          "mechanism_summary": "[T8] SiloVault._convertToShares: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+          "source_backed_trigger": "SiloVault._convertToShares function _convertToShares( uint256 _assets, Math.Rounding _rounding ) internal view virtual override returns (uint256) {",
+          "matched_markers": [
+            "T4_migration_conversion_residue",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T8_shareprice_donation_inflation"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T9_math_units_convergence_boundary",
+          "mechanism_summary": "[T9] SiloVault._convertToShares: Math/units/convergence boundary: decimal/scale/unit mismatch, iterative convergence failure, silent zero/fallback, rounding-direction or precision loss across token decimals.",
+          "source_backed_trigger": "SiloVault._convertToShares function _convertToShares( uint256 _assets, Math.Rounding _rounding ) internal view virtual override returns (uint256) {",
+          "matched_markers": [
+            "convert",
+            "rounding",
+            "round"
+          ],
+          "attacker_action": "operator-to-derive",
+          "affected_state_assets_permissions": "operator-to-derive (decimals/scale/precision/convergence)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive",
+          "amplification_hypothesis": "operator-to-derive",
+          "protocol_comparand_hint": "operator-to-derive (reference math / exact conversion / convergence guarantee)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Are all decimal/scale conversions exact and does the iterative solver always converge or revert (never silently return 0/stale)?",
+          "ranking_features_for_profile_B": {
+            "messy_not_tidy": true,
+            "math_units_class": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": false,
+            "terminal_delta_class": "T9_math_units_convergence_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null,
+          "rank_last": true
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T4_migration_conversion_residue",
+          "T8_shareprice_donation_inflation"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A2_conservation', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:_convertToAssets:12",
+      "locus": "SiloVault:_convertToAssets",
+      "contract": "SiloVault",
+      "function": "_convertToAssets",
+      "source_span": {
+        "start_line": 716,
+        "end_line": 723,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 12.0,
+      "sweep_inclusion_reason": [
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T4_migration_conversion_residue",
+        "T8_shareprice_donation_inflation",
+        "T9_math_units_convergence_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T4_migration_conversion_residue",
+          "mechanism_summary": "[T4] SiloVault._convertToAssets: Value/rewards/shares/debt/indexes/permissions may be lost, duplicated, or mispriced across old/new domains.",
+          "source_backed_trigger": "SiloVault._convertToAssets function _convertToAssets( uint256 _shares, Math.Rounding _rounding ) internal view virtual override returns (uint256) {",
+          "matched_markers": [
+            "T4_migration_conversion_residue",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Across this conversion/migration/split/merge, is every unit and right conserved exactly?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T4_migration_conversion_residue"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T8_shareprice_donation_inflation",
+          "mechanism_summary": "[T8] SiloVault._convertToAssets: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+          "source_backed_trigger": "SiloVault._convertToAssets function _convertToAssets( uint256 _shares, Math.Rounding _rounding ) internal view virtual override returns (uint256) {",
+          "matched_markers": [
+            "T4_migration_conversion_residue",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T8_shareprice_donation_inflation"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T9_math_units_convergence_boundary",
+          "mechanism_summary": "[T9] SiloVault._convertToAssets: Math/units/convergence boundary: decimal/scale/unit mismatch, iterative convergence failure, silent zero/fallback, rounding-direction or precision loss across token decimals.",
+          "source_backed_trigger": "SiloVault._convertToAssets function _convertToAssets( uint256 _shares, Math.Rounding _rounding ) internal view virtual override returns (uint256) {",
+          "matched_markers": [
+            "convert",
+            "rounding",
+            "round"
+          ],
+          "attacker_action": "operator-to-derive",
+          "affected_state_assets_permissions": "operator-to-derive (decimals/scale/precision/convergence)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive",
+          "amplification_hypothesis": "operator-to-derive",
+          "protocol_comparand_hint": "operator-to-derive (reference math / exact conversion / convergence guarantee)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Are all decimal/scale conversions exact and does the iterative solver always converge or revert (never silently return 0/stale)?",
+          "ranking_features_for_profile_B": {
+            "messy_not_tidy": true,
+            "math_units_class": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": false,
+            "terminal_delta_class": "T9_math_units_convergence_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null,
+          "rank_last": true
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T4_migration_conversion_residue",
+          "T8_shareprice_donation_inflation"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A2_conservation', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:_accrueFee:13",
+      "locus": "SiloVault:_accrueFee",
+      "contract": "SiloVault",
+      "function": "_accrueFee",
+      "source_span": {
+        "start_line": 942,
+        "end_line": 949,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 13.0,
+      "sweep_inclusion_reason": [
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T6_cross_transaction_drift"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T6_cross_transaction_drift",
+          "mechanism_summary": "[T6] SiloVault._accrueFee: Separate txs/epochs/delayed checkpoints may create a stale or double-counted accounting view.",
+          "source_backed_trigger": "SiloVault._accrueFee function _accrueFee() internal virtual returns (uint256 newTotalAssets) {",
+          "matched_markers": [
+            "T6_cross_transaction_drift"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Across two transactions/epochs, can an index/accrual be applied twice or skipped?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T6_cross_transaction_drift"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T6_cross_transaction_drift"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A2_conservation', 'A4_shared_balance_depletion']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:_maxDeposit:14",
+      "locus": "SiloVault:_maxDeposit",
+      "contract": "SiloVault",
+      "function": "_maxDeposit",
+      "source_span": {
+        "start_line": 675,
+        "end_line": 701,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 14.0,
+      "sweep_inclusion_reason": [
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword"
+      ],
+      "templates_applied": [
+        "T8_shareprice_donation_inflation"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T8_shareprice_donation_inflation",
+          "mechanism_summary": "[T8] SiloVault._maxDeposit: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+          "source_backed_trigger": "SiloVault._maxDeposit function _maxDeposit() internal view virtual returns (uint256 totalSuppliable) {",
+          "matched_markers": [
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T8_shareprice_donation_inflation"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T8_shareprice_donation_inflation"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A3_double_counting', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVaultActionsLib:setCap:15",
+      "locus": "SiloVaultActionsLib:setCap",
+      "contract": "SiloVaultActionsLib",
+      "function": "setCap",
+      "source_span": {
+        "start_line": 29,
+        "end_line": 65,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 15.0,
+      "sweep_inclusion_reason": [
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling",
+        "T5_statemachine_liveness_terminality"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] SiloVaultActionsLib.setCap: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "SiloVaultActionsLib.setCap function setCap( IERC4626 _market, uint184 _supplyCap, address _asset, mapping(IERC4626 => MarketConfig) storage _config, mapping(IERC4626 => PendingUint192) storage _pendingCap, IERC4626[] storage _withdrawQueue ) external returns (bool updateTotalAssets) {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T5_statemachine_liveness_terminality"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T5_statemachine_liveness_terminality",
+          "mechanism_summary": "[T5] SiloVaultActionsLib.setCap: A state transition may make a required later operation impossible, stuck, delayed, or incorrectly successful.",
+          "source_backed_trigger": "SiloVaultActionsLib.setCap function setCap( IERC4626 _market, uint184 _supplyCap, address _asset, mapping(IERC4626 => MarketConfig) storage _config, mapping(IERC4626 => PendingUint192) storage _pendingCap, IERC4626[] storage _withdrawQueue ) external returns (bool updateTotalAssets) {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T5_statemachine_liveness_terminality"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "After this transition, can a needed later step (claim/finalize/withdraw) still complete correctly?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T5_statemachine_liveness_terminality"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling",
+          "T5_statemachine_liveness_terminality"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/libraries/SiloVaultActionsLib.sol",
+        "checkpoint:['S3_dual_state_inconsistency', 'S4_branch_consequence_not_traced']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SiloVault:maxWithdraw:16",
+      "locus": "SiloVault:maxWithdraw",
+      "contract": "SiloVault",
+      "function": "maxWithdraw",
+      "source_span": {
+        "start_line": 533,
+        "end_line": 535,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 16.0,
+      "sweep_inclusion_reason": [
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] SiloVault.maxWithdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "SiloVault.maxWithdraw function maxWithdraw(address _owner) public view virtual override returns (uint256 assets) {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/silo-finance-2025-03-strict-eval/contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+        "checkpoint:['A1_rounding_direction', 'A4_shared_balance_depletion']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

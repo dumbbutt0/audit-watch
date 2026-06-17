@@ -1,0 +1,1700 @@
+{
+  "module": "recall_first_harness",
+  "generated_at": "2026-06-09T08:43:08.010368+00:00",
+  "mode": "shadow",
+  "contest": "coverage_manifest",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "emits_findings": false,
+  "concludes_vulnerability": false,
+  "output_type": "advisory_recall_candidates",
+  "guard_violations": 0,
+  "caps": {
+    "max_swept_loci_json": 25,
+    "max_high_priority_md": 15,
+    "max_mechs_per_locus": 5,
+    "max_total_mechs_to_ranking": 30
+  },
+  "truncated": true,
+  "advisory_candidates": [
+    {
+      "candidate_id": "coverage_manifest:BorrowerOperations:_adjustTrove:0",
+      "locus": "BorrowerOperations:_adjustTrove",
+      "contract": "BorrowerOperations",
+      "function": "_adjustTrove",
+      "source_span": {
+        "start_line": 282,
+        "end_line": 373,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 0.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling",
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] BorrowerOperations._adjustTrove: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "BorrowerOperations._adjustTrove function _adjustTrove(address _borrower, address _collateral, uint _collTopUp, uint _collWithdrawal, uint _LUSDChange, bool _isDebtIncrease, address _upperHint, address _lowerHint, uint _maxFeePercentage) internal {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] BorrowerOperations._adjustTrove: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "BorrowerOperations._adjustTrove function _adjustTrove(address _borrower, address _collateral, uint _collTopUp, uint _collWithdrawal, uint _LUSDChange, bool _isDebtIncrease, address _upperHint, address _lowerHint, uint _maxFeePercentage) internal {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling",
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/BorrowerOperations.sol",
+        "checkpoint:['A2_conservation', 'A4_shared_balance_depletion', 'S3_dual_state_inconsistency', 'S4_branch_consequence_not_traced']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:TroveManager:_liquidateRecoveryMode:1",
+      "locus": "TroveManager:_liquidateRecoveryMode",
+      "contract": "TroveManager",
+      "function": "_liquidateRecoveryMode",
+      "source_span": {
+        "start_line": 357,
+        "end_line": 437,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 1.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T1_external_dependency_availability",
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T1_external_dependency_availability",
+          "mechanism_summary": "[T1] TroveManager._liquidateRecoveryMode: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+          "source_backed_trigger": "TroveManager._liquidateRecoveryMode function _liquidateRecoveryMode( IActivePool _activePool, IDefaultPool _defaultPool, address _collateral, address _borrower, uint _ICR, uint _LUSDInStabPool, uint _TCR, uint _price, uint256 _MCR ) internal returns (LiquidationValues memory singleLiquidation) {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T1_external_dependency_availability"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] TroveManager._liquidateRecoveryMode: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "TroveManager._liquidateRecoveryMode function _liquidateRecoveryMode( IActivePool _activePool, IDefaultPool _defaultPool, address _collateral, address _borrower, uint _ICR, uint _LUSDInStabPool, uint _TCR, uint _price, uint256 _MCR ) internal returns (LiquidationValues memory singleLiquidation) {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T1_external_dependency_availability",
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/TroveManager.sol",
+        "checkpoint:['A4_shared_balance_depletion', 'A5_index_arithmetic_exactness', 'S1_reset_overwrite_user_state']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:CollateralConfig:initialize:2",
+      "locus": "CollateralConfig:initialize",
+      "contract": "CollateralConfig",
+      "function": "initialize",
+      "source_span": {
+        "start_line": 46,
+        "end_line": 76,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 2.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] CollateralConfig.initialize: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "CollateralConfig.initialize function initialize( address[] calldata _collaterals, uint256[] calldata _MCRs, uint256[] calldata _CCRs ) external override onlyOwner {",
+          "matched_markers": [
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/CollateralConfig.sol",
+        "checkpoint:['A5_index_arithmetic_exactness', 'S2_growable_set_unbounded_loop']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:StabilityPool:offset:3",
+      "locus": "StabilityPool:offset",
+      "contract": "StabilityPool",
+      "function": "offset",
+      "source_span": {
+        "start_line": 466,
+        "end_line": 479,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 3.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] StabilityPool.offset: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "StabilityPool.offset function offset(address _collateral, uint _debtToOffset, uint _collToAdd) external override {",
+          "matched_markers": [
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/StabilityPool.sol",
+        "checkpoint:['A2_conservation', 'A4_shared_balance_depletion', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:TroveManager:liquidate:4",
+      "locus": "TroveManager:liquidate",
+      "contract": "TroveManager",
+      "function": "liquidate",
+      "source_span": {
+        "start_line": 310,
+        "end_line": 316,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 4.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T1_external_dependency_availability",
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T1_external_dependency_availability",
+          "mechanism_summary": "[T1] TroveManager.liquidate: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+          "source_backed_trigger": "TroveManager.liquidate function liquidate(address _borrower, address _collateral) external override {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T1_external_dependency_availability"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] TroveManager.liquidate: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "TroveManager.liquidate function liquidate(address _borrower, address _collateral) external override {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T1_external_dependency_availability",
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/TroveManager.sol",
+        "checkpoint:['A5_index_arithmetic_exactness', 'S1_reset_overwrite_user_state']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:BorrowerOperations:openTrove:5",
+      "locus": "BorrowerOperations:openTrove",
+      "contract": "BorrowerOperations",
+      "function": "openTrove",
+      "source_span": {
+        "start_line": 172,
+        "end_line": 239,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 5.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] BorrowerOperations.openTrove: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "BorrowerOperations.openTrove function openTrove(address _collateral, uint _collAmount, uint _maxFeePercentage, uint _LUSDAmount, address _upperHint, address _lowerHint) external override {",
+          "matched_markers": [
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/BorrowerOperations.sol",
+        "checkpoint:['A2_conservation', 'A4_shared_balance_depletion', 'S4_branch_consequence_not_traced']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:TroveManager:_liquidateNormalMode:6",
+      "locus": "TroveManager:_liquidateNormalMode",
+      "contract": "TroveManager",
+      "function": "_liquidateNormalMode",
+      "source_span": {
+        "start_line": 321,
+        "end_line": 354,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 6.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T1_external_dependency_availability",
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T1_external_dependency_availability",
+          "mechanism_summary": "[T1] TroveManager._liquidateNormalMode: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+          "source_backed_trigger": "TroveManager._liquidateNormalMode function _liquidateNormalMode( IActivePool _activePool, IDefaultPool _defaultPool, address _collateral, address _borrower, uint _LUSDInStabPool ) internal returns (LiquidationValues memory singleLiquidation) {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T1_external_dependency_availability"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] TroveManager._liquidateNormalMode: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "TroveManager._liquidateNormalMode function _liquidateNormalMode( IActivePool _activePool, IDefaultPool _defaultPool, address _collateral, address _borrower, uint _LUSDInStabPool ) internal returns (LiquidationValues memory singleLiquidation) {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T1_external_dependency_availability",
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/TroveManager.sol",
+        "checkpoint:['A5_index_arithmetic_exactness', 'S1_reset_overwrite_user_state']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:TroveManager:_removeTroveOwner:7",
+      "locus": "TroveManager:_removeTroveOwner",
+      "contract": "TroveManager",
+      "function": "_removeTroveOwner",
+      "source_span": {
+        "start_line": 1339,
+        "end_line": 1357,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 7.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T7_liquidation_solvency_boundary",
+        "T9_math_units_convergence_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] TroveManager._removeTroveOwner: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "TroveManager._removeTroveOwner function _removeTroveOwner(address _borrower, address _collateral, uint TroveOwnersArrayLength) internal {",
+          "matched_markers": [
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T9_math_units_convergence_boundary",
+          "mechanism_summary": "[T9] TroveManager._removeTroveOwner: Math/units/convergence boundary: decimal/scale/unit mismatch, iterative convergence failure, silent zero/fallback, rounding-direction or precision loss across token decimals.",
+          "source_backed_trigger": "TroveManager._removeTroveOwner function _removeTroveOwner(address _borrower, address _collateral, uint TroveOwnersArrayLength) internal {",
+          "matched_markers": [
+            "ray"
+          ],
+          "attacker_action": "operator-to-derive",
+          "affected_state_assets_permissions": "operator-to-derive (decimals/scale/precision/convergence)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive",
+          "amplification_hypothesis": "operator-to-derive",
+          "protocol_comparand_hint": "operator-to-derive (reference math / exact conversion / convergence guarantee)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Are all decimal/scale conversions exact and does the iterative solver always converge or revert (never silently return 0/stale)?",
+          "ranking_features_for_profile_B": {
+            "messy_not_tidy": true,
+            "math_units_class": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": false,
+            "terminal_delta_class": "T9_math_units_convergence_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null,
+          "rank_last": true
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T7_liquidation_solvency_boundary",
+          "T9_math_units_convergence_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/TroveManager.sol",
+        "checkpoint:['A5_index_arithmetic_exactness', 'S1_reset_overwrite_user_state']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:ActivePool:manualRebalance:8",
+      "locus": "ActivePool:manualRebalance",
+      "contract": "ActivePool",
+      "function": "manualRebalance",
+      "source_span": {
+        "start_line": 214,
+        "end_line": 217,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 8.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T1_external_dependency_availability",
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T1_external_dependency_availability",
+          "mechanism_summary": "[T1] ActivePool.manualRebalance: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+          "source_backed_trigger": "ActivePool.manualRebalance function manualRebalance(address _collateral, uint256 _simulatedAmountLeavingPool) external onlyOwner {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T1_external_dependency_availability"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] ActivePool.manualRebalance: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "ActivePool.manualRebalance function manualRebalance(address _collateral, uint256 _simulatedAmountLeavingPool) external onlyOwner {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T1_external_dependency_availability",
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/ActivePool.sol",
+        "checkpoint:['A1_rounding_direction', 'A4_shared_balance_depletion']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:that:setAddresses:9",
+      "locus": "that:setAddresses",
+      "contract": "that",
+      "function": "setAddresses",
+      "source_span": {
+        "start_line": 90,
+        "end_line": 138,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 9.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] that.setAddresses: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "that.setAddresses function setAddresses( address _collateralConfigAddress, address[] calldata _priceAggregatorAddresses, address _tellorCallerAddress, bytes32[] calldata _tellorQueryIds ) external onlyOwner {",
+          "matched_markers": [
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/PriceFeed.sol",
+        "checkpoint:['A5_index_arithmetic_exactness', 'S3_dual_state_inconsistency']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:TroveManager:redeemCloseTrove:10",
+      "locus": "TroveManager:redeemCloseTrove",
+      "contract": "TroveManager",
+      "function": "redeemCloseTrove",
+      "source_span": {
+        "start_line": 939,
+        "end_line": 955,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 10.0,
+      "sweep_inclusion_reason": [
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T1_external_dependency_availability",
+        "T2_redemption_withdrawal_state_coupling",
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T1_external_dependency_availability",
+          "mechanism_summary": "[T1] TroveManager.redeemCloseTrove: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+          "source_backed_trigger": "TroveManager.redeemCloseTrove function redeemCloseTrove( address _borrower, address _collateral, uint256 _LUSD, uint256 _collAmount ) external override {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T1_external_dependency_availability"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] TroveManager.redeemCloseTrove: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "TroveManager.redeemCloseTrove function redeemCloseTrove( address _borrower, address _collateral, uint256 _LUSD, uint256 _collAmount ) external override {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] TroveManager.redeemCloseTrove: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "TroveManager.redeemCloseTrove function redeemCloseTrove( address _borrower, address _collateral, uint256 _LUSD, uint256 _collAmount ) external override {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T1_external_dependency_availability",
+          "T2_redemption_withdrawal_state_coupling"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/TroveManager.sol",
+        "checkpoint:['A2_conservation', 'A4_shared_balance_depletion']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:TroveManager:closeTrove:11",
+      "locus": "TroveManager:closeTrove",
+      "contract": "TroveManager",
+      "function": "closeTrove",
+      "source_span": {
+        "start_line": 1273,
+        "end_line": 1276,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 11.0,
+      "sweep_inclusion_reason": [
+        "t7t8_within_top",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] TroveManager.closeTrove: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "TroveManager.closeTrove function closeTrove(address _borrower, address _collateral, uint256 _closedStatusNum) external override {",
+          "matched_markers": [
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/TroveManager.sol",
+        "checkpoint:['A5_index_arithmetic_exactness', 'S1_reset_overwrite_user_state']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:ActivePool:pullCollateralFromBorrowerOperationsOrDefaultPool:12",
+      "locus": "ActivePool:pullCollateralFromBorrowerOperationsOrDefaultPool",
+      "contract": "ActivePool",
+      "function": "pullCollateralFromBorrowerOperationsOrDefaultPool",
+      "source_span": {
+        "start_line": 204,
+        "end_line": 212,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 12.0,
+      "sweep_inclusion_reason": [
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] ActivePool.pullCollateralFromBorrowerOperationsOrDefaultPool: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "ActivePool.pullCollateralFromBorrowerOperationsOrDefaultPool function pullCollateralFromBorrowerOperationsOrDefaultPool(address _collateral, uint _amount) external override {",
+          "matched_markers": [
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/ActivePool.sol",
+        "checkpoint:['A1_rounding_direction', 'A4_shared_balance_depletion']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LUSDToken:mint:13",
+      "locus": "LUSDToken:mint",
+      "contract": "LUSDToken",
+      "function": "mint",
+      "source_span": {
+        "start_line": 185,
+        "end_line": 189,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 13.0,
+      "sweep_inclusion_reason": [
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword"
+      ],
+      "templates_applied": [
+        "T8_shareprice_donation_inflation"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T8_shareprice_donation_inflation",
+          "mechanism_summary": "[T8] LUSDToken.mint: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+          "source_backed_trigger": "LUSDToken.mint function mint(address _account, uint256 _amount) external override {",
+          "matched_markers": [
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T8_shareprice_donation_inflation"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T8_shareprice_donation_inflation"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/LUSDToken.sol",
+        "checkpoint:['A2_conservation', 'A4_shared_balance_depletion']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:TroveManager:_closeTrove:14",
+      "locus": "TroveManager:_closeTrove",
+      "contract": "TroveManager",
+      "function": "_closeTrove",
+      "source_span": {
+        "start_line": 1278,
+        "end_line": 1293,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 14.0,
+      "sweep_inclusion_reason": [
+        "t7t8_within_top",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] TroveManager._closeTrove: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "TroveManager._closeTrove function _closeTrove(address _borrower, address _collateral, Status closedStatus) internal {",
+          "matched_markers": [
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/TroveManager.sol",
+        "checkpoint:['A5_index_arithmetic_exactness', 'S1_reset_overwrite_user_state']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:BorrowerOperations:_withdrawLUSD:15",
+      "locus": "BorrowerOperations:_withdrawLUSD",
+      "contract": "BorrowerOperations",
+      "function": "_withdrawLUSD",
+      "source_span": {
+        "start_line": 511,
+        "end_line": 514,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 15.0,
+      "sweep_inclusion_reason": [
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling",
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] BorrowerOperations._withdrawLUSD: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "BorrowerOperations._withdrawLUSD function _withdrawLUSD(IActivePool _activePool, ILUSDToken _lusdToken, address _collateral, address _account, uint _LUSDAmount, uint _netDebtIncrease) internal {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] BorrowerOperations._withdrawLUSD: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "BorrowerOperations._withdrawLUSD function _withdrawLUSD(IActivePool _activePool, ILUSDToken _lusdToken, address _collateral, address _account, uint _LUSDAmount, uint _netDebtIncrease) internal {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling",
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/BorrowerOperations.sol",
+        "checkpoint:['A2_conservation', 'A4_shared_balance_depletion']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:BorrowerOperations:_repayLUSD:16",
+      "locus": "BorrowerOperations:_repayLUSD",
+      "contract": "BorrowerOperations",
+      "function": "_repayLUSD",
+      "source_span": {
+        "start_line": 517,
+        "end_line": 520,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 16.0,
+      "sweep_inclusion_reason": [
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] BorrowerOperations._repayLUSD: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "BorrowerOperations._repayLUSD function _repayLUSD(IActivePool _activePool, ILUSDToken _lusdToken, address _collateral, address _account, uint _LUSD) internal {",
+          "matched_markers": [
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/BorrowerOperations.sol",
+        "checkpoint:['A2_conservation', 'A4_shared_balance_depletion']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:RedemptionHelper:redeemCollateral:17",
+      "locus": "RedemptionHelper:redeemCollateral",
+      "contract": "RedemptionHelper",
+      "function": "redeemCollateral",
+      "source_span": {
+        "start_line": 99,
+        "end_line": 214,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 17.0,
+      "sweep_inclusion_reason": [
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T1_external_dependency_availability",
+        "T2_redemption_withdrawal_state_coupling",
+        "T7_liquidation_solvency_boundary",
+        "T8_shareprice_donation_inflation",
+        "T9_math_units_convergence_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T1_external_dependency_availability",
+          "mechanism_summary": "[T1] RedemptionHelper.redeemCollateral: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+          "source_backed_trigger": "RedemptionHelper.redeemCollateral function redeemCollateral( address _collateral, address _redeemer, uint _LUSDamount, address _firstRedemptionHint, address _upperPartialRedemptionHint, address _lowerPartialRedemptionHint, uint _partialRedemptionHintNICR, uint _maxIterations, uint _maxFeePercentage ) external override {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T7_liquidation_solvency_boundary",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T1_external_dependency_availability"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] RedemptionHelper.redeemCollateral: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "RedemptionHelper.redeemCollateral function redeemCollateral( address _collateral, address _redeemer, uint _LUSDamount, address _firstRedemptionHint, address _upperPartialRedemptionHint, address _lowerPartialRedemptionHint, uint _partialRedemptionHintNICR, uint _maxIterations, uint _maxFeePercentage ) external override {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T7_liquidation_solvency_boundary",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] RedemptionHelper.redeemCollateral: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "RedemptionHelper.redeemCollateral function redeemCollateral( address _collateral, address _redeemer, uint _LUSDamount, address _firstRedemptionHint, address _upperPartialRedemptionHint, address _lowerPartialRedemptionHint, uint _partialRedemptionHintNICR, uint _maxIterations, uint _maxFeePercentage ) external override {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T7_liquidation_solvency_boundary",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T8_shareprice_donation_inflation",
+          "mechanism_summary": "[T8] RedemptionHelper.redeemCollateral: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+          "source_backed_trigger": "RedemptionHelper.redeemCollateral function redeemCollateral( address _collateral, address _redeemer, uint _LUSDamount, address _firstRedemptionHint, address _upperPartialRedemptionHint, address _lowerPartialRedemptionHint, uint _partialRedemptionHintNICR, uint _maxIterations, uint _maxFeePercentage ) external override {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T7_liquidation_solvency_boundary",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T8_shareprice_donation_inflation"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T1_external_dependency_availability",
+          "T2_redemption_withdrawal_state_coupling"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "audits/ethos-reserve-2023-02-liquidation-health/contracts/2023-02-ethos/contracts/RedemptionHelper.sol",
+        "checkpoint:['S2_growable_set_unbounded_loop', 'S3_dual_state_inconsistency']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

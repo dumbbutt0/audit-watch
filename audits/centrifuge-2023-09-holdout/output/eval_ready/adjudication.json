@@ -1,0 +1,254 @@
+{
+  "audit_id": "centrifuge-2023-09-holdout",
+  "set": "training",
+  "generated_at": "2026-06-12T14:11:01Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": true,
+  "awarded": [
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "`onlyCentrifugeChainOrigin()` can't require `msg.sender` equal `axelarGateway`",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "`LiquidityPool::requestRedeemWithPermit` transaction can be front run with the different liquidity pool",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "Cached `DOMAIN_SEPARATOR` is incorrect for tranche tokens potentially breaking permit integrations",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-04",
+      "severity": "Medium",
+      "title": "You can deposit really small amount for other users to DoS them",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-05",
+      "severity": "Medium",
+      "title": "Investors claiming their `maxDeposit` by using the `LiquidityPool.deposit()` will cause other users to be unable to claim their `maxDeposit`/`maxMint`",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-06",
+      "severity": "Medium",
+      "title": "DelayedAdmin Cannot `PauseAdmin.removePauser`",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-07",
+      "severity": "Medium",
+      "title": "```trancheTokenAmount``` should be rounded UP when proceeding to a withdrawal or previewing a withdrawal",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-08",
+      "severity": "Medium",
+      "title": "The Restriction Manager does not completely implement ERC1404 which leads to accounts that are supposed to be restricted actually having access to do with their tokens as they see fit",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "L-02",
+      "severity": "Medium",
+      "title": "Unlimiting the delay period with minimum threshold allows the delay period to be set too low and allows a malicious `ScheduleUpgrade` message to be executed on the root contract and gain access on the other contracts",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "DT-01",
+      "title": "requestDepositWithPermit/requestRedeemWithPermit hard-code the EIP-2612 permit interface on the configurable investment currency",
+      "severity": "Medium",
+      "file": "LiquidityPool.sol:220-243",
+      "contract": "",
+      "function": "",
+      "description": "LiquidityPool.requestDepositWithPermit calls ERC20PermitLike(asset).permit(owner,spender,value,deadline,v,r,s) \u2014 the 7-arg EIP-2612 shape \u2014 directly on the pool's investment currency (`asset`), which is an arbitrary per-pool ERC20. Currencies with a non-standard permit (DAI's allowed/nonce-based permit) or no permit at all revert, making the permit-based deposit/redeem path unusable for those currencies. There is no try/catch, Permit2, or DAI-allowed fallback."
+    },
+    {
+      "id": "TI-01",
+      "title": "requestDepositWithPermit/requestRedeemWithPermit hard-code EIP-2612 permit on the configurable investment currency",
+      "severity": "Medium",
+      "file": "LiquidityPool.sol:220-243",
+      "contract": "",
+      "function": "",
+      "description": "LiquidityPool calls ERC20PermitLike(asset).permit(owner,spender,value,deadline,v,r,s) on the per-pool investment currency. DAI (allowed/nonce-based permit) and no-permit tokens revert -> permit-deposit DoS. No try/catch / Permit2 / DAI-allowed fallback."
+    },
+    {
+      "id": "DT-02",
+      "title": "ERC4626 convertToShares/convertToAssets are auth-gated (not permissionless views)",
+      "severity": "Medium",
+      "file": "InvestmentManager.sol:325,338",
+      "contract": "",
+      "function": "",
+      "description": "InvestmentManager.convertToShares and convertToAssets are declared `public view auth`, so only wards can call them. The ERC4626 standard requires these (and the preview/totalAssets chain that depends on them) to be permissionless views. Integrators calling them directly, and any non-warded caller path, revert \u2014 breaking ERC4626 composability."
+    },
+    {
+      "id": "E46-01",
+      "title": "convertToShares/convertToAssets are auth-gated, breaking ERC4626 permissionless views",
+      "severity": "Medium",
+      "file": "InvestmentManager.sol:325,338",
+      "contract": "",
+      "function": "",
+      "description": "InvestmentManager.convertToShares/convertToAssets are `public view auth`; ERC4626 requires permissionless conversion views. Integrators and non-warded paths revert."
+    },
+    {
+      "id": "DT-04",
+      "title": "Transfer restriction only gates destination membership and members cannot be immediately frozen",
+      "severity": "Medium",
+      "file": "RestrictionManager.sol:28-34,57-60",
+      "contract": "",
+      "function": "",
+      "description": "RestrictionManager.detectTransferRestriction only checks hasMember(to) (destination), never `from`. updateMember requires block.timestamp <= validUntil, so an admin cannot set validUntil in the past to immediately revoke/freeze an existing member; revocation only takes effect when the existing validUntil expires. Sender-side compliance gating is absent and freezing is delayed."
+    },
+    {
+      "id": "LG-01",
+      "title": "Transfer restriction checks only destination membership; members cannot be immediately frozen",
+      "severity": "Medium",
+      "file": "RestrictionManager.sol:28-34,57-60",
+      "contract": "",
+      "function": "",
+      "description": "RestrictionManager.detectTransferRestriction only checks hasMember(to). updateMember requires block.timestamp<=validUntil so validUntil cannot be back-dated to freeze an existing member; revocation waits for natural expiry. Sender-side gating absent."
+    },
+    {
+      "id": "AC-01",
+      "title": "withApproval modifier contradicts its NatSpec ('owner or authorized admin')",
+      "severity": "Low",
+      "file": "LiquidityPool.sol:96-100",
+      "contract": "",
+      "function": "",
+      "description": "The modifier only permits msg.sender==owner; the documented admin/approval path does not exist. Misleading and blocks delegated flows."
+    },
+    {
+      "id": "AR-01",
+      "title": "Price/decimal scaling can overflow for unusual tranche decimals (gateway-set, unbounded)",
+      "severity": "Low",
+      "file": "InvestmentManager.sol:329-333,676-693; PoolManager.sol:192-212",
+      "contract": "",
+      "function": "",
+      "description": "convertToShares uses 10**(PRICE_DECIMALS+trancheTokenDecimals-currencyDecimals). addCurrency bounds currency<=18 but addTranche sets trancheDecimals from the cross-chain message with no bound; large values overflow the scale factor."
+    },
+    {
+      "id": "CC-01",
+      "title": "Gateway.handle routes upgrade-scheduling and currency/transfer messages with no message-level replay protection",
+      "severity": "Low",
+      "file": "gateway/Gateway.sol:137-145,285-366",
+      "contract": "",
+      "function": "",
+      "description": "Gateway.handle dispatches incoming router messages (addCurrency, handleTransfer, scheduleRely, etc.) gated only by incomingRouters allowlist and Root pause; there is no per-message nonce/replay guard at this layer (relies entirely on the router). A compromised/mis-added router can drive sensitive flows."
+    },
+    {
+      "id": "DT-03",
+      "title": "No on-behalf withdraw/redeem: withApproval requires msg.sender == owner despite ERC4626 semantics and NatSpec",
+      "severity": "Low",
+      "file": "LiquidityPool.sol:97-100,176-234",
+      "contract": "",
+      "function": "",
+      "description": "LiquidityPool's withApproval(owner) modifier is `require(msg.sender == owner)`. withdraw/redeem(assets,receiver,owner) and requestDeposit/requestRedeem therefore cannot be performed by an ERC20-approved spender/operator, contradicting ERC4626 (approved spender may withdraw owner's assets) and the function NatSpec that claims 'owner or an authorized admin'."
+    },
+    {
+      "id": "E46-02",
+      "title": "No on-behalf withdraw/redeem despite ERC4626 semantics (withApproval requires msg.sender==owner)",
+      "severity": "Low",
+      "file": "LiquidityPool.sol:97-100,176-234",
+      "contract": "",
+      "function": "",
+      "description": "LiquidityPool.withApproval(owner) = require(msg.sender==owner); an approved spender cannot withdraw/redeem on behalf of owner, contradicting ERC4626 and the NatSpec."
+    },
+    {
+      "id": "DT-05",
+      "title": "convert*/totalAssets quotes use latestPrice with no staleness check",
+      "severity": "Low",
+      "file": "LiquidityPool.sol:72-76,324-328; InvestmentManager.sol:331,343",
+      "contract": "",
+      "function": "",
+      "description": "convertToShares/convertToAssets read LiquidityPool.latestPrice(); lastPriceUpdate is written by updatePrice but never validated, so quotes can be based on an arbitrarily stale price. totalAssets() inherits this."
+    },
+    {
+      "id": "OR-01",
+      "title": "convert*/totalAssets use latestPrice with no staleness check",
+      "severity": "Low",
+      "file": "LiquidityPool.sol:72-76,324-328; InvestmentManager.sol:331,343",
+      "contract": "",
+      "function": "",
+      "description": "convertToShares/convertToAssets read latestPrice; lastPriceUpdate is stored but never validated, so quotes can use a stale price. lastPriceUpdate is dead state."
+    },
+    {
+      "id": "TI-02",
+      "title": "Tranche/LiquidityPool assume the investment currency returns a bool and is non-fee-on-transfer",
+      "severity": "Low",
+      "file": "InvestmentManager.sol:136",
+      "contract": "",
+      "function": "",
+      "description": "requestDeposit uses SafeTransferLib.safeTransferFrom for the currency; fee-on-transfer currencies would lock less than the order amount, desyncing the escrowed amount from the gateway invest order."
+    }
+  ],
+  "summary": {
+    "awarded_total": 9,
+    "awarded_source": "report.md",
+    "adjudicated": 9,
+    "pending": 0,
+    "auto_adjudicated": 9,
+    "misses_detected": 9,
+    "recall_of_surfaced": 0.0,
+    "strong_only": 0.0,
+    "by_label": {
+      "MISSED": 9,
+      "SAME_AREA": 0,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 0,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

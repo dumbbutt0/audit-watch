@@ -1,0 +1,38 @@
+{
+  "program": "Silo Finance (Silo Vaults)",
+  "platform": "Code4rena",
+  "contest_slug": "2025-03-silo-finance",
+  "report_url_ANSWER_KEY_DO_NOT_OPEN_PRE_FREEZE": "https://code4rena.com/reports/2025-03-silo-finance",
+  "repo": "https://github.com/code-423n4/2025-03-silo-finance",
+  "pinned_commit": "1732f3e769189cac295d80f521a5b0c780f7acca",
+  "solc": "0.8.28",
+  "evm": "cancun",
+  "answer_key_access_status": "freeze_complete_not_yet_accessed",
+  "scope_source": "repo scope.txt + out_of_scope.txt + README (NOT the 4naly3er/findings files)",
+  "pipeline_contract_path": "contracts/in_scope",
+  "architecture": "SiloVault = MetaMorpho/MorphoVault ERC4626 fork (roles Owner/Curator/Allocator/Guardian, Ownable2Step, ERC20Permit, Multicall) over Silo lending markets; Silo ADDS a vault incentives/reward layer (VaultIncentivesModule + SiloIncentivesController(CL) + DistributionManager/BaseIncentivesController) wired to share transfers via INotificationReceiver. The NOVEL (vs audited MetaMorpho) code = the incentives/reward integration.",
+  "in_scope_core": [
+    "silo-vaults/contracts/SiloVault.sol (554 nSLOC \u2014 the fork + reward hooks)",
+    "silo-vaults/contracts/IdleVault.sol",
+    "silo-vaults/contracts/PublicAllocator.sol",
+    "silo-vaults/contracts/incentives/VaultIncentivesModule.sol",
+    "silo-vaults/contracts/incentives/claiming-logics/SiloIncentivesControllerCL.sol",
+    "silo-core/contracts/incentives/SiloIncentivesController.sol",
+    "silo-core/contracts/incentives/base/BaseIncentivesController.sol",
+    "silo-core/contracts/incentives/base/DistributionManager.sol",
+    "silo-vaults/contracts/libraries/{SiloVaultActionsLib,PendingLib,ConstantsLib,ErrorsLib,EventsLib}.sol"
+  ],
+  "main_focus": "reward accrual vs share mint/burn/transfer ordering; feeShares minting order; totalSupply read before/after reward index update; market cap (maxDeposit)/reallocation/removal; 4626 share/asset rounding + donation/inflation; zero-share.",
+  "publicly_known_ineligible": {
+    "note": "Per README weird-ERC20 table + Automated Findings section. Must NOT be scored HIT; pipeline flagging them is not an FP.",
+    "out_of_scope_token_behaviors": [
+      "Fee-on-transfer tokens \u2014 OUT OF SCOPE",
+      "Rebasing / balance-changes-outside-transfer (airdrops) \u2014 OUT OF SCOPE",
+      "Approval race protections / approval-reset \u2014 OUT OF SCOPE",
+      "Pausable, Upgradeable, Flash-mintable, Blocklist, High-decimals(>18), Multiple-token-address \u2014 OUT OF SCOPE",
+      "Everything in 4naly3er-report.md (automated) \u2014 publicly known, ineligible"
+    ],
+    "implication": "The 6 awarded Mediums are NOT token-weirdness; they are in the vault-accounting + reward/incentives logic (Silo's novel layer over audited MetaMorpho)."
+  },
+  "brief_checklists_pipeline_status": "Shipped spec_checklist_utils enforces the ERC4626 surface (auto). reward-accounting + slippage/deadline + non-standard-ERC20 are applied as genuine specialist review (not yet enforced surfaces) \u2014 flagged as a next recommendation, no pipeline edit during eval."
+}

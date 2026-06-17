@@ -1,0 +1,68 @@
+{
+  "finding_id": "FL-001",
+  "title": "Curve get_virtual_price in checkBalance enables flash-loan yield inflation",
+  "approach": "pure_arithmetic",
+  "test_name": "poc_fl_001_virtual_price_balance_inflation",
+  "language": "rust",
+  "framework": "soroban",
+  "target_file": "contracts/origin/origin-dollar/contracts/contracts/strategies/BaseCurveAMOStrategy.sol",
+  "target_function": "checkBalance",
+  "bug_class": "accounting_toctou",
+  "one_line_summary": "checkBalance uses get_virtual_price() which can be temporarily inflated, causing the strategy to report a balance larger than real assets held",
+  "setup_steps": [
+    "Define constants: WAD = 1_000_000_000_000_000_000u128 (1e18)",
+    "Define a function `check_balance(lp_tokens: u128, virtual_price: u128, weth_balance: u128) -> u128` that exactly mirrors the Solidity logic: `weth_balance + (lp_tokens * virtual_price) / WAD`",
+    "Establish a baseline scenario: lp_tokens = 1000 * WAD (1000 LP tokens), normal_virtual_price = 1_010_000_000_000_000_000u128 (1.01 * 1e18, typical Curve VP), weth_balance = 0",
+    "Establish an inflated scenario: same lp_tokens, inflated_virtual_price = 1_060_000_000_000_000_000u128 (1.06 * 1e18, ~5% inflation from large single-sided deposit), weth_balance = 0"
+  ],
+  "preconditions": [
+    "LP token balance is non-zero (strategy holds LP tokens in gauge)",
+    "get_virtual_price() returns a value that has been temporarily inflated by a large single-sided add_liquidity in the same block",
+    "No additional checks constrain the reported balance beyond this simple multiplication"
+  ],
+  "execution_steps": [
+    "Step 1: Call check_balance with normal_virtual_price to get baseline_balance",
+    "Step 2: Call check_balance with inflated_virtual_price to get inflated_balance",
+    "Step 3: Compute phantom_yield = inflated_balance - baseline_balance",
+    "Step 4: Assert inflated_balance > baseline_balance (bug: the function reports more value than is actually backed)",
+    "Step 5: Assert phantom_yield == lp_tokens * (inflated_virtual_price - normal_virtual_price) / WAD (i.e., exactly 50 WETH worth of phantom yield for 1000 LP tokens at 5% VP inflation)",
+    "Step 6: Assert that phantom_yield > 0 and equals 50 * WAD (50 ether units of phantom balance)"
+  ],
+  "assertions": [
+    {
+      "variable": "baseline_balance",
+      "expected_value": "1_010_000_000_000_000_000_000u128 (1010 WAD = 1000 LP * 1.01 VP)",
+      "actual_buggy_value": "1_010_000_000_000_000_000_000u128",
+      "explanation": "With normal VP of 1.01, 1000 LP tokens correctly map to 1010 WAD worth of assets"
+    },
+    {
+      "variable": "inflated_balance",
+      "expected_value": "Should equal baseline_balance (1010 WAD) because no real assets changed",
+      "actual_buggy_value": "1_060_000_000_000_000_000_000u128 (1060 WAD = 1000 LP * 1.06 inflated VP)",
+      "explanation": "After flash-loan single-sided deposit inflates VP by 5%, checkBalance reports 50 WAD more than real backing - this phantom yield is what gets distributed as OETH rebases"
+    },
+    {
+      "variable": "phantom_yield",
+      "expected_value": "0 (no real assets were added to the strategy)",
+      "actual_buggy_value": "50_000_000_000_000_000_000u128 (50 WAD = 50 phantom WETH-equivalent)",
+      "explanation": "The difference between inflated and baseline balance is entirely unbacked phantom value caused by temporary VP inflation; if rebase() is called at this moment, OETH is minted against this phantom yield"
+    }
+  ],
+  "constants": {
+    "WAD": "1_000_000_000_000_000_000u128",
+    "normal_virtual_price": "1_010_000_000_000_000_000u128",
+    "inflated_virtual_price": "1_060_000_000_000_000_000u128",
+    "lp_tokens": "1_000_000_000_000_000_000_000u128",
+    "weth_balance": "0u128"
+  },
+  "run_command": "cargo test --manifest-path pocs/k2/FL-001/Cargo.toml -- --nocapture",
+  "expected_output": "phantom_yield = 50000000000000000000 (50 WAD), inflated_balance = 1060000000000000000000",
+  "failure_modes": [
+    "The pure arithmetic test does not prove the full exploit chain (flash loan + rebase trigger) - it only proves the accounting vulnerability in the checkBalance formula",
+    "The actual VP inflation achievable may differ from 5% depending on pool depth and composition - the test uses an illustrative figure",
+    "The test cannot prove the rate limiter bypass without a full fork test - it only shows the raw accounting exposure",
+    "If the repository is Rust/Soroban but the bug is in a Solidity contract, there may be no Cargo.toml to link against - this test is pure arithmetic requiring no external dependencies",
+    "The Cargo.toml for the PoC must be created from scratch as a standalone crate since the bug is in a Solidity contract not a Soroban contract",
+    "The privileged precondition (operator/strategist role required to call rebase) means the full exploit requires elevated access - the arithmetic PoC still demonstrates the core accounting flaw"
+  ]
+}

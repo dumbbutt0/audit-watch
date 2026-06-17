@@ -1,0 +1,1265 @@
+{
+  "generated_at": "2026-06-14T00:00:00Z",
+  "kind": "real_world_hunt_log",
+  "disclaimer": "Real-world bounty-hunt activity. Candidate findings are PoC-proven but UNCONFIRMED and UNSUBMITTED (flagged for human verification). No FP/recall/paid scores are shown: those require human-confirmed ground truth, which does not exist for these hunts. Eval/synthetic corpora are excluded.",
+  "summary": {
+    "targets_engaged": 28,
+    "poc_proven_candidate_findings": 11,
+    "honest_negatives": 21,
+    "skipped": 2,
+    "submitted": 0,
+    "human_confirmed": 0,
+    "paid": 0
+  },
+  "candidate_findings": [
+    {
+      "target": "40acres (loan-contracts)",
+      "source": "Sherlock bug bounty (id 102)",
+      "severity": "High/Medium",
+      "title": "CommunityRewards.earned() is public + state-mutating \u2192 anyone permanently zeroes/bricks any depositor's reward claims",
+      "status": "PoC-proven candidate",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "self-contained PoC 3/3 + Base mainnet-fork PoC on real wired contracts (victim 0 / control 2 USDC)",
+      "poc_path": "forty/test/poc/CommunityRewardsEarnedGrief.t.sol",
+      "writeup": "forty/SUBMISSION_communityrewards_earned_grief.md",
+      "verifier": {
+        "target": "CommunityRewards.earned",
+        "surface_function": "earned(address _token, address _owner) public returns (uint256)",
+        "suspected_mechanism": "earned() is declared public and mutates state \u2014 it writes tokenClaimedPerEpoch as it walks epochs but never pays out or advances lastEarn, so any caller can mark a victim's epochs 'claimed' (zeroing a single-epoch reward, or underflow-reverting and permanently bricking claims once \u22652 epochs have elapsed).",
+        "mechanism_class": "view/mutating mismatch \u2014 the 'mark claimed' state write is decoupled from the payout (adapted from Velodrome's view earned())",
+        "impact": "Permissionless, zero-cost, repeatable freezing/zeroing of all claimable community rewards for any/all depositors; irrecoverable without a contract upgrade.",
+        "severity_recommendation": "High",
+        "claimed_severity": "High",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm CommunityRewards is deployed/in-scope; judge High-vs-Medium (rewards-griefing)",
+        "human_review_focus": "confirm CommunityRewards is live/in-scope; High-vs-Medium (rewards-griefing) is the residual human judgment",
+        "reachability_class": "UNPRIVILEGED_REACHABLE",
+        "privilege_required": "none",
+        "victim_action_required": "none (victim only needs accrued rewards)",
+        "self_remediation": "none \u2014 a bricked claim is irrecoverable without a contract upgrade",
+        "operator_or_keeper_dependency": "none",
+        "attacker_controls": [
+          "the (token, owner) arguments to earned()",
+          "call timing and repetition"
+        ],
+        "attacker_does_not_control": [
+          "the victim's accrued balance / reward amount"
+        ],
+        "function_map": [
+          {
+            "role": "user entrypoint (should be view)",
+            "function": "earned",
+            "permission": "public (any caller)",
+            "why_it_matters": "mutates tokenClaimedPerEpoch without paying out \u2014 the griefing primitive",
+            "source_location": "src/CommunityRewards/CommunityRewards.sol:481-529"
+          },
+          {
+            "role": "settlement / claim",
+            "function": "_getReward",
+            "permission": "internal (via getReward)",
+            "why_it_matters": "the only real payout path: calls earned() then transfers and advances lastEarn",
+            "source_location": "src/CommunityRewards/CommunityRewards.sol:611-629"
+          }
+        ],
+        "attacker_model": "Any unprivileged EOA with no setup calls earned(rewardToken, victim) directly.",
+        "exploit_steps": [
+          "Protocol runs \u22651 epoch so the victim has accrued rewards (tokenRewardsPerEpoch notified).",
+          "Attacker (any EOA) calls earned(rewardToken, victim).",
+          "earned() writes tokenClaimedPerEpoch[victim][token][ts] += reward but transfers nothing and does not advance lastEarn.",
+          "Single eligible epoch: the victim's later getReward() computes reward = share \u2212 claimed = 0 \u2192 victim receives nothing.",
+          "\u22652 elapsed epochs: the running-accumulator subtraction reward -= tokenClaimedPerEpoch[ts] underflows and reverts \u2192 the victim's getReward() reverts forever (permanently bricked)."
+        ],
+        "defense_map": [
+          {
+            "defense": "earned() should be a true view (Velodrome design)",
+            "location": "CommunityRewards.earned()",
+            "classification": "missing \u2014 never runs (earned is public + mutating)",
+            "reason": "the source it was adapted from is view; here it writes state with no payout coupling",
+            "manual_check": "Confirm earned() can be made view and the claim bookkeeping moved into _getReward after the transfer"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract CommunityRewardsEarnedGrief --via-ir",
+        "poc_status": "REPRODUCED",
+        "harness_path": "forty/test/poc/CommunityRewardsEarnedGrief.t.sol",
+        "vulnerable_output": "attack(1 epoch): victim received 0; attack(2 epochs): victim getReward reverted (bricked); Base fork: victim USDC received 0",
+        "corrected_output": "victim should receive the full reward R (100e18 self-contained / 2 USDC fork) just like the control",
+        "control_case": "test_control_victimGetsReward: victim received 100000000000000000000 (full R); Base-fork control depositor received 2000000 (2 USDC)",
+        "runtime_delta": "tokenClaimedPerEpoch[victim][token][ts] set with no transfer and no lastEarn advance \u2192 victim payout 0 / revert vs full R in the control",
+        "who_loses": "every CommunityRewards depositor (their claimable reward tokens)",
+        "who_gains": "no one \u2014 pure griefing (rewards are frozen/bricked, not stolen)",
+        "asset_or_value": "accrued reward tokens (e.g. USDC) \u2014 claimable user funds",
+        "loss_type": "permanent freezing / denial of claimable funds (griefing), not redistribution",
+        "permanence": "permanent \u2014 the \u22652-epoch brick is irrecoverable without a contract upgrade",
+        "repeatability": "unbounded \u2014 any caller, any victim, repeatable at zero cost",
+        "limitations": "affects reward claims only (principal/collateral unaffected); the \u22652-epoch brick is the steady state once the system has run more than one epoch"
+      }
+    },
+    {
+      "target": "Monolith (stablecoin factory)",
+      "source": "Sherlock bug bounty (id 287)",
+      "severity": "Medium",
+      "title": "Bad-debt write-off deletes debt without burning Coin \u2192 last/only borrower leaves the stablecoin unbacked (no deficit accounting)",
+      "status": "PoC-proven candidate",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "Foundry PoC 2/2 (last-borrower \u2192 50k unbacked; control: survivor absorbs via socialization) + invariant fuzzer flagged it",
+      "poc_path": "monolith/test/poc/WriteOffUnbackedCoin.t.sol",
+      "writeup": "monolith/SUBMISSION_writeoff_unbacked_coin.md",
+      "verifier": {
+        "target": "Lender.writeOff",
+        "surface_function": "writeOff(address borrower, address to) external returns (bool writtenOff)",
+        "suspected_mechanism": "writeOff() deletes an underwater borrower's debt and socializes it onto survivors, but never burns the Coin minted against that debt and skips socialization when there is no survivor (totalDebt is read AFTER removal) \u2014 so the last/only borrower's Coin stays permanently unbacked with no deficit accounting.",
+        "mechanism_class": "missing deficit accounting + post-removal socialization basis (no Coin burn, no systemDebt variable)",
+        "impact": "When the written-off position is the last/only debt, 100% of the Coin it minted remains in circulation unbacked \u2192 stablecoin insolvency / depeg; Coin holders and Vault stakers bear the loss.",
+        "severity_recommendation": "Medium",
+        "claimed_severity": "Medium",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm reachability against live markets (collateral volatility / borrower count); judge Medium-vs-High insolvency",
+        "human_review_focus": "confirm reachability against live markets (collateral volatility / borrower count); Medium-vs-High insolvency is the residual human judgment",
+        "reachability_class": "UNPRIVILEGED_REACHABLE",
+        "privilege_required": "none (writeOff is external; also auto-fires inside liquidate)",
+        "victim_action_required": "none (Coin holders / Vault stakers are passive victims)",
+        "self_remediation": "none \u2014 unbacked Coin cannot be re-collateralized; the market is silently insolvent",
+        "operator_or_keeper_dependency": "none for the trigger; liquidations must be enabled (allowLiquidations)",
+        "attacker_controls": [
+          "which underwater borrower to write off",
+          "call timing"
+        ],
+        "attacker_does_not_control": [
+          "the collateral price / bad-debt condition itself",
+          "whether a survivor borrower exists"
+        ],
+        "function_map": [
+          {
+            "role": "user entrypoint",
+            "function": "writeOff",
+            "permission": "external (any caller); also auto-fires in liquidate",
+            "why_it_matters": "clears debt and sends collateral to the caller but burns no Coin and drops the shortfall when there is no survivor",
+            "source_location": "src/Lender.sol:379-411"
+          },
+          {
+            "role": "critical accounting",
+            "function": "decreaseDebt",
+            "permission": "internal",
+            "why_it_matters": "removes the borrower's debt from totalFreeDebt/totalPaidDebt BEFORE the socialization basis is read",
+            "source_location": "src/Lender.sol"
+          },
+          {
+            "role": "critical accounting",
+            "function": "coin.totalSupply / getDebtOf",
+            "permission": "view",
+            "why_it_matters": "post-write-off the invariant coin.totalSupply <= totalFreeDebt + totalPaidDebt is violated",
+            "source_location": "src/Lender.sol"
+          }
+        ],
+        "attacker_model": "Permissionless trigger \u2014 any EOA can call writeOff once the bad-debt condition (debt > 100 \u00d7 collateralValue) holds, reached via a collateral crash or interest ballooning an unliquidated position.",
+        "exploit_steps": [
+          "A market reaches its last/only borrower (single-collateral markets naturally wind down; small/new markets may start with one).",
+          "That borrower becomes underwater: debt > 100 \u00d7 collateralValue (sharp collateral crash or interest on an unliquidated position).",
+          "Any EOA calls Lender.writeOff(borrower, to) (or it auto-fires inside liquidate).",
+          "decreaseDebt(borrower, max) removes the debt; totalDebt is then read as 0 \u2192 the socialization branch is skipped.",
+          "No Coin is burned and no systemDebt is recorded \u2192 the Coin minted on the original borrow stays in circulation, now 0% backed \u2192 depeg."
+        ],
+        "defense_map": [
+          {
+            "defense": "burn Coin / record systemDebt on write-off",
+            "location": "Lender.writeOff",
+            "classification": "missing \u2014 no Coin burn and no deficit variable anywhere in Lender",
+            "reason": "the shortfall is silently dropped",
+            "manual_check": "Is there any systemDebt/badDebt accounting or a Coin burn on the write-off path?"
+          },
+          {
+            "defense": "socialize against totalDebt + thisBorrowerDebt (pre-removal basis)",
+            "location": "Lender.writeOff",
+            "classification": "ineffective \u2014 basis read after removal",
+            "reason": "totalDebt == 0 for the last borrower so the if-branch never runs",
+            "manual_check": "Is the redistribution basis computed before decreaseDebt?"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract WriteOffUnbackedCoin",
+        "poc_status": "REPRODUCED",
+        "harness_path": "monolith/test/poc/WriteOffUnbackedCoin.t.sol",
+        "vulnerable_output": "test_lastBorrower_writeOff_leaves_coin_unbacked: getDebtOf(alice)==0, totalFreeDebt+totalPaidDebt==0, coin.totalSupply==50000e18 (UNBACKED coin wei: 50000000000000000000000)",
+        "corrected_output": "coin.totalSupply should equal backing (totalFreeDebt + totalPaidDebt) after any write-off",
+        "control_case": "test_control_otherBorrower_absorbs_via_socialization: with a solvent survivor, bob's debt rises 50k\u2192100k and coin.totalSupply==backing is preserved",
+        "runtime_delta": "coin.totalSupply 50,000e18 with backing 0 \u2192 invariant coin.totalSupply <= totalFreeDebt + totalPaidDebt violated (also caught by invariant_coinBacking)",
+        "who_loses": "Coin (MUSD) holders and Vault stakers \u2014 they bear the insolvency / depeg",
+        "who_gains": "the written-off borrower keeps the minted Coin debt-free (collateral goes to the write-off caller)",
+        "asset_or_value": "stablecoin backing / solvency (the outstanding Coin supply)",
+        "loss_type": "protocol insolvency \u2014 unbacked stablecoin supply (not user-to-user redistribution in the last-borrower case)",
+        "permanence": "permanent until governance intervention (no on-chain recovery path for unbacked Coin)",
+        "repeatability": "per market that reaches the last-borrower bad-debt state; cascading crashes converge there",
+        "limitations": "requires the written-off position to be the last/only debt; multi-borrower markets push the loss onto survivors instead, but cascading crashes converge to the same terminal unbacked state"
+      }
+    },
+    {
+      "target": "infiniFi",
+      "source": "Cantina bug bounty",
+      "severity": "Medium",
+      "title": "ChainlinkOracle.price() accepts non-positive answers (no answer>0 check) \u2192 protocol-wide mispricing",
+      "status": "PoC-proven candidate (live-bounty rubric may argue Low)",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "byte-identical ChainlinkOracle PoC 3/3 (answer==0\u21920; answer<0\u2192~1e69; control $1\u21921e18)",
+      "poc_path": "infinifi-oracle-poc/test/ChainlinkOracleAnswerValidation.t.sol",
+      "writeup": "audits/infinifi-2026-06-cantina/output/SUBMISSION_M_chainlink_answer_validation.md",
+      "verifier": {
+        "target": "ChainlinkOracle.price",
+        "surface_function": "price() external view override returns (uint256)",
+        "suspected_mechanism": "ChainlinkOracle.price() checks staleness but never validates answer > 0, so a 0 answer values the asset at $0 and a negative answer becomes ~2^256 via the unchecked int256\u2192uint256 cast \u2014 corrupting totalAssetsValue and driving phantom iUSD mint / unjust slash / redemption DoS.",
+        "mechanism_class": "missing Chainlink answer>0 validation (unchecked int256\u2192uint256 cast; assumption stated in a comment but never enforced)",
+        "impact": "A single non-positive feed reading either mints unbacked iUSD (depeg) or unjustly slashes lockers/stakers and blocks redemptions, because price() feeds the entire valuation core.",
+        "severity_recommendation": "Medium",
+        "claimed_severity": "Medium",
+        "mechanism_confirmed": true,
+        "attacker_reachable": false,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm program severity rubric (Medium in C4/Sherlock; possibly Low under live bug-bounty); confirm a Chainlink-priced in-scope asset",
+        "primary_blocker_if_not_reportable": "Trigger is an external Chainlink feed fault, not an attacker action \u2014 severity rubric (Medium vs Low) is the human decision.",
+        "human_review_focus": "confirm the program severity rubric (Medium in C4/Sherlock; possibly Low under live bug-bounty) and that a Chainlink-priced asset is in scope",
+        "reachability_class": "EXTERNAL_FEED_FAULT_REACHABLE",
+        "privilege_required": "n/a (external feed fault, not an attacker action)",
+        "victim_action_required": "none (all iUSD holders / lockers / stakers are passive)",
+        "self_remediation": "none until the feed recovers or ORACLE_MANAGER replaces the oracle",
+        "operator_or_keeper_dependency": "ORACLE_MANAGER registers ChainlinkOracle per asset via Accounting.setOracle",
+        "attacker_controls": [
+          "n/a \u2014 no attacker action required (external feed fault)"
+        ],
+        "attacker_does_not_control": [
+          "the feed answer (set by the external Chainlink aggregator)"
+        ],
+        "function_map": [
+          {
+            "role": "critical accounting (price source)",
+            "function": "price",
+            "permission": "external view",
+            "why_it_matters": "consumed by totalAssetsValue \u2192 unaccruedYield \u2192 mint/slash; no answer>0 guard",
+            "source_location": "src/finance/oracles/ChainlinkOracle.sol:32-44"
+          },
+          {
+            "role": "critical accounting",
+            "function": "Accounting.totalAssetsValue",
+            "permission": "view",
+            "why_it_matters": "multiplies asset balances by price() \u2014 a $0 or ~2^256 price corrupts total value",
+            "source_location": "src/finance/Accounting.sol:51,62"
+          },
+          {
+            "role": "settlement / accrual",
+            "function": "YieldSharingV3._accrue / unaccruedYield",
+            "permission": "external / internal",
+            "why_it_matters": "yield>0 mints iUSD; yield<0 slashes lockers/stakers and blocks redeem",
+            "source_location": "src/finance/YieldSharingV3.sol:178-202"
+          }
+        ],
+        "attacker_model": "Not attacker-triggered \u2014 requires a Chainlink aggregator to return answer \u2264 0 (feed misconfiguration/deprecation, min-answer circuit breaker, or a faulty round); impact is protocol-wide once it occurs.",
+        "exploit_steps": [
+          "A Chainlink aggregator feeding a registered ChainlinkOracle returns a non-positive answer (deprecation, min-answer circuit breaker, or faulty round) within the heartbeat window.",
+          "price() skips any answer>0 check: answer==0 returns 0, answer<0 casts to ~2^256.",
+          "Accounting.totalAssetsValue() uses the corrupted price \u2192 total value understated ($0) or massively overstated (~2^256).",
+          "YieldSharingV3._accrue(): negative yield \u2192 _handleNegativeYield slashes lockers/stakers and gateway.redeem reverts (redemption DoS); positive yield \u2192 _handlePositiveYield mints unbacked iUSD (depeg)."
+        ],
+        "defense_map": [
+          {
+            "defense": "require(answer > 0) (and optional min/max bound)",
+            "location": "ChainlinkOracle.price()",
+            "classification": "missing \u2014 the assumption is stated in a comment at :38 but never enforced",
+            "reason": "no answer>0 check, no bound, no round-completeness check",
+            "manual_check": "Compare with the protocol's DataFeed/peer oracles that do validate; confirm the per-asset (decimalNormalization, divide) config"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract ChainlinkOracleAnswerValidation",
+        "poc_status": "REPRODUCED",
+        "harness_path": "infinifi-oracle-poc/test/ChainlinkOracleAnswerValidation.t.sol",
+        "vulnerable_output": "test_zeroAnswer_pricesAssetAtZero: price()==0; test_negativeAnswer_pricesAssetAstronomically: price() with answer==-1 (divide mode)==1157920892373161954235709850086879078532699846656405640394575840079131",
+        "corrected_output": "price() should revert on answer <= 0 (require(answer > 0, InvalidPrice(...)))",
+        "control_case": "test_positiveAnswer_ok: a $1 feed returns 1e18, confirming the only gap is the missing answer validation",
+        "runtime_delta": "answer 0 \u2192 price 0 ($0 asset); answer -1 \u2192 price ~1.16e69; control $1 \u2192 1e18",
+        "who_loses": "iUSD holders (depeg from phantom mint) and lockers/stakers (unjust slash + redemption DoS)",
+        "who_gains": "no one \u2014 value is destroyed/misallocated, not captured by an attacker",
+        "asset_or_value": "iUSD backing / asset valuation (protocol-wide)",
+        "loss_type": "protocol mispricing \u2192 unbacked mint or unjust loss / DoS (not attacker theft)",
+        "permanence": "lasts until the feed recovers or ORACLE_MANAGER replaces the oracle; minted/slashed amounts persist",
+        "repeatability": "recurs on every non-positive feed reading",
+        "limitations": "requires an external feed fault (not attacker-controllable) \u2192 likelihood Low; a live bug-bounty rubric may argue Low/QA"
+      }
+    },
+    {
+      "target": "TipRun",
+      "source": "blind",
+      "severity": "Critical",
+      "title": "Broken health-transition guard in Risk.checkValidTransition (F-1 collateral-withdraw bypass + M-1 de-risk DoS \u2014 one inverted comparison)",
+      "status": "PoC reproduced",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "Both PoCs pass: PoC_MarginBypassWithdraw (A, Critical) + PoC_DeriskDoS (B, Medium); corroborated by the repo's own test_ArithmeticEdgeCase_NegativeCollateral and test_RiskRatioComparisonLogic. F-1 and M-1 merged into one report (same root cause, Risk.sol:133).",
+      "poc_path": "reports/tiprun-2026-06-13/harness/test/PoC_MarginBypassWithdraw.t.sol",
+      "writeup": "reports/tiprun-2026-06-13/submissions/F-1/report.md",
+      "verifier": {
+        "target": "Risk.checkValidTransition",
+        "surface_function": "checkValidTransition(AccountPosition init, AccountPosition updated, uint64 acct, uint64 cpIndex)",
+        "suspected_mechanism": "The 'value must not decrease' guard is gated on initTotalRisk==0, and the ratio guard reduces to initValue<updatedValue for a risk-constant collateral withdrawal, so any account holding a position can withdraw all collateral without the maintenance-margin check reverting.",
+        "mechanism_class": "margin-check bypass (value-decrease guard gated on risk==0)",
+        "impact": "A perp user opens a leveraged position then withdraws 100% of collateral out of custody, leaving the position unbacked => protocol bad debt.",
+        "severity_recommendation": "Critical",
+        "claimed_severity": "Critical",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm severity + scope against the program's rules/trust model",
+        "human_review_focus": "severity calibration + scope",
+        "reachability_class": "UNPRIVILEGED_REACHABLE",
+        "privilege_required": "none (user-signed Withdrawal with ALLOW_WITHDRAW on own account)",
+        "victim_action_required": "none",
+        "self_remediation": "none",
+        "operator_or_keeper_dependency": "none",
+        "attacker_controls": [
+          "deposit amount",
+          "position size",
+          "withdrawal amount/timing"
+        ],
+        "attacker_does_not_control": [
+          "other users' balances"
+        ],
+        "function_map": [
+          {
+            "role": "user entrypoint",
+            "function": "WithdrawalTransLib.process",
+            "permission": "user-signed (ALLOW_WITHDRAW)",
+            "why": "reduces collateral then pays out; margin enforced by PositionManager.updatePosition->Risk.checkValidTransition",
+            "source": "src/core/balance/transactions/WithdrawalTransLib.sol"
+          },
+          {
+            "role": "margin check",
+            "function": "Risk.checkValidTransition",
+            "permission": "internal",
+            "why": "value-decrease guard only runs when initRisk==0; ratio guard ineffective for risk-constant withdrawals",
+            "source": "src/core/risk/Risk.sol"
+          }
+        ],
+        "attacker_model": "Permissionless: a user opens a leveraged position, then signs a Withdrawal for their full collateral; the margin check does not block it.",
+        "exploit_steps": [
+          "deposit 10000 collateral",
+          "open long 5000 (healthy: risk 10000*FXP^2 <= value 15000*FXP^2)",
+          "submit signed Withdrawal for full 10000 via MultiTransactionProcessor",
+          "withdrawal succeeds; collateral 0, position still long 5000, risk>value*FXP (under margin); 10000 tokens leave custody"
+        ],
+        "defense_map": [
+          {
+            "defense": "Risk.validateWithdrawal balance check",
+            "location": "Risk.sol",
+            "classification": "ineffective",
+            "reason": "checks only bucket-0 raw collateral, ignores open-position margin"
+          },
+          {
+            "defense": "checkValidTransition maintenance margin",
+            "location": "Risk.sol",
+            "classification": "ineffective",
+            "reason": "value-decrease guard skipped when initRisk>0; ratio guard doesn't fire for risk-constant withdrawal"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract PoC_MarginBypassWithdraw -vv",
+        "poc_status": "REPRODUCED",
+        "harness_path": "reports/tiprun-2026-06-13/harness/test/PoC_MarginBypassWithdraw.t.sol",
+        "vulnerable_output": "test_PoC_withdrawAllCollateralWhileHoldingPosition: collateral 10000->0, position 5000 intact, risk>value*FXP, 10000 tokens extracted",
+        "corrected_output": "withdrawal that pushes the account below maintenance margin should revert",
+        "control_case": "an account with no position (initRisk==0) is blocked from value-decreasing withdrawal by the line-136 guard",
+        "runtime_delta": "value 15000*FXP -> 5000*FXP while position/ risk unchanged; account left under maintenance margin",
+        "who_loses": "protocol / counterparties (bad debt on the unbacked position)",
+        "who_gains": "the withdrawing user (extracts margin, keeps directional exposure)",
+        "asset_or_value": "collateral (USDC) + protocol solvency",
+        "loss_type": "protocol insolvency / bad debt",
+        "permanence": "until liquidation (which the bypass also frustrates)",
+        "repeatability": "any leveraged account",
+        "limitations": "perp profile (RiskPlugin wired as CAP_MARGIN_CHECK) | MERGED REPORT: F-1 (Critical, collateral-withdraw bypass) and M-1 (Medium, de-risk DoS) are two symptoms of the same inverted comparison at Risk.sol:133; submit as one combined report.",
+        "vrt_category": "Business Logic Errors (broken maintenance-margin validation in `Risk.checkValidTransition` \u2192 protocol insolvency / fund loss)  \u00b7  Blockchain \u2192 DoS with (Unexpected) revert (Manifestation B / M-1: inverted ratio guard reverts legitimate de-risking)",
+        "cvss": [
+          {
+            "aspect": "Manifestation A (F-1, collateral-withdraw bypass)",
+            "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:H",
+            "score": 9.1,
+            "severity": "Critical"
+          },
+          {
+            "aspect": "Manifestation B (M-1, de-risk DoS / unexpected revert)",
+            "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+            "score": 5.3,
+            "severity": "Medium"
+          }
+        ]
+      },
+      "merged_findings": [
+        "F-1",
+        "M-1"
+      ]
+    },
+    {
+      "target": "TipRun",
+      "source": "blind",
+      "severity": "High",
+      "title": "Risk-segment freeze: insolvent short becomes un-liquidatable (liquidation lock)",
+      "status": "PoC reproduced",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "2/2 PoC tests pass (long-freeze + short liquidation-dodge)",
+      "poc_path": "reports/tiprun-2026-06-13/harness/test/PoC_RiskSegmentFreeze.t.sol",
+      "writeup": "reports/tiprun-2026-06-13/submissions/GeneralConfig/report.md",
+      "verifier": {
+        "target": "GeneralConfig.getRiskFactor",
+        "surface_function": "getRiskFactor(uint64 assetId, int256 absBalance, int256 priceFxp)",
+        "suspected_mechanism": "getRiskFactor returns (0,false) when notional exceeds the top risk segment; Risk.getAssetValueAndRisk then reverts 'Risk: no risk' instead of clamping, freezing every position op (incl. liquidation) on the account.",
+        "mechanism_class": "revert-instead-of-clamp on over-cap notional => account freeze",
+        "impact": "A short sized so its maintenance-margin breach is above the segment cap becomes simultaneously insolvent and un-liquidatable; attacker walks from the loss => protocol bad debt.",
+        "severity_recommendation": "High",
+        "claimed_severity": "High",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm severity + scope against the program's rules/trust model",
+        "human_review_focus": "severity calibration + scope",
+        "reachability_class": "UNPRIVILEGED_REACHABLE",
+        "privilege_required": "none (open a short; price rises drive notional past the cap)",
+        "victim_action_required": "none",
+        "self_remediation": "none",
+        "operator_or_keeper_dependency": "none",
+        "attacker_controls": [
+          "short size (so the cap breach coincides with insolvency)"
+        ],
+        "attacker_does_not_control": [
+          "the oracle price path"
+        ],
+        "function_map": [
+          {
+            "role": "risk valuation",
+            "function": "Risk.getAssetValueAndRisk",
+            "permission": "internal",
+            "why": "require(riskOk) reverts when notional>top segment",
+            "source": "src/core/risk/Risk.sol"
+          },
+          {
+            "role": "risk factor",
+            "function": "GeneralConfig.getRiskFactor",
+            "permission": "view",
+            "why": "returns (0,false) past the last segment",
+            "source": "src/core/config/GeneralConfig.sol"
+          }
+        ],
+        "attacker_model": "Permissionless: open a short sized so that, by the time it is underwater, its notional exceeds the top risk segment => every liquidation/resize reverts.",
+        "exploit_steps": [
+          "open short 3000 @ price 1 (notional 3000 <= cap 10000, healthy)",
+          "price rises to 4 (short underwater; equity = 10000 - 4*3000 = -2000)",
+          "notional 12000 > cap 10000 => getRiskFactor (0,false) => Risk reverts 'Risk: no risk'",
+          "every liquidation/resize of the insolvent short reverts => un-liquidatable"
+        ],
+        "defense_map": [
+          {
+            "defense": "tiered risk segments",
+            "location": "GeneralConfig",
+            "classification": "ineffective",
+            "reason": "a finite top segment (normal config) makes over-cap notional revert instead of clamping"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract PoC_RiskSegmentFreeze -vv",
+        "poc_status": "REPRODUCED",
+        "harness_path": "reports/tiprun-2026-06-13/harness/test/PoC_RiskSegmentFreeze.t.sol",
+        "vulnerable_output": "test_PoC_shortDodgesLiquidationByFreezing: short 3000 @price4 equity -2000 (insolvent) yet getAccountPositionStatus / resize / liquidation all revert 'Risk: no risk'",
+        "corrected_output": "risk factor should clamp to the top tier; an under-margin account must remain liquidatable",
+        "control_case": "long-freeze variant: account frozen, withdrawal + liquidation revert once notional>cap",
+        "runtime_delta": "account reaches negative equity and is permanently un-liquidatable until price falls back under the cap",
+        "who_loses": "protocol / LPs (unrecoverable bad debt)",
+        "who_gains": "the short holder (dodges liquidation)",
+        "asset_or_value": "protocol solvency",
+        "loss_type": "protocol insolvency / bad debt + fund freeze",
+        "permanence": "until price falls under the cap or admin reconfigures",
+        "repeatability": "any account on a pumping asset",
+        "limitations": "requires a finite top risk segment (the normal tiered-margin setup)",
+        "vrt_category": "Blockchain \u2192 DoS with (Unexpected) revert (`getRiskFactor` returns `(0,false)` past the top risk segment \u2192 `require(riskOk,\"Risk: no risk\")` reverts \u2192 account frozen, including un-liquidatable \u2192 bad debt)",
+        "cvss": [
+          {
+            "aspect": "Account freeze / liquidation-lock",
+            "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H",
+            "score": 7.4,
+            "severity": "High"
+          }
+        ]
+      }
+    },
+    {
+      "target": "TipRun",
+      "source": "blind",
+      "severity": "Medium",
+      "title": "Inverted ratio guard blocks de-risking of an unhealthy account (liveness/DoS) [MERGED INTO F-1]",
+      "status": "PoC reproduced",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "PoC PoC_DeriskDoS passes. SAME ROOT CAUSE as F-1 (inverted comparison at Risk.sol:133) \u2014 submitted as Manifestation B of the combined F-1 report, not a separate submission.",
+      "poc_path": "reports/tiprun-2026-06-13/harness/test/PoC_DeriskDoS.t.sol",
+      "writeup": "reports/tiprun-2026-06-13/submissions/F-1/report.md",
+      "verifier": {
+        "target": "Risk.checkValidTransition",
+        "surface_function": "checkValidTransition(...) (ratio guard ~line 133)",
+        "suspected_mechanism": "In the unhealthy branch the ratio guard reverts when the value/risk ratio IMPROVES, so an under-margin account cannot reduce its position to recover unless it reaches full health in one step.",
+        "mechanism_class": "inverted value/risk ratio guard (liveness)",
+        "impact": "An underwater account cannot incrementally de-risk (partial orderbook fills) => stranded / forced deeper toward insolvency.",
+        "severity_recommendation": "Medium",
+        "claimed_severity": "Medium",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm severity + scope against the program's rules/trust model",
+        "human_review_focus": "severity calibration + scope",
+        "reachability_class": "UNPRIVILEGED_REACHABLE",
+        "privilege_required": "none",
+        "victim_action_required": "none",
+        "self_remediation": "none",
+        "operator_or_keeper_dependency": "none",
+        "attacker_controls": [
+          "partial close size"
+        ],
+        "attacker_does_not_control": [
+          "available counterparty fill"
+        ],
+        "function_map": [
+          {
+            "role": "margin check",
+            "function": "Risk.checkValidTransition",
+            "permission": "internal",
+            "why": "reverts on ratio improvement in the unhealthy branch",
+            "source": "src/core/risk/Risk.sol"
+          }
+        ],
+        "attacker_model": "Any underwater account attempting a fair partial de-risk hits the inverted guard.",
+        "exploit_steps": [
+          "reach an under-margin account (collateral 2000 / long 5000) via F-1",
+          "attempt a fair partial de-risk: sell 500 synthetic for 500 collateral (risk down, still under margin)",
+          "reverts 'PM: val/risk dec' \u2014 only a full de-risk to health is allowed"
+        ],
+        "defense_map": [
+          {
+            "defense": "checkSmallerInSyntheticHoldings allows reductions",
+            "location": "Risk.sol",
+            "classification": "ineffective",
+            "reason": "reduction passes that check then is reverted by the inverted ratio guard"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract PoC_DeriskDoS -vv",
+        "poc_status": "REPRODUCED",
+        "harness_path": "reports/tiprun-2026-06-13/harness/test/PoC_DeriskDoS.t.sol",
+        "vulnerable_output": "test_PoC_cannotPartiallyDeriskUnhealthyAccount: partial de-risk reverts 'PM: val/risk dec'; full de-risk to health succeeds",
+        "corrected_output": "risk-reducing transitions on an unhealthy account should be allowed",
+        "control_case": "a single-step de-risk to full health succeeds (early healthy-return)",
+        "runtime_delta": "position cannot be reduced incrementally; stays at 5000",
+        "who_loses": "underwater users (cannot self-heal)",
+        "who_gains": "n/a (liveness)",
+        "asset_or_value": "position recoverability",
+        "loss_type": "liveness / DoS",
+        "permanence": "until a single full-health de-risk is possible",
+        "repeatability": "any underwater account",
+        "limitations": "reached via F-1 (or any unhealthy state) | MERGED INTO F-1: not a separate root cause; documented as Manifestation B in the combined F-1 report. Do not submit separately (would be deduped).",
+        "vrt_category": "Blockchain \u2192 DoS with (Unexpected) revert (inverted ratio guard reverts legitimate de-risking; merged into F-1 \u2014 same root cause)",
+        "cvss": [
+          {
+            "aspect": "de-risk DoS / unexpected revert (Manifestation B of F-1)",
+            "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+            "score": 5.3,
+            "severity": "Medium"
+          }
+        ]
+      },
+      "merged_into": "F-1"
+    },
+    {
+      "target": "TipRun",
+      "source": "blind",
+      "severity": "Medium",
+      "title": "Oracle: no read-side staleness check and the monotonic-update guard is commented out",
+      "status": "PoC reproduced",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "PoC passes",
+      "poc_path": "reports/tiprun-2026-06-13/harness/test/PoC_OracleStaleness.t.sol",
+      "writeup": "reports/tiprun-2026-06-13/submissions/Oracle/report.md",
+      "verifier": {
+        "target": "Oracle.updatePrice",
+        "surface_function": "updatePrice(uint64 assetId, OraclePrice newPrice) / getPrice(uint64)",
+        "suspected_mechanism": "updatePrice's monotonic timestamp guard is commented out and getPrice has no max-age, so stale or rolled-back prices are used by Risk's margin math indefinitely.",
+        "mechanism_class": "missing staleness + monotonic guard",
+        "impact": "Margin/liquidation decisions run on stale or rolled-back prices.",
+        "severity_recommendation": "Medium",
+        "claimed_severity": "Medium",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm severity + scope against the program's rules/trust model",
+        "human_review_focus": "severity calibration + scope",
+        "reachability_class": "PRIVILEGED_ONLY_REACHABLE",
+        "privilege_required": "privileged (price feeder); the missing guard is contract-level",
+        "victim_action_required": "none",
+        "self_remediation": "none",
+        "operator_or_keeper_dependency": "none",
+        "attacker_controls": [
+          "price tick timing/ordering (operator)"
+        ],
+        "attacker_does_not_control": [
+          "other state"
+        ],
+        "function_map": [
+          {
+            "role": "oracle write",
+            "function": "Oracle.updatePrice",
+            "permission": "authorized caller",
+            "why": "monotonic guard commented out",
+            "source": "src/core/oracle/Oracle.sol"
+          },
+          {
+            "role": "oracle read",
+            "function": "Oracle.getPrice",
+            "permission": "view",
+            "why": "exist=timestamp>0, no max-age",
+            "source": "src/core/oracle/Oracle.sol"
+          }
+        ],
+        "attacker_model": "Operator delay/failure or a reordered/rolled-back price tick yields stale pricing in margin.",
+        "exploit_steps": [
+          "set price 100 @ recent ts",
+          "updatePrice price 1 @ OLDER ts => accepted (no monotonic guard)",
+          "getPrice returns rolled-back 1; warp 10 years => still exist=true (no staleness)"
+        ],
+        "defense_map": [
+          {
+            "defense": "OraclePriceTickTransLib ingestion (quorum+median+<=1day)",
+            "location": "OraclePriceTickTransLib.sol",
+            "classification": "ineffective",
+            "reason": "bounds ingestion only; stored price has no read freshness and can be reordered"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract PoC_OracleStaleness -vv",
+        "poc_status": "REPRODUCED",
+        "harness_path": "reports/tiprun-2026-06-13/harness/test/PoC_OracleStaleness.t.sol",
+        "vulnerable_output": "test_PoC_priceCanBeRolledBackAndIsNeverStale: older-timestamp price accepted; 10-year-old price still exist=true",
+        "corrected_output": "reject non-monotonic timestamps and enforce a max-age on read",
+        "control_case": "n/a",
+        "runtime_delta": "stored price rolled back to an older value; never flagged stale",
+        "who_loses": "users mispriced/mis-liquidated on stale data",
+        "who_gains": "whoever benefits from the stale price",
+        "asset_or_value": "margin/liquidation correctness",
+        "loss_type": "accounting corruption",
+        "permanence": "until a fresh price is pushed",
+        "repeatability": "per stale/reordered tick",
+        "limitations": "bounded by operator liveness in the happy path",
+        "vrt_category": "Insufficient Cryptography / Insecure Design \u2192 Business Logic Errors (oracle price consumed with no read-side staleness check; monotonic-update guard disabled)  \u00b7  Sensitive Data / data-authenticity: Insufficient Verification of Data Authenticity",
+        "cvss": [
+          {
+            "aspect": "Stale-price acceptance",
+            "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:L",
+            "score": 4.8,
+            "severity": "Medium"
+          }
+        ]
+      }
+    },
+    {
+      "target": "TipRun",
+      "source": "blind",
+      "severity": "Medium",
+      "title": "Liquidate/Deleverage have no on-chain maintenance-margin precondition",
+      "status": "PoC reproduced",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "PoC liquidates a provably-healthy account",
+      "poc_path": "reports/tiprun-2026-06-13/harness/test/PoC_NoLiquidatablePrecondition.t.sol",
+      "writeup": "reports/tiprun-2026-06-13/submissions/LiquidateTransLib/report.md",
+      "verifier": {
+        "target": "LiquidateTransLib.process",
+        "surface_function": "LiquidateTransLib.process(...) / DeleverageTransLib.process(...)",
+        "suspected_mechanism": "Liquidate/Deleverage never check the target is below maintenance margin before force-resizing its position; deleverage only checks the signer is registered (no signature/nonce).",
+        "mechanism_class": "missing liquidatable precondition",
+        "impact": "A faulty/malicious operator can force-trade/seize positions of healthy, fully-collateralized accounts.",
+        "severity_recommendation": "Medium",
+        "claimed_severity": "Medium",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm severity + scope against the program's rules/trust model",
+        "human_review_focus": "severity calibration + scope",
+        "reachability_class": "PRIVILEGED_ONLY_REACHABLE",
+        "privilege_required": "privileged (onlyTxBatcher); operator-trust dependent",
+        "victim_action_required": "none",
+        "self_remediation": "none",
+        "operator_or_keeper_dependency": "none",
+        "attacker_controls": [
+          "which account, price, amounts (operator)"
+        ],
+        "attacker_does_not_control": [
+          "a health gate (absent)"
+        ],
+        "function_map": [
+          {
+            "role": "liquidation",
+            "function": "LiquidateTransLib.process",
+            "permission": "onlyTxBatcher",
+            "why": "no health check before force-resize",
+            "source": "src/perp/transactions/LiquidateTransLib.sol"
+          },
+          {
+            "role": "deleverage",
+            "function": "DeleverageTransLib.process",
+            "permission": "onlyTxBatcher",
+            "why": "only checkSigner; no sig/nonce/health",
+            "source": "src/perp/transactions/DeleverageTransLib.sol"
+          }
+        ],
+        "attacker_model": "A malicious/buggy sequencer liquidates or deleverages a healthy account.",
+        "exploit_steps": [
+          "target is healthy (100 collateral, tiny long 1; risk<=value*FXP)",
+          "submit TYPE_LIQUIDATE for the target",
+          "liquidation succeeds; healthy account's position force-closed (no 'not liquidatable' guard)"
+        ],
+        "defense_map": [
+          {
+            "defense": "onlyTxBatcher gating",
+            "location": "plugins",
+            "classification": "mitigating-only",
+            "reason": "reduces to operator trust; on-chain protection of healthy users is absent"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract PoC_NoLiquidatablePrecondition -vv",
+        "poc_status": "REPRODUCED",
+        "harness_path": "reports/tiprun-2026-06-13/harness/test/PoC_NoLiquidatablePrecondition.t.sol",
+        "vulnerable_output": "test_PoC_canLiquidatePerfectlyHealthyAccount: healthy account (risk<=value*FXP) force-liquidated, position zeroed",
+        "corrected_output": "require the target to be below maintenance margin before liquidation/deleverage",
+        "control_case": "n/a",
+        "runtime_delta": "healthy target's position force-closed; collateral settled against it",
+        "who_loses": "healthy users (seized positions)",
+        "who_gains": "liquidator/operator",
+        "asset_or_value": "user positions",
+        "loss_type": "fund loss (trust-dependent)",
+        "permanence": "immediate",
+        "repeatability": "any account (operator-driven)",
+        "limitations": "operator-trust dependent (onlyTxBatcher); severity per program trust model",
+        "vrt_category": "Unsecure Design \u2192 Violation of Secure Design Principles (Liquidate/Deleverage have no on-chain maintenance-margin precondition; correctness relies entirely on the trusted off-chain batcher)",
+        "cvss": [
+          {
+            "aspect": "Trusted-batcher precondition gap",
+            "vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:N/I:H/A:N",
+            "score": 4.9,
+            "severity": "Medium"
+          }
+        ]
+      }
+    },
+    {
+      "target": "TipRun",
+      "source": "blind",
+      "severity": "Medium",
+      "title": "setSyntheticAssetsInfo does not bump configVersion, defeating the stale-config batch guard",
+      "status": "PoC reproduced",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "PoC: configVersion unchanged after setSyntheticAssetsInfo",
+      "poc_path": "reports/tiprun-2026-06-13/harness/test/PoC_ConfigVersionNotBumped.t.sol",
+      "writeup": "reports/tiprun-2026-06-13/submissions/GeneralConfig/report.md",
+      "verifier": {
+        "target": "GeneralConfig.setSyntheticAssetsInfo",
+        "surface_function": "setSyntheticAssetsInfo(uint64[] assetIds, SyntheticAssetInfo[] infos)",
+        "suspected_mechanism": "setSyntheticAssetsInfo (risk segments, oracle signers, quorum) has its incrConfigVersionInternal() commented out, while every other mutator bumps it, so the MultiTransactionProcessor stale-config guard never fires for these changes.",
+        "mechanism_class": "missing config-version bump",
+        "impact": "In-flight user txs execute under changed risk/oracle params without the version-mismatch protection.",
+        "severity_recommendation": "Medium",
+        "claimed_severity": "Medium",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm severity + scope against the program's rules/trust model",
+        "human_review_focus": "severity calibration + scope",
+        "reachability_class": "PRIVILEGED_ONLY_REACHABLE",
+        "privilege_required": "admin (owner/batchConfig)",
+        "victim_action_required": "none",
+        "self_remediation": "none",
+        "operator_or_keeper_dependency": "none",
+        "attacker_controls": [
+          "config change (admin)"
+        ],
+        "attacker_does_not_control": [
+          "the version guard (skipped)"
+        ],
+        "function_map": [
+          {
+            "role": "config",
+            "function": "GeneralConfig.setSyntheticAssetsInfo",
+            "permission": "owner/batchConfig",
+            "why": "incr commented out",
+            "source": "src/core/config/GeneralConfig.sol"
+          },
+          {
+            "role": "batch guard",
+            "function": "MultiTransactionProcessor.processMultiTransactions",
+            "permission": "onlyTxBatcher",
+            "why": "reverts only if configVersion<current",
+            "source": "src/MultiTransactionProcessor.sol"
+          }
+        ],
+        "attacker_model": "Admin changes risk/oracle params; the version guard users rely on doesn't trigger.",
+        "exploit_steps": [
+          "record configVersion",
+          "setSyntheticAssetsInfo (change risk segment) => version unchanged",
+          "control: setMaxFundingRate => version increments by 1"
+        ],
+        "defense_map": [
+          {
+            "defense": "config-version guard",
+            "location": "MultiTransactionProcessor.sol",
+            "classification": "ineffective",
+            "reason": "relies on the version being bumped; this path skips the bump"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract PoC_ConfigVersionNotBumped -vv",
+        "poc_status": "REPRODUCED",
+        "harness_path": "reports/tiprun-2026-06-13/harness/test/PoC_ConfigVersionNotBumped.t.sol",
+        "vulnerable_output": "test_PoC_setSyntheticAssetsInfo_doesNotBumpConfigVersion: configVersion unchanged after setSyntheticAssetsInfo; setMaxFundingRate increments it",
+        "corrected_output": "setSyntheticAssetsInfo should call incrConfigVersionInternal() (parity with other setters)",
+        "control_case": "setMaxFundingRate bumps configVersion by 1",
+        "runtime_delta": "configVersion stays V after a risk-param change (should be V+1)",
+        "who_loses": "users whose signed batches execute under changed params",
+        "who_gains": "n/a",
+        "asset_or_value": "config-change protection",
+        "loss_type": "accounting corruption / safety-mechanism bypass",
+        "permanence": "per unbumped config change",
+        "repeatability": "every setSyntheticAssetsInfo call",
+        "limitations": "admin-triggered",
+        "vrt_category": "Business Logic Errors (`setSyntheticAssetsInfo` does not bump `configVersion`; signature/cache validation keyed on the version can pass against stale config)",
+        "cvss": [
+          {
+            "aspect": "Missing config-version increment",
+            "vector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:N/I:L/A:N",
+            "score": 2.2,
+            "severity": "Low"
+          }
+        ]
+      }
+    },
+    {
+      "target": "Cartha",
+      "source": "blind",
+      "severity": "High",
+      "title": "Stale/zero-TVL share mispricing lets a depositor steal existing holders' PnL",
+      "status": "PoC reproduced",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "PoC passes; reachability confirmed via 0xMarkets getMarketTokenPrice (X-1)",
+      "poc_path": "reports/cartha-2026-06-13/harness/test/PoC_StaleTvlMint.t.sol",
+      "writeup": "reports/cartha-2026-06-13/submissions/CarthaVault/report.md",
+      "verifier": {
+        "target": "CarthaVault._convertToShares",
+        "surface_function": "_convertToShares(uint256 assets) / _totalValueLocked()",
+        "suspected_mechanism": "_convertToShares falls back to the first-deposit 1e12-offset rate whenever _totalValueLocked() reads 0 even when totalSupply>0; gmValueInUsdc returns 0 when the 0xM GM price is <=0, so idle~0 + gmPrice<=0 with real GM value => TVL reads 0 => a permissionless depositAndLock mints at the stale rate and dilutes existing holders.",
+        "mechanism_class": "first-deposit-rate fallback at TVL==0 with supply>0",
+        "impact": "Permissionless theft of existing depositors' accrued PnL during a zero-TVL read.",
+        "severity_recommendation": "High",
+        "claimed_severity": "High",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "reachability confirmed: 0xMarkets MarketUtils.getMarketTokenPrice returns <=0 when poolValue<=0",
+        "human_review_focus": "severity calibration + scope",
+        "reachability_class": "UNPRIVILEGED_REACHABLE",
+        "privilege_required": "none (depositAndLock)",
+        "victim_action_required": "none",
+        "self_remediation": "none",
+        "operator_or_keeper_dependency": "none",
+        "attacker_controls": [
+          "deposit amount/timing during a TVL==0 read"
+        ],
+        "attacker_does_not_control": [
+          "the GM oracle value"
+        ],
+        "function_map": [
+          {
+            "role": "share math",
+            "function": "CarthaVault._convertToShares",
+            "permission": "internal",
+            "why": "TVL==0 -> first-deposit 1e12 branch with supply>0",
+            "source": "src/CarthaVault.sol"
+          },
+          {
+            "role": "GM value",
+            "function": "PoolDeployLib.gmValueInUsdc",
+            "permission": "view",
+            "why": "returns 0 when 0xM gmPrice<=0",
+            "source": "src/libraries/PoolDeployLib.sol"
+          }
+        ],
+        "attacker_model": "Permissionless depositor during a TVL==0 read (idle deployed + 0xM GM price <=0 while real GM value exists).",
+        "exploit_steps": [
+          "victim deposits 100k; keeper deploys to 0xM (idle->0); GM grows to 150k",
+          "0xM GM price reads <=0 => gmValueInUsdc=0 => _totalValueLocked()==0 (supply>0)",
+          "attacker depositAndLock(100k) mints at the 1e12 first-deposit rate",
+          "GM price recovers => TVL 250k; attacker claims 125k for 100k; victim 150k->125k"
+        ],
+        "defense_map": [
+          {
+            "defense": "1e12 decimal offset",
+            "location": "CarthaVault.sol",
+            "classification": "ineffective",
+            "reason": "blunts donation rounding-to-zero, not the TVL==0 first-deposit fallback"
+          },
+          {
+            "defense": "lock + cooldown",
+            "location": "CarthaVault.sol",
+            "classification": "ineffective",
+            "reason": "dilution is locked in at mint time; realized after lock"
+          },
+          {
+            "defense": "assumed GM price > 0",
+            "location": "PoolDeployLib.sol",
+            "classification": "ineffective",
+            "reason": "0xM getMarketTokenPrice is signed int256 and returns 0/negative by design when poolValue<=0 (confirmed in 0xM source)"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract PoC_StaleTvlMint -vv",
+        "poc_status": "REPRODUCED",
+        "harness_path": "reports/cartha-2026-06-13/harness/test/PoC_StaleTvlMint.t.sol",
+        "vulnerable_output": "test_PoC_staleTvlZeroRead_stealsPnL: attacker deposited 100000 -> claim 125000; victim before 150000 -> after 125000 (25k stolen)",
+        "corrected_output": "do not fall back to first-deposit rate when totalSupply>0; treat gmPrice<=0/stale as a hard error",
+        "control_case": "with a correct live price the attacker would mint ~0.667*shares and capture no PnL",
+        "runtime_delta": "attacker claim 100k->125k; victim 150k->125k (25k transferred)",
+        "who_loses": "existing Cartha depositors (accrued PnL)",
+        "who_gains": "the stale-rate depositor",
+        "asset_or_value": "vault share value (USDC)",
+        "loss_type": "fund loss (PnL theft)",
+        "permanence": "realized on the attacker's release after lock",
+        "repeatability": "each TVL==0 window with PnL",
+        "limitations": "needs the child's idle ~fully deployed and 0xM gmPrice<=0 (confirmed reachable, see X-1)",
+        "vrt_category": "Business Logic Errors (ERC-4626 share mispricing: `_convertToShares` falls back to the first-deposit 1e12 rate when `_totalValueLocked()` reads 0 while `totalSupply>0` and value exists \u2192 deposit at a stale rate steals existing holders' value)  \u00b7  Blockchain \u2192 Transaction-Ordering Dependence (TOD) / Front Running (JIT deposit timed to the zero-TVL window)",
+        "cvss": [
+          {
+            "aspect": "Stale/zero-TVL share theft",
+            "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:N/I:H/A:N",
+            "score": 6.8,
+            "severity": "Medium"
+          }
+        ]
+      }
+    },
+    {
+      "target": "Cartha",
+      "source": "blind",
+      "severity": "Low",
+      "title": "Child shares transferable post-lock but only redeemable via a Position (orphan shares)",
+      "status": "PoC reproduced",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "PoC: transferred shares non-redeemable",
+      "poc_path": "reports/cartha-2026-06-13/harness/test/PoC_OrphanShares.t.sol",
+      "writeup": "reports/cartha-2026-06-13/submissions/CarthaVault/report.md",
+      "verifier": {
+        "target": "CarthaVault._update",
+        "surface_function": "_update(from,to,value) / release / requestRelease",
+        "suspected_mechanism": "CarthaVault has no position-independent redeem; redemption is position-bound, but shares are ERC20-transferable once the lock expires, so shares moved to a no-position address are non-redeemable yet still counted in totalSupply.",
+        "mechanism_class": "transferable-but-position-bound-redeem (orphan shares)",
+        "impact": "A holder who acquires child shares by transfer cannot redeem them; orphan supply dilutes share price.",
+        "severity_recommendation": "Low",
+        "claimed_severity": "Low",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm severity + scope against the program's rules/trust model",
+        "human_review_focus": "severity calibration + scope",
+        "reachability_class": "UNPRIVILEGED_REACHABLE",
+        "privilege_required": "none",
+        "victim_action_required": "none",
+        "self_remediation": "none",
+        "operator_or_keeper_dependency": "none",
+        "attacker_controls": [
+          "transfer shares post-lock"
+        ],
+        "attacker_does_not_control": [
+          "recipient's (absent) position"
+        ],
+        "function_map": [
+          {
+            "role": "transfer gate",
+            "function": "CarthaVault._update",
+            "permission": "internal",
+            "why": "blocks transfer only while locked",
+            "source": "src/CarthaVault.sol"
+          },
+          {
+            "role": "redeem",
+            "function": "CarthaVault.release/requestRelease",
+            "permission": "position-bound",
+            "why": "no redeem-by-shares; reverts without a Position",
+            "source": "src/CarthaVault.sol"
+          }
+        ],
+        "attacker_model": "Any holder transfers/sells child shares after the lock expires.",
+        "exploit_steps": [
+          "user1 deposits+locks -> shares + Position",
+          "lock expires -> shares transferable",
+          "user1 transfers half its shares to user3 (no Position)",
+          "user3 holds shares but release/requestRelease revert (no Position); no redeem(shares) exists -> shares stuck; totalSupply unchanged"
+        ],
+        "defense_map": [
+          {
+            "defense": "lock-gated _update",
+            "location": "CarthaVault.sol",
+            "classification": "ineffective",
+            "reason": "only blocks while locked; post-lock transfers create orphan shares"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract PoC_OrphanShares -vv",
+        "poc_status": "REPRODUCED",
+        "harness_path": "reports/cartha-2026-06-13/harness/test/PoC_OrphanShares.t.sol",
+        "vulnerable_output": "test_PoC_transferredSharesAreOrphaned: user3 holds 50000e21 transferred shares; release/requestRelease revert (no Position); totalSupply unchanged",
+        "corrected_output": "make shares soulbound to the position, or add a position-independent redeem(shares)",
+        "control_case": "the original holder (with a Position) can still release up to balanceOf",
+        "runtime_delta": "orphaned 50k*1e12 shares non-redeemable, still in totalSupply",
+        "who_loses": "anyone acquiring child shares by transfer",
+        "who_gains": "remaining holders (orphan supply dilution)",
+        "asset_or_value": "child vault shares",
+        "loss_type": "fund freeze / user fund loss",
+        "permanence": "permanent for the orphan holder",
+        "repeatability": "per post-lock transfer",
+        "limitations": "footgun; matters if child shares are traded",
+        "vrt_category": "Business Logic Errors (child shares are ERC-20-transferable after lock but redemption is position-bound \u2192 transferred shares are not redeemable by the recipient)",
+        "cvss": [
+          {
+            "aspect": "Transferable-but-bound shares",
+            "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N",
+            "score": 3.7,
+            "severity": "Low"
+          }
+        ]
+      }
+    }
+  ],
+  "targets": [
+    {
+      "target": "Morpho Midnight (morpho-org/midnight @ 7538c438)",
+      "source": "Cantina competition (live, $400k, ends 2026-06-12)",
+      "verdict": "honest_negative",
+      "notes": "GENUINELY UNAUDITED + our deepest class (selected per loop directive 'unaudited targets that match our system'). Novel P2P fixed-rate ORDERBOOK lending by Morpho Association: zero-coupon 'units' (1 unit = 1 loan token at maturity), tick-priced maker offers, permissionless markets, up to 128 collaterals/market (16 active/borrower), bad-debt socialization via lossFactor slashing, settlement + continuous fees, transient liquidation-lock, multicall via delegatecall, flashLoan. Public repo (forge-std only dep), 2495 LOC, solc 0.8.34, via_ir + evm_version=osaka (needs clz/mcopy/tload \u2014 forge 1.5.1). Sandbox CLEAN (26 files). READ in full: Midnight.sol (981, core), ConstantsLib, UtilsLib. Liquidation/badDebt/maxLif/LLTV math is copied VERBATIM from Morpho Blue (maxLif=WAD/(1-cursor*(1-lltv)), LLTV tiers 0.385..1.0) \u2014 lower EV (well-audited lineage); self-liquidation + badDebt-realize-with-0-seize are documented/intended, not a leak (mirror Morpho). HIGHEST-EV NOVEL SURFACE (least Morpho-derived) = the orderbook take() netting accounting (lines 337-479): buyer credit / seller debt / units / pendingFee / settlementFee netting, claimableSettlementFee += buyerAssets-sellerAssets, P2P direct payer->receiver transfer (contract escrows only fees+repayments+collateral). LEADS for next iterations: (1) build a conservation invariant \u2014 contract loanToken balance >= claimableSettlementFee + \u03a3 withdrawable; collateral balance >= \u03a3 positions.collateral; (2) take() fee/credit/debt rounding + the documented 'settlement fee has no defined rounding direction => fee manipulation on cheap-gas chains' + 'pendingFee rounded in favor of user => fee manipulation' self-flagged risks; (3) lossFactor/continuousFeeCredit slashing precision under repeated badDebt; (4) MidnightBundles periphery (399, UNREAD) + ratifiers/EcrecoverAuthorizer signature paths (UNREAD). CONSERVATION HARNESS BUILT + RUN (midnight-scan/test/invariant/MidnightConservation.t.sol, reuses repo BaseTest/dummyRatifier/Oracle; handler fuzzes open/repay/withdraw/withdrawColl/setPrice/liquidate/realizeBadDebt(0,0)/accrue/claimSettlement/claimContinuous/setContinuousFee/warp \u2014 all execute, 0 handler reverts): invariant_loanSolvency (loanBal >= claimableSettlementFee + withdrawable) PASS 256x250=64000 calls; invariant_collateralSolvency (collatBal >= \u03a3 positions.collateral) PASS 64000; invariant_unitsConsistency one-sided drain bound (totalUnits >= \u03a3 liveCredit + continuousFeeCredit) PASS 64000. The equality version initially diverged ~0.06% in the SAFE direction (totalUnits > backed credit) = the DOCUMENTED loss-accounting rounding against lenders (lossFactor rounded up; credit rounds down), not a drain. VERDICT this surface = honest negative: core take/repay/withdraw/liquidate/bad-debt-slashing accounting is conservation-sound under heavy fuzz. Remaining EV for later loop iterations: MidnightBundles periphery (UNREAD), ratifier/EcrecoverAuthorizer signature paths (UNREAD), multi-market shared-loanToken withdrawable isolation, settlement-fee dust + the no-op-take consumed-cap edge (testBugBuyMaxAssetsBypass). PERIPHERY + SIGNATURE SURFACE REVIEWED (iter2) ALSO CLEAN: MidnightBundles = stateless caller-funded router (no funds held, referral fee from caller's own assets, amounts reconcile exactly, auth = msg.sender+bundler both authorized-by-taker); EcrecoverAuthorizer = per-authorizer incrementing nonce + deadline + chainid/address domain (replay-safe); EcrecoverRatifier+HashLib = Seaport-style signed offer-merkle-tree HEIGHT-BOUND via offerTreeTypeHash(proof.length) (defeats leaf/internal-node 2nd-preimage) + maker bound into leaf + per-(maker,root) cancel; testBugBuyMaxAssetsBypass = documented no-op price<1 rounding (self-harm not victim attack). VERDICT: comprehensive honest negative across ~entire 2495 LOC (core+libs+bundler+ratifiers) + conservation harness PASS 64k calls/invariant; Morpho-Association-grade, no High. 14th consecutive reputable-target honest negative. Nothing submitted."
+    },
+    {
+      "target": "infiniFi",
+      "source": "Cantina",
+      "verdict": "candidate_finding",
+      "notes": "Core + gateway + CoWSwap + Pendle honest-negative; oracle answer>0 Medium candidate; P-01 ERC4626 inflation downgraded to Informational by live-state check (siUSD already seeded); _disableAsset value-blind = Low."
+    },
+    {
+      "target": "Rheo very-liquid-vaults",
+      "source": "Cantina",
+      "verdict": "honest_negative",
+      "notes": "yearn-v3 meta-ERC4626; dead-shares + defensive rounding; _decimalsOffset never overridden = Low/QA note only."
+    },
+    {
+      "target": "Makina (makina-core @ fe2d7e28)",
+      "source": "Cantina bug bounty (live; cross-chain investment-strategy vault)",
+      "verdict": "honest_negative",
+      "notes": "FULL-COVERAGE audit \u2014 all 35 non-interface src/+src-ir contracts examined. Hub Machine (vault: deposit/redeem/share-price) + spoke Calibers running governance-Merkle-allowlisted Weiroll strategies; spoke AUM aggregated via Wormhole CCQ; capital via Across/CCTP/LayerZero bridge adapters. NO permissionless fund-loss. Only permissionless entries are sound: updateSpokeCaliberAccountingData (CCQ verified vs CURRENT guardian set + response bound to registered caliberMailbox addr+selector via validateEthCallRecord + monotonic/non-stale timestamps) and PreDepositVault deposit/redeem (OZ virtual-offset, donation-unprofitable). Defense-in-depth confirmed: Weiroll sandbox (merkle leaf commits commands+FIXED state slots; loss-bounds/cooldown/staleness bound the operator), double-entry cross-chain bridge accounting (credit<=counterpart-attested-out), inbound bridge = endpoint-auth (msg.sender==receiveSource / Circle attestation) + operator-preauth-hash one-shot, all registries/factories restricted (DAO), Create3 salt governance-chosen. Only LOW (info-level, NOT submittable): OracleRegistry._getFeedPrice rejects answer<0 but not answer==0 \u2014 a zero feed under-values its token (feed-trust hardening; recommend require(answer>0)). NOTE this is strictly LOWER severity than the infiniFi oracle Medium candidate: Makina already blocks the catastrophic negative\u2192~2^256 over-valuation path, leaving only zero-under-valuation. Nothing submitted (user does KYC + submission); confidential.",
+      "lows": [
+        "OracleRegistry accepts answer==0 (only rejects <0) \u2192 zero-feed under-valuation; defense-in-depth, feed-fault-reachable only (not attacker-reachable), strictly lower than infiniFi oracle Medium (negatives already blocked)"
+      ],
+      "coverage": "full (all 35 non-interface src/+src-ir contracts)"
+    },
+    {
+      "target": "Hyperbridge (Polytope Labs: solidity-merkle-trees @ 6106407e + hyperbridge ISMP @ f578b545)",
+      "source": "HackenProof bug bounty (live; Critical up to $30k-$50k; KYC + runnable PoC required)",
+      "verdict": "honest_negative",
+      "notes": "Trust-minimized cross-chain interoperability (ISMP) secured by on-chain consensus light-clients + Merkle state/inclusion proofs. Phase 1 FULL COVERAGE of solidity-merkle-trees (all 14 .sol): SOUND \u2014 every trie node keccak-bound to the committed root via TrieDB.get, so malformed RLP/SCALE is unreachable and the merkle libs need a keccak preimage to forge; the repo's own adversarial suite (21/21) + my independent AuditForgery.t.sol (5/5: fake-leaf-hash, leafCount-downgrade, internal-node-as-leaf, MMR fake-leaf ALL rejected) confirm it. Phase 2 (scoped) Rust ISMP: core message handling (request/response/timeout/messaging) sound (proof@height, exact-height get, reentrancy-safe replay guards, timeout needs non-membership proof); 6/7 consensus verifiers reviewed (BSC, BEEFY, GRANDPA, sync-committee, Tendermint, Pharos) all sound \u2014 BEEFY dup-signature inflation blocked by the rs-merkle fork's duplicate-index rejection, Pharos custom SkipEmpty hash-tree non-existence defended by sibling-nibble binding; ISMP state-machine non-membership (EVM/Substrate trie_db + Pharos) blocks timeout double-spend; fund pallets (hyper-fungible-token / bandwidth) + relayer fee accounting conservation-sound. Only LOW-01: BSC verifier supermajority uses floor (2N)/3 vs canonical Parlia CeilDiv \u2014 diverges only when N%3!=0 (N=21/45 unaffected) and needs ~2/3 malicious validators (already breaks BSC's <1/3 byzantine assumption) \u2192 NOT exploitable, spec-conformance only. SCOPE CAVEAT: the largest-$ criticals (ZK / BitVM / off-chain provers) are outside the audited Solidity+Rust-ISMP surface. Nothing submitted (user does KYC + submission); confidential.",
+      "lows": [
+        "L-01: bsc/verifier supermajority floor (2N)/3 vs canonical Parlia CeilDiv(2N,3) \u2014 spec-conformance, diverges only when N%3!=0 and needs ~2/3 malicious (above BSC byzantine bound) \u2192 NOT exploitable; recommend ceil (2N+2)/3"
+      ],
+      "coverage": "full on solidity-merkle-trees (14 .sol); scoped on hyperbridge Rust ISMP (6/7 consensus verifiers + core + state-machines + fund/relayer pallets)"
+    },
+    {
+      "target": "Arcadia lending-v2 (@ c261329f; accounts-v2 submodule @ 307cff66)",
+      "source": "HackenProof bug bounty (live; Arcadia Finance Smart Contracts, up to $25k; least-trodden HackenProof set at 51 submissions)",
+      "verdict": "honest_negative",
+      "notes": "FULL-COVERAGE audit of all 7 substantive lending-v2 contracts (margin-lending: ERC4626 Tranches over a LendingPool, ERC4626 DebtToken liabilities, Dutch-auction Liquidator L1/L2, bad-debt junior-tranche-first absorption). Heavily pre-audited (Arcadia's own arcadia-finance-audits repo) \u2192 clean as expected. NO permissionless fund-loss; no info notes. Verified: interest accounting balanced (interest minted as borrower debt == credited to LP/treasury liquidity, once-per-block sync); conservation invariant cash+realisedDebt==totalRealisedLiquidity (skim sweeps surplus, auction-blocked); DebtToken inverted protocol-favorable rounding + non-transferable; Tranche VAS inflation defense + notDuringAuction/notLocked anti-JIT/anti-baddebt-frontrun locks (donateToTranche weaponization mitigated by VAS); Liquidator bid nonReentrant + atomic collateral->bidCallback->auctionRepay ordering + decreasing power-curve price + sequencer-uptime (L2) + cutoff bought-in trusted fallback; LiquidatorL1==L2 minus sequencer (diff-verified); TrancheWrapper transparent 1:1; LendingPoolGuardian pause with anti-griefing permissionless unpause of repay/withdraw/liquidation. Account-binding (Factory ownerOfAccount/isAccount) + credit allowances + health checks on borrow/flashAction. SCOPE CAVEAT: accounts-v2 collateral/health-check/auctionBid logic is the dependency (read at interface+interaction level, separate in-scope repo, not full-audited here). Nothing submitted (user does KYC + submission); confidential. | RED-TEAM HARNESS: stateful Foundry invariant reusing the repo LendingPool_Fuzz_Test (real pool+tranches+Account+borrow/repay/interest) \u2014 4 invariants + 1 concrete path test, 0 failed (6,400 calls/inv, ~1050 borrows): conservation cash+debt==claims, solvency, debt-direction; non-vacuity proven via a concrete borrow/accrue/repay test (read\u2192fuzz-confirmed). Liquidation/auction static-only. + LIQUIDATION HARNESS: real oracle-price-drop liquidation (token1 collateral, drop mockOracles.token1ToUsd) driving the Dutch auction to settlement \u2014 happy flow (bidder repays debt, surplus to owner) AND bad-debt flow (price decays past cutoff, tranches absorb shortfall); 2/2 pass, conservation cash+debt==claims EXACT (0 wei) and solvency held through both, skim() blocked mid-auction.",
+      "coverage": "full (all 7 substantive lending-v2 contracts; accounts-v2 dependency at interface level)"
+    },
+    {
+      "target": "Stackup keystore (stackup-wallet/keystore @ 806fc6a)",
+      "source": "Cantina bug bounty (live; ERC-4337 v0.8 smart account + cross-chain keystore)",
+      "verdict": "honest_negative",
+      "notes": "FULL-COVERAGE audit of all 11 src files. ERC-4337 v0.8 smart account (KeystoreAccount, ERC-1167 clones) whose signer-set lives in a cross-chain Keystore: a per-(refHash,account) Merkle root of verifier(20)+config nodes; UserOp/ERC-1271 validation delegates to the referenced node's verifier; root rotated via signed handleUpdates. 4 verifiers (ECDSA, MultiSig, WebAuthn, WebAuthn+ECDSA-cosign) are thin wrappers over audited solady ECDSA/WebAuthn with config-bound signer/pubkey + onlyKeystore gating (can't be invoked with attacker config). NO permissionless fund-loss. Verified: nodes Merkle-bound to per-account root; updates authorized by current signer (signs transition incl nextHash) + optional new-key PoP; per-(refHash,key,account) nonce replay protection; useChainId=false = intended cross-chain sync (per-chain nonce, replay-safe); account-scoped mappings (isolation); MultiSig per-index seen[] dedup + threshold (no bypass); cosign 2FA both-bound-to-message; account binds sig to userOpHash (chainid+entrypoint+op fields, no cross-op replay); factory clone salt=keccak(refHash,salt) so counterfactual addr bound to refHash (no hijack/front-run) + senderCreator-gated. INFO/DX only (not submittable): (1) verifiers revert on structurally-invalid ECDSA sigs vs returning FAILED (documented simulation footgun); (2) ERC-1271 path treats validationData!=FAILED as valid \u2192 would ignore time-bounds for a future time-bounded verifier (current 4 return 0/1 only); (3) _validateSignature writes Keystore storage (registerNode) during AA validation \u2014 account-keyed (ERC-7562 associated storage) so likely bundler-compliant. Nothing submitted (user does KYC + submission); confidential.",
+      "lows": [],
+      "coverage": "full (all 11 src files: Keystore, 4 verifiers, KeystoreAccount, factory, libs)"
+    },
+    {
+      "target": "Symbiotic core (symbioticfi/core @ 7cb06639)",
+      "source": "Cantina bug bounty (live; permissionless restaking \u2014 Vaults/Delegators/Slashers)",
+      "verdict": "honest_negative",
+      "notes": "FULL COVERAGE (all 35 non-interface contracts; Symbiotic is the most heavily-audited target of the session: long-live mainnet, 319 findings, multiple formal audits). Deep-read the value-flow + slashing triangle: Vault (epoch-based stake; deposit/withdraw queue into withdrawals[epoch+1] slashable ~2 epochs; onSlash pro-rata across active+2 withdrawal epochs, conservation activeSlashed+withdrawalsSlashed+nextWithdrawalsSlashed==slashedAmount with provably-no-underflow overflow-cap, slasher-only, captureEpoch in {curr,curr-1}); VaultStorage (Checkpoints.Trace256 internal stake NOT balanceOf -> immune to donation/inflation); ERC4626Math (OZ +1 virtual offset, only covers rounding since totalAssets=internal activeStake); BaseSlasher (slashable=stakeAt(capture)-min(cumulativeSlash since capture, stake) anti-double-slash; capture bounded [now-epochDuration,now) + monotonic latestSlashedCaptureTimestamp; onlyNetworkMiddleware; gas-capped best-effort burner hook); Slasher (instant slash min(amount,slashable), cumulative+latest updated before delegator->vault->burner, nonReentrant); BaseDelegator (stakeAt=0 unless operator opted-in to BOTH vault AND network = slashability auth; setMaxNetworkLimit network-self-bound; onSlash slasher-only + gas-capped hook). All SOUND. DEFERRED (heavily-audited standard surface, not line-read this pass): VetoSlasher, 4 delegator variants, common/ upgradeable framework, registries/factories/VaultConfigurator, services (Metadata/NetworkMiddleware/OptIn), Checkpoints/Subnetwork, VaultTokenized, hints/*. Nothing submitted (user does KYC + submission); confidential. FOLLOW-UP completing full coverage (all SOUND): 4 delegator variants (each min(activeStake,limits)+opt-in+role-gated); VetoSlasher (request/veto/execute, completed-flag blocks double-execute+execute-after-veto, slashable re-checked, resolverSetEpochsDelay>=3); OptInService (checkpointed opt-in, historical lookup at captureTimestamp so opt-out can't escape past slashing, EIP-712 nonce+deadline); VaultTokenized (active shares as ERC20, slashing pool-level so transfers can't escape); Checkpoints (HINTS VALIDATED-OR-FALLBACK -> attacker hint can't return wrong value = linchpin of hint-safe accounting); common framework (owner-whitelisted impls, ERC1967 proxy migrate factory+owner-gated, staticDelegateCall always-reverts); registries self-register; NetworkMiddlewareService network-self-bound; Subnetwork bijective; hints view-only. | RED-TEAM HARNESS: stateful Foundry invariant on the full delegator\u00d7slasher matrix (8 configs: NetworkRestake/FullRestake/OperatorSpecific/OperatorNetworkSpecific \u00d7 instant/Veto/Veto+resolver/fee-on-transfer) \u2014 32 invariants, 0 failed, ~800-900 slashes/config; conservation+solvency+totalStake-identity fuzz-confirmed (read\u2192fuzz-hardened).",
+      "lows": [],
+      "coverage": "FULL (all 35 non-interface contracts) \u2014 core deep pass + follow-up completed the delegator variants, VetoSlasher, OptInService, VaultTokenized, common framework, registries/factories/services, Checkpoints/Subnetwork, hints"
+    },
+    {
+      "target": "Concrete Earn V2",
+      "source": "Cantina",
+      "verdict": "honest_negative"
+    },
+    {
+      "target": "Midas",
+      "source": "Cantina",
+      "verdict": "honest_negative",
+      "notes": "Mature multiply-audited RWA vault; robust DataFeed oracle; decimal-consistent."
+    },
+    {
+      "target": "Mezo mUSD",
+      "source": "Cantina",
+      "verdict": "honest_negative",
+      "notes": "Liquity fork; audited the modifications (EIP-712 BorrowerOperationsSignatures + InterestRateManager settle-before-change) \u2014 sound."
+    },
+    {
+      "target": "dreUSD",
+      "source": "Sherlock contest",
+      "verdict": "honest_negative",
+      "notes": "Full read + invariant fuzz harness (7 invariants incl. oracle-band arbitrage + multi-block swing); robust."
+    },
+    {
+      "target": "Mellow flexible-vaults",
+      "source": "Sherlock bug bounty",
+      "verdict": "honest_negative",
+      "notes": "Report-driven async queue vault; invariant fuzz + manual logic read of Oracle/RedeemQueue/DepositQueue \u2014 sound."
+    },
+    {
+      "target": "Monolith",
+      "source": "Sherlock bug bounty",
+      "verdict": "candidate_finding",
+      "notes": "See candidate_findings. Invariant harness: collateral + debt-share conservation pass 128k calls; coinBacking flagged the write-off bug."
+    },
+    {
+      "target": "40acres",
+      "source": "Sherlock bug bounty",
+      "verdict": "candidate_finding",
+      "notes": "See candidate_findings. Fork conservation harness (outstanding-capital + no-USDC-retention) passes 1,800 calls; secondary items ruled out."
+    },
+    {
+      "target": "Napier V2",
+      "source": "Code4rena (public repo)",
+      "verdict": "honest_negative",
+      "notes": "Pendle-style PT/YT; ran their mature invariant suite + added the missing reward-token-solvency invariant \u2014 all 11 pass @80\u00d79,600 calls. TwoCryptoZap left unread."
+    },
+    {
+      "target": "Alphix",
+      "source": "Sherlock bug bounty",
+      "verdict": "skipped",
+      "notes": "Pinned scope commit force-pushed off the public repo \u2192 unscoreable, not audited."
+    },
+    {
+      "target": "K2 (Kinetic)",
+      "source": "Code4rena",
+      "verdict": "skipped",
+      "notes": "Rust project (out of EVM-Solidity scope)."
+    },
+    {
+      "target": "STBL (Stablecoin 2.0, USST/YLD over Ondo USDY/OUSG)",
+      "source": "HackenProof (live, KYC+PoC-mandatory)",
+      "verdict": "honest_negative",
+      "notes": "FULLY REVIEWED \u2014 all in-scope contracts (Core/Issuer-PT1+LT1/Vault/YieldDistributor/USST/YLD/Register/STBL_Token + BSC mirrors) + the Ondo oracle dependency + fee/decimal math. Mainnet-fork harness (stbl-fork/) confirms live solvency + deposit/withdraw invariant-fuzz (solvency+backing, 25x750 calls, 0 reverts). mint/burn role-gated everywhere (no public mint); YieldDistributor clean (no 40acres bug); withdraw solvency-guarded + over-backed; oracle Ondo-sourced+staleness-checked (not manipulable). No permissionless Critical/High. Notes (not submittable): empty 2-arg withdraw no-op; permissionless fee-sweep->treasury; LT1 withdrawExpired reclaims RWA to treasury without burning USST/NFT (treasury-trust design). PoC-mandatory program -> nothing to submit."
+    },
+    {
+      "target": "SuperEarn (superearn-core-public)",
+      "source": "HackenProof (live, KYC+PoC-mandatory)",
+      "verdict": "honest_negative",
+      "notes": "Crosschain stablecoin yield (Kaia OriginVault <-> Ethereum RemoteVault via BridgeAccountant/CrosschainAdapter/Runespear+CCIP). DEEP-READ entire Category-1 crosschain accounting (BridgeAccountant/BridgeQueue/CrosschainAdapter/OriginVault+Base/RemoteVault/SuperEarnMessageAgent/messaging) + Cat-2 CooldownVault/StrategyOriginVault/USDOKycedCA (~9k LOC, commit 09b2774). Mature (3x Certik) with idempotent bridge accounting, dedup+causality-timestamp overlap prevention, FIFO cumulative reservation, _managedAssets+_assertSufficientBacking solvency, OZ virtual-shares offset. Exhaustive pre-filed OOS catalogue (SE-P1..32 / SUA/SSA/SA2 / AI-FP table) and code matches it. No eligible permissionless break found. Unread: Custom* + plumbing (lower EV)."
+    },
+    {
+      "target": "3F Grunt (3FLabs/grunt)",
+      "source": "Cantina (live, KYC-at-payout)",
+      "verdict": "honest_negative",
+      "notes": "Freshest screened bounty (live 2026-06-02, $250k, only 34 findings); novel non-fork RWA-leverage protocol (LP equity + Bridge Facilitator loans -> on-chain fund -> Morpho refinance). Commit 89cbfa0, solc 0.8.34. DEEP-READ the permissionless attacker surface (almost everything else is Facilitator/Owner/Operator/Minter-gated): request/Request.sol (minting fully gated via authorizeMinting owner/consumer-only; mint needs one-time auth, PT backed 1:1 by deposited asset, YT=unbacked yield claim by design; setRepaid has anti-drain minBalance + anti-over-repay maxBalance + mint->repaid delay), VaultController/Vault PT/YT redemption (standard OZ pAssets=min(balance,ptSupply)/yAssets=excess, mulDivUp shares / mulDiv assets; carries fixes for prior CS-GRUNT audit findings => already Cantina-reviewed), FacilityLP deposit/withdraw 1:1 + pro-rata mulDiv-rounddown claim (dust stays, no over-claim). Ran THEIR existing invariant suite (FOUNDRY_PROFILE=full): comprehensive + ALL PASS (Facility claimProportionality/depositCapNotExceeded/swapZeroSum/tokenBalanceSolvency/totalSupplyConsistency; funds TotalAssetsConsistent/oneToOneBacking/WrappedShareSupplyMatchesUnderlying; USCC; TransferGuard; 256 runs x 16384 calls each). request/ + borrow/ have massive unit/fuzz/PoC tests (Request.t 2246, ControlledVault 1260, MorphoBorrowPosition.t 3525 + their own slippage/timelock/reentrancy PoCs) but NO stateful invariant. BUILT the gap: grunt-scan/test/invariant/RequestVaultConservation.t.sol (reuses their MockVaultController; multi-actor deposit/yield-donate/repay/toggle/redeem). Invariants no-over-redemption(solvency) + no-value-creation + PT-priority-exact: PASS @200x80 (16k calls each, 0 reverts). No permissionless break found. Mature + heavily-tested + pre-reviewed (3rd such Cantina protocol in a row). Unread (lower EV, heavy existing tests): manager PositionManager share/fee/rebalancer, borrow MorphoBorrowPosition, facility intent lifecycle, funds aggregation. KYC at payout only; nothing submitted."
+    },
+    {
+      "target": "Dexalot (contracts @ cd/removeAuction)",
+      "source": "HackenProof (live, KYC+PoC-mandatory)",
+      "verdict": "honest_negative",
+      "notes": "On-chain CLOB DEX. Hunted the FRESH auction-removal delta (commit f7acdba): TradePairs matching refactor (addExecution return->in-place memory mutation, Execution struct, dust-cancel+status-guarded removeClosedOrder, OPEN-auction gating), PortfolioSub.addExecution settlement, UtilsLibrary.getFee (protocol-favorable), auctionPrice repurposed->OmniVault address (clean: no stale numeric read survives), ExchangeSub auction-admin (role-gated). All sound. BUILT Foundry conservation harness (dexalot-scan/test/invariant/DexalotConservation.t.sol): deploys real PortfolioSub+TradePairs+OrderBooks+GasStation+PortfolioMinter+SubHelper (virtual tokens, deposits via processXFerPayload, MockBridge for addToken callback, autoGas neutralized by vm.deal). Invariants Sum(holdings.total)==tokenTotals + no-inflation PASS @150x120 (18k calls each, 0 reverts); deterministic crossing-match test proves real settle+fee path exercised+conserved. SECOND harness (DexalotBridgeInventory.t.sol) for the cross-chain PortfolioBridgeSub + InventoryManager: deploys real PortfolioSub + PortfolioBridgeSub/InventoryManager/DelayedTransfers (0.8.25 bridge stack deployed via vm.deployCode + local interfaces since they can't share a 0.8.17 compilation unit with PortfolioSub; MockBridge no-op IBridgeProvider; USDT listed from 2 source chains => multi-chain inventory; actors admin-for-rates => fee-free; deposits injected via processPayload, withdraws via withdrawToken). Invariants Sum(inventory across chains)==tokenTotals + per-chain inventory<=totals + withdrawal-fee<=quantity over fuzzed multi-chain states: PASS @150x120 (18k calls each, 0 reverts; deposit/withdraw/feeProbe ~6k each). Did NOT find a break. 572 submissions/$0 paid + Ottersec-audited corroborated."
+    },
+    {
+      "target": "Fira Protocol (Steady Labs / usual-dao)",
+      "source": "Sherlock bug bounty (id 'fira', $500k, Ethereum)",
+      "verdict": "honest_negative",
+      "review_type": "thorough manual review of the Fira-specific novel surface (no full mainnet-fork invariant harness built)",
+      "notes": "Fira = Morpho-Blue (lending + SisuVault ERC-4626 curation) + Pendle V2 (FiraMarket AMM + BT/CT/FW yield-separation + Action* router facets) fork PLUS Fira glue. Repos usual-dao/fira* are private/404; reconstructed from 41 verified on-chain addresses via Sourcify (keyless) + Etherscan v2 fallback into fira-scan/src/ (630 .sol, solc 0.8.30; sandbox clean, 5 benign NatSpec flags). DEEP-READ the Fira-specific additions (the only place a bug could live; the Morpho/Pendle base is heavily pre-audited): (1) LendingMarket (Morpho fork) Fira additions = dual-tier health check (_isHealthyLTV uses marketParams.ltv for origination + _isHealthy uses lltv for liquidation, BOTH enforced on borrow/withdrawCollateral; sound two-tier) + uslLiquidator role + marketConstants(liquidationIncentive,maturityGracePeriod) + _liquidatePostMaturity bad-debt socialization (writeDown = repaidAssetsPaid + badDebtAssets == fullDebtAssets; repaidAssetsPaid uses wDivUp => conservative for LPs; totalSupplyAssets -= badDebtAssets; all shares burned; math consistent) + standard liquidate() bad-debt path (collateral==0 socialize; faithful Morpho). (2) FiraLendingMarket.liquidateExpiredBt = permissionless post-maturity liquidation gated by block.timestamp >= IBondToken(loanToken).expiry() + maturityGracePeriod (correct gate). (3) USDCFW/FWBase = Fira-Wrapped StandardizedYield over USDC + SisuVault shares with TRACKED accounting (idleAssets/vaultShares, NOT balanceOf) => closes donation/first-depositor inflation vector; pro-rata mint/redeem; rehypothecation idle/vault ratio (phiMin/Max/Target) defensive. (4) FiraSolvencyOracle = base-oracle wrapper applying solvency discount when FW.exchangeRate < bcIndex (price *= bcIndex/fwIndex to seize less collateral), with circuit-breaker revert on FW full wipeout (fwIndex==0 && supply>0) and post-expiry firstBCIndex matching to mintBC pricing (prevents post-expiry liquidation arbitrage). (5) BondToken/CouponToken/InterestManagerCT = faithful Pendle PT/YT yield separation (non-decreasing BC index = max(FW.exchangeRate, stored); reserve-tracked floating FW via _getFloatingFwAmount = balance - fwReserve; mintBC/redeemBC conserve). All examined surface is professionally constructed with deliberate defensive measures (tracked accounting, conservative rounding, circuit breakers, two-tier LTV). No eligible permissionless break found. NOT machine-checked: a full mainnet-fork invariant harness over this 630-file Morpho+Pendle fork was not built (major effort, low EV given the careful manual-review result). Unread (lower EV, audited-base or privileged): SisuVault.sol internals, FiraMarket AMM pricing core, FiraRouterV4 facet dispatch, BCLpOracle/LpOracleLib. 13th consecutive reputable-bounty honest negative on manual review. Nothing submitted (user does KYC + Sherlock submission); confidential."
+    },
+    {
+      "target": "Citrea System Contracts (chainwayxyz/citrea @ v2.5.0)",
+      "source": "HackenProof bug bounty (live mainnet; Critical up to $250k; KYC + runnable PoC required)",
+      "verdict": "honest_negative",
+      "notes": "FULL-COVERAGE Solidity audit (the eval-proven discipline) of the System Contracts: Bridge.sol, BitcoinLightClient.sol, FeeVault+4 empty subclasses, FailedDepositVault, WCBTC9, IBitcoinLightClient, and the Bridge dependency lib/WitnessUtils.sol \u2014 every substantive file examined (coverage ledger in audits/citrea-systemcontracts/output/merged_findings.json). NO qualifying permissionless High/Critical. deposit/replaceDeposit are operator/system-gated (operator+owner-key attacks OOS; no role-escalation path); permissionless withdraw/batchWithdraw/safeWithdraw lock the caller's OWN depositAmount cBTC and are replay-guarded (processedTxIds / usedWithdrawalUTXO); txId-nullifier defeats witness malleability; isBytesEqual correct for all lengths; Bitcoin validation delegated to audited bitcoin-spv + a careful WitnessUtils port; Schnorr to node precompile 0x200. Only INFO-1: documented zero-wtxid verifyInclusion footgun, UNREACHABLE via Bridge. SCOPE CAVEAT: the biggest-$ criticals (invalid state transition / batch-proof / ZK soundness / Clementine BitVM) live in the Rust node + circuits \u2014 OUT of our Solidity tooling, not audited. Nothing submitted (user does KYC + submission); confidential.",
+      "mechanism_classes_applied": [
+        "cross-chain-inbound-source-unauthenticated",
+        "init-once-guard-missing",
+        "replay/nullifier",
+        "default-zero-state-accept",
+        "arithmetic-sat-wei",
+        "access_control role-gating"
+      ],
+      "coverage": "full (all in-scope substantive .sol + Bridge dependency)"
+    },
+    {
+      "target": "TipRun",
+      "source": "contest (tiprun-contracts-main @ d5d4d2a)",
+      "verdict": "candidate_finding",
+      "notes": "Off-chain-match / on-chain-settlement perp+orderbook+predict exchange. 6 PoC-reproduced findings: F-1 Critical margin-bypass (withdraw 100% collateral with open position), F-2 High risk-segment freeze (insolvent short un-liquidatable), M-1 inverted ratio de-risk DoS, M-2 oracle staleness, M-3 no liquidatable precondition, M-4 configVersion not bumped. Investigated-and-disproven: negative-amount Transfer theft (BalancePlugin amount>0 guard). Sound: EIP-712 locks, conservation, upgrade/diamond auth."
+    },
+    {
+      "target": "Cartha",
+      "source": "contest (cartha-vaults-main @ 4c51f2a)",
+      "verdict": "candidate_finding",
+      "notes": "Bittensor SN35 liquidity vaults over 0xMarkets GM pools. C-1 High (PoC) stale/zero-TVL share mispricing -> PnL theft (reachability confirmed via 0xMarkets getMarketTokenPrice<=0). L-2 Low (PoC) orphan shares. L-1 Low (code-verified, no PoC): parent withdraw/release dust underpayment. Sound: cross-vault conservation, EIP-712 locks, upgrade/init/diamond auth, classic 1e12 inflation mitigated."
+    },
+    {
+      "target": "0xMarkets",
+      "source": "contest (0xMarkets_contract-main @ e94daee; GMX Synthetics fork)",
+      "verdict": "honest_negative",
+      "notes": "GMX Synthetics fork (ships GMX audits). Audited the 0xMarkets delta (custom insurance module). No PoC-reproduced bug. X-1 (source-confirmed, GMX-inherited): getMarketTokenPrice returns <=0 when poolValue<=0 -> confirms Cartha C-1 reachability. I-1 Medium (code-verified): insurance injection compensates current LP holders not drawdown-era (JIT capture). I-2 Low (code-verified): triggerFactor unset-default 0 = inject-on-any-drawdown. I-1/I-2/X-1 need the full GMX build to PoC standalone -> honest non-reproduced, documented in reports/0xmarkets-2026-06-13/."
+    },
+    {
+      "target": "Nado",
+      "source": "HackenProof bug bounty (nadohq/nado-contracts @ a748f54; Vertex Protocol fork, Ink L2; Critical, POC required)",
+      "verdict": "honest_negative",
+      "notes": "Vertex Protocol fork orderbook/perp DEX. Diffed vs vertex-protocol/vertex-contracts; re-derived the Nado delta from source - all sound: NLP vault mint/burn (sequencer-priced) + 4-day FIFO lock (balance==locked+unlocked invariant holds); perp OI redefined to sum|amount| with socialization /2 removed (self-cancelling, no drift); liquidation bounded (maxLiquidatable + !isAboveInitial) with defensive min-penalty clamps; builder fees consent-capped + conserved; slow-mode/fast-withdraw properly authed (validateSender/owner()/sequencer-sig+idx-replay); isolated-subaccount 'iso' suffix spoofable but inert; ContractOwner permissionless helpers operate on own CREATE2 DDA only. Non-trusted surfaces sound; rest sequencer/owner-trusted by Vertex design. No PoC-reproduced bug. Nothing submitted. Documented in memory project_nado_hunt."
+    }
+  ]
+}

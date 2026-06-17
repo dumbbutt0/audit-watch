@@ -1,0 +1,21 @@
+{
+  "lens": "eip712_domain_separator_staleness",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Generalized CLASS of the P304 centrifuge M-03 miss: a contract caches an EIP-712 DOMAIN_SEPARATOR at construction computed from `name`/`version`, but `name`/`version` is mutable post-construction (set via a setter / `file('name')`, or never set in the constructor at all). The cached separator then does not match the live name -> permit/EIP-712 signatures fail to verify. Two-signal AND: S1 a cached domain separator computed in the constructor from name/version; S2 name/version mutable post-construction. Suppress: name+version set in ctor with no setter; pure libs. Anchor: centrifuge token/ERC20.sol caches immutable _DOMAIN_SEPARATOR in the ctor via _calculateDomainSeparator (keccak256(bytes(name))) while `name` is set later via file('name'). Does NOT detect chainId-fork handling, nonce replay, or signature malleability.",
+
+  "domain_sep_vars": ["domain_separator", "_domain_separator", "domainseparator", "_domainseparator", "cached_domain_separator", "_cacheddomainseparator", "initial_domain_separator", "_initial_domain_separator"],
+  "domain_calc_calls": ["_calculatedomainseparator", "_domainseparatorv4", "_builddomainseparator", "_builddomain", "_computedomainseparator", "_domainseparator(", "domainseparator("],
+  "name_version_terms": ["bytes(name", "keccak256(bytes(name", "_name", "name,", "version", "eip712domain", "keccak256(bytes(version"],
+
+  "name_set_in_ctor_terms": ["name =", "name=", "_name =", "_name=", "name_", "_setname", "__eip712_init", "_eip712init"],
+  "name_mutator_terms": ["name = ", "name=", "_name = ", "if (what == \"name\")", "if (what == 'name')", "setname", "_setname", "file(", "updatename", "renametoken"],
+
+  "suppress_library_contracts": ["eip712", "ecdsa", "math", "messagehashutils", "signaturechecker"],
+
+  "fp_controls": {
+    "two_signal_required": "S1 (domain separator cached in ctor from name/version) AND S2 (name/version mutable post-ctor) — a separator recomputed live on every call, or a name fixed in the ctor with no setter, does not fire.",
+    "name_in_ctor_suppression": "name (and version) assigned in the constructor with no post-ctor mutator -> S2 fails -> silent.",
+    "live_separator_suppression": "no cached/immutable separator (computed on each DOMAIN_SEPARATOR() call) -> S1 fails -> silent.",
+    "library_suppression": "EIP712/ECDSA/Math base libraries -> silent."
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "finding_id": "DT-011",
+  "title": "ReseedInternalBalances lacks farmers/balances length-equality check",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "Medium",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedInternalBalances.sol",
+    "function": "setInternalBalances",
+    "line_start": 44,
+    "line_end": 64
+  },
+  "description": "setInternalBalances iterates i over farmers.length and reads balances[i] without requiring farmers.length == balances.length. A mismatch causes an out-of-bounds revert (or, if longer, the trailing entries are ignored but caught by the sum guard), making the internal-balance reseed fail.",
+  "impact": "Migration of internal balances reverts on malformed input (DoS of that reseed step). Bounded; the totalInternalBalance guard also catches mismatches. Medium.",
+  "ite": {
+    "intent": "Credit each farmer its internal balance",
+    "technique": "Parallel-array indexing without a length-equality precondition",
+    "evasion": "No attacker; depends on upgrade caller input"
+  },
+  "ice_chain": {
+    "corrupted_state": "n/a (revert) / truncated credits",
+    "consumer_found": true,
+    "consumer_function": "LibBalance internal-balance consumers",
+    "impact": "Reseed step reverts on bad input",
+    "exploit_path": "init with unequal arrays -> balances[i] OOB -> revert"
+  },
+  "source_slice": "14:  * @notice Reseed re-initializes the Internal Balance of Farmers.\n15:  * @dev non Bean assets cannot be transfered to L2, due to the lack of garentee of the asset's Liquidity.\n16:  */\n17: contract ReseedInternalBalances {\n18:     AppStorage internal s;\n19:     event InternalBalanceChanged(address indexed user, IERC20 indexed token, int256 delta);\n20: \n21:     struct BeanstalkInternalBalance {\n22:         address token;\n23:         address[] farmers;\n24:         uint256[] balances;\n25:         uint256 totalInternalBalance;\n26:     }\n27: \n28:     function init(\n29:         BeanstalkInternalBalance calldata beanBalances,\n30:         BeanstalkInternalBalance calldata beanEthBalances,\n31:         BeanstalkInternalBalance calldata beanWstethBalances,\n32:         BeanstalkInternalBalance calldata beanStableBalances,\n33:         BeanstalkInternalBalance calldata urBeanBalances,\n34:         BeanstalkInternalBalance calldata urBeanLpBalances\n35:     ) external {\n36:         setInternalBalances(beanBalances);\n37:         setInternalBalances(beanEthBalances);\n38:         setInternalBalances(beanWstethBalances);\n39:         setInternalBalances(beanStableBalances);\n40:         setInternalBalances(urBeanBalances);\n41:         setInternalBalances(urBeanLpBalances);\n42:     }\n43: \n44:     function setInternalBalances(BeanstalkInternalBalance calldata internalBalances) internal {\n45:         uint256 totalInternalBalance;\n46:         for (uint i; i < internalBalances.farmers.length; i++) {\n47:             s.accts[internalBalances.farmers[i]].internalTokenBalance[\n48:                 IERC20(internalBalances.token)\n49:             ] = internalBalances.balances[i];\n50:             totalInternalBalance += internalBalances.balances[i];\n51:             emit InternalBalanceChanged(\n52:                 internalBalances.farmers[i],\n53:                 IERC20(internalBalances.token),\n54:                 int256(internalBalances.balances[i])\n55:             );\n56:         }\n57: \n58:         require(\n59:             totalInternalBalance == internalBalances.totalInternalBalance,\n60:             \"ReseedInternalBalances: totalInternalBalance mismatch\"\n61:         );\n62: \n63:         s.sys.internalTokenBalanceTotal[IERC20(internalBalances.token)] = totalInternalBalance;\n64:     }\n65: }",
+  "gate_verdict": {
+    "finding_id": "DT-011",
+    "severity": "Medium",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.541491+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

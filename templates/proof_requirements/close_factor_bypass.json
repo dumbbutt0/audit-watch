@@ -1,0 +1,37 @@
+{
+  "bug_class": "close_factor_bypass",
+  "description": "Arithmetic error causes the protocol's close-factor liquidation cap to silently not fire",
+  "required_for_medium": [
+    "real_calculation_function_called",
+    "cap_bypass_proven"
+  ],
+  "required_for_high": [
+    "public_liquidation_entrypoint_called",
+    "cap_bypass_proven",
+    "excess_seizure_asserted"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "public execute_liquidation entrypoint called (not just calculate_liquidation)",
+    "L3B": "execute_liquidation called; arithmetic shows cap does not fire",
+    "L3C": "execute_liquidation called; returned record confirms excess collateral seized vs correct cap"
+  },
+  "poc_level_requirements": {
+    "L3A": ["public_liquidation_entrypoint_called"],
+    "L3B": ["public_liquidation_entrypoint_called", "cap_bypass_proven"],
+    "L3C": ["public_liquidation_entrypoint_called", "cap_bypass_proven", "excess_seizure_asserted"]
+  },
+  "proof_signatures": {
+    "real_calculation_function_called":      ["calculate_liquidation"],
+    "public_liquidation_entrypoint_called":  ["execute_liquidation"],
+    "cap_bypass_proven":                     ["close_factor_limit", "close_factor", "buggy_base", "correct_base", "cap never"],
+    "excess_seizure_asserted":               [
+      "collateral_to_liquidate >",
+      "collateral_seized >",
+      "> correct_max_collateral",
+      "> max_correct_collateral",
+      "> max_correct"
+    ]
+  },
+  "high_severity_rationale": "High requires demonstrating excess seizure via the public entrypoint so that the on-chain impact is concrete. The returned LiquidationCall record is the direct proof of how much the borrower loses above the protocol cap.",
+  "negative_control_template": "Run the same test with a correct base-currency conversion and assert result.collateral_to_liquidate equals the capped value (250 USDC * 1.10 bonus = 275 USDC)."
+}

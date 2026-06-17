@@ -1,0 +1,82 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "Cred.batchBuyShareCred",
+  "detector_family": "surface_recall_lens",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "Cred",
+    "function": "batchBuyShareCred",
+    "lines": null,
+    "suspicious_pattern": "external_executor,refund_path,value_exit",
+    "detector_claim": "security-relevant surface; mechanism uncertain"
+  },
+  "context_summary": {
+    "source_available": true,
+    "source_resolved": true,
+    "reachability": "public"
+  },
+  "attacker_reachability": "public",
+  "defense_ledger": {
+    "share_lock_period": {
+      "classification": "bypassed",
+      "evidence": "sell requires now>lastTradeTimestamp[credId][curator]+SHARE_LOCK_PERIOD (Cred.sol L625), but ANY buyer-for resets lastTradeTimestamp[credId][curator]=now on buy (L644 single, L759 batch)"
+    },
+    "nonReentrant": {
+      "classification": "irrelevant",
+      "evidence": "orthogonal"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "a curator's ability to sell their own shares must not be controllable by a third party; buying FOR an address must not extend that address's sell-lock",
+    "why_defenses_do_not_block": "the lock itself is the griefing vector; no check that the lock-setter is the share owner"
+  },
+  "exploit_path": {
+    "attacker_profile": "any EOA (permissionless); harms a third-party victim",
+    "entrypoint": "buyShareCredFor / batchBuyShareCred (curator_=victim)",
+    "preconditions": "victim holds shares of credId they wish to sell",
+    "transaction_sequence": "attacker calls buyShareCredFor(credId,1,victim,maxPrice) (or batchBuyShareCred curator_=victim); each buy sets lastTradeTimestamp[credId][victim]=block.timestamp (L644/L759). The sell path (_handleTrade L625) requires block.timestamp>lastTradeTimestamp+SHARE_LOCK_PERIOD, so by periodically buying 1 share FOR the victim the attacker keeps the victim's lock from ever elapsing -> victim cannot sell.",
+    "state_before": "victim sellable after lock elapses",
+    "state_after": "victim's lastTradeTimestamp perpetually reset -> sell blocked",
+    "rejection_case": "Maybe lastTradeTimestamp is per-(curator==msg.sender). It is NOT: it is keyed [credId][curator_] where curator_ is an arbitrary buy-for target (buyShareCredFor L186-188, batch curator_ param). So a third party controls the victim's lock. Not falsified.",
+    "source_evidence": "buyShareCredFor L186-188; _handleTrade L644 (set) + L625 (sell check); _executeBatchTrade L759"
+  },
+  "impact_analysis": {
+    "impact_category": "denial of asset movement (victim's shares locked from selling by a third party)",
+    "minimum_profit_or_damage_condition": "attacker pays the buy price per grief tx; victim's shares are denied sale while griefed (involuntary)"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED",
+  "_hygiene": {
+    "ok": true,
+    "violations": [],
+    "recommended": "POC_REQUIRED"
+  }
+}

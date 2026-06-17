@@ -1,0 +1,97 @@
+{
+  "agent": "flash_loan",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T21:40:00+00:00",
+  "scope_audited": [
+    "beanstalk/sun/SeasonFacet/* (sunrise/gm -> stepOracle -> deltaB mint)",
+    "libraries/Minting/LibWellMinting.sol",
+    "libraries/Oracle/LibDeltaB.sol",
+    "beanstalk/silo/ConvertFacet.sol",
+    "beanstalk/silo/PipelineConvertFacet.sol",
+    "libraries/Convert/LibPipelineConvert.sol",
+    "libraries/Convert/LibConvert.sol (applyStalkPenalty / convert-capacity)",
+    "libraries/Convert/LibWellConvert.sol",
+    "libraries/Well/LibWell.sol",
+    "libraries/Well/LibWellBdv.sol"
+  ],
+  "defense_summary": "Beanstalk's pump architecture defends the naive single-tx flash-loan attacks: (1) the sunrise/gm mint path (stepOracle -> LibWellMinting.capture -> twaDeltaB) reads readTwaReserves() from the cumulative Multi-Flow Pump (TWAP over the whole season), so a single-block reserve skew does NOT move the minted deltaB; (2) the BDV credited on a convert output (LibTokenSilo.beanDenominatedValue -> LibWellBdv.bdv) reads readInstantaneousReserves() from the CAPPED pump, whose per-block movement is rate-limited, bounding any single-tx BDV inflation; (3) the convert-capacity ceiling (LibDeltaB.overallCappedDeltaB / cappedReservesDeltaB) also uses the capped pump. The deep-trace DT-006 / oracle OR-001 inverted-TWAP ternary in LibChainlinkOracle is NOT on the live BEAN:WETH / BEAN:WSTETH deltaB-mint path (those route through LibEthUsdOracle / LibWstethUsdOracle, not getTokenPrice), and the source is Chainlink not an AMM, so it is not flash-loan manipulable. The one genuine residual asymmetry is that the convert stalk-PENALTY before/after deltaB (LibDeltaB.currentDeltaB / overallCurrentDeltaB) reads UNCAPPED spot reserves (IWell.getReserves()) while the capacity ceiling it is checked against is capped.",
+  "findings": [
+    {
+      "id": "FL-001",
+      "title": "Convert stalk-penalty before/after deltaB uses uncapped spot reserves while the convert-capacity ceiling uses the capped pump, letting a flash-loan-skewed well under-report against-peg movement and avoid the stalk penalty",
+      "severity": "Medium",
+      "vuln_type": "flash-loan",
+      "confidence": "Medium",
+      "description": "The convert stalk-penalty machinery measures how far a convert moves a well's deltaB against the peg using INSTANTANEOUS, UNCAPPED spot reserves, but the capacity ceiling it is compared against is derived from the CAPPED (rate-limited) pump. In LibPipelineConvert.populatePipelineConvertData the 'before' deltaB values (beforeOverallDeltaB, beforeInputTokenDeltaB, beforeOutputTokenDeltaB) are read via LibDeltaB.overallCurrentDeltaB() / getCurrentDeltaB(), and prepareStalkPenaltyCalculation reads the 'after' values via LibDeltaB.scaledOverallCurrentDeltaB() / getCurrentDeltaB(). Both ultimately call LibDeltaB.currentDeltaB(well) -> IWell(well).getReserves() -> calculateDeltaBFromReserves(..., ZERO_LOOKBACK), i.e. the raw spot reserves with no pump cap and no lookback. In contrast, the overall convert capacity (LibPipelineConvert: pipeData.overallConvertCapacity = abs(LibDeltaB.overallCappedDeltaB())) and the per-well capacity (LibConvert.calculatePerWellCapacity: abs(LibDeltaB.cappedReservesDeltaB(well))) are read from ICappedReservesPump.readCappedReserves, which the Multi-Flow Pump rate-limits per block. Because a pipelineConvert executes attacker-supplied advancedFarmCalls (arbitrary Pipeline external calls, incl. flash-loaned swaps) between the 'before' snapshot and the 'after' snapshot, the attacker controls the uncapped spot reserves at both read points. LibConvert.calculateAgainstPeg / calculateConvertedTowardsPeg derive the penalty purely from these before/after spot deltaB pairs. By skewing the uncapped spot deltaB so that the measured 'against-peg' amount (or the towards-peg amount that consumes capacity) is understated relative to the true economic movement, an attacker can reduce or zero the stalkPenaltyBdv that should have applied, and in ConvertFacet.convert specifically force checkForValidConvertAndUpdateConvertCapacity's require(stalkPenaltyBdv == 0) to pass for a convert that, measured on capped reserves, should have been penalized or rejected. The result is the convert keeps more grownStalk (newGrownStalk = initialGrownStalk * (fromBdv - stalkPenaltyBdv) / fromBdv) than the capped-capacity design intends.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Convert/LibPipelineConvert.sol",
+        "function": "populatePipelineConvertData / prepareStalkPenaltyCalculation",
+        "line_start": 80,
+        "line_end": 153,
+        "code_snippet": "pipeData.deltaB.beforeOverallDeltaB = LibDeltaB.overallCurrentDeltaB(); // uncapped spot\n...\ndbs.afterOverallDeltaB = LibDeltaB.scaledOverallCurrentDeltaB(initialLpSupply); // uncapped spot\n// while: pipeData.overallConvertCapacity = LibConvert.abs(LibDeltaB.overallCappedDeltaB()); // capped"
+      },
+      "impact": "Stalk-penalty avoidance / convert-capacity-ceiling bypass: a convert that should incur a stalk penalty (or be rejected in the non-pipeline ConvertFacet.convert path) measures zero/under-stated against-peg movement on flash-loan-skewed spot reserves, so the user retains more grown stalk than the capped capacity intends. This is a relative governance/yield-weight gain and capacity-cap dilution, not a direct unbacked Bean mint (the minted output BDV is bounded by the capped pump per FL via LibWellBdv). Medium: economic/accounting integrity of the convert penalty, conditioned on the attacker being able to move the uncapped spot deltaB enough within the pipeline relative to the capped reading.",
+      "proof_of_concept": "L1 (entry): EOA calls PipelineConvertFacet.pipelineConvert(inputWell, stems, amounts, outputToken, advancedFarmCalls) with no privileged setup; the advancedFarmCalls include a flash-loaned swap against the input/output well to skew its instantaneous spot reserves. L2 (state flip): assert the value read by LibDeltaB.overallCurrentDeltaB()/getCurrentDeltaB() (IWell.getReserves(), uncapped) differs materially from LibDeltaB.overallCappedDeltaB()/cappedReservesDeltaB() (readCappedReserves, capped) at the same block; show calculateAgainstPeg(before,after) on the skewed spot pair returns a lower against-peg amount than it would on capped reserves, so applyStalkPenalty returns stalkPenaltyBdv smaller than the capped-reserve value. L3 (outcome): assert newGrownStalk = initialGrownStalk*(fromBdv - stalkPenaltyBdv)/fromBdv is larger than under capped accounting (extra grown stalk retained), and for ConvertFacet.convert assert the require(stalkPenaltyBdv == 0) passes for a convert that capped-reserve accounting would penalize. NOTE: the magnitude depends on how far getReserves() can diverge from readCappedReserves() within a single block; if the live well's reserves and the cap rate make that divergence small, the realized penalty-avoidance is small. This must be quantified against the deployed pump cap before escalating severity.",
+      "recommendation": "Measure the stalk-penalty before/after deltaB from the SAME capped/instantaneous pump source used for the capacity ceiling (readCappedReserves / readInstantaneousReserves), not from raw IWell.getReserves(). Using uncapped spot for the penalty while capping the capacity gives an attacker a manipulable lever on exactly the value the cap is meant to bound.",
+      "ite": {
+        "intent": "Avoid the stalk penalty (or pass the require(stalkPenaltyBdv==0) gate) on a convert that, under the capped-reserve accounting the protocol uses for capacity, should be penalized or rejected.",
+        "technique": "Skew the well's uncapped spot reserves with flash-loaned swaps inside the pipeline's advancedFarmCalls between the before and after deltaB reads, since the penalty math (calculateAgainstPeg/calculateConvertedTowardsPeg) consumes spot deltaB while the capacity ceiling consumes capped deltaB.",
+        "evasion": "The capacity ceiling LOOKS like a robust per-block cap (capped pump), masking that the penalty's before/after deltaB it is compared against is read from the uncapped spot pump and is fully attacker-controllable within the same transaction."
+      },
+      "ice": {
+        "impact": "Medium",
+        "confidence": "Medium",
+        "exploitability": "Permissionless"
+      },
+      "ice_chain": {
+        "corrupted_state": "before/after deltaB pairs (LibDeltaB.currentDeltaB / overallCurrentDeltaB, uncapped spot) used to compute stalkPenaltyBdv",
+        "impact": "Under-stated stalk penalty -> excess grown stalk retained on the converted deposit and convert-capacity ceiling effectively bypassed (relative governance weight / yield gain)",
+        "consumer_found": true,
+        "consumer_function": "LibConvert.applyStalkPenalty -> LibPipelineConvert.executePipelineConvert (newGrownStalk) and ConvertFacet.convert checkForValidConvertAndUpdateConvertCapacity require(stalkPenaltyBdv==0)",
+        "exploit_path": "pipelineConvert -> populatePipelineConvertData reads uncapped before deltaB -> executeAdvancedFarmCalls (attacker flash-loan skews spot reserves) -> prepareStalkPenaltyCalculation reads uncapped after deltaB -> calculateAgainstPeg under-reports -> stalkPenaltyBdv reduced -> more grown stalk kept"
+      },
+      "attack_surface_rank": 5,
+      "cross_agent_refs": ["OR-001", "DT-006"],
+      "invariant_violated": "ARITH-004",
+      "consumer_found": true
+    },
+    {
+      "id": "FL-002",
+      "title": "Sunrise/gm deltaB mint is NOT flash-loan manipulable (cumulative-pump TWAP); inverted-TWAP oracle bug (DT-006/OR-001) does not reach the live mint path",
+      "severity": "Informational",
+      "vuln_type": "flash-loan",
+      "confidence": "High",
+      "description": "Documenting the negative result demanded by the attack-surface hypotheses (SeasonFacet sunrise/gm -> deltaB mint, CC-005/CH-005). The permissionless season advance SeasonFacet sunrise()/gm() -> Oracle.stepOracle() -> LibWellMinting.capture(well) -> twaDeltaB() reads ICumulativePump.readTwaReserves(well, lastSnapshot, s.sys.season.timestamp, ...): a time-weighted average of cumulative reserves accumulated since the previous season's snapshot, NOT instantaneous reserves. A flash loan that skews the well within the calling block contributes negligibly to a season-length TWAP, so the minted deltaB (and the caller's reward Beans) cannot be materially inflated by a single-tx reserve skew. The minting oracle also self-disables (returns deltaB 0) when twaReserves[beanIndex] < WELL_MINIMUM_BEAN_BALANCE or the USD oracle fails. Separately, the deep-trace DT-006 / oracle OR-001 inverted TWAP/spot ternary in LibChainlinkOracle.getTokenPrice is on a Chainlink (not AMM) source, so its return is not flash-loan manipulable, AND the live BEAN:WETH / BEAN:WSTETH wells obtain their USD price via LibEthUsdOracle / LibWstethUsdOracle, not via the inverted getTokenPrice branch — so it does not feed the live sunrise/deltaB mint. Conclusion: the naive 'flash-loan skew well -> over-mint Beans in sunrise' attack is defended by the cumulative-pump TWAP and is reported here only to close the hypothesis. The residual manipulable surface is the convert-PENALTY spot path (FL-001), not the mint.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Minting/LibWellMinting.sol",
+        "function": "twaDeltaB",
+        "line_start": 139,
+        "line_end": 186,
+        "code_snippet": "ICumulativePump(pumps[0].target).readTwaReserves(well, lastSnapshot, uint40(s.sys.season.timestamp), pumps[0].data) // season-length TWAP, not spot"
+      },
+      "impact": "None (defended path). Recorded so triage does not re-open the sunrise mint flash-loan hypothesis without new evidence. The only conditions that could revive it: a well wired to a pump whose readTwaReserves can be saturated within one block (very short effective window), or a future well whitelisted with a Chainlink-impl USD oracle that routes through the inverted getTokenPrice (OR-001) on a lookback>0 minting request.",
+      "proof_of_concept": "Trace only (no exploit): SeasonFacet.gm() -> stepOracle() -> LibWellMinting.capture(BEANWETH) -> twaDeltaB -> readTwaReserves over [prev season ts, now]; assert a within-block getReserves() skew changes IWell.getReserves() but leaves the readTwaReserves output essentially unchanged for the season window, hence deltaB and the WellOracle event mint amount unchanged.",
+      "recommendation": "No fix required for the mint path. If FL-001 is fixed by sourcing convert penalty deltaB from the capped/instantaneous pump, keep the mint path on the cumulative TWAP. Independently fix OR-001/DT-006 (inverted ternary) before any token is whitelisted that would route its minting USD price through LibChainlinkOracle.getTokenPrice with lookback>0.",
+      "ite": {
+        "intent": "Confirm whether sunrise/gm deltaB minting consumes manipulable spot reserves.",
+        "technique": "Trace the mint path's reserve source: it is the cumulative pump TWAP, not spot.",
+        "evasion": "n/a - defended."
+      },
+      "ice": {
+        "impact": "Info",
+        "confidence": "High",
+        "exploitability": "n/a"
+      },
+      "ice_chain": {
+        "corrupted_state": "none (twaDeltaB consumes season-length TWAP reserves)",
+        "impact": "no manipulable mint",
+        "consumer_found": true,
+        "consumer_function": "Oracle.stepOracle / Sun mint",
+        "exploit_path": "defended - single-tx skew does not move the season TWAP"
+      },
+      "attack_surface_rank": 4,
+      "cross_agent_refs": ["OR-001", "DT-006"],
+      "consumer_found": true
+    }
+  ]
+}

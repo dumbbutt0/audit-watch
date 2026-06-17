@@ -1,0 +1,29 @@
+{
+  "lens": "registry_position_lifecycle",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Detects position-registry lifecycle desyncs: a positions registry has add/remove/update mutators, and a position-mutating sibling either omits the registry update its siblings perform, or removes the entry without the emptiness guard a sibling remove has. Anchored on NOYA H-23 (DolomiteConnector.transferBetweenAccounts mutates the Dolomite position via borrowPositionProxy but omits registry.updateHoldingPosition that openBorrowPosition/closeBorrowPosition perform) and H-18 (closeBorrowPosition removes unconditionally; sibling withdraw guards on markets.length==0). DISTINCT from connector_position_accounting Shape C (single-function msg.sender-vs-calculatorConnector KEY mismatch — H-12, NOT duplicated here) and from sibling_function_parity (generic name/call kinship, which misses these because cores differ + jaccard<0.3). High precision over recall. NEVER mints or routes.",
+
+  "registry_mutation_vocab": ["updateholdingposition", "addholdingposition", "removeholdingposition", "updateposition", "addposition", "removeposition", "register", "deregister", "unregister", "addtokento", "removetokenfrom", "addtokentoownerlist", "recordposition", "updateholding", "removeholding", "calculatepositionid"],
+
+  "lifecycle_verbs": ["transfer", "move", "open", "close", "create", "exit", "migrate", "rebalanceposition", "relocate", "rollover"],
+  "amount_only_verbs": ["borrow", "repay", "supply", "withdraw", "deposit", "mint", "burn", "stake", "unstake", "increase", "decrease", "claim", "harvest", "collect"],
+
+  "subject_proxy_hints": ["proxy", "manager", "positionmanager", "borrowpositionproxy", "router", "gauge", "pool", "market"],
+  "generic_collection_methods": ["add", "remove", "removeat", "contains", "length", "at", "push", "pop", "set", "get", "clear", "insert", "erase", "values", "keys"],
+
+  "emptiness_guard_vocab": ["getaccountbalances", "balanceof", "ismarketempty", "isempty", "length == 0", "length==0", "== 0", "ispositionempty", "hasnobalance", "remaining"],
+
+  "remove_signals": ["removeposition", "removeholding", "removeholdingposition", "deregister", "unregister", "removetokenfrom", ", true)", "removeposition=true", "delete "],
+  "remove_verbs": ["close", "remove", "exit", "deregister", "unregister", "decrease", "withdraw", "redeem", "unstake"],
+
+  "admin_modifiers": ["onlyowner", "onlyadmin", "onlyrole", "onlygovernance", "onlymaintainer", "onlymanager", "onlykeeper"],
+  "exclude_idents": ["address", "uint", "uint256", "bool", "bytes", "this", "msg"],
+
+  "fp_controls": {
+    "missing_registry_update_gate": "shape 1 (H-23): the OMITTER must be external/public, non-view, call a subject method whose name carries a LIFECYCLE verb (transfer/move/open/close/create), share a subject-proxy object with a sibling that calls a registry_mutation_vocab fn, and itself omit any registry_mutation call. Amount-only verbs (borrow/repay/supply/withdraw/deposit/mint/burn/stake) are EXCLUDED as omitter triggers — they change amounts, not position membership (suppresses the Aave borrow/repay benign omit-groups seen in the corpus).",
+    "unguarded_registry_remove_gate": "shape 2 (H-18): a function performs a registry REMOVE; a sibling remove on the same registry guards it with an emptiness/balance check (emptiness_guard_vocab); the function omits that guard.",
+    "view_pure_suppression": "view/pure omitters dropped (the corpus _getPositionTVL / getX / maxDeposit noise).",
+    "not_shape_c": "this lens does NOT flag the single-function msg.sender-vs-calculatorConnector key mismatch (connector_position_accounting Shape C / H-12).",
+    "wrapper_admin_suppression": "forwarder + both-admin suppression reused from the parity machinery."
+  }
+}

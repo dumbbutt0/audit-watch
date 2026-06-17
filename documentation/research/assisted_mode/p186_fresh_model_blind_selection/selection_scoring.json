@@ -1,0 +1,35 @@
+{
+  "phase": "P186", "corpus": "quantamm-2024-12-eval", "blind_model": "sonnet", "scorer": "answer-aware, after outputs frozen",
+  "scale": ["EXACT_SELECTED", "LOOSE_SELECTED", "ENUMERATED_NOT_SELECTED", "MISSED", "NOT_APPLICABLE"],
+  "scoring": [
+    {"finding": "H-07", "function": "onAfterRemoveLiquidity", "awarded": "unauthorized deletion via attacker-controlled userData",
+     "score": "EXACT_SELECTED", "evidence": "selected_mechanisms #1: userAddress=address(bytes20(userData)) vs msg.sender; deletes/burns victim positions"},
+    {"finding": "M-02", "function": "onAfterRemoveLiquidity", "awarded": "lpTokenDepositValueChange underflow in uplift fee calc",
+     "score": "ENUMERATED_NOT_SELECTED", "evidence": "inventory #5 'stale accounting (feePerLP precision)' but placed in rejected_mechanisms with source-backed reason 'dimensionally consistent, floors favour LP' (leans_on_unproven_guard=false)"},
+    {"finding": "M-17", "function": "onAfterRemoveLiquidity", "awarded": "feePerLP can exceed 100%",
+     "score": "EXACT_SELECTED", "evidence": "unresolved_mechanisms: 'missing fee cap — feePercentage not bounded <=1e18 (fee can exceed 100%)' (carried, not rejected)"},
+    {"finding": "M-03", "function": "afterUpdate", "awarded": "poolsFeeData[_to] length unchecked (transfer past 100-cap)",
+     "score": "EXACT_SELECTED", "evidence": "unresolved_mechanisms: 'recipient FeeData array can exceed 100 via transfer push; addLiquidity has >100 check, afterUpdate does not'"},
+    {"finding": "M-10", "function": "afterUpdate", "awarded": "permanently DoS victim from managing LP NFTs (malicious transfer)",
+     "score": "LOOSE_SELECTED", "evidence": "folded into the same cap-bypass unresolved mechanism: 'attacker griefs a victim by sending many NFTs, bricking their withdrawal'"},
+    {"finding": "L-01", "function": "afterUpdate", "awarded": "blockTimestampDeposit = block.number instead of block.timestamp",
+     "score": "EXACT_SELECTED", "evidence": "selected_mechanisms #2: blockTimestampDeposit=uint32(block.number) vs deposit-path uint40(block.timestamp)"},
+    {"finding": "H-03", "function": "onAfterSwap", "awarded": "missing/improper fee application (admin overcharge)",
+     "score": "LOOSE_SELECTED", "evidence": "selected_mechanisms #2: double-truncation adminFee over-allocates to admin (admin over-receives). LOOSE — same admin-fee region as already-found PARTIAL H-02"},
+    {"finding": "M-06", "function": "UpdateWeightRunner._getData", "awarded": "unhandled Chainlink revert locks all oracle access",
+     "score": "ENUMERATED_NOT_SELECTED", "evidence": "inventory #4 'external-call failure/DoS — revert propagates' but placed in rejected_mechanisms: 'liveness/DoS not fund-loss; view function'. Sonnet instead selected a different (unawarded) stale-data-when-backup<=1 mechanism"},
+    {"finding": "L-02", "function": "MultiHopOracle._getData", "awarded": "precision loss in MultiHopOracle._getData",
+     "score": "EXACT_SELECTED", "evidence": "selected_mechanisms #2: precision loss accumulation across hops (sequential floor-division truncation)"}
+  ],
+  "selection_stability_matrix": [
+    {"finding": "H-07", "P184_opus": "selected", "P185_opus": "selected", "P186_sonnet": "selected", "stable": true},
+    {"finding": "M-03", "P184_opus": "selected", "P185_opus": "not_rerun", "P186_sonnet": "selected", "stable": true},
+    {"finding": "M-10", "P184_opus": "selected", "P185_opus": "not_rerun", "P186_sonnet": "selected(loose)", "stable": true},
+    {"finding": "L-01", "P184_opus": "selected", "P185_opus": "not_rerun", "P186_sonnet": "selected", "stable": true},
+    {"finding": "L-02", "P184_opus": "selected", "P185_opus": "not_rerun", "P186_sonnet": "selected", "stable": true},
+    {"finding": "H-03", "P184_opus": "selected(loose)", "P185_opus": "selected(loose)", "P186_sonnet": "selected(loose)", "stable": true},
+    {"finding": "M-17", "P184_opus": "not_enumerated", "P185_opus": "carried", "P186_sonnet": "selected", "stable": "improved_and_held"},
+    {"finding": "M-02", "P184_opus": "enumerated_not_selected", "P185_opus": "carried(selected)", "P186_sonnet": "rejected", "stable": false, "note": "P185✓→P186✗ MODEL-DEPENDENT: Sonnet's stronger reject-first judged M-02 dimensionally-consistent / not-a-bug"},
+    {"finding": "M-06", "P184_opus": "selected", "P185_opus": "not_rerun", "P186_sonnet": "rejected", "stable": false, "note": "P184✓→P186✗ MODEL-DEPENDENT: Sonnet rejected oracle-revert DoS as liveness-only (view fn)"}
+  ]
+}

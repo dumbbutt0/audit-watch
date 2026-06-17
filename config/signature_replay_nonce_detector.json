@@ -1,0 +1,56 @@
+{
+  "version": "missing-or-unconsumed-nonce-in-state-changing-signature-v1",
+  "description": "Phase-74 RESEARCH-ONLY + REVIEW-ONLY Signature-Replay detector for the NARROW missing/unconsumed-nonce shape ONLY: a state-changing action authorized by a verified signature whose signed payload has NO nonce (or a nonce that is never consumed) and is NOT protected by an enforced single-use consume guard (nonce-consume / check-gated digest-order-claim mapping). Out of scope (do NOT handle): domain-separator chainId/verifyingContract bugs, cross-chain replay, missing-deadline-only, EIP-1271 edge cases, abi.encodePacked collision, wrong-signer authorization. Read ONLY by scripts/signature_replay_nonce_detector.py (un-wired). Emits ONLY REVIEW_ONLY_ADVANCE/REVIEW_ONLY_ABSTAIN/REVIEW_ONLY_REJECTED. Generic only — NO subject identifiers. is_gate:false research_only:true review_only:true routes_in_production:false routed_manifest_ids:[].",
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+
+  "public_visibilities": ["public", "external"],
+  "view_mutabilities": ["view", "pure"],
+
+  "signature_verify_signals": ["ecrecover", "ecdsa.recover", ".recover(", "signaturechecker", "isvalidsignature", "isvalidsignaturenow", "_recoversigner", "recoversigner(", "toethsignedmessagehash", "_hashtypeddatav4", "_permit_typehash", "permit_typehash"],
+  "verify_kind_map": {
+    "ecrecover": "ecrecover",
+    "ecdsa.recover": "ECDSA.recover",
+    ".recover(": "ECDSA.recover",
+    "signaturechecker": "SignatureChecker",
+    "isvalidsignaturenow": "EIP1271",
+    "isvalidsignature": "EIP1271",
+    "_recoversigner": "custom",
+    "recoversigner(": "custom",
+    "toethsignedmessagehash": "custom",
+    "_hashtypeddatav4": "custom",
+    "_permit_typehash": "custom",
+    "permit_typehash": "custom"
+  },
+
+  "state_change_signals": ["mint", "_mint", "claim", "withdraw", "approve", "allowance", "transfer", "settle", "cancel", "fill", "consume", "burn", "_process", "redeem", "createorder", "_useallowance", "execute", ".call("],
+  "state_change_kind_map": {
+    "mint": "mint", "_mint": "mint", "claim": "claim", "_process": "claim", "withdraw": "withdraw",
+    "approve": "approve", "allowance": "approve", "transfer": "transfer", "settle": "settle", "cancel": "cancel", "fill": "order_fill",
+    "createorder": "order_fill", "consume": "voucher_consume", "burn": "voucher_consume", "redeem": "voucher_consume",
+    "execute": "authority_change", ".call(": "authority_change"
+  },
+
+  "nonce_field_terms": ["nonce"],
+  "nonce_consume_signals": ["nonce++", "nonce ++", "_usenonce", "= nonce + 1", "nonce += 1", "nonce+=1", "nonces[", "usednonce", ".current()"],
+
+  "digest_consume_signals": ["usedhashes", "hasoffchainorderbeenfilled", "filled[", "cancelledorfilled", "invalidated[", "consumemessagefroml2", "used[", "isused[", "claimed[", "artminted", "credminted", "orderstatus", "consumed[", "executed["],
+  "consume_guard_context": ["require(", "revert", "if (", "if(", "assert("],
+
+  "deadline_domain_signals": ["deadline", "block.timestamp", "expiresin", "expiry", "_domainseparator", "domain_separator", "chainid", "block.chainid", "verifyingcontract"],
+
+  "state_bound_cumulative_signals": ["claimed", "nftsclaimed", "minted", "numberminted", "totalsupply", "balanceof", "amountclaimed", "totalclaimed", "redeemed"],
+  "library_verify_method_names": ["verify", "recover", "isvalidsignature", "isvalidsignaturenow", "validatecommitment", "validatesignature", "checksignature", "recoversigner"],
+  "revocation_batch_signals": ["root", "merkleroot", "incrementnonce", "invalidatenonce", "cancelnonce", "bumpnonce"],
+  "call_path_max_depth": 2,
+
+  "decisions": {
+    "advance": "REVIEW_ONLY_ADVANCE",
+    "abstain": "REVIEW_ONLY_ABSTAIN",
+    "rejected": "REVIEW_ONLY_REJECTED"
+  },
+  "forbidden_output_states": ["CONFIRMED_BUG", "READY_TO_SUBMIT", "AUTO_SUBMIT"]
+}

@@ -1,0 +1,101 @@
+{
+  "finding_id": "SN-001",
+  "title": "Reseed overwrites account snapshot stalk per token, destroying multi-token holders' weight",
+  "agent": "",
+  "claimed_severity": "High",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+    "function": "reseedSiloDeposit",
+    "line_start": 163,
+    "line_end": 164,
+    "code_snippet": "// set stalk for account.\n            s.accts[deposits.accounts].stalk = accountStalk;"
+  },
+  "description": "ReseedSilo.init() re-seeds the L2 silo by calling reseedSiloDeposit() once per whitelisted token (BEAN, BEAN:ETH, BEAN:wstETH, BEAN:3CRV, urBEAN, urBEAN:LP). Inside reseedSiloDeposit, after summing an account's grown+base stalk for THAT token into the local `accountStalk`, it writes `s.accts[deposits.accounts].stalk = accountStalk;` (ReseedSilo.sol#164) using a plain assignment (`=`) rather than an accumulating add (`+=`). `s.accts[account].stalk` is the account's checkpointed Stalk weight. For any farmer who held deposits in more than one of the six tokens on L1 (the common case for any LP+BEAN depositor), each subsequent reseedSiloDeposit call OVERWRITES the stalk written by the previous token. After init() completes, the account's stalk reflects ONLY the last token processed in init() (urBEAN:LP deposits), and all stalk from BEAN and the LP tokens is silently discarded. `s.accts[account].roots` is never written in the entire reseed path (confirmed: no write to `.roots` exists under beanstalk/init/), so the migrated account also has zero snapshot share until its first mow. This is a snapshot-checkpoint write bug: the historical weight being re-established at the migration boundary is corrupted, not preserved.",
+  "impact": "Every farmer who migrated deposits in 2+ whitelisted tokens has their Stalk balance silently reduced to only the last token's contribution. Stalk is the basis for (a) earned-Bean distribution via roots, (b) Seed/grown-stalk accrual, and (c) any Stalk-weighted protocol decision. Affected farmers permanently lose the governance/reward weight of all but one of their deposit types at the L2 relaunch, while their underlying deposits remain. This is a direct, deterministic loss of a core protocol-state invariant (total Stalk == sum of account Stalk) at migration.",
+  "ite": {
+    "intent": "Migration must preserve each farmer's summed L1 Stalk as their L2 snapshot weight; instead multi-token holders lose all but one token's Stalk.",
+    "technique": "ReseedSilo.init() calls reseedSiloDeposit per token; line 164 assigns (=) rather than accumulates (+=) into s.accts[account].stalk, so each token's call clobbers the prior.",
+    "evasion": "No accumulation and no post-reseed sum-vs-global reconciliation; the require checks only validate per-token deposit totals, not the cross-token stalk sum."
+  },
+  "ice_chain": {
+    "corrupted_state": "s.accts[account].stalk",
+    "consumer_found": true,
+    "consumer_function": "LibSilo._balanceOfEarnedBeans / LibSilo.burnActiveStalk / grown-stalk accrual",
+    "consumer_action": "uses account stalk as the baseline for earned-Bean entitlement and as Stalk-weighted reward/decision weight",
+    "severity_ceiling": "High",
+    "search_method": "manual_trace"
+  },
+  "source_slice": "// set stalk for account.\n            s.accts[deposits.accounts].stalk = accountStalk;",
+  "gate_verdict": {
+    "finding_id": "SN-001",
+    "severity": "High",
+    "vuln_type": "logic-error",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.537423+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

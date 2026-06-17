@@ -1,0 +1,62 @@
+{
+  "phase": "P150",
+  "title": "Second non-duplicate runtime holdout (decent UTBFeeCollector signature binding)",
+  "decision": "RUNTIME_CONFIRMED",
+  "decision_scope": "contract-level mechanism; reachability/severity deferred to human review",
+  "candidate": {"audit": "decent-2024-01-holdout", "contract": "UTBFeeCollector", "function": "collectFees",
+                "architecture": "decent", "shape": "authorization_subject_mismatch_signature_not_bound",
+                "has_local_answer_key": false},
+  "candidates_enumerated": [
+    {"audit": "vultisig-2024-06-holdout", "target": "ILOPool.claim", "verdict": "REJECTED (heavy deps)"},
+    {"audit": "kelp-2023-11-holdout", "target": "LRTDepositPool.depositAsset", "verdict": "REJECTED (oracle/RSETH deps, less crisp)"},
+    {"audit": "decent-2024-01-holdout", "target": "UTBFeeCollector.collectFees", "verdict": "SELECTED"},
+    {"audit": "munchables/pooltogether", "target": "SignatureVerifier / PrizeVault preview-execute", "verdict": "considered"}
+  ],
+  "harness_type": "real_contract",
+  "real_function_called": true,
+  "production_contract_modified": false,
+  "tests": {"passed": 3, "failed": 0, "skipped": 0,
+            "names": ["test_executed_fee_not_bound_to_signed_packedinfo",
+                      "test_corrected_reference_binds_fees",
+                      "test_control_matched_fees"]},
+  "signer_authorized_wad": "1000000000000000000",
+  "actually_charged_wad": "1000000000000000000000",
+  "corrected_reference": "require keccak256(packedInfo)==keccak256(abi.encode(fees)) -> revert",
+  "control": "matched fees -> charges signed amount in both",
+  "runtime_status": "runtime_confirmed",
+  "runtime_confidence": "high",
+  "duplicate_status": "duplicate_unknown",
+  "reachability_severity_unproven": ["onlyUtb caller (UTB router flow)", "replay/no-nonce/no-chainid"],
+  "panel": {
+    "rows": 14, "runtime_only": 3,
+    "by_status": {"runtime_confirmed": 4, "not_run": 9, "runtime_refuted": 1},
+    "runtime_only_rows": ["H1-centrifuge-userescrow", "H2-velodrome-rewardsdist-parity", "H3-decent-utbfeecollector-sigbind"],
+    "architectures": ["noya", "blackhole", "centrifuge", "velodrome", "decent"],
+    "prompt_corpus_unchanged": true,
+    "all_routing_allowed_false": true,
+    "all_submission_ready_false": true
+  },
+  "prompt_baseline_byte_for_byte_unchanged": true,
+  "prompt_totals": {"finding": 3, "needs_human": 1, "strong_clear": 7, "useful_recall": 0.8,
+                    "strict_recall": 0.6, "clean_false_finding_rate": 0.0},
+  "new_research_tests": 2,
+  "harness_py_changed": false,
+  "test_suite": {"research_tests_passed": 31, "full_passed": 1668, "prior_passed": 1666,
+                 "pre_existing_fails": 2, "skipped": 4},
+  "safety": {
+    "submitted_anywhere": false,
+    "submission_ready": false,
+    "severity_assigned": false,
+    "detector_severity_submission_gate_routing_changed": false,
+    "production_contract_changed": false,
+    "prompt_corpus_or_baseline_changed": false,
+    "harness_un_wired": true,
+    "active_audit_unchanged": "quantamm-2024-12-eval",
+    "no_novelty_inference": true
+  },
+  "artifacts": {
+    "test_file": "audits/decent-2024-01-holdout/pocs/p150/test/UTBFeeCollectorSigBinding.t.sol",
+    "foundry_config": "audits/decent-2024-01-holdout/pocs/p150/foundry.toml",
+    "sidecar_row": "output_research/value_provenance_eval/runtime_status.jsonl#H3-decent-utbfeecollector-sigbind"
+  }
+}

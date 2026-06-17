@@ -1,0 +1,38 @@
+{
+  "init": {"_awarded_class":"ORDER_VALIDATION/ACCESS_CONTROL/FRONT_RUNNING_MEV/DOS_LIVENESS (MarginTradingHook); P272 routed only ACCOUNTING",
+   "candidates":[
+    {"id":"init_liq_incentive","locus":"LiqIncentiveCalculator liquidation incentive multiplier","signals":["liquidation","incentive","fee"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"moderate"},
+    {"id":"init_health_zero","locus":"InitCore liquidate health bad debt","signals":["liquidate","health","debt"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"heavy","feasibility_blockers":["needs_fork"]},
+    {"id":"init_coll_credit","locus":"InitCore getCollateralCreditCurrent collateral credit health","signals":["collateral","health","borrow"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"heavy","feasibility_blockers":["needs_fork"]},
+    {"id":"init_fillorder","locus":"MarginTradingHook _calculateFillOrderInfo","signals":["fill","order","limitprice","quote"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"moderate"},
+    {"id":"init_callback","locus":"MarginTradingHook coreCallback","signals":["callback","order","public"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"moderate"}
+   ]},
+  "wise": {"_awarded_class":"ACCOUNTING_LIQUIDATION_BAD_DEBT (H-03 bad-debt, H-04 liquidation)",
+   "candidates":[
+    {"id":"wise_baddebt","locus":"FeeManager paybackBadDebt bad_debt position global","signals":["bad_debt","fee","position","global"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"heavy","feasibility_blockers":["needs_fork"]},
+    {"id":"wise_liq","locus":"WiseCore liquidation collateral","signals":["liquidat","collateral"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"heavy","feasibility_blockers":["needs_fork"]},
+    {"id":"wise_pendle_share","locus":"PendlePowerFarmToken share mint","signals":["share","mint","precision"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"hard"}
+   ]},
+  "karak": {"_awarded_class":"slashing/snapshot/vault accounting (NativeVault)",
+   "candidates":[
+    {"id":"karak_slashing","locus":"SlasherLib finalizeSlashing snapshot","signals":["slash","snapshot","status"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"heavy","feasibility_blockers":["needs_slashing_setup"]},
+    {"id":"karak_snapshot","locus":"NativeVault validateSnapshotProofs share","signals":["snapshot","share","transition"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"heavy","feasibility_blockers":["needs_beacon_fixtures"]},
+    {"id":"karak_vault_inflation","locus":"Vault deposit share mint","signals":["share","mint","precision"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"easy"}
+   ]},
+  "phi": {"_awarded_class":"DOS_LIVENESS (H-03 curator-enumeration gas-DoS)",
+   "candidates":[
+    {"id":"phi_gasdos","locus":"CuratorRewardsDistributor distribute enumeration gas dos","signals":["distribution","gas","enumerable","reward","claim"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"moderate"},
+    {"id":"phi_royalty_skim","locus":"distribute royalty fee to caller","signals":["fee","reward"],"recall_delta":false,"impact_supported":true,"poc_feasibility":"easy"}
+   ]},
+  "benddao": {"_awarded_class":"yield-staking liveness/accounting (H-08 unstake/repay)",
+   "candidates":[
+    {"id":"bd_yield","locus":"YieldStakingBase batchUnstake repay distribution","signals":["claim","distribution","reward","stuck"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"moderate"},
+    {"id":"bd_liq","locus":"LiquidationLogic liquidation collateral","signals":["liquidat","collateral","debt"],"recall_delta":false,"impact_supported":true,"poc_feasibility":"moderate"}
+   ]},
+  "negctrl": {"_note":"gated admin (looks access-control but properly gated/unsupported) + dust; must not monopolize/route on label",
+   "candidates":[
+    {"id":"nc_gated_admin","locus":"Config setOwner onlyOwner admin","signals":["onlyowner","admin","set","owner"],"recall_delta":false,"impact_supported":false,"poc_feasibility":"easy"},
+    {"id":"nc_dust","locus":"rounding dust","signals":["rounding","precision"],"recall_delta":false,"impact_supported":true,"poc_feasibility":"easy"},
+    {"id":"nc_real_accounting","locus":"LendingPool borrow debt accounting","signals":["borrow","debt"],"recall_delta":true,"impact_supported":true,"poc_feasibility":"moderate"}
+   ]}
+}

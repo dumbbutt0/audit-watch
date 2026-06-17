@@ -1,0 +1,180 @@
+[
+  {
+    "chain_id": "CH-001",
+    "path": [
+      "EOA.redeemDepositsAndInternalBalances",
+      "verifyDepositsAndInternalBalances(MerkleProof.verify)",
+      "verifySignature(ECDSA.recover)",
+      "addMigratedDepositsToAccount",
+      "setStalk"
+    ],
+    "shared_state": [
+      "s.accts[reciever].deposits",
+      "s.accts[reciever].stalk",
+      "s.accts[reciever].roots",
+      "s.sys.silo.balances[token].deposited"
+    ],
+    "invariant_exposure": [
+      "ACC-002",
+      "ACC-003",
+      "CC-001",
+      "ACC-008"
+    ],
+    "reentrancy_surface": false,
+    "stale_read_risk": true,
+    "depth": 5,
+    "danger_score": 5
+  },
+  {
+    "chain_id": "CH-002",
+    "path": [
+      "InitDiamond/diamondCut",
+      "ReseedSilo.init",
+      "reseedSiloDeposit(token A)",
+      "reseedSiloDeposit(token B)"
+    ],
+    "shared_state": [
+      "s.accts[account].stalk",
+      "s.sys.silo.balances[token]"
+    ],
+    "invariant_exposure": [
+      "ACC-001",
+      "ACC-010",
+      "ACC-008"
+    ],
+    "reentrancy_surface": false,
+    "stale_read_risk": true,
+    "depth": 4,
+    "danger_score": 5
+  },
+  {
+    "chain_id": "CH-003",
+    "path": [
+      "InitDiamond/diamondCut",
+      "ReseedField.init",
+      "inner-plot-loop"
+    ],
+    "shared_state": [
+      "s.accts[account].fields[fieldId].plots",
+      "s.sys.field.pods"
+    ],
+    "invariant_exposure": [
+      "STATE-001",
+      "ACC-009"
+    ],
+    "reentrancy_surface": false,
+    "stale_read_risk": false,
+    "depth": 3,
+    "danger_score": 4
+  },
+  {
+    "chain_id": "CH-004",
+    "path": [
+      "L1 messenger.relayMessage",
+      "BeanL1RecieverFacet.recieveL1Beans",
+      "require(EXTERNAL_L1_BEANS>=migrated)",
+      "Bean.mint"
+    ],
+    "shared_state": [
+      "s.sys.migration.migratedL1Beans"
+    ],
+    "invariant_exposure": [
+      "ACC-004",
+      "ACCESS-002",
+      "STATE-003"
+    ],
+    "reentrancy_surface": false,
+    "stale_read_risk": false,
+    "depth": 4,
+    "danger_score": 4
+  },
+  {
+    "chain_id": "CH-005",
+    "path": [
+      "Sun/Weather/Oracle.stepOracle",
+      "LibWellMinting.capture",
+      "LibUsdOracle.getTokenPrice",
+      "LibChainlinkOracle.getTokenPrice(inverted ternary)"
+    ],
+    "shared_state": [
+      "deltaB",
+      "s.sys.season mint amount"
+    ],
+    "invariant_exposure": [
+      "ARITH-001",
+      "ARITH-003",
+      "CC-003",
+      "CC-005"
+    ],
+    "reentrancy_surface": false,
+    "stale_read_risk": true,
+    "depth": 4,
+    "danger_score": 5
+  },
+  {
+    "chain_id": "CH-006",
+    "path": [
+      "EOA.pipelineConvert",
+      "LibPipelineConvert",
+      "Pipeline.advancedPipe(untrusted external calls)",
+      "convert BDV recompute",
+      "s.accts.stalk update"
+    ],
+    "shared_state": [
+      "deposit.bdv",
+      "well reserves",
+      "s.accts[a].stalk"
+    ],
+    "invariant_exposure": [
+      "ARITH-004",
+      "CC-004"
+    ],
+    "reentrancy_surface": true,
+    "stale_read_risk": true,
+    "depth": 5,
+    "danger_score": 4
+  },
+  {
+    "chain_id": "CH-007",
+    "path": [
+      "EOA(operator).tractor",
+      "LibTractor verify(signature,nonce)",
+      "FarmFacet delegatecall blueprint",
+      "state mutation as publisher"
+    ],
+    "shared_state": [
+      "blueprintNonce",
+      "activePublisher"
+    ],
+    "invariant_exposure": [
+      "STATE-002",
+      "STATE-004",
+      "CC-002"
+    ],
+    "reentrancy_surface": true,
+    "stale_read_risk": false,
+    "depth": 4,
+    "danger_score": 4
+  },
+  {
+    "chain_id": "CH-008",
+    "path": [
+      "EOA.getTokenPriceFromExternal(custom encodeType)",
+      "oracleImpl.target.staticcall",
+      "assembly mload price",
+      "peg/minting consumer"
+    ],
+    "shared_state": [
+      "s.sys.oracleImplementation[token]",
+      "tokenPrice"
+    ],
+    "invariant_exposure": [
+      "CC-003",
+      "ARITH-003"
+    ],
+    "reentrancy_surface": false,
+    "stale_read_risk": false,
+    "depth": 4,
+    "danger_score": 4
+  }
+]

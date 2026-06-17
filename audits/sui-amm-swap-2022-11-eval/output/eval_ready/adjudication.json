@@ -1,0 +1,273 @@
+{
+ "audit_id": "sui-amm-swap-2022-11-eval",
+ "set": "holdout",
+ "generated_at": "2026-06-17T03:27:50Z",
+ "awarded_source": "report.md",
+ "auto_heuristic": false,
+ "awarded": [
+  {
+   "id": "M-1",
+   "severity": "Medium",
+   "title": "Missing constant-product K check after swap in implements.swap_out",
+   "label": "STRONG",
+   "matched_candidate_id": "AR-001",
+   "mechanism_class": "move-constant-product-invariant-recheck",
+   "read_file": true,
+   "source": "manual-adjudication-postfix"
+  },
+  {
+   "id": "M-2",
+   "severity": "Medium",
+   "title": "MINIMAL_LIQUIDITY subtracted from first LP but never minted or locked in implements.add_liquidity",
+   "label": "STRONG",
+   "matched_candidate_id": "LG-002",
+   "mechanism_class": "move-first-deposit-liquidity-lock",
+   "read_file": true,
+   "source": "preserved"
+  },
+  {
+   "id": "M-3",
+   "severity": "Medium",
+   "title": "Multi functions pop_back on unchecked empty vector in interface.multi_add/remove/swap",
+   "label": "STRONG",
+   "matched_candidate_id": "DS-002",
+   "mechanism_class": "move-empty-vector-input-validation",
+   "read_file": true,
+   "source": "preserved"
+  },
+  {
+   "id": "M-4",
+   "severity": "Medium",
+   "title": "Wrong event access permission \u2014 public emit functions allow event spoofing in event.move",
+   "label": "STRONG",
+   "matched_candidate_id": "AC-001",
+   "mechanism_class": "move-public-helper-visibility",
+   "read_file": true,
+   "source": "manual-adjudication-postfix"
+  },
+  {
+   "id": "M-5",
+   "severity": "Medium",
+   "title": "First-deposit sqrt precision error sqrt(x)*sqrt(y) instead of sqrt(x*y) in implements.add_liquidity",
+   "label": "STRONG",
+   "matched_candidate_id": "AR-002",
+   "mechanism_class": "move-rounding-direction",
+   "read_file": true,
+   "source": "preserved"
+  },
+  {
+   "id": "M-6",
+   "severity": "Medium",
+   "title": "No interface to modify the controller, centralization risk in controller.move",
+   "label": "STRONG",
+   "matched_candidate_id": "AC-001",
+   "mechanism_class": "move-capability-safety",
+   "read_file": true,
+   "source": "preserved"
+  },
+  {
+   "id": "H-1",
+   "severity": "High",
+   "title": "Missing provided_liq>0 zero-check in add_liquidity causes user fund loss",
+   "label": "STRONG",
+   "matched_candidate_id": "EA-002",
+   "mechanism_class": "move-zero-share-deposit-fundloss",
+   "read_file": true,
+   "source": "preserved"
+  }
+ ],
+ "candidates": [
+  {
+   "id": "DS-001",
+   "title": "withdraw aborts unless BOTH fee sides are nonzero -> accrued fee lockup",
+   "severity": "Medium",
+   "file": "sources/implements.move",
+   "contract": "",
+   "function": "withdraw",
+   "description": "implements::withdraw (implements.move:457-476) requires BOTH fee balances to be strictly positive: `assert!(coin_x_fee > 0 && coin_y_fee > 0, ERR_ZERO_AMOUNT)` (line 464). Fees only accrue on the input side of a swap: swap_out joins coin_x_fee on an X->Y swap (line 328) and coin_y_fee on a Y->X swap (line 357). If all trades on a pool flow one direction (e.g. only X->Y), fee_coin_y stays 0 while fee_coin_x grows. The beneficiary calls beneficiary::withdraw (beneficiary.move:15-43) -> implements::withdraw, which then aborts on the `&&` guard because coin_y_fee == 0. The already-accrued fees on the nonzero side cannot be withdrawn until at least one swap occurs in the opposite direction. For a thin or one-directional market an attacker/competitor never needs to provide opposite-direction flow, so beneficiary fees remain stranded indefinitely. The correct guard is OR (withdraw whatever is nonzero) and split each side conditionally."
+  },
+  {
+   "id": "DS-002",
+   "title": "multi_* entrypoints pop_back on caller vector with no length check -> abort on empty input",
+   "severity": "Info",
+   "file": "sources/interface.move",
+   "contract": "",
+   "function": "multi_add_liquidity",
+   "description": "multi_add_liquidity (interface.move:152,156), multi_remove_liquidity (interface.move:198) and multi_swap (interface.move:219) each begin with `vector::pop_back(&mut <caller_vector>)` with no prior `vector::length(...) > 0` check. If the caller submits an empty coin vector the pop_back aborts. This is confined to the caller's own transaction with malformed input (self-griefing) and cannot block other users or lock shared state, so impact is informational. The merged-coin / split flow also assumes coins_x_value <= total provided; split itself aborts safely on over-split (Sui balance underflow), again only failing the caller's own tx."
+  },
+  {
+   "id": "EA-001",
+   "title": "Swap fee deducted twice: coin_in_after_fee then get_amount_out re-applies 0.3% fee",
+   "severity": "Medium",
+   "file": "sources/implements.move",
+   "contract": "",
+   "function": "swap_out / get_amount_out / coin_in_after_fee",
+   "description": "swap_out passes coin_in_after_fee(coin_x_in) into get_amount_out. coin_in_after_fee (implements.move:427-431) already subtracts 0.3% (coin_in - mul_div(coin_in, 30, 10000)). get_amount_out (implements.move:434-454) then multiplies that already-reduced input by fee_multiplier = FEE_SCALE - FEE_MULTIPLIER = 9970/10000 AGAIN (line 439-441), and uses the same doubly-reduced value in BOTH numerator (coin_in_val_after_fees) and denominator (new_reserve_in). The swap therefore charges the trader the 0.3% LP fee twice on the output computation: effective input multiplier is ~0.997*0.997 = 0.994009 instead of 0.997. A trader swapping dx receives output computed on dx*0.994 rather than dx*0.997, i.e. roughly an extra ~0.3% is silently withheld from every swap output. This is a systematic economic defect: swappers are persistently underpaid (value accrues to LP reserves / pool), and the constant-product output curve does not match the documented '0.3%' fee model."
+  },
+  {
+   "id": "EA-002",
+   "title": "First-depositor LP uses sqrt(x)*sqrt(y) not sqrt(x*y); proportional mint floors to 0 enabling LP rounding theft",
+   "severity": "Medium",
+   "file": "sources/implements.move",
+   "contract": "",
+   "function": "add_liquidity",
+   "description": "add_liquidity initial branch (implements.move:231-234) mints initial_liq = math::sqrt(optimal_coin_x) * math::sqrt(optimal_coin_y), which is NOT sqrt(x*y): for non-perfect-square reserves floor(sqrt(x))*floor(sqrt(y)) <= sqrt(x*y) and the gap can be large (e.g. x=y=2000 -> 44*44=1936 vs sqrt(4_000_000)=2000). MINIMAL_LIQUIDITY (1000) is subtracted but is never minted to a dead/locked address (lp_supply only increases by provided_liq) - it is simply not credited, so it does not fully behave as the canonical permanently-locked-shares inflation mitigation. Because the first deposit can leave lp_supply very small relative to reserves, the subsequent-LP branch x_liq = lp_supply * optimal_coin_x / coin_x_reserve (line 236-237) floors to 0 for a wide range of honest second deposits: e.g. lp_supply=936, reserves 2000/2000, a provider adding up to ~2 units of each coin computes x_liq = 936*2/2000 = 0, mints 0 LP, yet calc_optimal_coin_values still pulls their coins into the reserves (lines 247-264). Those coins are donated to existing LPs with no shares issued. An attacker who is first LP and keeps the supply:reserve ratio low can grief/extract from small subsequent depositors (classic inflation/rounding theft variant adapted to this mint formula)."
+  },
+  {
+   "id": "EA-003",
+   "title": "Foundation fee skims input before reserve join, inconsistent with output fee basis (k drift)",
+   "severity": "Low",
+   "file": "sources/implements.move",
+   "contract": "",
+   "function": "swap_out / get_fee_to_fundation",
+   "description": "In swap_out the foundation fee = get_fee_to_fundation(coin_in) = coin_in * (FEE_MULTIPLIER/5) / FEE_SCALE = coin_in * 6/10000 = 0.06% (implements.move:417-424) is split out of the input into fee_coin_x/fee_coin_y (lines 328-329 / 356-358) and only the remaining input (coin_in - 0.06%) is joined to pool.coin_x. However the output (EA-001) was priced as if input were reduced by ~0.6% (double 0.3%). So the reserve actually GAINS coin_in*0.9994 while the trader is charged on a coin_in*0.994 basis. The net effect is the constant-product k grows faster than any single consistent fee model and the realized LP fee (~0.24% retained in reserves) plus 0.06% foundation plus the extra ~0.3% withheld-from-output do not sum to a coherent 0.3% policy. Reserves and lp_supply still conserve (no direct theft), but value flow does not match documented intent and complicates LP accounting / arbitrage."
+  },
+  {
+   "id": "LG-001",
+   "title": "First-deposit liquidity uses sqrt(x)*sqrt(y) instead of sqrt(x*y), inflating initial LP",
+   "severity": "Medium",
+   "file": "sources/implements.move",
+   "contract": "",
+   "function": "add_liquidity",
+   "description": "In add_liquidity (implements.move:231-234) the initial liquidity for an empty pool is computed as `initial_liq = math::sqrt(optimal_coin_x) * math::sqrt(optimal_coin_y)`. The correct constant-product formula (UniswapV2) is `sqrt(x * y)`. Because integer sqrt floors each factor, `sqrt(x)*sqrt(y)` is NOT equal to and is generally LARGER than `sqrt(x*y)` for non-perfect-square products at scale (e.g. sqrt(2)*sqrt(2)=1*1=1 vs sqrt(4)=2 differs; at scale the per-factor floor error multiplies). The minted first-deposit LP amount therefore deviates from the geometric mean of deposited reserves, mispricing the LP share relative to redeemable reserves. Combined with the gating `assert!(initial_liq > MINIMAL_LIQUIDITY)`, the seeded amount that the formula intends to gate (geometric mean) is not what is actually computed."
+  },
+  {
+   "id": "LG-002",
+   "title": "MINIMAL_LIQUIDITY is discarded, never minted/locked, so total LP supply != redeemable backing",
+   "severity": "Medium",
+   "file": "sources/implements.move",
+   "contract": "",
+   "function": "add_liquidity",
+   "description": "On the first deposit (implements.move:231-234) the contract computes `initial_liq` then mints only `initial_liq - MINIMAL_LIQUIDITY` LP to the user via increase_supply (line 266). Unlike UniswapV2, the MINIMAL_LIQUIDITY (1000) units are NOT minted to a burn/dead address or otherwise added to lp_supply \u2014 they are simply subtracted and discarded. Consequently lp_supply equals the circulating user LP, but the pool reserves correspond to the FULL initial_liq worth of value. When the sole/last LP holder calls remove_liquidity, remove_liquidity computes coin_out = reserve * lp_val / lp_supply with lp_supply == their own balance, so they redeem 100% of reserves anyway (the 1000 units of 'locked' value are returned to them, not permanently locked). The net effect: the intended permanent minimum-liquidity lock that protects against the empty-pool re-initialization / share-inflation rounding edge does NOT exist. The 'lock' is cosmetic."
+  },
+  {
+   "id": "LG-003",
+   "title": "Pool fee is under-collected: 0.06% diverted to fee balance while swap output discounts 0.3%",
+   "severity": "Low",
+   "file": "sources/implements.move",
+   "contract": "",
+   "function": "swap_out",
+   "description": "swap_out (implements.move:316-329) splits a foundation fee `coin_x_fee = get_fee_to_fundation(coin_x_in)` into pool.fee_coin_x, then joins the REMAINDER (coin_x_in - coin_x_fee) into pool.coin_x. get_fee_to_fundation (implements.move:417-424) returns coin_in * (30/5) / 10000 = coin_in * 0.06%. Meanwhile get_amount_out is fed coin_in_after_fee(coin_x_in) = coin_in - coin_in*30/10000 = coin_in*0.997 (a 0.3% fee discount). The output is computed against reserve_in as if only 99.7% of the input was added, but the reserve actually grows by 99.94% of input (only 0.06% removed to fees). The intended 0.3% trading fee is therefore NOT fully realized as either LP fee or foundation fee: 0.06% goes to the foundation fee bucket, the LP keeps an implicit ~0.24% (because output is discounted by 0.3% but reserve only loses 0.06%). The split between foundation and LP is not what the constants (FEE_MULTIPLIER 0.3%, foundation = 1/5 of fee) describe. Direction is protocol/LP-favoring (k grows), not user-exploitable, but the fee accounting does not match the documented model."
+  },
+  {
+   "id": "LG-004",
+   "title": "withdraw requires BOTH fee balances > 0, bricking fee withdrawal on single-sided-fee pools",
+   "severity": "Low",
+   "file": "sources/implements.move",
+   "contract": "",
+   "function": "withdraw",
+   "description": "implements.move withdraw (lines 461-464) asserts `coin_x_fee > 0 && coin_y_fee > 0` (ERR_ZERO_AMOUNT). Fees accumulate per-direction: a swap of X->Y only adds to fee_coin_x, and Y->X only adds to fee_coin_y. If a pool has only ever been traded in one direction (e.g. all swaps X->Y), fee_coin_y stays 0 while fee_coin_x is positive. The AND condition then makes withdraw abort, so the beneficiary cannot collect the accrued fee_coin_x until at least one trade occurs in the opposite direction. The accrued fee is temporarily un-withdrawable (stuck until a reverse trade happens)."
+  },
+  {
+   "id": "LG-005",
+   "title": "Operations callable while NOT paused only; no per-pool emergency and resume/pause race on global flag",
+   "severity": "Info",
+   "file": "sources/interface.move",
+   "contract": "",
+   "function": "remove_liquidity",
+   "description": "The pause/resume state machine (controller.move) gates a single global.has_paused flag. add_liquidity/remove_liquidity/swap and multi_* all assert !is_emergency. However remove_liquidity is ALSO blocked while paused (interface.move:73), meaning an emergency pause prevents users from withdrawing their own liquidity, not just stopping swaps. A pause therefore freezes user funds (LP holders cannot exit) rather than only halting risky operations. This is a design/state-machine concern: emergency pause should typically still allow liquidity removal (exit) while blocking adds/swaps."
+  },
+  {
+   "id": "AR-001",
+   "title": "swap_out never re-asserts constant-product K invariant on post-swap reserves",
+   "severity": "Medium",
+   "file": "sources/implements.move",
+   "contract": "",
+   "function": "swap_out",
+   "description": "swap_out (implements.move:302-369) computes coin_y_out from get_amount_out (the x*y/k curve) and then mutates reserves: it joins the fee portion into pool.fee_coin_x, joins the remainder into pool.coin_x, and coin::take's coin_y_out out of pool.coin_y. At no point after the mutation does the code read the resulting reserves and assert the constant-product invariant holds, i.e. there is no assert!((new_coin_x as u128) * (new_coin_y as u128) >= (old_coin_x as u128) * (old_coin_y as u128), ...). The same omission applies to add_liquidity (implements.move:203-274) and remove_liquidity (implements.move:278-298). Tracing the current math: get_amount_out (implements.move:434-454) uses mul_div_u128 (floor) so output is rounded down in the pool's favour, and only ~0.06% of input is diverted to fee_coin_x while the curve charges 0.3%, so today the reserve product is non-decreasing. The finding is the ABSENT guard, not the present math: the curve helpers (get_amount_out / coin_in_after_fee / get_fee_to_fundation) and their rounding directions are the sole thing standing between the pool and reserve drain, with no on-chain backstop. A later edit to any fee/curve helper, a flipped rounding in mul_div_u128, or an unconsidered input domain would silently let coin_y_out exceed the curve's allowance and drain coin_y with nothing to catch it."
+  },
+  {
+   "id": "AR-002",
+   "title": "Initial LP uses sqrt(x)*sqrt(y) instead of sqrt(x*y): under-mint + u64 overflow abort",
+   "severity": "Low",
+   "file": "sources/implements.move",
+   "contract": "",
+   "function": "add_liquidity",
+   "description": "On the first deposit (lp_supply == 0) add_liquidity computes initial liquidity as math::sqrt(optimal_coin_x) * math::sqrt(optimal_coin_y) (implements.move:232), not the Uniswap-standard math::sqrt(optimal_coin_x * optimal_coin_y). Because math::sqrt (math.move:34-52) returns the floored integer square root, taking the floor of each factor BEFORE multiplying loses precision: e.g. x=y=15 yields floor(sqrt(15))*floor(sqrt(15)) = 3*3 = 9 instead of floor(sqrt(225)) = 15 (verified numerically). The first LP therefore receives fewer LP tokens than the geometric mean of deposits prescribes (favours the protocol/locked value, not extraction). Separately, math::sqrt returns u64 and the product is a native u64 multiply: for large near-equal first deposits sqrt(x) and sqrt(y) each approach 2^32, so the product approaches/exceeds 2^64 and the multiply aborts. MAX_POOL_VALUE (u64_max/10000) bounds reserves so the product stays near the u64 ceiling, making this a borderline DoS on very large initial deposits rather than a guaranteed abort."
+  },
+  {
+   "id": "AC-001",
+   "title": "Public event emitters let anyone forge Added/Removed/Swapped/Withdrew events",
+   "severity": "Medium",
+   "file": "sources/event.move",
+   "contract": "",
+   "function": "added_event / removed_event / swapped_event / withdrew_event",
+   "description": "All four side-effecting event helpers in event.move are declared `public fun` and call sui::event::emit(...) (added_event L44-60, removed_event L62-78, swapped_event L80-98, withdrew_event L100-114). An emit is a side effect, not a read. The event structs (AddedEvent/RemovedEvent/SwappedEvent/WithdrewEvent, L9-42) all have `copy, drop` and take only plain ID/String/u64 fields, so any external module or PTB transaction can call e.g. `swap::event::swapped_event(global_id, lp_name, x_in, x_out, y_in, y_out)` directly with fully attacker-chosen values WITHOUT performing any swap, add, remove, or fee withdrawal. The only legitimate callers are swap::interface (added/removed/swapped) and swap::beneficiary (withdrew); these emitters should be `public(friend)` of those modules, but event.move declares no `friend` and exposes them as fully public. event.move:2-115; called legitimately from interface.move:57,95,129 and beneficiary.move:37."
+  },
+  {
+   "id": "AC-002",
+   "title": "controller/beneficiary admin addresses are fixed at init with no rotation path",
+   "severity": "Low",
+   "file": "sources/implements.move",
+   "contract": "",
+   "function": "init",
+   "description": "implements::init (implements.move:91-101) hard-codes Global.controller = @controller and Global.beneficiary = @beneficiary (named addresses baked at publish). There is NO public(friend) or entry setter anywhere in the package to change controller or beneficiary after deployment (only readers controller()/beneficiary() at implements.move:142-148). controller::pause/resume (controller.move:13-25) and beneficiary::withdraw (beneficiary.move:15-43) gate solely on `addr == tx_context::sender(ctx)`. If the controller or beneficiary key is lost/compromised, pause/resume and fee withdrawal are permanently frozen or permanently captured with no admin lifecycle (no two-step transfer, no rotation, no AdminCap object that could be transferred). This is an admin-lifecycle gap, not a missing guard: the gates themselves are correct."
+  },
+  {
+   "id": "AC-003",
+   "title": "beneficiary::withdraw requires BOTH fee balances > 0, allowing one-sided fee lock / griefing",
+   "severity": "Low",
+   "file": "sources/implements.move",
+   "contract": "",
+   "function": "withdraw",
+   "description": "implements::withdraw (implements.move:457-476) asserts `coin_x_fee > 0 && coin_y_fee > 0` (line 464, ERR_ZERO_AMOUNT) before splitting both fee balances. The fee balances grow asymmetrically: swap_out only credits the INPUT leg's fee (fee_coin_x on X->Y at line 328, fee_coin_y on Y->X at line 357). If a pool has only ever been swapped in one direction, the opposite-side fee balance is exactly 0, so the AND-condition aborts and the beneficiary cannot withdraw the accrued (non-zero) fees on the active side. Conservation itself is sound (split takes the full measured balance, value in == value out), but the combined gate makes legitimately-accrued fees temporarily unwithdrawable until at least one unit of fee accrues on the other side."
+  }
+ ],
+ "summary": {
+  "awarded": 7,
+  "strong": 7,
+  "surfaced": 7,
+  "recall_of_surfaced": 1.0,
+  "strong_only": 1.0,
+  "missed": 0,
+  "missed_ids": [],
+  "coverage_gap_misses": 0,
+  "reasoning_gap_misses": 0
+ },
+ "language": "move",
+ "verification_repass": {
+  "kind": "T8 Move resource/capability lens verification \u2014 NON-BLIND / CONTAMINATED",
+  "generated_at": "2026-06-17T16:34:47.380668+00:00",
+  "why_contaminated": "This holdout was already cold-passed AND authored agents/move_object_capability.md \u00a77 (the public-emit visibility lens is tagged 'generalized from a Sui AMM event-spoofing miss, eval sui-amm-swap-2022-11-eval'). A fresh pass cannot be honest blind recall. Run at user request ('use a contaminated Move target like sui-amm-swap anyway').",
+  "banked_as_blind_recall": false,
+  "no_new_classes_earned": "sui-amm-swap is a clean 7/7 STRONG pass (recall_of_surfaced 1.0, 0 misses). A 0-miss target cannot honestly EARN new lenses via the miss->reincorporate loop; fabricating misses is forbidden. T8's four named lenses already exist in agents/move_object_capability.md.",
+  "lens_coverage_map": [
+   {
+    "t8_lens": "resource-conservation (Coin/Balance no double-spend)",
+    "existing_section": "\u00a75 move-coin-balance-conservation",
+    "verified_against": "implements.move:62 MINIMAL_LIQUIDITY=1000 + add_liquidity:213 balance/zero handling (M-2/H-1)",
+    "maps": true
+   },
+   {
+    "t8_lens": "shared-vs-owned object",
+    "existing_section": "\u00a72 move-object-ownership",
+    "verified_against": "Global is a shared object; per-pool state keyed by type \u2014 agent lens present (no awarded ownership-confusion finding in this DEX)",
+    "maps": true
+   },
+   {
+    "t8_lens": "module-init-once",
+    "existing_section": "\u00a73 OTW + \u00a76 one-shot init/version guard",
+    "verified_against": "implements.move:188 balance::create_supply(LP{}) one-time-witness init pattern",
+    "maps": true
+   },
+   {
+    "t8_lens": "capability gate / identity",
+    "existing_section": "\u00a71 move-capability-safety",
+    "verified_against": "controller.move:13/21 pause/resume gate on implements::controller(global)==sender; stored-address controller, no AdminCap/rotation (M-6 centralization)",
+    "maps": true
+   },
+   {
+    "t8_lens": "side-effecting helper visibility (earned here)",
+    "existing_section": "\u00a77 move-public-helper-visibility",
+    "verified_against": "event.move:44/62/80/100 public fun added/removed/swapped/withdrew_event (M-4 event spoofing)",
+    "maps": true
+   }
+  ],
+  "open_lens_gap_NOT_fabricated": {
+   "lens": "capability-store-leak (a privileged Cap transferred/stored to an attacker-extractable location \u2014 shared object field, public getter returning &Cap, or transfer to caller)",
+   "status": "NOT covered by an explicit \u00a7; NOT authored here because sui-amm-swap has no finding of this class. Earn it honestly from a future real Move eval that exhibits it; do not seed without an awarded example.",
+   "adjacent_partial_coverage": "\u00a71 (cap bound to identity) + \u00a73 (no public cap constructor / create doesn't grant authority over existing state)"
+  },
+  "conclusion": "T8 verified on a contaminated target: all four plan-named Move resource/capability lenses already exist (\u00a71/\u00a72/\u00a73/\u00a75/\u00a76) and each maps to a real sui-amm source site; \u00a77 was previously earned from this eval. No new class earned (0-miss target). One genuinely-uncovered lens (capability-store-leak) is logged as an open gap for a future real Move eval, NOT fabricated. NOT banked toward blind recall (Move headline stays 1.0 from the genuine cold pass)."
+ }
+}

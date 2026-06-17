@@ -1,0 +1,41 @@
+{
+  "phase": "P124",
+  "candidate": "iq-ai-2025-01::AgentRouter.sell",
+  "novel": true,
+  "terminal_state": "KILLED_RUNTIME",
+  "question": "Is the AgentRouter itself safe — does sell() return currency only for the full _amountIn of agent tokens surrendered, enforce _minAmountOut, reject non-existent agents, and retain nothing — with pricing delegated to the pool, on both the bootstrap and Fraxswap paths?",
+  "answer": "Yes (router-level safe). The router reverts AgentNotFound and InsufficientAmountOut appropriately, pulls exactly _amountIn agent tokens from the caller, forwards them to the bootstrap pool / Fraxswap pair, delivers the currency output to _recipient, and retains zero of both tokens on both branches. No skim, over-issue, slippage bypass, or fund retention at the router level.",
+  "harness": {
+    "type": "iq-ai Foundry project, test-only file under test/audit/, no fork",
+    "path": "/tmp/p102-iqai/test/audit/AgentRouterSellRuntime.t.sol",
+    "command": "forge test --match-contract AgentRouterSellRuntime --evm-version cancun -vvv",
+    "solc": "0.8.25",
+    "evm": "cancun",
+    "contract_under_test": "real AgentRouter (iq-ai), unmutated",
+    "mocks": ["MockAgentFactory", "MockLiquidityManager", "MockBootstrapPool(sell)", "MockERC20 x2", "MockFraxswapFactory (vm.etch at 0xE305...)", "MockFraxswapPair(currency-out)"]
+  },
+  "cases": [
+    {"id": "A", "scenario": "non-existent agent", "result": "PASS", "evidence": "reverts AgentNotFound"},
+    {"id": "B", "scenario": "bootstrap happy path", "result": "PASS", "evidence": "exact _amountIn agent surrendered; recipient got quote currency; router holds 0"},
+    {"id": "C", "scenario": "slippage minOut>quote", "result": "PASS", "evidence": "reverts InsufficientAmountOut"},
+    {"id": "D", "scenario": "recipient != seller", "result": "PASS", "evidence": "recipient got currency; seller surrendered agent, got no currency"},
+    {"id": "E", "scenario": "Fraxswap killed path (etched factory)", "result": "PASS", "evidence": "_amountIn agent routed to pair; recipient got currency; router holds 0"}
+  ],
+  "all_cases_pass": true,
+  "runtime_proven": true,
+  "source_only_proof_used": false,
+  "out_of_scope_needs_context": [
+    "BootstrapPool bonding-curve sell pricing / fee / killed transition",
+    "Fraxswap getAmountOut / sync (donation skim) / reserves / fee tier (the IQ-M-01 moveLiquidity pair-adoption area)"
+  ],
+  "awarded": false,
+  "submittable": false,
+  "severity_assigned": null,
+  "report_written": false,
+  "submission_package": false,
+  "ready_for_human_review": false,
+  "production_wiring": false,
+  "research_only": true,
+  "src_mutated": false,
+  "iqai_src": "unmutated (AgentRouter.sol sha bb063429; harness is a test-only file under test/audit/)"
+}

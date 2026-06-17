@@ -1,0 +1,92 @@
+{
+  "agent": "token_integration",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T21:40:00+00:00",
+  "scope_note": "Beanstalk uses an owner/governance-gated Silo whitelist. The current whitelisted/handled token set is BEAN (18d, standard, returns bool), BEAN-LP wells, WETH (standard) and wstETH (the Barn-Raise token; non-rebasing, standard). USDC/USDT addresses exist in C.sol but are only used as Chainlink-priced reference assets, not as deposit/transfer sinks, and are not iterated over in any user-supplied batch loop. Fee-on-transfer and rebasing tokens are out of the permissionless attack surface because adding such a token requires a privileged whitelistToken/whitelistTokenWithExternalImplementation call (Implementation registration). This bounds the FOT/rebasing classes to privileged-precondition Info-level for this deployment. The hot deposit path (SiloFacet.deposit -> LibTransfer.receiveToken) is FOT-safe: it returns balanceOf(this) delta and deposits that actual amount, not the requested argument. SafeERC20 is used consistently in LibTransfer/LibApprove/UnripeFacet.addMigratedUnderlying.",
+  "findings": [
+    {
+      "id": "TI-001",
+      "title": "Fertilizer purchase path credits the requested tokenAmountIn rather than the actually-received Barn-Raise token amount (argument-based accounting, raw transferFrom)",
+      "severity": "Low",
+      "confidence": "High",
+      "description": "FertilizerFacet.mintFertilizer -> LibFertilizer.addFertilizer pulls the Barn-Raise token with a raw, return-value-unchecked IERC20(barnRaiseToken).transferFrom(user, this, tokenAmountIn) and then uses the SAME tokenAmountIn argument for (a) the well addLiquidity tokenAmountsIn, (b) the Fertilizer/recapitalization accounting (recapitalized += usdAmount derived from tokenAmountIn), and (c) the minted Fertilizer id/amount. There is no balanceOf-before/after measurement. If the Barn-Raise token were ever a fee-on-transfer or rebasing token, the contract would record/recapitalize more value than it actually received, drifting recapitalization accounting and over-issuing Fertilizer relative to backing. With the current Barn-Raise token (wstETH via BEAN_WSTETH_WELL — non-rebasing, standard, returns bool) there is no drift and the raw transferFrom cannot silently fail, so the live impact is nil. This contrasts with the Silo deposit path, which correctly uses the receiveToken balance delta.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/LibFertilizer.sol",
+        "function": "addFertilizer",
+        "line_start": 116,
+        "line_end": 142
+      },
+      "impact": "Latent accounting-drift / over-issuance risk that only materializes if a fee-on-transfer or rebasing token is selected as the Barn-Raise token. Bounded to Low because the Barn-Raise token is governance-controlled and is currently wstETH (standard, non-FOT). Raw transferFrom return value is also unchecked, but wstETH reverts on failure so it is benign here.",
+      "proof_of_concept": "Hypothetical (token-conditional): set Barn-Raise token = a 1%-FOT ERC20 T. User calls mintFertilizer(tokenAmountIn=1000e18). addFertilizer does T.transferFrom(user,this,1000e18) -> contract actually receives 990e18. It then calls well.addLiquidity with tokenAmountsIn[T]=1000e18 (will revert or under-deliver) and computes usdAmount from 1000e18, so s.sys.fert.recapitalized and the minted Fertilizer reflect 1000 units of value while only 990 were received. Repeated purchases inflate recapitalized vs. real backing. With wstETH this branch is unreachable for any drift (no fee), so no PoC against the live token is possible.",
+      "ite": {
+        "intent": "Record Fertilizer/recapitalization equal to the value actually delivered to the protocol",
+        "technique": "Argument-based accounting (tokenAmountIn) instead of measured balanceOf delta, combined with raw transferFrom",
+        "evasion": "Only triggers if governance whitelists a non-standard Barn-Raise token; standard wstETH gives no drift"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.fert.recapitalized and minted Fertilizer amount (would exceed value actually received for an FOT/rebasing barn-raise token)",
+        "impact": "Over-recapitalization / over-issued Fertilizer vs. backing; addLiquidity may also revert (DoS) on under-delivered amount",
+        "consumer_found": true,
+        "consumer_function": "LibFertilizer.remainingRecapitalization / Sun fertilizer payout read s.sys.fert.recapitalized and Fertilizer balances",
+        "exploit_path": "mintFertilizer(tokenAmountIn) -> addFertilizer raw transferFrom + argument-based usdAmount -> recapitalized/Fertilizer overstated only when barnRaiseToken is FOT/rebasing"
+      },
+      "attack_surface_rank": "barn / FertilizerFacet (cluster Sinks=5)"
+    },
+    {
+      "id": "TI-002",
+      "title": "Fee-on-transfer / rebasing token incompatibility across Silo and convert accounting is gated by privileged whitelist (latent, not permissionlessly reachable)",
+      "severity": "Info",
+      "confidence": "High",
+      "description": "Several non-Silo token sinks use argument-based accounting and/or raw (non-SafeERC20) transfers that would mis-account for fee-on-transfer or rebasing tokens: UnripeFacet.addMigratedUnderlying (incrementUnderlying(amount) on the argument; owner-only), LibPipelineConvert.executePipelineConvert (IERC20(inputToken).transfer(C.PIPELINE, fromAmount) raw, then re-measures via transferTokensFromPipeline so the convert leg is partially balance-checked), LibWellConvert (C.bean().transfer raw), LibFlood/LibFertilizer raw approve. None of these tracks a balanceOf delta for the credited amount. However, every token that can flow through these paths is constrained to the governance-managed whitelist / unripe-underlying / Barn-Raise set, and whitelistToken/whitelistTokenWithEncodeType/whitelistTokenWithExternalImplementation are owner-or-Beanstalk gated. The current set (BEAN, BEAN-LP wells, WETH, wstETH) is entirely standard, non-FOT and non-rebasing, so the FOT/rebasing drain class is not reachable by an unprivileged attacker in this deployment. Recorded as Info to flag the latent assumption rather than an exploitable bug.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/WhitelistFacet/WhitelistFacet.sol",
+        "function": "whitelistToken",
+        "line_start": 56,
+        "line_end": 80
+      },
+      "impact": "No present impact: requires a privileged whitelist/underlying/barn-raise change to introduce an FOT or rebasing token. Documents the systemic 'records argument, not received amount' assumption that holds protocol-wide outside SiloFacet.deposit.",
+      "proof_of_concept": "Whitelisting an FOT token is the precondition for any drift in UnripeFacet/convert accounting; that call requires LibDiamond.enforceIsOwnerOrContract / enforceIsContractOwner, so no EOA-only (L1) attacker transaction reaches the corrupted state. No permissionless PoC exists for the live token set.",
+      "ite": {
+        "intent": "Ensure protocol-wide token accounting matches delivered amounts for any handled token",
+        "technique": "Argument-based credit + raw ERC20 calls assume standard transfer semantics",
+        "evasion": "Privileged whitelist is the only entry for a non-standard token; standard tokens give no drift"
+      },
+      "ice_chain": {
+        "corrupted_state": "balanceOfUnderlying / convert BDV / recapitalization for an FOT or rebasing token",
+        "impact": "Accounting drift / potential withdraw underflow only after a non-standard token is privileged-whitelisted",
+        "consumer_found": true,
+        "consumer_function": "LibUnripe / LibConvert / Silo withdraw read the underlying and BDV totals",
+        "exploit_path": "owner whitelists FOT token -> users deposit/convert -> recorded > received -> later withdrawals drain residual; blocked today by token set + privileged gate"
+      },
+      "attack_surface_rank": "silo whitelist (privileged precondition)"
+    },
+    {
+      "id": "TI-003",
+      "title": "Fertilizer1155 pays out Beans (payFertilizer) inside _beforeTokenTransfer using pre-transfer balances and before the ERC1155 acceptance check",
+      "severity": "Info",
+      "confidence": "Medium",
+      "description": "Fertilizer1155.safeTransferFrom calls _beforeTokenTransfer -> Fertilizer._update(from)/_update(to) -> IBS(owner()).payFertilizer(account, amount), an external Bean-paying call into Beanstalk, BEFORE _transfer updates the ERC1155 balances and before __doSafeTransferAcceptanceCheck. __update reads _balances[id][account].amount, which for both from and to reflects PRE-transfer balances; that is the intended settle-before-move behavior for the sender but means recipient (to) is settled on its old (often zero) balance, and the Bean payout external call occurs while the 1155 transfer is mid-flight. This is an ERC1155-callback ordering / CEI concern more than an ERC20 non-standard-token issue, and overlaps the reentrancy specialist's lane (Fertilizer is owner-gated to Beanstalk, which has nonReentrant on its facets). No fund-loss path was traced end-to-end from the token-integration angle; flagged for the reentrancy/logic agents to confirm whether a malicious to-contract callback during __doSafeTransferAcceptanceCheck can reenter while fertilizer payout state is mid-update.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/tokens/Fertilizer/Fertilizer.sol",
+        "function": "_beforeTokenTransfer",
+        "line_start": 62,
+        "line_end": 78
+      },
+      "impact": "Potential reentrancy/ordering surface during Fertilizer transfers; no isolated token-integration fund-loss path confirmed. Cross-listed to reentrancy specialist.",
+      "proof_of_concept": "Transfer Fertilizer to a contract recipient: _beforeTokenTransfer pays Beans to from/to via payFertilizer, then _transfer moves the 1155, then onERC1155Received is invoked on the recipient. The recipient's acceptance callback runs after the Bean payout but the diamond's nonReentrant on payFertilizer's facet limits reentry. Not proven exploitable here.",
+      "ite": {
+        "intent": "Settle accrued Bean rewards exactly once per Fertilizer holder on transfer",
+        "technique": "External Bean payout in _beforeTokenTransfer prior to balance finalization and acceptance check",
+        "evasion": "Recipient contract callback after payout"
+      },
+      "ice_chain": {
+        "corrupted_state": "Fertilizer accrual lastBpf / Bean payout timing relative to 1155 balance update",
+        "impact": "Reentrancy/ordering risk if a recipient callback can reenter payout; unproven",
+        "consumer_found": true,
+        "consumer_function": "FertilizerFacet.payFertilizer / Sun bpf payout",
+        "exploit_path": "safeTransferFrom -> _beforeTokenTransfer payFertilizer -> _transfer -> onERC1155Received callback"
+      },
+      "attack_surface_rank": "tokens/Fertilizer (cluster Sinks=12) — cross-listed to reentrancy"
+    }
+  ]
+}

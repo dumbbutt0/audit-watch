@@ -1,0 +1,134 @@
+{
+  "module": "mechanism_pairwise_selector",
+  "generated_at": "2026-06-09T15:27:23.160106+00:00",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "emits_findings": false,
+  "concludes_vulnerability": false,
+  "output_type": "advisory_selector_decisions",
+  "guard_violations": 0,
+  "decision_count": 3,
+  "decisions": [
+    {
+      "pair_id": "C1_finishRedeem_accounting|C1_startRedeem_approval_revert",
+      "M1": {
+        "id": "C1_finishRedeem_accounting",
+        "label": "permissionless finishRedeem + spot/donation accounting manipulation",
+        "terminal_impact": 10,
+        "validity": 8,
+        "plausible": true,
+        "poc_feasibility": "hard"
+      },
+      "M2": {
+        "id": "C1_startRedeem_approval_revert",
+        "label": "startRedeem self-approval requirement -> griefing revert",
+        "terminal_impact": 3,
+        "validity": 3,
+        "plausible": true,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 7,
+      "anti_easy_poc_flag": true,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "terminal_impact_dominance",
+        "both plausible -> protect high-impact before PoC",
+        "anti_easy_poc_bias: lower-impact rival is easier to PoC -> do not drop high-impact"
+      ],
+      "uncertainty": [],
+      "falsification_questions": [
+        "virtual shares / snapshot rate at startRedeem neutralizes finish-time manipulation",
+        "vault auto-approves or solady treats self-transfer specially"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "C1_redeem"
+    },
+    {
+      "pair_id": "C2_first_depositor_inflation|C2_dust_zero_share",
+      "M1": {
+        "id": "C2_first_depositor_inflation",
+        "label": "first-depositor share-inflation via donation",
+        "terminal_impact": 9,
+        "validity": 9,
+        "plausible": true,
+        "poc_feasibility": "moderate"
+      },
+      "M2": {
+        "id": "C2_dust_zero_share",
+        "label": "tiny-deposit zero-share rounding",
+        "terminal_impact": 1,
+        "validity": 3,
+        "plausible": true,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 8,
+      "anti_easy_poc_flag": true,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "terminal_impact_dominance",
+        "both plausible -> protect high-impact before PoC",
+        "anti_easy_poc_bias: lower-impact rival is easier to PoC -> do not drop high-impact"
+      ],
+      "uncertainty": [],
+      "falsification_questions": [
+        "solady _useVirtualShares()=true neutralizes inflation",
+        "rounding favors the vault harmlessly"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "C2_mint_inflation"
+    },
+    {
+      "pair_id": "Cneg_slashing_accounting|Cneg_no_path",
+      "M1": {
+        "id": "Cneg_slashing_accounting",
+        "label": "slashing manipulates vault accounting",
+        "terminal_impact": 10,
+        "validity": -1,
+        "plausible": false,
+        "poc_feasibility": "hard"
+      },
+      "M2": {
+        "id": "Cneg_no_path",
+        "label": "gated, no permissionless path",
+        "terminal_impact": 3,
+        "validity": -5,
+        "plausible": false,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 7,
+      "anti_easy_poc_flag": false,
+      "outcome": "REFUTE_M1_FIRST",
+      "decisive_dimensions": [
+        "terminal_impact(high) but refuted -> refute before trusting"
+      ],
+      "uncertainty": [
+        "at least one mechanism is refuted/unreachable as scored"
+      ],
+      "falsification_questions": [
+        "requestSlashing is Core/operator-gated -> no unprivileged path",
+        "n/a"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "Cneg_slashing"
+    }
+  ]
+}

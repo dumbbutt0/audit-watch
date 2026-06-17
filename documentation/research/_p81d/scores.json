@@ -1,0 +1,155 @@
+{
+  "research_only": true,
+  "review_only": true,
+  "phase": "P81d",
+  "subject": "decent-2024-01-holdout (audited 7f90fd4)",
+  "key_blind": false,
+  "contamination_caveat": "I saw the Decent key in P81a; conversion is a capability ceiling. The TRUSTWORTHY signals are (1) controls + 0 severity FP (mechanical) and (2) the isolated KEY-BLIND adversarial subagent's independent source review + impact ratings, which were MORE conservative than my contaminated ratings and are used for the severity gate here.",
+  "leads_hash": "2b1425d03a7f30a5",
+  "metrics": {
+    "safety": {
+      "C_SOURCE_FALSE": 0,
+      "C_unsupported_READY": 0,
+      "C_HARD_FAIL": 0,
+      "C_detector_to_finding": 0,
+      "C_severity_FP": 0,
+      "all_C_promotions_adversarially_reviewed": true,
+      "A_severity_FP": 2,
+      "B_severity_FP": 1,
+      "note": "A over-promotes swapNoPath(dust)+mintByOwner(privileged); B catches privileged but still makes the swapNoPath dust FP; only C (severity gate) = 0"
+    },
+    "mechanism_correctness": {
+      "awarded_leads_named_correct_mechanism": "6/6 (redeemEth correctly REJECTED as no-bug-in-fn; other 5 named the awarded root cause)",
+      "wrong_mechanism_promotions": 0
+    },
+    "conversion": {
+      "hits_kept_material": 3,
+      "hit_findings": [
+        [
+          "H-02",
+          "H-04",
+          "M-02",
+          "M-05"
+        ],
+        [
+          "H-03"
+        ],
+        [
+          "M-03"
+        ]
+      ],
+      "categories": {
+        "DecentEthRouter.bridge": "STRONG_PARTIAL",
+        "DecentBridgeExecutor.execute": "STRONG_PARTIAL",
+        "UTB.receiveFromBridge": "CLEAN_HIT",
+        "StargateBridgeAdapter.bridge": "DEMOTED_BY_SEVERITY_GATE (mechanism converted but impact rated low -> recall cost)",
+        "UniSwapper.swap": "DEMOTED_BY_SEVERITY_GATE (mechanism converted but impact rated low -> recall cost)"
+      },
+      "note": ">=1 CLEAN_HIT/STRONG_PARTIAL achieved (M-03 high=CLEAN, H-03+H-04 medium=STRONG_PARTIAL) under key-blind impact"
+    },
+    "severity_fp": {
+      "count": 0,
+      "controls_behaved": true
+    },
+    "honest_recall_cost": {
+      "severity_gate_false_demoted": [
+        [
+          "M-04"
+        ],
+        [
+          "M-01"
+        ]
+      ],
+      "note": "fed the KEY-BLIND conservative impact, the severity gate DEMOTED two true awarded Mediums (M-04, M-01) to NEEDS_CONTEXT because the reviewer rated their on-chain impact low (revert/estimation, not loss). Honest recall cost of the gate; refinement target."
+    }
+  },
+  "rows": [
+    {
+      "lead": "DecentEthRouter.bridge",
+      "blind_review": "NEEDS_MORE",
+      "blind_impact": "medium",
+      "severity_gate_final": "POC_REQUIRED",
+      "awarded": [
+        "H-02",
+        "H-04",
+        "M-02",
+        "M-05"
+      ],
+      "mechanism_correct": true,
+      "category": "STRONG_PARTIAL",
+      "note": "only onOFTReceived dcntEth-fallback (H-04) is medium; min-gas/fee/refund sub-claims source-true but low"
+    },
+    {
+      "lead": "DecentBridgeExecutor.execute",
+      "blind_review": "PASS",
+      "blind_impact": "medium",
+      "severity_gate_final": "POC_REQUIRED",
+      "awarded": [
+        "H-03"
+      ],
+      "mechanism_correct": true,
+      "category": "STRONG_PARTIAL",
+      "note": "failed-execute refund to cross-chain from; conditional on failure"
+    },
+    {
+      "lead": "UTB.receiveFromBridge",
+      "blind_review": "PASS",
+      "blind_impact": "high",
+      "severity_gate_final": "POC_REQUIRED",
+      "awarded": [
+        "M-03"
+      ],
+      "mechanism_correct": true,
+      "category": "CLEAN_HIT",
+      "note": "clean permissionless sibling-parity auth gap (fee/sig bypass)"
+    },
+    {
+      "lead": "StargateBridgeAdapter.bridge",
+      "blind_review": "PASS",
+      "blind_impact": "low",
+      "severity_gate_final": "NEEDS_CONTEXT",
+      "awarded": [
+        "M-04"
+      ],
+      "mechanism_correct": true,
+      "category": "DEMOTED_BY_SEVERITY_GATE (mechanism converted but impact rated low -> recall cost)",
+      "note": "minAmountOut from same constant -> reverts not silent loss"
+    },
+    {
+      "lead": "UniSwapper.swap",
+      "blind_review": "PASS",
+      "blind_impact": "low",
+      "severity_gate_final": "NEEDS_CONTEXT",
+      "awarded": [
+        "M-01"
+      ],
+      "mechanism_correct": true,
+      "category": "DEMOTED_BY_SEVERITY_GATE (mechanism converted but impact rated low -> recall cost)",
+      "note": "amountOutMinimum enforced -> revert/stuck not loss; loss over-stated"
+    }
+  ],
+  "controls": [
+    {
+      "lead": "UniSwapper.swapNoPath",
+      "role": "control",
+      "result": "severity gate DEMOTED dust->NEEDS_CONTEXT",
+      "severity_fp": false,
+      "note": "P81a D2 fixed live (A=POC,B=POC,C=NEEDS_CONTEXT)"
+    },
+    {
+      "lead": "DcntEth.mintByOwner",
+      "role": "control",
+      "result": "REJECTED (defense blocks onlyOwner)",
+      "severity_fp": false,
+      "note": "A over-promoted (FP), B/C rejected"
+    },
+    {
+      "lead": "UTB.swapAndExecute",
+      "role": "control",
+      "result": "REJECTED (retrieveAndCollectFees defended)",
+      "severity_fp": false,
+      "note": "all arms rejected"
+    }
+  ],
+  "verdict": "PASS (meaningful jump): safety all-zero incl 0 severity FP; controls behaved (swapNoPath demoted live); >=1 CLEAN_HIT/STRONG_PARTIAL vs key (M-03/H-03/H-04) with correct mechanisms. CAVEATS: (1) key-contaminated -> capability ceiling not blind proof; (2) severity gate false-demoted 2 true Mediums (M-04,M-01) under conservative key-blind impact; (3) H-01 setRouter excluded (P81b/c lens-recall miss on audited source)."
+}

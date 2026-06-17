@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FuzzEvidenceRecord",
+  "description": "One normalized harness-fuzz signal, written to data/fuzz_results/divergences.jsonl. A signal is ONLY promoted to the fuzz_attacker_synthesis specialist when status == 'confirmed' (reproduced AND harness/oracle artifact ruled out). This is the fuzz-lane false-positive guard that protects precision before the existing FP gauntlet.",
+  "type": "object",
+  "required": ["evidence_id", "tool", "harness_kind", "invariant", "status", "reproduced", "artifact_ruled_out"],
+  "properties": {
+    "evidence_id": {
+      "type": "string",
+      "description": "Unique id: FZ-<three+ digits>, e.g. FZ-001",
+      "pattern": "^FZ-[0-9]{3,}$"
+    },
+    "tool": {
+      "type": "string",
+      "description": "Which harness produced this signal",
+      "enum": ["echidna", "foundry_invariant", "aurora_evm_difffuzz", "move_property_fuzz", "rust_proptest", "other"]
+    },
+    "harness_kind": {
+      "type": "string",
+      "description": "differential = diff two implementations against a reference oracle; property = falsify a stated invariant via a negative-controlled property test",
+      "enum": ["differential", "property"]
+    },
+    "language": {
+      "type": "string",
+      "enum": ["solidity", "evm", "move", "rust", "vyper"]
+    },
+    "invariant": {
+      "type": "string",
+      "description": "The property/invariant tested or the divergence axis (e.g. 'reserve_x*reserve_y non-decreasing after swap', 'aurora==revm state')"
+    },
+    "falsified": {
+      "type": "boolean",
+      "description": "property harness: invariant was broken. differential harness: a divergence was observed. A HELD invariant (falsified=false) is a legitimate NEGATIVE result and never becomes a finding."
+    },
+    "status": {
+      "type": "string",
+      "description": "confirmed = reproduced AND artifact_ruled_out (the ONLY status promoted to synthesis). harness_artifact = the signal is caused by the harness/oracle, not the SUT (rejected). unreproduced = could not be deterministically reproduced (held back). held = invariant held / no divergence (negative result).",
+      "enum": ["confirmed", "harness_artifact", "unreproduced", "held"]
+    },
+    "reproduced": {
+      "type": "boolean",
+      "description": "Re-running the deterministic seed / counterexample reproduces the signal."
+    },
+    "artifact_ruled_out": {
+      "type": "boolean",
+      "description": "The harness/oracle was ruled out as the cause. differential -> tie-break oracle (e.g. geth t8n) agrees the SUT, not the harness, is wrong. property -> negative-control passed (the same property HOLDS under a minimal correctness patch / on a reference impl), proving the property and harness are well-formed."
+    },
+    "tie_break": {
+      "type": "object",
+      "description": "differential harness only: the third-implementation tie-break result.",
+      "properties": {
+        "oracle": { "type": "string", "description": "e.g. geth-1.17.3 evm t8n" },
+        "agrees_with": { "type": "string", "description": "which side the oracle matches: 'reference' (=> SUT bug) | 'sut' (=> harness/reference bug) | 'neither'" }
+      }
+    },
+    "negative_control": {
+      "type": "object",
+      "description": "property harness only: proof the property+harness are well-formed.",
+      "properties": {
+        "passed": { "type": "boolean", "description": "true if the property HELD under the minimal correctness patch / reference (so the falsification on the real code is meaningful, not a broken harness)" },
+        "patch_note": { "type": "string", "description": "the one-line minimal patch that makes the invariant hold (e.g. 'assert!(provided_liq>0)')" }
+      }
+    },
+    "counterexample": {
+      "type": "object",
+      "description": "The minimized failing case the synthesis agent reasons over and a PoC can replay.",
+      "properties": {
+        "seed": { "type": "string", "description": "deterministic seed / rng state to regenerate the case" },
+        "call_sequence": { "type": "array", "items": { "type": "string" }, "description": "ordered ops that break the invariant (e.g. ['add_liquidity(1e6,1e6)','add_liquidity(1,1)'])" },
+        "test_file": { "type": "string", "description": "path to the runnable harness test that reproduces it" },
+        "trace_excerpt": { "type": "string", "description": "key state before/after the break" }
+      }
+    },
+    "location": {
+      "type": "object",
+      "description": "Best-effort source locus the signal implicates (function/file) so synthesis + dedup can map it.",
+      "properties": {
+        "file": { "type": "string" },
+        "function": { "type": "string" }
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

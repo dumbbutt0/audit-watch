@@ -1,0 +1,44 @@
+{
+  "research_only": true,
+  "phase": "P87",
+  "subject": "traitforge-2024-07",
+  "commit": "72077d0a2a86d16530020afa647ffbfe64fdddb1",
+  "purpose": "Verify P86 severity calibration did not regress recall/conversion/true-H-M retention while preserving 0-severity-FP.",
+  "blindness": "repo-key-blind (findings cloned only AFTER prekey_freeze.json) + web-blind; training contamination acknowledged.",
+  "severity_gate_under_test": "e7d298561d29e61c (P86)",
+  "answer_key": {"high": 6, "medium": 19},
+  "metrics": {
+    "blind_surface_recall": {
+      "selected_set": "8 conversion + 3 control = 11 (from 54 lens leads over 6 contracts)",
+      "note": "selected value-moving entrypoints covered H-01(mintWithBudget), M-18(forgeWithListed), H-03(NukeFund.receive taxCut), M-03(DevFund.claim), M-10/M-16/M-17(NukeFund.nuke); many awarded findings live in EntropyGenerator / generation-logic / golden-god which were below the selected cutoff -> partial surface recall over the full 25 H/M set."
+    },
+    "investigation_safety": {"C_SOURCE_FALSE": 0, "C_unsupported_READY": 0, "C_HARD_FAIL": 0, "C_detector_to_finding": 0, "all_promotions_adversarially_reviewed": true},
+    "severity_FP_after_P86_gate": 0,
+    "false_demotions": [
+      "forgeWithListed = M-18 (awarded Medium): correct mechanism identified + deep_pass promoted, but my blind impact read called it self-inflicted/avoidable (Low, no concrete) so the P86 gate DEMOTED it to NEEDS_CONTEXT. M-18 is Medium because of an INVOLUNTARY fee-reduction race (fee lowered between submit and execute) -> excess stuck. This is an impact-assessment depth miss exposed as a false demotion (gate behaved per policy on the low/no-concrete input).",
+      "mintWithBudget = H-01 (awarded High): kept as POC_REQUIRED but severity UNDER-rated to Medium (I + isolated reviewer reasoned 'mintToken still works, no fund loss'); judges rated High. Under-rating direction (P81e-class), not addressed by P86."
+    ],
+    "mechanism_correctness": {"correct_mechanism_promotions": 2, "wrong_mechanism_promotions": 0},
+    "conversion": {
+      "clean_or_strong": 1,
+      "CLEAN_HIT": ["H-01 mintWithBudget (verbatim match: _tokenIds global vs per-gen maxTokensPerGen, L215; same impact = budget-mint bricked after 10000 global) — severity under-rated Medium vs awarded High"],
+      "matched_but_demoted": ["M-18 forgeWithListed (mechanism matched; demoted by gate via conservative Low impact read)"]
+    },
+    "controls": {"privileged_rejected": "3/3 (setMaxAllowedClaimDivisor, setMinimumListingFee, addDev) rejected at DEFENSE_TRACED", "controls_promoted_incorrectly": 0},
+    "true_HM_retention": "1 true-High retained (mintWithBudget, kept) but severity under-labelled Medium; 1 true-Medium NOT retained (M-18 demoted). So P86 held the 0-sev-FP line but the under-rating/false-demotion direction bit twice."
+  },
+  "honest_misses": {
+    "H-03": "NukeFund.receive devShare=msg.value/taxCut wrong-percentage when taxCut changed from 10 -> I dismissed as admin-footgun; judges = High. MISS (under-rated owner-config correctness).",
+    "M-03": "DevFund.claim: dev loses rewards after claiming then minting -> I rejected claim as standard accumulator. MISS.",
+    "M-10/M-16/M-17": "NukeFund.nuke age-precision / no slippage / wrong isApprovedForAll -> I rejected nuke as by-design. MISS (depth).",
+    "EntropyGenerator/generation-logic highs (H-04/H-05/M-01/M-05..)": "below selected-lead cutoff (entropy getter score 1; generation internals) -> not investigated. surface/selection miss."
+  },
+  "verdict": "QUALIFIED PASS. Meets every strict CLEAN-PASS bullet (0 SOURCE_FALSE / 0 unsupported-READY / 0 HARD_FAIL / 0 severity-FP after the P86 gate / controls 3/3 clean / >=1 CLEAN_HIT = H-01) AND reaches Strong-PASS mechanics (P84 generator produced a reject-first DO_NOT_SUBMIT bundle for the best candidate). QUALIFIED by two honest, non-critical calibration caveats — both in the UNDER-rating direction: (1) M-18 true-Medium false-demoted via a too-conservative impact read; (2) H-01 severity under-rated Medium vs High. P86 fixed the OVER-rating direction (0 severity FP held) but the under-rating/false-demotion direction (P81e-class) is NOT fixed and recurred.",
+  "p86_validation_conclusion": "P86 did NOT regress the 0-severity-FP bar (held at 0) and retained the headline true-High as a kept promotion. It did NOT introduce a NEW over-demotion of the kind it targets. The residual problem is the OTHER direction (under-rating / false-demotion of liveness + involuntary-loss Mediums), which P86 was not scoped to fix.",
+  "action_per_constraints": "STOP and report. No machinery change during P87. No post-key tuning. No retroactive re-score of the frozen blind result.",
+  "caveats": [
+    "training-contamination residual (key opened only post-freeze)",
+    "single-tier severity under-rating (H-01) and an impact-depth miss (M-18) are the honest weak spots; both are the under-rating direction",
+    "P84 taxonomy gap #2: H-01's class (invalid-validation / counter-scope liveness) has no fitting P84 finding type; handoff bundle generated with the closest type only to exercise reject-first mechanics"
+  ]
+}

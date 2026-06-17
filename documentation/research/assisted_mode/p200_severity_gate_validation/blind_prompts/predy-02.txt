@@ -1,0 +1,549 @@
+You are the Deep Trace Agent.
+
+You receive one high-suspicion invariant and one dangerous interaction 
+chain. Your job is to determine whether the chain can violate the 
+invariant. Trace the execution path completely.
+
+A function reached by deep-trace often carries MORE THAN ONE bug. Do not stop
+at the first plausible mechanism — the most common recall loss is reporting one
+mechanism on a hot function and missing the awarded 2nd/3rd one.
+
+Work through this sequence explicitly:
+
+STEP 0 — MECHANISM INVENTORY (run before the verdict, on the function under trace)
+List at least 3 plausible mechanisms when the source supports them. Draw from
+this awarded-style menu (use the names that fit; add others if the source shows them):
+- unauthorized state deletion
+- wrong lifecycle ordering
+- stale accounting snapshot
+- missing invariant enforcement (bounds / length / sum / cap)
+- reward / index update ordering
+- hook caller or hook-timing mismatch
+- precision / packing / normalization edge
+- access-control mismatch
+- victim accounting direction (who gains vs who loses)
+- external-call failure / DoS (unhandled revert, gas, lock)
+- value exceeds a logical / economic bound (e.g. a fee or ratio > 100%, a count > a documented cap)
+
+CARRY-FORWARD RANKING RULE (apply before you reject anything)
+A mechanism MUST remain carried forward — in `selected_mechanisms` or, if not yet
+resolved, in `unresolved_mechanisms` (NEVER buried in `rejected_mechanisms`) — if ANY hold:
+1. it has source evidence,
+2. it has a plausible attacker or victim impact,
+3. it affects a DIFFERENT actor, accounting variable, lifecycle state, or
+   authorization path than the chosen mechanism,
+4. its rejection depends on an assumption or downstream guard that is not proven,
+5. it could be HIGHER severity than the current chosen mechanism.
+Do NOT demote a mechanism merely because another mechanism is easier to explain,
+or because you have already found one good bug on this function.
+
+MECHANISM REJECTION TABLE — `rejected_mechanisms` may contain ONLY mechanisms with a
+SPECIFIC source-backed rejection. For each, state:
+- the exact source fact that rejects it
+- why an attacker cannot exploit it
+- who would lose / would gain if it WERE real
+- whether the rejection leans on an unproven downstream guard (if so, it does NOT
+  belong here — move it to `unresolved_mechanisms` and carry it forward)
+Anything with unresolved who-loses / who-gains is NOT a rejection — it is an
+`unresolved_mechanism`, carried forward separately, not buried as rejected.
+
+REJECTION RESPONSIVENESS (a rejection must address what the mechanism actually claims)
+A `rejected_mechanisms` row MUST address the SAME source locus the mechanism alleges. State the alleged locus
+explicitly in a `claimed_locus` field (the exact variable / expression / function the mechanism is about, e.g.
+`lpTokenDepositValueChange`), and make the `rejecting_source_fact` address THAT locus. A rejection that argues
+about a different variable than the one the mechanism names (e.g. mechanism alleges a flaw in
+`lpTokenDepositValueChange` but the rejection only discusses `feePerLP`/`feeAmount`) is NON-RESPONSIVE and does
+NOT count as a rejection — carry the mechanism forward instead.
+
+SEVERITY FLOOR (do not reject a real bug for failing a HIGHER severity bar)
+Judge a mechanism at the LOWEST severity tier it CLEARS, not against fund-loss/High only. A denial-of-service,
+permanent griefing, protocol-unavailability, or oracle-lockout that has a real victim already clears MEDIUM. Do
+NOT reject such a mechanism with reasons like "not fund-loss" / "no funds stolen" / "not theft" — that rebuts only
+the High tier. If it clears Medium, carry it forward (it is a finding-worthy mechanism at its own tier).
+
+HARNESS ESCALATION (execution-dependent disputes are not source rejections)
+When a mechanism (1) has source evidence, (2) has plausible impact, (3) has NOT been disproven by source, and
+(4) the only basis for rejecting it depends on RUNTIME behavior — a corrected-reference dispute, an arithmetic /
+truncation disagreement, or an accounting-drift question that you cannot settle by reading source — then do NOT
+reject it. Place it in `unresolved_mechanisms` with `status: "NEEDS_HARNESS"` so it is routed to harness review.
+(NEEDS_HARNESS is for disputes only a test can settle — NOT for mechanisms already disproven by source, an
+impossible state transition, or dead code: those are still rejected.)
+
+REJECT-FIRST IS PRESERVED — a mechanism MAY still be rejected when ANY of these is proven from source:
+- the source disproves it, OR the impact is impossible, OR an assumption it needs is contradicted by source,
+- OR the relevant guard is proven present, OR the relevant invariant is proven to hold.
+This is NOT a "carry everything" rule. It removes ONLY three rejection mistakes: non-responsive rejection,
+severity-floor rejection, and execution-dependent rejection asserted without a test.
+
+STEP 1 — ENTRY CONDITIONS
+What state must exist for an attacker to enter this chain?
+Who can initiate the first call? Is it permissionless?
+
+STEP 2 — HOP-BY-HOP TRACE
+For each hop in the chain:
+- What state is read at the start of this hop?
+- What external calls occur during this hop?
+- What state is written at the end of this hop?
+- Is any invariant variable in an inconsistent state mid-hop?
+- Can execution be redirected (callback, user-supplied address)?
+
+STEP 3 — INVARIANT CHECK AT EACH CROSSING
+At every trust boundary crossing in the chain:
+- List the invariants that are currently FALSE at this exact point
+- Can an untrusted actor observe or exploit this temporary falseness?
+- Can a reentrant call lock in the false state permanently?
+
+STEP 4 — VIOLATION PATH
+If a violation path exists:
+- State it as a numbered sequence of exact function calls
+- Identify the exact line where the invariant breaks
+- Classify the attacker: unprivileged / needs allowance / needs role
+- Estimate profit or damage
+
+STEP 5 — CHOSEN MECHANISM + IMPACT DIRECTION
+For the mechanism you carry forward:
+- root cause · attacker model · exploit path · who loses · who gains
+- why this mechanism beats the alternatives you inventoried
+IMPACT-DIRECTION CHECK (state each explicitly):
+- attacker receives value? attacker preserves value? victim loses value?
+- protocol invariant violated?
+- the result is NOT merely self-funded / dust / admin-only / timing-only
+
+STEP 6 — STOP CONDITION (do not finish the verdict if any holds)
+You may NOT stop after one plausible issue if:
+- the function is in a high-risk routed surface, OR
+- another inventoried mechanism has unresolved who-loses / who-gains, OR
+- an alternative mechanism affects a DIFFERENT actor or state variable, OR
+- the first issue is low severity but another mechanism could be higher.
+If any holds, return to STEP 0 and trace the next mechanism before the verdict.
+
+STEP 7 — VERDICT
+One of:
+CRITICAL_THREAD: direct fund loss path exists, no privileged precondition
+HIGH_THREAD:     fund loss or invariant violation possible with precondition
+MEDIUM_THREAD:   degraded behavior, bounded impact
+DEAD_END:        traced fully, no violation possible — explain why
+NEEDS_MORE_CONTEXT: blocked by missing contract code or external dependency
+
+Be rigorous. Do not guess. If you cannot fully trace a hop, say so.
+Return valid JSON matching the thread schema, additionally including:
+  "mechanism_inventory": [ "<mechanism>", ... ],          // >=3 when source supports
+  "selected_mechanisms": [ {"root_cause","attacker_model","exploit_path",
+                            "who_loses","who_gains","why_carried"} ],   // LIST — every mechanism you carry forward
+  "unresolved_mechanisms": [ {"mechanism","source_evidence","unresolved_question",
+                              "who_loses","who_gains",
+                              "status"} ],   // carried, not yet resolved — NOT rejected;
+                                             // status = "NEEDS_HARNESS" when only a runtime test can settle it
+  "rejected_mechanisms": [ {"mechanism","claimed_locus","rejecting_source_fact","why_unexploitable",
+                            "who_loses","who_gains","leans_on_unproven_guard"} ], // ONLY source-backed rejections;
+                            // claimed_locus = the exact variable/expression the rejection MUST address (responsiveness)
+  "impact_direction": {"attacker_receives","attacker_preserves","victim_loses",
+                       "invariant_violated","not_self_funded_or_dust_or_admin_or_timing"},
+        // (a structured-prose impact_direction string is also accepted if it states
+        //  who gains, who loses, the impacted state/value, and why it is not self-funded/admin-only/dust/timing)
+  "stop_condition": "satisfied | more_mechanisms_pending: <reason>"
+// (legacy aliases still accepted: chosen_mechanism for selected_mechanisms, rejection_table for rejected_mechanisms)
+
+
+=== INPUT: ONE FUNCTION UNDER TRACE ===
+high_suspicion_invariant: solvency / accounting / authorization correctness of `reallocate`
+dangerous_interaction: external/permissionless entry into `reallocate` in `PredyPool.sol` (reallocation accounting)
+
+Trace the function(s) `reallocate` in the verbatim source below. Run STEP 0 mechanism inventory,
+carry forward every supported mechanism, then return ONLY the JSON verdict per the schema above.
+
+=== VERBATIM SOURCE: PredyPool.sol ===
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.17;
+
+import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {IUniswapV3MintCallback} from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {SafeTransferLib} from "@solmate/src/utils/SafeTransferLib.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+import {ERC20} from "@solmate/src/tokens/ERC20.sol";
+import {IPredyPool} from "./interfaces/IPredyPool.sol";
+import {IHooks} from "./interfaces/IHooks.sol";
+import {ISettlement} from "./interfaces/ISettlement.sol";
+import {Perp} from "./libraries/Perp.sol";
+import {VaultLib} from "./libraries/VaultLib.sol";
+import {PositionCalculator} from "./libraries/PositionCalculator.sol";
+import {DataType} from "./libraries/DataType.sol";
+import {InterestRateModel} from "./libraries/InterestRateModel.sol";
+import {UniHelper} from "./libraries/UniHelper.sol";
+import {AddPairLogic} from "./libraries/logic/AddPairLogic.sol";
+import {LiquidationLogic} from "./libraries/logic/LiquidationLogic.sol";
+import {ReallocationLogic} from "./libraries/logic/ReallocationLogic.sol";
+import {SupplyLogic} from "./libraries/logic/SupplyLogic.sol";
+import {TradeLogic} from "./libraries/logic/TradeLogic.sol";
+import {ReaderLogic} from "./libraries/logic/ReaderLogic.sol";
+import {LockDataLibrary, GlobalDataLibrary} from "./types/GlobalData.sol";
+
+/// @notice Holds the state for all pairs and vaults
+contract PredyPool is IPredyPool, IUniswapV3MintCallback, Initializable, ReentrancyGuardUpgradeable {
+    using GlobalDataLibrary for GlobalDataLibrary.GlobalData;
+    using LockDataLibrary for LockDataLibrary.LockData;
+    using VaultLib for GlobalDataLibrary.GlobalData;
+    using SafeTransferLib for ERC20;
+
+    address public operator;
+
+    GlobalDataLibrary.GlobalData public globalData;
+
+    mapping(address => bool) public allowedUniswapPools;
+
+    mapping(address trader => mapping(uint256 pairId => bool)) public allowedTraders;
+
+    event OperatorUpdated(address operator);
+    event RecepientUpdated(uint256 vaultId, address recipient);
+    event ProtocolRevenueWithdrawn(uint256 pairId, bool isStable, uint256 amount);
+    event CreatorRevenueWithdrawn(uint256 pairId, bool isStable, uint256 amount);
+
+    modifier onlyOperator() {
+        if (operator != msg.sender) revert CallerIsNotOperator();
+        _;
+    }
+
+    modifier onlyByLocker() {
+        address locker = globalData.lockData.locker;
+        if (msg.sender != locker) revert LockedBy(locker);
+        _;
+    }
+
+    modifier onlyPoolOwner(uint256 pairId) {
+        if (globalData.pairs[pairId].poolOwner != msg.sender) revert CallerIsNotPoolCreator();
+        _;
+    }
+
+    modifier onlyVaultOwner(uint256 vaultId) {
+        if (globalData.vaults[vaultId].owner != msg.sender) revert CallerIsNotVaultOwner();
+        _;
+    }
+
+    constructor() {}
+
+    function initialize(address uniswapFactory) public initializer {
+        __ReentrancyGuard_init();
+        AddPairLogic.initializeGlobalData(globalData, uniswapFactory);
+
+        operator = msg.sender;
+    }
+
+    /// @dev Callback for Uniswap V3 pool.
+    function uniswapV3MintCallback(uint256 amount0, uint256 amount1, bytes calldata) external override {
+        // Only the uniswap pool has access to this function.
+        require(allowedUniswapPools[msg.sender]);
+
+        IUniswapV3Pool uniswapPool = IUniswapV3Pool(msg.sender);
+
+        if (amount0 > 0) {
+            ERC20(uniswapPool.token0()).safeTransfer(msg.sender, amount0);
+        }
+        if (amount1 > 0) {
+            ERC20(uniswapPool.token1()).safeTransfer(msg.sender, amount1);
+        }
+    }
+
+    /**
+     * @notice Sets new operator
+     * @dev Only operator can call this function.
+     * @param newOperator The address of new operator
+     */
+    function setOperator(address newOperator) external onlyOperator {
+        require(newOperator != address(0));
+        operator = newOperator;
+
+        emit OperatorUpdated(newOperator);
+    }
+
+    /**
+     * @notice Adds a new trading pair.
+     * @param addPairParam AddPairParams struct containing pair information.
+     * @return pairId The id of the pair.
+     */
+    function registerPair(AddPairLogic.AddPairParams memory addPairParam) external onlyOperator returns (uint256) {
+        return AddPairLogic.addPair(globalData, allowedUniswapPools, addPairParam);
+    }
+
+    /**
+     * @notice Updates asset risk parameters.
+     * @dev The function can be called by pool owner.
+     * @param pairId The id of asset to update params.
+     * @param riskParams Asset risk parameters.
+     */
+    function updateAssetRiskParams(uint256 pairId, Perp.AssetRiskParams memory riskParams)
+        external
+        onlyPoolOwner(pairId)
+    {
+        AddPairLogic.updateAssetRiskParams(globalData.pairs[pairId], riskParams);
+    }
+
+    /**
+     * @notice Updates interest rate model parameters.
+     * @dev The function can be called by pool owner.
+     * @param pairId The id of pair to update params.
+     * @param quoteIrmParams Asset interest-rate parameters for quote token.
+     * @param baseIrmParams Asset interest-rate parameters for base token.
+     */
+    function updateIRMParams(
+        uint256 pairId,
+        InterestRateModel.IRMParams memory quoteIrmParams,
+        InterestRateModel.IRMParams memory baseIrmParams
+    ) external onlyPoolOwner(pairId) {
+        AddPairLogic.updateIRMParams(globalData.pairs[pairId], quoteIrmParams, baseIrmParams);
+    }
+
+    /**
+     * @notice Updates fee ratio
+     * @dev The function can be called by pool owner.
+     * @param pairId The id of pair to update params.
+     * @param feeRatio The ratio of fee
+     */
+    function updateFeeRatio(uint256 pairId, uint8 feeRatio) external onlyPoolOwner(pairId) {
+        AddPairLogic.updateFeeRatio(globalData.pairs[pairId], feeRatio);
+    }
+
+    /**
+     * @notice Updates pool owner
+     * @dev The function can be called by pool owner.
+     * @param pairId The id of pair to update owner.
+     * @param poolOwner The address of pool owner
+     */
+    function updatePoolOwner(uint256 pairId, address poolOwner) external onlyPoolOwner(pairId) {
+        AddPairLogic.updatePoolOwner(globalData.pairs[pairId], poolOwner);
+    }
+
+    /**
+     * @notice Updates price oracle
+     * @dev The function can be called by pool owner.
+     * @param pairId The id of pair to update oracle.
+     * @param priceFeed The address of price feed
+     */
+    function updatePriceOracle(uint256 pairId, address priceFeed) external onlyPoolOwner(pairId) {
+        AddPairLogic.updatePriceOracle(globalData.pairs[pairId], priceFeed);
+    }
+
+    /**
+     * @notice Withdraws accumulated protocol revenue.
+     * @dev Only operator can call this function.
+     * @param pairId The id of pair
+     * @param isQuoteToken Is quote or base
+     */
+    function withdrawProtocolRevenue(uint256 pairId, bool isQuoteToken) external onlyOperator {
+        Perp.AssetPoolStatus storage pool = _getAssetStatusPool(pairId, isQuoteToken);
+
+        uint256 amount = pool.accumulatedProtocolRevenue;
+
+        require(amount > 0, "AZ");
+
+        pool.accumulatedProtocolRevenue = 0;
+
+        if (amount > 0) {
+            ERC20(pool.token).safeTransfer(msg.sender, amount);
+        }
+
+        emit ProtocolRevenueWithdrawn(pairId, isQuoteToken, amount);
+    }
+
+    /**
+     * @notice Withdraws accumulated creator revenue.
+     * @dev Only pool owner can call this function.
+     * @param pairId The id of pair
+     * @param isQuoteToken Is quote or base
+     */
+    function withdrawCreatorRevenue(uint256 pairId, bool isQuoteToken) external onlyPoolOwner(pairId) {
+        Perp.AssetPoolStatus storage pool = _getAssetStatusPool(pairId, isQuoteToken);
+
+        uint256 amount = pool.accumulatedCreatorRevenue;
+
+        require(amount > 0, "AZ");
+
+        pool.accumulatedCreatorRevenue = 0;
+
+        if (amount > 0) {
+            ERC20(pool.token).safeTransfer(msg.sender, amount);
+        }
+
+        emit CreatorRevenueWithdrawn(pairId, isQuoteToken, amount);
+    }
+
+    /**
+     * @notice Supplies either the quoteToken or the baseToken to the lending pool.
+     * In return, the lender receives bond tokens.
+     * @param pairId The id of pair to supply liquidity
+     * @param isQuoteAsset Whether the token is quote or base
+     * @param supplyAmount The amount of tokens to supply
+     */
+    function supply(uint256 pairId, bool isQuoteAsset, uint256 supplyAmount)
+        external
+        nonReentrant
+        returns (uint256 finalSuppliedAmount)
+    {
+        return SupplyLogic.supply(globalData, pairId, supplyAmount, isQuoteAsset);
+    }
+
+    /**
+     * @notice Withdraws either the quoteToken or the baseToken from the lending pool.
+     * In return, the lender burns the bond tokens.
+     * @param pairId The id of pair to withdraw liquidity
+     * @param isQuoteAsset Whether the token is quote or base
+     * @param withdrawAmount The amount of tokens to withdraw
+     */
+    function withdraw(uint256 pairId, bool isQuoteAsset, uint256 withdrawAmount)
+        external
+        nonReentrant
+        returns (uint256 finalBurnAmount, uint256 finalWithdrawAmount)
+    {
+        return SupplyLogic.withdraw(globalData, pairId, withdrawAmount, isQuoteAsset);
+    }
+
+    /**
+     * @notice Reallocates the range of concentrated liquidity provider position to be in-range.
+     * @param pairId The id of pair to reallocate the range.
+     * @param settlementData byte data for settlement contract.
+     * @return relocationOccurred Whether relocation occurred.
+     */
+    function reallocate(uint256 pairId, bytes memory settlementData)
+        external
+        nonReentrant
+        returns (bool relocationOccurred)
+    {
+        return ReallocationLogic.reallocate(globalData, pairId, settlementData);
+    }
+
+    /**
+     * @notice Trades perps and squarts. If vaultId is 0, it creates a new vault.
+     * @param tradeParams trade details
+     * @param settlementData byte data for settlement contract.
+     * @return tradeResult The result of the trade.
+     */
+    function trade(TradeParams memory tradeParams, bytes memory settlementData)
+        external
+        nonReentrant
+        returns (TradeResult memory tradeResult)
+    {
+        globalData.validate(tradeParams.pairId);
+
+        if (globalData.pairs[tradeParams.pairId].allowlistEnabled && !allowedTraders[msg.sender][tradeParams.pairId]) {
+            revert TraderNotAllowed();
+        }
+
+        tradeParams.vaultId = globalData.createOrGetVault(tradeParams.vaultId, tradeParams.pairId);
+
+        return TradeLogic.trade(globalData, tradeParams, settlementData);
+    }
+
+    /**
+     * @notice Updates the recipient. If the position is liquidated, the remaining margin is sent to the recipient.
+     * @param vaultId The id of the vault.
+     * @param recipient if recipient is zero address, protocol never transfers margin.
+     */
+    function updateRecepient(uint256 vaultId, address recipient) external onlyVaultOwner(vaultId) {
+        DataType.Vault storage vault = globalData.vaults[vaultId];
+
+        vault.recipient = recipient;
+
+        emit RecepientUpdated(vaultId, recipient);
+    }
+
+    /**
+     * @notice Sets the authorized traders. When allowlistEnabled is true, only authorized traders are allowed to trade.
+     * @param pairId The id of pair
+     * @param trader The address of allowed trader
+     * @param enabled Whether the trader is allowed to trade
+     */
+    function allowTrader(uint256 pairId, address trader, bool enabled) external onlyPoolOwner(pairId) {
+        require(globalData.pairs[pairId].allowlistEnabled);
+
+        allowedTraders[trader][pairId] = enabled;
+    }
+
+    /**
+     * @notice Executes a liquidation call to close an unsafe vault.
+     * @param vaultId The identifier of the vault to be liquidated.
+     * @param closeRatio The ratio at which the position will be closed.
+     * @param settlementData SettlementData struct for trade settlement.
+     * @return tradeResult TradeResult struct with the result of the liquidation.
+     */
+    function execLiquidationCall(uint256 vaultId, uint256 closeRatio, bytes memory settlementData)
+        external
+        nonReentrant
+        returns (TradeResult memory tradeResult)
+    {
+        return LiquidationLogic.liquidate(vaultId, closeRatio, globalData, settlementData);
+    }
+
+    /**
+     * @notice Transfers tokens. It can only be called from within the `predySettlementCallback` and
+     * `predyTradeAfterCallback` of the contract that invoked the trade function.
+     * @dev Only the current locker can call this function
+     * @param isQuoteAsset Whether the token is quote or base
+     * @param to The address to transfer the tokens to
+     * @param amount The amount of tokens to transfer
+     */
+    function take(bool isQuoteAsset, address to, uint256 amount) external onlyByLocker {
+        globalData.take(isQuoteAsset, to, amount);
+    }
+
+    /**
+     * @notice Creates a new vault
+     * @param pairId The id of pair to create vault
+     */
+    function createVault(uint256 pairId) external returns (uint256) {
+        globalData.validate(pairId);
+
+        return globalData.createOrGetVault(0, pairId);
+    }
+
+    /// @notice Gets the square root of the AMM price
+    function getSqrtPrice(uint256 pairId) external view returns (uint160) {
+        return UniHelper.convertSqrtPrice(
+            UniHelper.getSqrtPrice(globalData.pairs[pairId].sqrtAssetStatus.uniswapPool),
+            globalData.pairs[pairId].isQuoteZero
+        );
+    }
+
+    /// @notice Gets the square root of the index price
+    function getSqrtIndexPrice(uint256 pairId) external view returns (uint256) {
+        return PositionCalculator.getSqrtIndexPrice(globalData.pairs[pairId]);
+    }
+
+    /// @notice Gets the status of pair
+    function getPairStatus(uint256 pairId) external view returns (DataType.PairStatus memory) {
+        globalData.validate(pairId);
+
+        return globalData.pairs[pairId];
+    }
+
+    /// @notice Gets the vault
+    function getVault(uint256 vaultId) external view returns (DataType.Vault memory) {
+        return globalData.vaults[vaultId];
+    }
+
+    /// @notice Gets the status of pair
+    /// @dev This function always reverts
+    function revertPairStatus(uint256 pairId) external {
+        ReaderLogic.getPairStatus(globalData, pairId);
+    }
+
+    /// @notice Gets the status of the vault
+    /// @dev This function always reverts
+    function revertVaultStatus(uint256 vaultId) external {
+        ReaderLogic.getVaultStatus(globalData, vaultId);
+    }
+
+    function _getAssetStatusPool(uint256 pairId, bool isQuoteToken)
+        internal
+        view
+        returns (Perp.AssetPoolStatus storage)
+    {
+        if (isQuoteToken) {
+            return globalData.pairs[pairId].quotePool;
+        } else {
+            return globalData.pairs[pairId].basePool;
+        }
+    }
+}
+
+```

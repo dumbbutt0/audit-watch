@@ -1,0 +1,641 @@
+{
+  "research_only": true,
+  "review_only": true,
+  "phase": "P79",
+  "note": "Frozen A/B/C eval corpus. ground_truth is HELD OUT \u2014 read only by the post-hoc scorer, NEVER by any arm. evidence is the full investigation evidence; each arm consumes only a principled subset (see profile_fairness in the report). 'fresh' marks candidates whose expected outcome was NOT used to design P77/P78.",
+  "full_exploit_template": {
+    "rejection_case": "considered auth/cap/later-invariant",
+    "attacker_profile": "EOA",
+    "entrypoint": "f",
+    "preconditions": "reachable",
+    "transaction_sequence": "attacker calls f",
+    "state_before": "x",
+    "state_after": "y",
+    "broken_invariant": "conservation",
+    "why_existing_defenses_do_not_block": "no cap on path",
+    "impact_category": "fund_loss",
+    "minimum_profit_or_damage_condition": "drains per call",
+    "source_evidence": "C.sol:1-20"
+  },
+  "candidates": [
+    {
+      "candidate_id": "ANCHOR-phi-AC-A1",
+      "category": "positive_anchor",
+      "fresh": false,
+      "provenance": "P77 design",
+      "detector_family": "missing_auth",
+      "baseline_claimed_mechanism": "missing_auth",
+      "evidence": {
+        "context": {
+          "source_resolved": true,
+          "reachability": "public internal-convention fn exposed"
+        },
+        "defense_ledger": {
+          "access_control": {
+            "classification": "bypassed",
+            "evidence": "_-prefixed public, no modifier; gated sibling path"
+          }
+        },
+        "exploit": {
+          "mechanism": "missing_auth",
+          "rejection_case": "no modifier; attacker reaches",
+          "attacker_profile": "EOA",
+          "entrypoint": "_addCredIdPerAddress",
+          "preconditions": "none",
+          "transaction_sequence": "attacker calls _addCredIdPerAddress",
+          "state_before": "credIds tracked",
+          "state_after": "credIds corrupted",
+          "broken_invariant": "credId tracking integrity",
+          "why_existing_defenses_do_not_block": "no auth on path",
+          "impact_category": "accounting_corruption",
+          "minimum_profit_or_damage_condition": "corrupts tracking",
+          "source_evidence": "Cred.sol"
+        },
+        "source_falsification_all_false": true,
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "PASS"
+      },
+      "ground_truth": {
+        "decision": "POC_REQUIRED",
+        "mechanism": "missing_auth",
+        "reject_reason": "none"
+      }
+    },
+    {
+      "candidate_id": "ANCHOR-valueflow",
+      "category": "positive_anchor",
+      "fresh": false,
+      "provenance": "P77 design",
+      "detector_family": "value_flow",
+      "baseline_claimed_mechanism": "value_flow",
+      "evidence": {
+        "context": {
+          "source_resolved": true,
+          "reachability": "external"
+        },
+        "defense_ledger": {
+          "accounting_invariant": {
+            "classification": "bypassed"
+          },
+          "final_invariant_check": {
+            "classification": "irrelevant"
+          }
+        },
+        "exploit": {
+          "mechanism": "value_flow",
+          "rejection_case": "checked cap/later-invariant",
+          "attacker_profile": "EOA",
+          "entrypoint": "liquidate",
+          "preconditions": "position open",
+          "transaction_sequence": "attacker liquidates with crafted value",
+          "state_before": "debt D",
+          "state_after": "extra seized",
+          "broken_invariant": "debt-credit conservation",
+          "why_existing_defenses_do_not_block": "no slippage bound",
+          "impact_category": "fund_loss",
+          "minimum_profit_or_damage_condition": "seizes excess",
+          "source_evidence": "Pool.sol"
+        },
+        "source_falsification_all_false": true,
+        "poc_needed": false
+      },
+      "adversarial_review": {
+        "review_status": "PASS"
+      },
+      "ground_truth": {
+        "decision": "READY_FOR_HUMAN_REVIEW",
+        "mechanism": "value_flow",
+        "reject_reason": "none"
+      }
+    },
+    {
+      "candidate_id": "ANCHOR-vf-computed-unapplied",
+      "category": "positive_anchor",
+      "fresh": false,
+      "provenance": "P77 design",
+      "detector_family": "value_flow",
+      "baseline_claimed_mechanism": "value_flow",
+      "evidence": {
+        "context": {
+          "source_resolved": true,
+          "reachability": "external"
+        },
+        "defense_ledger": {
+          "accounting_invariant": {
+            "classification": "irrelevant"
+          }
+        },
+        "exploit": {
+          "mechanism": "value_flow",
+          "rejection_case": "no later apply",
+          "attacker_profile": "EOA",
+          "entrypoint": "withdraw",
+          "preconditions": "deposit",
+          "transaction_sequence": "attacker withdraws with unapplied fee",
+          "state_before": "fee computed",
+          "state_after": "fee not deducted",
+          "broken_invariant": "fee applied",
+          "why_existing_defenses_do_not_block": "computed but unapplied",
+          "impact_category": "fee_bypass",
+          "minimum_profit_or_damage_condition": "skips fee",
+          "source_evidence": "Vault.sol"
+        },
+        "source_falsification_all_false": true,
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "PASS"
+      },
+      "ground_truth": {
+        "decision": "POC_REQUIRED",
+        "mechanism": "value_flow",
+        "reject_reason": "none"
+      }
+    },
+    {
+      "candidate_id": "NC-permit-nonce-consumed",
+      "category": "negative_control",
+      "fresh": false,
+      "provenance": "P73 NC",
+      "detector_family": "signature_replay",
+      "baseline_claimed_mechanism": "signature_replay",
+      "evidence": {
+        "context": {
+          "source_resolved": true
+        },
+        "defense_ledger": {
+          "nonce_or_replay_guard": {
+            "classification": "blocks_candidate",
+            "evidence": "_useNonce increments in the signed hash"
+          }
+        },
+        "exploit": {
+          "mechanism": "signature_replay",
+          "rejection_case": "nonce consumed",
+          "transaction_sequence": "replay permit",
+          "broken_invariant": "single-use",
+          "impact_category": "approval",
+          "minimum_profit_or_damage_condition": "n/a",
+          "attacker_profile": "EOA",
+          "entrypoint": "permit",
+          "source_evidence": "Token.sol"
+        },
+        "source_falsification_all_false": true,
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "FAIL"
+      },
+      "ground_truth": {
+        "decision": "REJECTED",
+        "mechanism": "signature_replay",
+        "reject_reason": "defense"
+      }
+    },
+    {
+      "candidate_id": "NC-view-getter",
+      "category": "negative_control",
+      "fresh": false,
+      "provenance": "P62 NC",
+      "detector_family": "missing_auth",
+      "baseline_claimed_mechanism": "missing_auth",
+      "evidence": {
+        "context": {
+          "source_resolved": true
+        },
+        "mutability": "view",
+        "defense_ledger": {
+          "access_control": {
+            "classification": "irrelevant"
+          }
+        },
+        "exploit": {
+          "mechanism": "missing_auth"
+        },
+        "source_falsification_all_false": true,
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "FAIL"
+      },
+      "ground_truth": {
+        "decision": "REJECTED",
+        "mechanism": "none",
+        "reject_reason": "by_design"
+      }
+    },
+    {
+      "candidate_id": "NC-erc1271-verifier",
+      "category": "negative_control",
+      "fresh": false,
+      "provenance": "P73 NC",
+      "detector_family": "signature_replay",
+      "baseline_claimed_mechanism": "signature_replay",
+      "evidence": {
+        "context": {
+          "source_resolved": true
+        },
+        "defense_ledger": {
+          "nonce_or_replay_guard": {
+            "classification": "irrelevant"
+          }
+        },
+        "exploit": {
+          "mechanism": "signature_replay",
+          "no_state_change": true
+        },
+        "source_falsification_all_false": true,
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "UNKNOWN"
+      },
+      "ground_truth": {
+        "decision": "NEEDS_CONTEXT",
+        "mechanism": "none",
+        "reject_reason": "none"
+      }
+    },
+    {
+      "candidate_id": "WM-burnDyad",
+      "category": "wrong_mechanism_trap",
+      "fresh": false,
+      "provenance": "P67 OVERFIT",
+      "detector_family": "permissionless_position_reduction",
+      "baseline_claimed_mechanism": "missing_auth",
+      "evidence": {
+        "context": {
+          "source_resolved": true
+        },
+        "defense_ledger": {
+          "access_control": {
+            "classification": "irrelevant"
+          }
+        },
+        "exploit": {
+          "mechanism": "permissionless_position_reduction",
+          "rejection_case": "baseline asserts missing-auth on burnDyad",
+          "transaction_sequence": "non-owner calls burnDyad(victimId, amt)",
+          "broken_invariant": "only owner may change a note's debt",
+          "impact_category": "unauthorized_debt_manipulation",
+          "minimum_profit_or_damage_condition": "alter victim debt",
+          "attacker_profile": "EOA",
+          "entrypoint": "burnDyad",
+          "source_evidence": "VaultManagerV2.sol"
+        },
+        "source_falsification": {
+          "behavior_intentional_by_design": true,
+          "exploit_economically_meaningless": true
+        },
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "FAIL"
+      },
+      "ground_truth": {
+        "decision": "REJECTED",
+        "mechanism": "permissionless_position_reduction",
+        "reject_reason": "by_design"
+      }
+    },
+    {
+      "candidate_id": "WM-olas-checkpoint",
+      "category": "wrong_mechanism_trap",
+      "fresh": false,
+      "provenance": "P65 OVERFIT",
+      "detector_family": "permissionless_state_advance",
+      "baseline_claimed_mechanism": "missing_auth",
+      "evidence": {
+        "context": {
+          "source_resolved": true
+        },
+        "defense_ledger": {
+          "access_control": {
+            "classification": "irrelevant"
+          }
+        },
+        "exploit": {
+          "mechanism": "permissionless_state_advance",
+          "rejection_case": "baseline asserts missing-auth on checkpoint",
+          "transaction_sequence": "attacker calls checkpoint to advance epoch",
+          "broken_invariant": "only operator may advance the epoch",
+          "impact_category": "unauthorized_state_advance",
+          "minimum_profit_or_damage_condition": "force epoch advance",
+          "attacker_profile": "EOA",
+          "entrypoint": "checkpoint",
+          "source_evidence": "StakingBase.sol"
+        },
+        "source_falsification": {
+          "behavior_intentional_by_design": true
+        },
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "FAIL"
+      },
+      "ground_truth": {
+        "decision": "REJECTED",
+        "mechanism": "permissionless_state_advance",
+        "reject_reason": "by_design"
+      }
+    },
+    {
+      "candidate_id": "WM-renft-deployRentalSafe",
+      "category": "wrong_mechanism_trap",
+      "fresh": false,
+      "provenance": "P69 OVERFIT",
+      "detector_family": "permissionless_factory_deploy",
+      "baseline_claimed_mechanism": "missing_auth",
+      "evidence": {
+        "context": {
+          "source_resolved": true
+        },
+        "defense_ledger": {
+          "access_control": {
+            "classification": "irrelevant"
+          }
+        },
+        "exploit": {
+          "mechanism": "permissionless_factory_deploy",
+          "rejection_case": "baseline asserts missing-auth on deployRentalSafe",
+          "transaction_sequence": "attacker calls deployRentalSafe + registers",
+          "broken_invariant": "only admin may register a safe",
+          "impact_category": "unauthorized_registration",
+          "minimum_profit_or_damage_condition": "register attacker safe",
+          "attacker_profile": "EOA",
+          "entrypoint": "deployRentalSafe",
+          "source_evidence": "Factory.sol"
+        },
+        "source_falsification": {
+          "behavior_intentional_by_design": true
+        },
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "FAIL"
+      },
+      "ground_truth": {
+        "decision": "REJECTED",
+        "mechanism": "permissionless_factory_deploy",
+        "reject_reason": "by_design"
+      }
+    },
+    {
+      "candidate_id": "DP-AC-modifier",
+      "category": "defense_present_trap",
+      "fresh": false,
+      "provenance": "P78 test",
+      "detector_family": "missing_auth",
+      "baseline_claimed_mechanism": "missing_auth",
+      "evidence": {
+        "context": {
+          "source_resolved": true,
+          "reachability": "external"
+        },
+        "defense_ledger": {
+          "access_control": {
+            "classification": "blocks_candidate",
+            "evidence": "isDNftOwner modifier reachable on the path"
+          }
+        },
+        "exploit": {
+          "mechanism": "missing_auth",
+          "rejection_case": "baseline: looks like missing access control, no modifier noticed",
+          "transaction_sequence": "attacker calls mintDyad",
+          "broken_invariant": "owner-only mint",
+          "impact_category": "fund_loss",
+          "minimum_profit_or_damage_condition": "mints debt",
+          "attacker_profile": "EOA",
+          "entrypoint": "mintDyad",
+          "source_evidence": "VaultManagerV2.sol"
+        },
+        "source_falsification_all_false": true,
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "FAIL"
+      },
+      "ground_truth": {
+        "decision": "REJECTED",
+        "mechanism": "missing_auth",
+        "reject_reason": "defense"
+      }
+    },
+    {
+      "candidate_id": "DP-multicall-finalinv",
+      "category": "defense_present_trap",
+      "fresh": false,
+      "provenance": "P77 design",
+      "detector_family": "multicall_invariant",
+      "baseline_claimed_mechanism": "multicall_invariant",
+      "evidence": {
+        "context": {
+          "source_resolved": true
+        },
+        "defense_ledger": {
+          "final_invariant_check": {
+            "classification": "blocks_candidate",
+            "evidence": "final post-batch invariant re-checks the per-call-skipped check"
+          }
+        },
+        "exploit": {
+          "mechanism": "multicall_invariant",
+          "rejection_case": "baseline: per-call check appears skipped in the batch",
+          "transaction_sequence": "batch skips per-call check",
+          "broken_invariant": "per-call solvency",
+          "impact_category": "insolvency",
+          "minimum_profit_or_damage_condition": "skip check",
+          "attacker_profile": "EOA",
+          "entrypoint": "multicall",
+          "source_evidence": "Size.sol"
+        },
+        "source_falsification_all_false": true,
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "FAIL"
+      },
+      "ground_truth": {
+        "decision": "REJECTED",
+        "mechanism": "multicall_invariant",
+        "reject_reason": "defense"
+      }
+    },
+    {
+      "candidate_id": "DP-aiarena-statebound",
+      "category": "defense_present_trap",
+      "fresh": false,
+      "provenance": "P75/P76 (state-bound)",
+      "detector_family": "signature_replay",
+      "baseline_claimed_mechanism": "signature_replay",
+      "evidence": {
+        "context": {
+          "source_resolved": true
+        },
+        "defense_ledger": {
+          "nonce_or_replay_guard": {
+            "classification": "partially_covers_candidate"
+          }
+        },
+        "exploit": {
+          "mechanism": "signature_replay",
+          "rejection_case": "baseline: signed claim looks replayable",
+          "transaction_sequence": "replay signed claim",
+          "broken_invariant": "single-use claim",
+          "impact_category": "extra_mint",
+          "minimum_profit_or_damage_condition": "re-mint",
+          "attacker_profile": "EOA",
+          "entrypoint": "claimFighters",
+          "source_evidence": "FighterFarm.sol"
+        },
+        "source_falsification": {
+          "hash_or_value_bound_to_mutable_state": true
+        },
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "FAIL"
+      },
+      "ground_truth": {
+        "decision": "REJECTED",
+        "mechanism": "signature_replay",
+        "reject_reason": "falsified"
+      }
+    },
+    {
+      "candidate_id": "FRESH-looksrare-execute",
+      "category": "fresh_lead",
+      "fresh": true,
+      "provenance": "semi-fresh: LooksRare (P76 subject, NOT in P77/P78 bundles)",
+      "detector_family": "signature_replay",
+      "baseline_claimed_mechanism": "signature_replay",
+      "evidence": {
+        "context": {
+          "source_resolved": true
+        },
+        "critical_defenses": [
+          "nonce_or_replay_guard",
+          "external_dependency"
+        ],
+        "defense_ledger": {
+          "nonce_or_replay_guard": {
+            "classification": "source_unavailable",
+            "evidence": "aggregator forwards to exchange; nonce enforced off-aggregator"
+          }
+        },
+        "exploit": {
+          "mechanism": "signature_replay",
+          "rejection_case": "verify+forward; nonce external",
+          "transaction_sequence": "replay maker order via aggregator",
+          "broken_invariant": "single-fill",
+          "impact_category": "double_fill",
+          "minimum_profit_or_damage_condition": "re-execute",
+          "attacker_profile": "EOA",
+          "entrypoint": "execute",
+          "source_evidence": "LooksRareProxy.sol"
+        },
+        "source_falsification_all_false": true,
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "UNKNOWN"
+      },
+      "ground_truth": {
+        "decision": "NEEDS_CONTEXT",
+        "mechanism": "signature_replay",
+        "reject_reason": "none"
+      }
+    },
+    {
+      "candidate_id": "FRESH-astaria-buyoutLien",
+      "category": "fresh_lead",
+      "fresh": true,
+      "provenance": "semi-fresh: Astaria (P75/P76 subject, buyoutLien NOT promoted in P77/P78)",
+      "detector_family": "signature_replay",
+      "baseline_claimed_mechanism": "signature_replay",
+      "evidence": {
+        "context": {
+          "source_resolved": true
+        },
+        "defense_ledger": {
+          "nonce_or_replay_guard": {
+            "classification": "partially_covers_candidate",
+            "evidence": "strategistNonce revocation + deadline + EIP-712 domain; reuse by-design"
+          }
+        },
+        "exploit": {
+          "mechanism": "signature_replay",
+          "rejection_case": "commitment reusable by design",
+          "transaction_sequence": "reuse strategy commitment",
+          "broken_invariant": "single-commit",
+          "impact_category": "reuse",
+          "minimum_profit_or_damage_condition": "n/a",
+          "attacker_profile": "EOA",
+          "entrypoint": "buyoutLien",
+          "source_evidence": "VaultImplementation.sol"
+        },
+        "source_falsification": {
+          "behavior_intentional_by_design": true
+        },
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "FAIL"
+      },
+      "ground_truth": {
+        "decision": "REJECTED",
+        "mechanism": "signature_replay",
+        "reject_reason": "by_design"
+      }
+    },
+    {
+      "candidate_id": "FRESH-synthetic-missingnonce",
+      "category": "fresh_lead",
+      "fresh": true,
+      "provenance": "synthetic fresh lead (NOT from P77/P78 design): self-contained signed mint, no nonce, no state-bound guard, clean defenses",
+      "detector_family": "signature_replay",
+      "baseline_claimed_mechanism": "signature_replay",
+      "evidence": {
+        "context": {
+          "source_resolved": true,
+          "reachability": "external"
+        },
+        "defense_ledger": {
+          "nonce_or_replay_guard": {
+            "classification": "bypassed",
+            "evidence": "signed payload has NO nonce and no consumed-digest mapping"
+          },
+          "state_consume_or_check": {
+            "classification": "irrelevant"
+          }
+        },
+        "exploit": {
+          "mechanism": "signature_replay",
+          "rejection_case": "checked: no nonce, no digest-consume, no state-bound, deadline only",
+          "transaction_sequence": "attacker replays the signed mint voucher N times",
+          "state_before": "minted=0",
+          "state_after": "minted=N*amount",
+          "broken_invariant": "voucher single-use",
+          "why_existing_defenses_do_not_block": "deadline does not consume the signature",
+          "impact_category": "unauthorized_mint",
+          "minimum_profit_or_damage_condition": "free repeated mint within deadline",
+          "attacker_profile": "EOA",
+          "entrypoint": "mintWithVoucher",
+          "source_evidence": "Mint.sol:30-55"
+        },
+        "source_falsification_all_false": true,
+        "poc_needed": true
+      },
+      "adversarial_review": {
+        "review_status": "PASS"
+      },
+      "ground_truth": {
+        "decision": "POC_REQUIRED",
+        "mechanism": "signature_replay",
+        "reject_reason": "none"
+      }
+    }
+  ]
+}

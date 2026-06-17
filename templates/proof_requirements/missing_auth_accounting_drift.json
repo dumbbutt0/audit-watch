@@ -1,0 +1,56 @@
+{
+  "bug_class": "missing_auth_accounting_drift",
+  "description": "Missing access control allows unauthorized state mutation causing accounting drift",
+  "required_for_medium": [
+    "unauthorized_call_succeeds",
+    "accounting_drift_shown"
+  ],
+  "required_for_high": [
+    "unauthorized_call_succeeds",
+    "accounting_drift_shown",
+    "direct_fund_loss_asserted"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "public state-mutation function called by unauthorized contract",
+    "L3B": "accounting state change recorded; totalDepositsWei/balance understated",
+    "L3C": "vault perceives shortfall and makes incorrect allocation decision as a result"
+  },
+  "poc_level_requirements": {
+    "L3A": [
+      "unauthorized_call_succeeds"
+    ],
+    "L3B": [
+      "unauthorized_call_succeeds",
+      "accounting_drift_shown"
+    ],
+    "L3C": [
+      "unauthorized_call_succeeds",
+      "accounting_drift_shown",
+      "direct_fund_loss_asserted"
+    ]
+  },
+  "proof_signatures": {
+    "unauthorized_call_succeeds": [
+      "attacker.attack",
+      "AttackerContract",
+      "not registrator",
+      "poc_ac_003_attacker_calls",
+      "BUG CONFIRMED: attacker"
+    ],
+    "accounting_drift_shown": [
+      "totalDepositsWei",
+      "pending_after == 0",
+      "underreported",
+      "undercount",
+      "32 ETH",
+      "accounting drift"
+    ],
+    "direct_fund_loss_asserted": [
+      "fund_loss",
+      "balance_decrease",
+      "vault_shortfall"
+    ]
+  },
+  "high_severity_rationale": "High requires proving vault makes incorrect allocation decisions leading to direct fund loss. Medium is proven by unauthorized state mutation causing accounting drift.",
+  "negative_control_template": "Add onlyRegistratorOrGovernor modifier. Assert that the attacker contract call reverts. Assert totalDepositsWei unchanged."
+}

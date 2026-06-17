@@ -1,0 +1,95 @@
+{
+  "research_only": true,
+  "is_gate": false,
+  "emits_findings": false,
+  "severity": null,
+  "auto_submitted": false,
+  "reportable": false,
+  "submission_ready": false,
+  "routes_in_production": false,
+  "label": "P302_REACH_REPORT",
+  "target": "centrifuge-2023-09-holdout",
+  "scored_at": "2026-06-10T15:42:22.591314+00:00",
+  "totals": {
+    "awarded": 8,
+    "surfaced_findings_total": 14,
+    "strong": 1,
+    "same_area": 2,
+    "subsystem": 2,
+    "missed": 3
+  },
+  "recall_of_surfaced": 0.625,
+  "recall_strong_only": 0.125,
+  "recall_strong_or_area": 0.375,
+  "missed_ids": [
+    "M-03",
+    "M-04",
+    "M-06"
+  ],
+  "per_locus": [
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "`onlyCentrifugeChainOrigin()` can't require `msg.sender` equal `axelarGateway`",
+      "match_level": "SUBSYSTEM_ONLY_RECALL",
+      "surfaced_id": "CC-01",
+      "evidence": "Awarded: Axelar Router onlyCentrifugeChainOrigin can't verify msg.sender==axelarGateway. Surfaced CC-01 flagged the inbound cross-chain message-auth/router-trust subsystem (Gateway.handle/incomingRouters) generically, but not the specific Axelar Router modifier bug (axelar/Router.sol was not deep-read). Same subsystem, different contract/mechanism."
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "`LiquidityPool::requestRedeemWithPermit` transaction can be front run with the different liquidity pool",
+      "match_level": "SAME_AREA_WRONG_MECHANISM",
+      "surfaced_id": "DT-01/TI-01",
+      "evidence": "Awarded: requestRedeemWithPermit can be front-run via a different liquidity pool (permit not bound to pool). Surfaced flagged the SAME functions (requestDeposit/RedeemWithPermit) but for the non-standard-permit-DoS mechanism (P303 class), not the cross-pool front-run. Same locus, different mechanism. P303 permit-class awareness is why the permit functions were flagged at all."
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "Cached `DOMAIN_SEPARATOR` is incorrect for tranche tokens potentially breaking permit integrations",
+      "match_level": "MISSED",
+      "surfaced_id": null,
+      "evidence": "Cached DOMAIN_SEPARATOR computed at ERC20 construction with the (then-empty) tranche name, which is set later via file('name') -> permit digest mismatch. Not surfaced: a cross-contract EIP-712 lifecycle bug (token name set post-deploy). New class."
+    },
+    {
+      "id": "M-04",
+      "severity": "Medium",
+      "title": "You can deposit really small amount for other users to DoS them",
+      "match_level": "MISSED",
+      "surfaced_id": null,
+      "evidence": "Griefing: depositing a tiny amount for another user to DoS their claim. Not surfaced: a deposit-for-others griefing/DoS mechanism. New class."
+    },
+    {
+      "id": "M-05",
+      "severity": "Medium",
+      "title": "Investors claiming their `maxDeposit` by using the `LiquidityPool.deposit()` will cause other users to be unable to claim their `maxDeposit`/`maxMint`",
+      "match_level": "SUBSYSTEM_ONLY_RECALL",
+      "surfaced_id": "DT-02/E46-01",
+      "evidence": "Awarded: claiming maxDeposit via deposit() can leave other investors unable to claim their maxDeposit/maxMint (shared-escrow / per-user orderbook depletion). Surfaced examined the processDeposit/orderbook/escrow flow (and flagged convert/price issues there) but did not name the cross-user shared-escrow depletion. Same subsystem, mechanism not isolated."
+    },
+    {
+      "id": "M-06",
+      "severity": "Medium",
+      "title": "DelayedAdmin Cannot `PauseAdmin.removePauser`",
+      "match_level": "MISSED",
+      "surfaced_id": null,
+      "evidence": "DelayedAdmin cannot call PauseAdmin.removePauser (admin wiring/permission gap). Not surfaced: admins/DelayedAdmin.sol + PauseAdmin.sol were not deep-read. New class (admin wiring)."
+    },
+    {
+      "id": "M-07",
+      "severity": "Medium",
+      "title": "```trancheTokenAmount``` should be rounded UP when proceeding to a withdrawal or previewing a withdrawal",
+      "match_level": "SAME_AREA_WRONG_MECHANISM",
+      "surfaced_id": "AR-01",
+      "evidence": "Awarded: trancheTokenAmount should be rounded UP on withdraw/previewWithdraw (currently Rounding.Down everywhere). Surfaced AR-01 flagged the same _calculate*/price-decimal math but for an overflow mechanism, not the rounding-direction bug. Same functions, different mechanism."
+    },
+    {
+      "id": "M-08",
+      "severity": "Medium",
+      "title": "The Restriction Manager does not completely implement ERC1404 which leads to accounts that are supposed to be restricted actually having access to do with their tokens as they see fit",
+      "match_level": "STRONG_MECHANISM_MATCH",
+      "surfaced_id": "DT-04/LG-01",
+      "evidence": "Awarded: RestrictionManager does not fully implement ERC1404 -> restricted accounts retain access. Surfaced DT-04/LG-01: detectTransferRestriction only checks hasMember(to) (no sender gating) and members cannot be immediately frozen. Same root cause and locus."
+    }
+  ]
+}

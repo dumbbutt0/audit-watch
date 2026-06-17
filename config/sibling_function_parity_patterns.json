@@ -1,0 +1,35 @@
+{
+  "lens": "sibling_function_parity",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Detects parity gaps between SIBLING functions: two functions in a contract reach the same state transition but one omits a security-relevant component (validation / recipient-resolution / cap / access modifier / registry step / accounting write / pause guard) the sibling enforces. Anchored on Blackhole M-04 (RewardsDistributor.claim resolves avm.getOriginalOwner; claim_many omits it) and Size M-02/M-06. High precision over recall: two-signal gate (sibling kinship AND controlled-vocabulary asymmetry) + wrapper/admin/view/event-only suppression. NEVER mints or routes.",
+
+  "variant_affixes": ["_many", "many", "_batch", "batch", "for", "to", "all", "multiple", "single", "internal", "external", "s", "_v2", "v2"],
+  "sibling_prefix_verbs": ["validate", "execute", "simulate", "preview", "quote", "check", "try", "_"],
+  "sibling_min_shared_calls": 2,
+  "sibling_min_jaccard": 0.3,
+
+  "mutating_call_signals": ["transfer", "safetransfer", "transferfrom", "safetransferfrom", "mint", "burn", "deposit_for", "deposit", "withdraw", "send", "call", "_mint", "_burn", "push", "pop"],
+
+  "components": {
+    "validation_parity": ["validate", "_validate", "check", "_check", "verify", "ensure", "_require", "assertvalid"],
+    "recipient_parity": ["getoriginalowner", "resolve", "recipientof", "beneficiary", "_recipient", "ownerof", "originalowner"],
+    "cap_enforcement_parity": ["cap", "limit", "ceiling", "maxsupply", "borrowcap", "supplycap", "maxmint", "maxdeposit"],
+    "access_control_parity": ["onlyowner", "onlyadmin", "onlyrole", "onlygovernance", "onlymaintainer", "onlyminter", "_checkowner", "_authorizeupgrade"],
+    "registry_parity": ["register", "deregister", "unregister", "removeposition", "addposition", "updateholding", "updateposition", "removefrom", "addtokento", "removetokenfrom", "addto", "removeholding", "addholding"],
+    "pause_emergency_parity": ["whennotpaused", "paused", "ispaused", "emergency", "_requirenotpaused"]
+  },
+
+  "exclude_components": ["transfer", "ierc20", "ierc721", "ierc1155", "address", "uint", "uint256", "bool", "bytes", "bytes32", "balanceof", "totalsupply", "length", "decimals", "abi", "keccak256", "encode", "decode", "require", "revert", "assert", "memory", "storage", "emit", "new", "safetransfer", "safetransferfrom"],
+
+  "admin_modifiers": ["onlyowner", "onlyadmin", "onlyrole", "onlygovernance", "onlymaintainer", "onlyminter", "onlymanager", "onlykeeper", "onlytimelock", "restricted"],
+
+  "fp_controls": {
+    "two_signal_required": "sibling kinship (name-stem OR >=2 shared calls & jaccard>=0.3) AND a controlled-vocabulary asymmetry on a shared mutating path",
+    "controlled_component_filter": "the missing token must map to a components[] vocabulary entry and must NOT be in exclude_components (events / interface casts / pure getters dominate corpus noise)",
+    "wrapper_suppression": "if one sibling body is a single call to the other (forwarder/overload), suppress",
+    "both_admin_suppression": "if both siblings carry an admin modifier, asymmetry is intended maintenance unless the weaker sibling is externally reachable by non-admins",
+    "view_pure_interface_suppression": "non-mutating (view/pure) or body-less (interface/abstract) siblings dropped",
+    "no_observability_only": "a missing emit with no correlated state/guard asymmetry is never emitted",
+    "one_level_helper_resolution": "append same-contract helper bodies the sibling calls before declaring a component missing (validation may live in a shared _validate())"
+  }
+}

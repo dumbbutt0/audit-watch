@@ -1,0 +1,99 @@
+{
+  "finding_id": "DT-004",
+  "title": "ReseedField inner loop increments wrong counter (i instead of j), bricking Field migration",
+  "agent": "",
+  "claimed_severity": "High",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedField.sol",
+    "function": "init",
+    "line_start": 48,
+    "line_end": 57
+  },
+  "description": "The inner plot loop header is `for (uint j; j < accountPlots[i].plots.length; i++)` \u2014 it increments the outer index i instead of the inner index j. j never advances, and i is incremented inside the inner loop, leading to out-of-bounds access of accountPlots[i] and a revert (or, before reverting, repeated/incorrect indexing).",
+  "impact": "ReseedField.init reverts for any input containing plots, so the migration upgrade cannot reseed the Field. Pods cannot be migrated to L2 \u2014 migration DoS / loss of field positions until patched.",
+  "ite": {
+    "intent": "Assign each account its plots exactly once and tally total pods",
+    "technique": "Loop post-statement increments the wrong variable (i not j)",
+    "evasion": "Deterministic; triggers on the first account with plots"
+  },
+  "ice_chain": {
+    "corrupted_state": "control flow: array index i runs out of bounds; s.sys.field.pods never finalized",
+    "consumer_found": true,
+    "consumer_function": "FieldFacet harvest/sow and migration completion depend on Field reseed",
+    "impact": "Migration transaction reverts; Field state never initialized on L2",
+    "exploit_path": "ReseedField.init -> inner loop increments i -> accountPlots[i] OOB -> revert"
+  },
+  "source_slice": "18: \n19:     struct Plot {\n20:         uint256 podIndex;\n21:         uint256 podAmounts;\n22:     }\n23:     struct MigratedPlotData {\n24:         address account;\n25:         Plot[] plots;\n26:     }\n27: \n28:     // emitted when a plot is migrated.\n29:     event MigratedPlot(address indexed account, uint256 indexed plotIndex, uint256 pods);\n30: \n31:     /**\n32:      * @notice Re-initializes the field.\n33:      * @param accountPlots the plots for each account\n34:      * @param totalPods The total number of pods on L1.\n35:      * @param harvestable The number of harvestable pods on L1.\n36:      * @param harvested The number of harvested pods on L1.\n37:      * @param initialTemperature the initial Temperature of the field.\n38:      */\n39:     function init(\n40:         MigratedPlotData[] calldata accountPlots,\n41:         uint256 totalPods,\n42:         uint256 harvestable,\n43:         uint256 harvested,\n44:         uint256 fieldId,\n45:         uint8 initialTemperature\n46:     ) external {\n47:         uint256 calculatedTotalPods;\n48:         for (uint i; i < accountPlots.length; i++) {\n49:             for (uint j; j < accountPlots[i].plots.length; i++) {\n50:                 uint256 podIndex = accountPlots[i].plots[j].podIndex;\n51:                 uint256 podAmount = accountPlots[i].plots[j].podAmounts;\n52:                 s.accts[accountPlots[i].account].fields[fieldId].plots[podIndex] = podAmount;\n53:                 s.accts[accountPlots[i].account].fields[fieldId].plotIndexes.push(podIndex);\n54:                 emit MigratedPlot(accountPlots[i].account, podIndex, podAmount);\n55:                 calculatedTotalPods += podAmount;\n56:             }\n57:         }\n58: \n59:         //  perform verfication:\n60:         require(calculatedTotalPods == totalPods, \"ReseedField: totalPods mismatch\");\n61:         require(totalPods >= harvestable, \"ReseedField: harvestable mismatch\");\n62:         require(harvestable >= harvested, \"ReseedField: harvested mismatch\");\n63: \n64:         s.sys.field.pods = totalPods;\n65:         s.sys.field.harvestable = harvestable;\n66:         s.sys.field.harvested = harvested;\n67: \n68:         // soil demand initialization.\n69:         s.sys.weather.thisSowTime = type(uint32).max;\n70:         s.sys.weather.lastSowTime = type(uint32).max;\n71:         s.sys.weather.temp = initialTemperature;\n72:     }\n73: }",
+  "gate_verdict": {
+    "finding_id": "DT-004",
+    "severity": "High",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.536568+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

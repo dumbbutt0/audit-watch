@@ -1,0 +1,627 @@
+You are the Deep Trace Agent.
+
+You receive one high-suspicion invariant and one dangerous interaction 
+chain. Your job is to determine whether the chain can violate the 
+invariant. Trace the execution path completely.
+
+A function reached by deep-trace often carries MORE THAN ONE bug. Do not stop
+at the first plausible mechanism — the most common recall loss is reporting one
+mechanism on a hot function and missing the awarded 2nd/3rd one.
+
+Work through this sequence explicitly:
+
+STEP 0 — MECHANISM INVENTORY (run before the verdict, on the function under trace)
+List at least 3 plausible mechanisms when the source supports them. Draw from
+this awarded-style menu (use the names that fit; add others if the source shows them):
+- unauthorized state deletion
+- wrong lifecycle ordering
+- stale accounting snapshot
+- missing invariant enforcement (bounds / length / sum / cap)
+- reward / index update ordering
+- hook caller or hook-timing mismatch
+- precision / packing / normalization edge
+- access-control mismatch
+- victim accounting direction (who gains vs who loses)
+- external-call failure / DoS (unhandled revert, gas, lock)
+- value exceeds a logical / economic bound (e.g. a fee or ratio > 100%, a count > a documented cap)
+
+CARRY-FORWARD RANKING RULE (apply before you reject anything)
+A mechanism MUST remain carried forward — in `selected_mechanisms` or, if not yet
+resolved, in `unresolved_mechanisms` (NEVER buried in `rejected_mechanisms`) — if ANY hold:
+1. it has source evidence,
+2. it has a plausible attacker or victim impact,
+3. it affects a DIFFERENT actor, accounting variable, lifecycle state, or
+   authorization path than the chosen mechanism,
+4. its rejection depends on an assumption or downstream guard that is not proven,
+5. it could be HIGHER severity than the current chosen mechanism.
+Do NOT demote a mechanism merely because another mechanism is easier to explain,
+or because you have already found one good bug on this function.
+
+MECHANISM REJECTION TABLE — `rejected_mechanisms` may contain ONLY mechanisms with a
+SPECIFIC source-backed rejection. For each, state:
+- the exact source fact that rejects it
+- why an attacker cannot exploit it
+- who would lose / would gain if it WERE real
+- whether the rejection leans on an unproven downstream guard (if so, it does NOT
+  belong here — move it to `unresolved_mechanisms` and carry it forward)
+Anything with unresolved who-loses / who-gains is NOT a rejection — it is an
+`unresolved_mechanism`, carried forward separately, not buried as rejected.
+
+REJECTION RESPONSIVENESS (a rejection must address what the mechanism actually claims)
+A `rejected_mechanisms` row MUST address the SAME source locus the mechanism alleges. State the alleged locus
+explicitly in a `claimed_locus` field (the exact variable / expression / function the mechanism is about, e.g.
+`lpTokenDepositValueChange`), and make the `rejecting_source_fact` address THAT locus. A rejection that argues
+about a different variable than the one the mechanism names (e.g. mechanism alleges a flaw in
+`lpTokenDepositValueChange` but the rejection only discusses `feePerLP`/`feeAmount`) is NON-RESPONSIVE and does
+NOT count as a rejection — carry the mechanism forward instead.
+
+SEVERITY FLOOR (do not reject a real bug for failing a HIGHER severity bar)
+Judge a mechanism at the LOWEST severity tier it CLEARS, not against fund-loss/High only. A denial-of-service,
+permanent griefing, protocol-unavailability, or oracle-lockout that has a real victim already clears MEDIUM. Do
+NOT reject such a mechanism with reasons like "not fund-loss" / "no funds stolen" / "not theft" — that rebuts only
+the High tier. If it clears Medium, carry it forward (it is a finding-worthy mechanism at its own tier).
+
+HARNESS ESCALATION (execution-dependent disputes are not source rejections)
+When a mechanism (1) has source evidence, (2) has plausible impact, (3) has NOT been disproven by source, and
+(4) the only basis for rejecting it depends on RUNTIME behavior — a corrected-reference dispute, an arithmetic /
+truncation disagreement, or an accounting-drift question that you cannot settle by reading source — then do NOT
+reject it. Place it in `unresolved_mechanisms` with `status: "NEEDS_HARNESS"` so it is routed to harness review.
+(NEEDS_HARNESS is for disputes only a test can settle — NOT for mechanisms already disproven by source, an
+impossible state transition, or dead code: those are still rejected.)
+
+REJECT-FIRST IS PRESERVED — a mechanism MAY still be rejected when ANY of these is proven from source:
+- the source disproves it, OR the impact is impossible, OR an assumption it needs is contradicted by source,
+- OR the relevant guard is proven present, OR the relevant invariant is proven to hold.
+This is NOT a "carry everything" rule. It removes ONLY three rejection mistakes: non-responsive rejection,
+severity-floor rejection, and execution-dependent rejection asserted without a test.
+
+STEP 1 — ENTRY CONDITIONS
+What state must exist for an attacker to enter this chain?
+Who can initiate the first call? Is it permissionless?
+
+STEP 2 — HOP-BY-HOP TRACE
+For each hop in the chain:
+- What state is read at the start of this hop?
+- What external calls occur during this hop?
+- What state is written at the end of this hop?
+- Is any invariant variable in an inconsistent state mid-hop?
+- Can execution be redirected (callback, user-supplied address)?
+
+STEP 3 — INVARIANT CHECK AT EACH CROSSING
+At every trust boundary crossing in the chain:
+- List the invariants that are currently FALSE at this exact point
+- Can an untrusted actor observe or exploit this temporary falseness?
+- Can a reentrant call lock in the false state permanently?
+
+STEP 4 — VIOLATION PATH
+If a violation path exists:
+- State it as a numbered sequence of exact function calls
+- Identify the exact line where the invariant breaks
+- Classify the attacker: unprivileged / needs allowance / needs role
+- Estimate profit or damage
+
+STEP 5 — CHOSEN MECHANISM + IMPACT DIRECTION
+For the mechanism you carry forward:
+- root cause · attacker model · exploit path · who loses · who gains
+- why this mechanism beats the alternatives you inventoried
+IMPACT-DIRECTION CHECK (state each explicitly):
+- attacker receives value? attacker preserves value? victim loses value?
+- protocol invariant violated?
+- the result is NOT merely self-funded / dust / admin-only / timing-only
+
+STEP 6 — STOP CONDITION (do not finish the verdict if any holds)
+You may NOT stop after one plausible issue if:
+- the function is in a high-risk routed surface, OR
+- another inventoried mechanism has unresolved who-loses / who-gains, OR
+- an alternative mechanism affects a DIFFERENT actor or state variable, OR
+- the first issue is low severity but another mechanism could be higher.
+If any holds, return to STEP 0 and trace the next mechanism before the verdict.
+
+STEP 7 — VERDICT
+One of:
+CRITICAL_THREAD: direct fund loss path exists, no privileged precondition
+HIGH_THREAD:     fund loss or invariant violation possible with precondition
+MEDIUM_THREAD:   degraded behavior, bounded impact
+DEAD_END:        traced fully, no violation possible — explain why
+NEEDS_MORE_CONTEXT: blocked by missing contract code or external dependency
+
+Be rigorous. Do not guess. If you cannot fully trace a hop, say so.
+Return valid JSON matching the thread schema, additionally including:
+  "mechanism_inventory": [ "<mechanism>", ... ],          // >=3 when source supports
+  "selected_mechanisms": [ {"root_cause","attacker_model","exploit_path",
+                            "who_loses","who_gains","why_carried"} ],   // LIST — every mechanism you carry forward
+  "unresolved_mechanisms": [ {"mechanism","source_evidence","unresolved_question",
+                              "who_loses","who_gains",
+                              "status"} ],   // carried, not yet resolved — NOT rejected;
+                                             // status = "NEEDS_HARNESS" when only a runtime test can settle it
+  "rejected_mechanisms": [ {"mechanism","claimed_locus","rejecting_source_fact","why_unexploitable",
+                            "who_loses","who_gains","leans_on_unproven_guard"} ], // ONLY source-backed rejections;
+                            // claimed_locus = the exact variable/expression the rejection MUST address (responsiveness)
+  "impact_direction": {"attacker_receives","attacker_preserves","victim_loses",
+                       "invariant_violated","not_self_funded_or_dust_or_admin_or_timing"},
+        // (a structured-prose impact_direction string is also accepted if it states
+        //  who gains, who loses, the impacted state/value, and why it is not self-funded/admin-only/dust/timing)
+  "stop_condition": "satisfied | more_mechanisms_pending: <reason>"
+// (legacy aliases still accepted: chosen_mechanism for selected_mechanisms, rejection_table for rejected_mechanisms)
+
+
+=== INPUT: ONE FUNCTION UNDER TRACE ===
+high_suspicion_invariant: ILO fund-custody / vesting / authorization correctness of `launch (V3 liquidity)`
+dangerous_interaction: external/permissionless entry into `launch (V3 liquidity)` in `ILOPool.sol` (launch / liquidity / DoS)
+
+Trace `launch (V3 liquidity)` in the verbatim source below. Run STEP 0 mechanism inventory, carry forward every
+supported mechanism, then return ONLY the JSON verdict per the schema above.
+
+=== VERBATIM SOURCE: ILOPool.sol ===
+```solidity
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity =0.7.6;
+pragma abicoder v2;
+
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import '@uniswap/v3-core/contracts/libraries/FixedPoint128.sol';
+import '@uniswap/v3-core/contracts/libraries/FullMath.sol';
+
+import '@openzeppelin/contracts/token/ERC721/ERC721.sol';
+
+import './interfaces/IILOPool.sol';
+import './interfaces/IILOManager.sol';
+import './libraries/PositionKey.sol';
+import './libraries/SqrtPriceMathPartial.sol';
+import './base/ILOVest.sol';
+import './base/LiquidityManagement.sol';
+import './base/ILOPoolImmutableState.sol';
+import './base/Initializable.sol';
+import './base/Multicall.sol';
+import "./base/ILOWhitelist.sol";
+
+/// @title NFT positions
+/// @notice Wraps Uniswap V3 positions in the ERC721 non-fungible token interface
+contract ILOPool is
+    ERC721,
+    IILOPool,
+    ILOWhitelist,
+    ILOVest,
+    Initializable,
+    Multicall,
+    ILOPoolImmutableState,
+    LiquidityManagement
+{
+    SaleInfo saleInfo;
+
+    /// @dev when lauch successfully we can not refund anymore
+    bool private _launchSucceeded;
+
+    /// @dev when refund triggered, we can not launch anymore
+    bool private _refundTriggered;
+
+    /// @dev The token ID position data
+    mapping(uint256 => Position) private _positions;
+    VestingConfig[] private _vestingConfigs;
+
+    /// @dev The ID of the next token that will be minted. Skips 0
+    uint256 private _nextId;
+    uint256 totalRaised;
+    constructor() ERC721('', '') {
+        _disableInitialize();
+    }
+
+    function name() public pure override(ERC721, IERC721Metadata) returns (string memory) {
+        return 'KRYSTAL ILOPool V1';
+    }
+
+    function symbol() public pure override(ERC721, IERC721Metadata) returns (string memory) {
+        return 'KRYSTAL-ILO-V1';
+    }
+
+    function initialize(InitPoolParams calldata params) external override whenNotInitialized() {
+        _nextId = 1;
+        // initialize imutable state
+        MANAGER = msg.sender;
+        IILOManager.Project memory _project = IILOManager(MANAGER).project(params.uniV3Pool);
+
+        WETH9 = IILOManager(MANAGER).WETH9();
+        RAISE_TOKEN = _project.raiseToken;
+        SALE_TOKEN = _project.saleToken;
+        _cachedUniV3PoolAddress = params.uniV3Pool;
+        _cachedPoolKey = _project._cachedPoolKey;
+        TICK_LOWER = params.tickLower;
+        TICK_UPPER = params.tickUpper;
+        SQRT_RATIO_LOWER_X96 = params.sqrtRatioLowerX96;
+        SQRT_RATIO_UPPER_X96 = params.sqrtRatioUpperX96;
+        SQRT_RATIO_X96 = _project.initialPoolPriceX96;
+
+        // rounding up to make sure that the number of sale token is enough for sale
+        (uint256 maxSaleAmount,) = _saleAmountNeeded(params.hardCap);
+        // initialize sale
+        saleInfo = SaleInfo({
+            hardCap: params.hardCap,
+            softCap: params.softCap,
+            maxCapPerUser: params.maxCapPerUser,
+            start: params.start,
+            end: params.end,
+            maxSaleAmount: maxSaleAmount
+        });
+
+        _validateSharesAndVests(_project.launchTime, params.vestingConfigs);
+        // initialize vesting
+        for (uint256 index = 0; index < params.vestingConfigs.length; index++) {
+            _vestingConfigs.push(params.vestingConfigs[index]);
+        }
+
+        emit ILOPoolInitialized(
+            params.uniV3Pool,
+            TICK_LOWER,
+            TICK_UPPER,
+            saleInfo,
+            params.vestingConfigs
+        );
+    }
+
+    /// @inheritdoc IILOPool
+    function positions(uint256 tokenId)
+        external
+        view
+        override
+        returns (
+            uint128 liquidity,
+            uint256 raiseAmount,
+            uint256 feeGrowthInside0LastX128,
+            uint256 feeGrowthInside1LastX128
+        )
+    {
+        return (
+            _positions[tokenId].liquidity,
+            _positions[tokenId].raiseAmount,
+            _positions[tokenId].feeGrowthInside0LastX128,
+            _positions[tokenId].feeGrowthInside1LastX128
+        );
+    }
+
+    /// @inheritdoc IILOSale
+    function buy(uint256 raiseAmount, address recipient)
+        external override 
+        returns (
+            uint256 tokenId,
+            uint128 liquidityDelta
+        )
+    {
+        require(_isWhitelisted(recipient), "UA");
+        require(block.timestamp > saleInfo.start && block.timestamp < saleInfo.end, "ST");
+        // check if raise amount over capacity
+        require(saleInfo.hardCap - totalRaised >= raiseAmount, "HC");
+        totalRaised += raiseAmount;
+
+        require(totalSold() <= saleInfo.maxSaleAmount, "SA");
+
+        // if investor already have a position, just increase raise amount and liquidity
+        // otherwise, mint new nft for investor and assign vesting schedules
+        if (balanceOf(recipient) == 0) {
+            _mint(recipient, (tokenId = _nextId++));
+            _positionVests[tokenId].schedule = _vestingConfigs[0].schedule;
+        } else {
+            tokenId = tokenOfOwnerByIndex(recipient, 0);
+        }
+
+        Position storage _position = _positions[tokenId];
+        require(raiseAmount <= saleInfo.maxCapPerUser - _position.raiseAmount, "UC");
+        _position.raiseAmount += raiseAmount;
+
+        // get amount of liquidity associated with raise amount
+        if (RAISE_TOKEN == _cachedPoolKey.token0) {
+            liquidityDelta = LiquidityAmounts.getLiquidityForAmount0(SQRT_RATIO_X96, SQRT_RATIO_UPPER_X96, raiseAmount);
+        } else {
+            liquidityDelta = LiquidityAmounts.getLiquidityForAmount1(SQRT_RATIO_LOWER_X96, SQRT_RATIO_X96, raiseAmount);
+        }
+
+        require(liquidityDelta > 0, "ZA");
+
+        // calculate amount of share liquidity investor recieve by INVESTOR_SHARES config
+        liquidityDelta = uint128(FullMath.mulDiv(liquidityDelta, _vestingConfigs[0].shares, BPS));
+        
+        // increase investor's liquidity
+        _position.liquidity += liquidityDelta;
+
+        // update total liquidity locked for vest and assiging vesing schedules
+        _positionVests[tokenId].totalLiquidity = _position.liquidity;
+
+        // transfer fund into contract
+        TransferHelper.safeTransferFrom(RAISE_TOKEN, msg.sender, address(this), raiseAmount);
+
+        emit Buy(recipient, tokenId, raiseAmount, liquidityDelta);
+    }
+
+    modifier isAuthorizedForToken(uint256 tokenId) {
+        require(_isApprovedOrOwner(msg.sender, tokenId), 'UA');
+        _;
+    }
+
+    /// @inheritdoc IILOPool
+    function claim(uint256 tokenId)
+        external
+        payable
+        override
+        isAuthorizedForToken(tokenId)
+        returns (uint256 amount0, uint256 amount1)
+    {
+        // only can claim if the launch is successfully
+        require(_launchSucceeded, "PNL");
+
+        // calculate amount of unlocked liquidity for the position
+        uint128 liquidity2Claim = _claimableLiquidity(tokenId);
+        IUniswapV3Pool pool = IUniswapV3Pool(_cachedUniV3PoolAddress);
+        Position storage position = _positions[tokenId];
+        {
+            IILOManager.Project memory _project = IILOManager(MANAGER).project(address(pool));
+
+            uint128 positionLiquidity = position.liquidity;
+            require(positionLiquidity >= liquidity2Claim);
+
+            // get amount of token0 and token1 that pool will return for us
+            (amount0, amount1) = pool.burn(TICK_LOWER, TICK_UPPER, liquidity2Claim);
+
+            // get amount of token0 and token1 after deduct platform fee
+            (amount0, amount1) = _deductFees(amount0, amount1, _project.platformFee);
+
+            bytes32 positionKey = PositionKey.compute(address(this), TICK_LOWER, TICK_UPPER);
+
+            // calculate amount of fees that position generated
+            (, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128, , ) = pool.positions(positionKey);
+            uint256 fees0 = FullMath.mulDiv(
+                                feeGrowthInside0LastX128 - position.feeGrowthInside0LastX128,
+                                positionLiquidity,
+                                FixedPoint128.Q128
+                            );
+            
+            uint256 fees1 = FullMath.mulDiv(
+                                feeGrowthInside1LastX128 - position.feeGrowthInside1LastX128,
+                                positionLiquidity,
+                                FixedPoint128.Q128
+                            );
+
+            // amount of fees after deduct performance fee
+            (fees0, fees1) = _deductFees(fees0, fees1, _project.performanceFee);
+
+            // fees is combined with liquidity token amount to return to the user
+            amount0 += fees0;
+            amount1 += fees1;
+
+            position.feeGrowthInside0LastX128 = feeGrowthInside0LastX128;
+            position.feeGrowthInside1LastX128 = feeGrowthInside1LastX128;
+
+            // subtraction is safe because we checked positionLiquidity is gte liquidity2Claim
+            position.liquidity = positionLiquidity - liquidity2Claim;
+            emit DecreaseLiquidity(tokenId, liquidity2Claim, amount0, amount1);
+
+        }
+        // real amount collected from uintswap pool
+        (uint128 amountCollected0, uint128 amountCollected1) = pool.collect(
+            address(this),
+            TICK_LOWER,
+            TICK_UPPER,
+            type(uint128).max,
+            type(uint128).max
+        );
+        emit Collect(tokenId, address(this), amountCollected0, amountCollected1);
+
+        // transfer token for user
+        TransferHelper.safeTransfer(_cachedPoolKey.token0, ownerOf(tokenId), amount0);
+        TransferHelper.safeTransfer(_cachedPoolKey.token1, ownerOf(tokenId), amount1);
+
+        emit Claim(ownerOf(tokenId), tokenId,liquidity2Claim, amount0, amount1, position.feeGrowthInside0LastX128, position.feeGrowthInside1LastX128);
+
+        address feeTaker = IILOManager(MANAGER).FEE_TAKER();
+        // transfer fee to fee taker
+        TransferHelper.safeTransfer(_cachedPoolKey.token0, feeTaker, amountCollected0-amount0);
+        TransferHelper.safeTransfer(_cachedPoolKey.token1, feeTaker, amountCollected1-amount1);
+    }
+
+    modifier OnlyManager() {
+        require(msg.sender == MANAGER, "UA");
+        _;
+    }
+
+    /// @inheritdoc IILOPool
+    function launch() external override OnlyManager() {
+        require(!_launchSucceeded, "PL");
+        // when refund triggered, we can not launch pool anymore
+        require(!_refundTriggered, "IRF");
+        // make sure that soft cap requirement match
+        require(totalRaised >= saleInfo.softCap, "SC");
+        uint128 liquidity;
+        address uniV3PoolAddress = _cachedUniV3PoolAddress;
+        {
+            uint256 amount0;
+            uint256 amount1;
+            uint256 amount0Min;
+            uint256 amount1Min;
+            address token0Addr = _cachedPoolKey.token0;
+
+            // calculate sale amount of tokens needed for launching pool
+            if (token0Addr == RAISE_TOKEN) {
+                amount0 = totalRaised;
+                amount0Min = totalRaised;
+                (amount1, liquidity) = _saleAmountNeeded(totalRaised);
+            } else {
+                (amount0, liquidity) = _saleAmountNeeded(totalRaised);
+                amount1 = totalRaised;
+                amount1Min = totalRaised;
+            }
+
+            // actually deploy liquidity to uniswap pool
+            (amount0, amount1) = addLiquidity(AddLiquidityParams({
+                pool: IUniswapV3Pool(uniV3PoolAddress),
+                liquidity: liquidity,
+                amount0Desired: amount0,
+                amount1Desired: amount1,
+                amount0Min: amount0Min,
+                amount1Min: amount1Min
+            }));
+
+            emit PoolLaunch(uniV3PoolAddress, liquidity, amount0, amount1);
+        }
+
+        IILOManager.Project memory _project = IILOManager(MANAGER).project(uniV3PoolAddress);
+
+        // assigning vests for the project configuration
+        for (uint256 index = 1; index < _vestingConfigs.length; index++) {
+            uint256 tokenId;
+            VestingConfig memory projectConfig = _vestingConfigs[index];
+            // mint nft for recipient
+            _mint(projectConfig.recipient, (tokenId = _nextId++));
+            uint128 liquidityShares = uint128(FullMath.mulDiv(liquidity, projectConfig.shares, BPS));
+
+            Position storage _position = _positions[tokenId];
+            _position.liquidity = liquidityShares;
+            _positionVests[tokenId].totalLiquidity = liquidityShares;
+
+            // assign vesting schedule
+            LinearVest[] storage schedule = _positionVests[tokenId].schedule;
+            for (uint256 i = 0; i < projectConfig.schedule.length; i++) {
+                schedule.push(projectConfig.schedule[i]);
+            }
+
+            emit Buy(projectConfig.recipient, tokenId, 0, liquidityShares);
+        }
+
+        // transfer back leftover sale token to project admin
+        _refundProject(_project.admin);
+
+        _launchSucceeded = true;
+    }
+
+    modifier refundable() {
+        if (!_refundTriggered) {
+            // if ilo pool is lauch sucessfully, we can not refund anymore
+            require(!_launchSucceeded, "PL");
+            IILOManager.Project memory _project = IILOManager(MANAGER).project(_cachedUniV3PoolAddress);
+            require(block.timestamp >= _project.refundDeadline, "RFT");
+
+            _refundTriggered = true;
+        }
+        _;
+    }
+
+    /// @inheritdoc IILOPool
+    function claimRefund(uint256 tokenId) external override refundable() isAuthorizedForToken(tokenId) {
+        uint256 refundAmount = _positions[tokenId].raiseAmount;
+        address tokenOwner = ownerOf(tokenId);
+
+        delete _positions[tokenId];
+        delete _positionVests[tokenId];
+        _burn(tokenId);
+
+        TransferHelper.safeTransfer(RAISE_TOKEN, tokenOwner, refundAmount);
+        emit UserRefund(tokenOwner, tokenId,refundAmount);
+    }
+
+    /// @inheritdoc IILOPool
+    function claimProjectRefund(address projectAdmin) external override refundable() OnlyManager() returns(uint256 refundAmount) {
+        return _refundProject(projectAdmin);
+    }
+
+    function _refundProject(address projectAdmin) internal returns (uint256 refundAmount) {
+        refundAmount = IERC20(SALE_TOKEN).balanceOf(address(this));
+        if (refundAmount > 0) {
+            TransferHelper.safeTransfer(SALE_TOKEN, projectAdmin, refundAmount);
+            emit ProjectRefund(projectAdmin, refundAmount);
+        }
+    }
+
+    /// @inheritdoc IILOSale
+    function totalSold() public view override returns (uint256 _totalSold) {
+        (_totalSold,) =_saleAmountNeeded(totalRaised);
+    }
+
+    /// @notice return sale token amount needed for the raiseAmount.
+    /// @dev sale token amount is rounded up
+    function _saleAmountNeeded(uint256 raiseAmount) internal view returns (
+        uint256 saleAmountNeeded,
+        uint128 liquidity
+    ) {
+        if (raiseAmount == 0) return (0, 0);
+
+        if (_cachedPoolKey.token0 == SALE_TOKEN) {
+            // liquidity1 raised
+            liquidity = LiquidityAmounts.getLiquidityForAmount1(SQRT_RATIO_LOWER_X96, SQRT_RATIO_X96, raiseAmount);
+            saleAmountNeeded = SqrtPriceMathPartial.getAmount0Delta(SQRT_RATIO_X96, SQRT_RATIO_UPPER_X96, liquidity, true);
+        } else {
+            // liquidity0 raised
+            liquidity = LiquidityAmounts.getLiquidityForAmount0(SQRT_RATIO_X96, SQRT_RATIO_UPPER_X96, raiseAmount);
+            saleAmountNeeded = SqrtPriceMathPartial.getAmount1Delta(SQRT_RATIO_LOWER_X96, SQRT_RATIO_X96, liquidity, true);
+        }
+    }
+
+    /// @inheritdoc ILOVest
+    function _unlockedLiquidity(uint256 tokenId) internal view override returns (uint128 liquidityUnlocked) {
+        PositionVest storage _positionVest = _positionVests[tokenId];
+        LinearVest[] storage vestingSchedule = _positionVest.schedule;
+        uint128 totalLiquidity = _positionVest.totalLiquidity;
+
+        for (uint256 index = 0; index < vestingSchedule.length; index++) {
+
+            LinearVest storage vest = vestingSchedule[index];
+
+            // if vest is not started, skip this vest and all following vest
+            if (block.timestamp < vest.start) {
+                break;
+            }
+
+            // if vest already end, all the shares are unlocked
+            // otherwise we calculate shares of unlocked times and get the unlocked share number
+            // all vest after current unlocking vest is ignored
+            if (vest.end < block.timestamp) {
+                liquidityUnlocked += uint128(FullMath.mulDiv(
+                    vest.shares, 
+                    totalLiquidity, 
+                    BPS
+                ));
+            } else {
+                liquidityUnlocked += uint128(FullMath.mulDiv(
+                    vest.shares * totalLiquidity, 
+                    block.timestamp - vest.start, 
+                    (vest.end - vest.start) * BPS
+                ));
+            }
+        }
+    }
+
+    /// @notice calculate the amount left after deduct fee
+    /// @param amount0 the amount of token0 before deduct fee
+    /// @param amount1 the amount of token1 before deduct fee
+    /// @return amount0Left the amount of token0 after deduct fee
+    /// @return amount1Left the amount of token1 after deduct fee
+    function _deductFees(uint256 amount0, uint256 amount1, uint16 feeBPS) internal pure 
+        returns (
+            uint256 amount0Left, 
+            uint256 amount1Left
+        ) {
+        amount0Left = amount0 - FullMath.mulDiv(amount0, feeBPS, BPS);
+        amount1Left = amount1 - FullMath.mulDiv(amount1, feeBPS, BPS);
+    }
+
+    /// @inheritdoc IILOVest
+    function vestingStatus(uint256 tokenId) external view override returns (
+        uint128 unlockedLiquidity,
+        uint128 claimedLiquidity
+    ) {
+        unlockedLiquidity = _unlockedLiquidity(tokenId);
+        claimedLiquidity = _positionVests[tokenId].totalLiquidity - _positions[tokenId].liquidity;
+    }
+
+    /// @inheritdoc ILOVest
+    function _claimableLiquidity(uint256 tokenId) internal view override returns (uint128) {
+        uint128 liquidityClaimed = _positionVests[tokenId].totalLiquidity - _positions[tokenId].liquidity;
+        uint128 liquidityUnlocked = _unlockedLiquidity(tokenId);
+        return liquidityClaimed < liquidityUnlocked ? liquidityUnlocked - liquidityClaimed : 0;
+    }
+
+    modifier onlyProjectAdmin() override {
+        IILOManager.Project memory _project = IILOManager(MANAGER).project(_cachedUniV3PoolAddress);
+        require(msg.sender == _project.admin, "UA");
+        _;
+    }
+
+}
+
+```

@@ -1,0 +1,46 @@
+{
+  "phase": "P145",
+  "title": "Pivot runtime-PoC to blackhole B5 / RewardsDistributor.claim_many",
+  "decision": "RUNTIME_CONFIRMED",
+  "target": {"item_id": "B5", "arch": "blackhole", "contract": "RewardsDistributor",
+             "function": "claim_many", "sibling_reference": "claim",
+             "mechanism": "sibling_recipient_parity_omitted_avm_correction"},
+  "harness_type": "real_contract",
+  "real_function_called": true,
+  "public_entrypoint_called": true,
+  "copied_logic_used_for_subject": false,
+  "production_contract_modified": false,
+  "tests": {"passed": 4, "failed": 0, "skipped": 0,
+            "names": ["test_single_claim_routes_avm_managed_to_original_owner",
+                      "test_batch_claim_many_routes_avm_managed_to_nft_owner_not_original",
+                      "test_corrected_behavior_matches_single_claim",
+                      "test_non_avm_control_both_paths_match"]},
+  "correct_recipient": "getOriginalOwner (original owner 0xBEEF)",
+  "wrong_recipient": "ownerOf (AVM manager 0xA814)",
+  "misdirected_wad": "1000000000000000000",
+  "controls": {"non_avm": "claim and claim_many both pay ownerOf == original owner (no divergence)"},
+  "prompt_vs_runtime": {
+    "prompt_decision": "finding", "prompt_status": "completed",
+    "runtime_status": "runtime_confirmed", "runtime_confidence": "high",
+    "kept_separate": true, "prompt_metrics_unchanged": true,
+    "sidecar": "output_research/value_provenance_eval/runtime_status.jsonl (B1 + B5)"
+  },
+  "scope_duplicate": {"duplicate_known": "blackhole M-04", "method_validation_not_submission": true},
+  "method_generalization": {"architectures": ["noya (B1)", "blackhole (B5)"],
+                            "bug_classes": ["value_loop_provenance", "sibling_recipient_parity"]},
+  "safety": {
+    "submitted_anywhere": false,
+    "submission_ready": false,
+    "auto_confirmed_severity": false,
+    "detector_severity_submission_gate_logic_changed": false,
+    "production_contract_changed": false,
+    "new_detector_built": false,
+    "runtime_status_kept_separate_from_submission_status": true,
+    "active_audit_unchanged": "quantamm-2024-12-eval",
+    "python_production_code_changed": false
+  },
+  "artifacts": {
+    "test_file": "audits/blackhole-2025-05-eval/pocs/p145/test/RewardsDistributorClaimManyRecipientParity.t.sol",
+    "foundry_config": "audits/blackhole-2025-05-eval/pocs/p145/foundry.toml"
+  }
+}

@@ -1,0 +1,389 @@
+{
+  "candidate_id": "multicall_invariant:Multicall:multicall:delegatecall_self_context:5d1136da",
+  "audit_id": "size-credit-2024-06",
+  "candidate_hash": "5d1136da",
+  "generated_at": "2026-06-01T18:30:11.607714+00:00",
+  "tool": "scripts/candidates/validate_candidate.py",
+  "source_root": "audits/size-credit-2024-06/contracts/2024-06-size",
+  "source_hash": "md5:cecf083ad025a572e8e8766a6e86c1c4",
+  "evidence_refs": [
+    "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol:26"
+  ],
+  "status": "DEFENSE_MAPPED",
+  "reasons": [
+    "Entry is the public payable Size.multicall (pause-gated, callable by anyone). Inside the batch isMulticall=true makes per-call checks branch: the absolute borrow-aToken cap (validateBorrowATokenCap) is skipped, and only a relative final check (validateBorrowATokenIncreaseLteDebtTokenDecrease) runs after the batch. Whether that final check fully covers the skipped absolute cap is NOT determined here \u2014 it is the question for the next gates."
+  ],
+  "unresolved_assumptions": [
+    "Whether non-payable facade siblings are also reachable via self-delegatecall (no value forwarded).",
+    "Whether a nested multicall can re-enter or stack isMulticall behavior."
+  ],
+  "routing_allowed": false,
+  "research_only": true,
+  "summary_plain_english": "Entry is the public payable Size.multicall (pause-gated, callable by anyone). Inside the batch isMulticall=true makes per-call checks branch: the absolute borrow-aToken cap (validateBorrowATokenCap) is skipped, and only a relative final check (validateBorrowATokenIncreaseLteDebtTokenDecrease) runs after the batch. Whether that final check fully covers the skipped absolute cap is NOT determined here \u2014 it is the question for the next gates.",
+  "entrypoint_defenses": [
+    {
+      "function": "multicall(...)",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 142,
+      "visibility": "public",
+      "payable": true,
+      "modifiers": [
+        "whenNotPaused"
+      ],
+      "access_control": "none",
+      "anyone_can_call": true
+    }
+  ],
+  "multicall_engine_defenses": [
+    {
+      "name": "isMulticall flag set before batch",
+      "refs": [
+        "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol:27"
+      ],
+      "effect": "raises isMulticall=true so per-call checks can branch"
+    },
+    {
+      "name": "isMulticall flag unset after batch",
+      "refs": [
+        "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol:44"
+      ],
+      "effect": "lowers flag after final check"
+    },
+    {
+      "name": "self-delegatecall target restriction",
+      "refs": [
+        "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol:34"
+      ],
+      "effect": "Address.functionDelegateCall(address(this), data[i]) \u2014 calls only this contract; no arbitrary target",
+      "note": "self-delegatecall carries no value; nested multicall possible=unknown (a sub-call could be multicall)"
+    },
+    {
+      "name": "batch atomicity",
+      "effect": "functionDelegateCall reverts on sub-call failure -> whole batch reverts"
+    },
+    {
+      "name": "final invariant after batch",
+      "refs": [
+        "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/CapsLibrary.sol:19",
+        "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol:40"
+      ],
+      "effect": "validateBorrowATokenIncreaseLteDebtTokenDecrease runs once after all sub-calls"
+    }
+  ],
+  "is_multicall_branches": [
+    {
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/SizeStorage.sol",
+      "line": 94,
+      "surrounding_code": "    NonTransferrableToken debtToken;\n    // Variable Pool (Aave v3)\n    IPool variablePool;\n    // Multicall lock to check if multicall is in progress\n    bool isMulticall;\n}\n\nstruct State {\n    // the fee configuration struct",
+      "branch_kind": "reference",
+      "check_skipped_or_changed": null,
+      "normal_single_call_behavior": "n/a",
+      "multicall_behavior": "n/a",
+      "final_validation_appears_to_replace": null,
+      "coverage_status": "unknown"
+    },
+    {
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol",
+      "line": 27,
+      "surrounding_code": "\n    /// @dev Receives and executes a batch of function calls on this contract.\n    /// @custom:oz-upgrades-unsafe-allow-reachable delegatecall\n    function multicall(State storage state, bytes[] calldata data) internal returns (bytes[] memory results) {\n        state.data.isMulticall = true;\n\n        uint256 borrowATokenSupplyBefore = state.data.borrowAToken.balanceOf(address(this));\n        uint256 debtTokenSupplyBefore = state.data.debtToken.totalSupply();\n",
+      "branch_kind": "engine_set",
+      "check_skipped_or_changed": null,
+      "normal_single_call_behavior": "n/a",
+      "multicall_behavior": "flag raised before batch",
+      "final_validation_appears_to_replace": null,
+      "coverage_status": "n/a"
+    },
+    {
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol",
+      "line": 44,
+      "surrounding_code": "        state.validateBorrowATokenIncreaseLteDebtTokenDecrease(\n            borrowATokenSupplyBefore, debtTokenSupplyBefore, borrowATokenSupplyAfter, debtTokenSupplyAfter\n        );\n\n        state.data.isMulticall = false;\n    }\n}",
+      "branch_kind": "engine_unset",
+      "check_skipped_or_changed": null,
+      "normal_single_call_behavior": "n/a",
+      "multicall_behavior": "flag lowered after batch",
+      "final_validation_appears_to_replace": null,
+      "coverage_status": "n/a"
+    },
+    {
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/actions/Deposit.sol",
+      "line": 80,
+      "surrounding_code": "        if (params.token == address(state.data.underlyingBorrowToken)) {\n            state.depositUnderlyingBorrowTokenToVariablePool(from, params.to, amount);\n            // borrow aToken cap is not validated in multicall,\n            //   since users must be able to deposit more tokens to repay debt\n            if (!state.data.isMulticall) {\n                state.validateBorrowATokenCap();\n            }\n        } else {\n            state.depositUnderlyingCollateralToken(from, params.to, amount);",
+      "branch_kind": "skip_in_multicall",
+      "check_skipped_or_changed": "validateBorrowATokenCap",
+      "normal_single_call_behavior": "validateBorrowATokenCap runs (enforced per call)",
+      "multicall_behavior": "validateBorrowATokenCap is SKIPPED during multicall",
+      "final_validation_appears_to_replace": "validateBorrowATokenIncreaseLteDebtTokenDecrease (different basis)",
+      "coverage_status": "partially_covers_candidate"
+    }
+  ],
+  "accounting_defenses": [
+    {
+      "name": "validateBorrowATokenCap",
+      "refs": [
+        "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/CapsLibrary.sol:52"
+      ],
+      "kind": "per_call_check",
+      "what_it_checks": "absolute borrowAToken.totalSupply() vs borrowATokenCap (reverts if above cap)",
+      "skipped_in_multicall": true
+    },
+    {
+      "name": "validateBorrowATokenIncreaseLteDebtTokenDecrease",
+      "refs": [
+        "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/CapsLibrary.sol:19"
+      ],
+      "kind": "final_batch_check",
+      "what_it_checks": "relative + conditional: only when after>cap, requires borrow increase <= debt decrease",
+      "skipped_in_multicall": false
+    }
+  ],
+  "callable_function_defenses": [
+    {
+      "function": "initialize",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 87,
+      "payable": false,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": false,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "updateConfig",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 110,
+      "payable": false,
+      "blocked_in_multicall": true,
+      "reads_writes_accounting": false,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "setVariablePoolBorrowRate",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 120,
+      "payable": false,
+      "blocked_in_multicall": true,
+      "reads_writes_accounting": false,
+      "per_call_validation": false,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "pause",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 132,
+      "payable": false,
+      "blocked_in_multicall": true,
+      "reads_writes_accounting": false,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "unpause",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 137,
+      "payable": false,
+      "blocked_in_multicall": true,
+      "reads_writes_accounting": true,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "deposit",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 153,
+      "payable": true,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": true,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "withdraw",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 159,
+      "payable": true,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": true,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "buyCreditLimit",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 166,
+      "payable": true,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": true,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "sellCreditLimit",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 172,
+      "payable": true,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": true,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "buyCreditMarket",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 178,
+      "payable": true,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": true,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "sellCreditMarket",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 188,
+      "payable": true,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": true,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "repay",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 198,
+      "payable": true,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": true,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "claim",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 204,
+      "payable": true,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": true,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "liquidate",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 210,
+      "payable": true,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": true,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "selfLiquidate",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 223,
+      "payable": true,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": true,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "liquidateWithReplacement",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 229,
+      "payable": true,
+      "blocked_in_multicall": true,
+      "reads_writes_accounting": true,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "compensate",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 247,
+      "payable": true,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": false,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    },
+    {
+      "function": "setUserConfiguration",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol",
+      "line": 254,
+      "payable": true,
+      "blocked_in_multicall": false,
+      "reads_writes_accounting": false,
+      "per_call_validation": true,
+      "validation_skipped_in_multicall": "unknown",
+      "coverage_status": "unknown"
+    }
+  ],
+  "guard_coverage_matrix": [
+    {
+      "check": "validateBorrowATokenCap",
+      "location": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/actions/Deposit.sol:80",
+      "applies_in_multicall": false,
+      "coverage_status": "partially_covers_candidate",
+      "note": "per-call check skipped in multicall; only the final batch check runs"
+    },
+    {
+      "check": "validateBorrowATokenIncreaseLteDebtTokenDecrease",
+      "location": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/CapsLibrary.sol:19",
+      "applies_in_multicall": true,
+      "coverage_status": "partially_covers_candidate",
+      "note": "different accounting basis (relative/conditional) than the skipped absolute cap check"
+    }
+  ],
+  "hard_blockers": [],
+  "partial_blockers": [
+    "validateBorrowATokenCap (skipped per-call in multicall; replaced by a relative final check)"
+  ],
+  "next_questions": [
+    "Does the final relative check permit ending above the absolute cap without a matching debt decrease?",
+    "Which callable sub-calls can move borrowAToken up while debtToken does not move down?"
+  ],
+  "defenses": [
+    {
+      "type": "entrypoint_modifier",
+      "name": "whenNotPaused",
+      "location": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/Size.sol:142",
+      "coverage": "does_not_cover",
+      "skipped_in_multicall": false
+    },
+    {
+      "type": "per_call_check",
+      "name": "validateBorrowATokenCap",
+      "location": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/CapsLibrary.sol:52",
+      "coverage": "unknown",
+      "skipped_in_multicall": true
+    },
+    {
+      "type": "final_batch_check",
+      "name": "validateBorrowATokenIncreaseLteDebtTokenDecrease",
+      "location": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/CapsLibrary.sol:19",
+      "coverage": "partially_covers",
+      "skipped_in_multicall": false
+    }
+  ],
+  "checks_skipped_when_isMulticall": [
+    "validateBorrowATokenCap"
+  ]
+}

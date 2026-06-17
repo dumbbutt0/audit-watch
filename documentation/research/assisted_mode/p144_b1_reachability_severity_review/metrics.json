@@ -1,0 +1,53 @@
+{
+  "phase": "P144",
+  "title": "B1 reachability & severity review (NoyaValueOracle._getValue)",
+  "decision": "ADVANCE_TO_HUMAN_REVIEW_FINDING",
+  "scope_gate": "DUPLICATE_KNOWN_LOCALLY",
+  "reachability_class": "PROTOCOL_CONFIG_REACHABLE",
+  "reachability_caveat": "design-supported, not config-demonstrated locally (no on-disk >=2-hop route)",
+  "severity_hypothesis": "HIGH_POTENTIAL",
+  "severity_final_assigned": false,
+  "value_path_source_supported": true,
+  "production_route_config_on_disk": false,
+  "end_to_end_economic_loss_pocd": false,
+  "oracle_delta_pocd_in_p143": true,
+  "user_controls_route": false,
+  "attacker_can_select_route_at_call_time": false,
+  "malicious_admin_required": false,
+  "consumers": {
+    "share_price_or_mint_burn": ["AccountingManager.totalAssets/TVL", "AccountingManager.previewDeposit"],
+    "withdrawal_or_redemption": ["AccountingManager.previewRedeem"],
+    "strategy_tvl_allocation": ["Pendle/Balancer/Dolomite/Compound/Aave/UNIv3 getPositionTVL", "BaseConnector._getValue"],
+    "fee_calculation": ["AccountingManager profit/performanceFee"],
+    "governance_or_limits": ["AccountingManager depositLimit"],
+    "swap_slippage_guard": ["GenericSwapAndBridgeHandler"]
+  },
+  "scope": "IN_SCOPE_LIKELY",
+  "duplicate": "DUPLICATE_KNOWN_LOCALLY",
+  "answer_key_ref": "audits/noya-2024-04-eval/output/eval_ready/noya_fresh/answer_key.md:15 (H-03)",
+  "status_separation": {
+    "prompt_decision": "finding",
+    "runtime_status": "runtime_confirmed",
+    "review_status": "advance_to_human_review",
+    "submission_ready": false,
+    "advisory_only": true,
+    "requires_human_review": true,
+    "requires_poc_review": true
+  },
+  "safety": {
+    "submitted_anywhere": false,
+    "submission_ready": false,
+    "auto_confirmed_severity": false,
+    "detector_severity_submission_gate_logic_changed": false,
+    "production_contract_changed": false,
+    "new_detector_built": false,
+    "runtime_status_kept_separate_from_submission_status": true,
+    "active_audit_unchanged": "quantamm-2024-12-eval",
+    "code_changed": false
+  },
+  "human_todo": [
+    "confirm a production >=2-hop priceRoute on a material token with divergent per-hop oracles",
+    "end-to-end PoC: route -> TVL skew -> deposit/redeem share delta -> net loss > gas (bounded)",
+    "duplicate ruling (known H-03) + final severity"
+  ]
+}

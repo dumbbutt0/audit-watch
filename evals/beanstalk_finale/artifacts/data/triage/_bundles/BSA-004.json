@@ -1,0 +1,99 @@
+{
+  "finding_id": "BSA-004",
+  "title": "L2ContractMigrationFacet '// set global state' comment writes uninitialized (always-zero) totalDeposited/totalDepositedBdv to protocol-wide silo balances",
+  "agent": "",
+  "claimed_severity": "High",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+    "function": "addMigratedDepositsToAccount",
+    "line_start": 158,
+    "line_end": 200
+  },
+  "description": "In addMigratedDepositsToAccount the comment on line 193 reads '// set global state' before assigning s.sys.silo.balances[token].deposited and .depositedBdv. The stated intent is that the per-token global silo totals are set to reflect the migrated deposits. However the local accumulators `uint128 totalDeposited` and `uint128 totalDepositedBdv` (lines 159-160) are declared and never incremented anywhere in the deposit loop (the loop only increments totalBdvForAccount and accountStalk). The 'global state' written on lines 194-195 is therefore always 0, overwriting the protocol-wide silo totals with zero while per-account deposits are credited. The accompanying behavior diverges from the sibling ReseedSilo.reseedSiloDeposit, which actually accumulates totalCalcDeposited/totalCalcDepositedBdv and validates them with a require before writing global state. The comment asserts a correct global-state update that the code does not perform.",
+  "impact": "Global deposited/depositedBdv for the migrated token is zeroed while per-account deposits exist, breaking the documented total == sum(accounts) silo invariant. Downstream LibTokenSilo withdraw / LibConvert / BDV getters read the zeroed total, causing withdrawal underflow / DoS or value-accounting inflation.",
+  "ite": {
+    "intent": "Stated intent (comment + sibling pattern): set the per-token global silo totals to the sum of the migrated deposits.",
+    "technique": "Accumulator locals declared but never written, then assigned to global state -> global totals overwritten with 0.",
+    "evasion": "Permissionless migration call; no guard recomputes or validates the global total in this path."
+  },
+  "ice_chain": {
+    "corrupted_state": "s.sys.silo.balances[token].deposited and .depositedBdv (overwritten to 0)",
+    "impact": "Accounting desync (total != sum of accounts): withdrawal underflow/DoS or value inflation",
+    "consumer_found": true,
+    "consumer_function": "LibTokenSilo withdraw / LibConvert / SiloGetters BDV reads of s.sys.silo.balances[token]",
+    "exploit_path": "redeemDepositsAndInternalBalances -> addMigratedDepositsToAccount writes 0 to global balances -> later withdraw/convert reads inconsistent totals -> underflow or mispriced accounting"
+  },
+  "source_slice": "128:         require(MerkleProof.verify(proof, MERKLE_ROOT, leaf), \"Migration: invalid proof\");\n129:     }\n130: \n131:     /**\n132:      * @notice verifies that the signature came from the owner.\n133:      * @dev the signature is signed on the L1 blockchain.\n134:      * the deposit data itself is not needed, as the signature\n135:      */\n136:     function verifySignature(\n137:         address owner,\n138:         address reciever,\n139:         uint256 deadline,\n140:         bytes calldata signature\n141:     ) internal view {\n142:         require(block.timestamp <= deadline, \"Migration: permit expired deadline\");\n143:         bytes32 structHash = keccak256(\n144:             abi.encode(REDEEM_DEPOSIT_TYPE_HASH, owner, reciever, deadline)\n145:         );\n146: \n147:         bytes32 hash = _hashTypedDataV4(structHash);\n148:         address signer = ECDSA.recover(hash, signature);\n149:         require(signer == owner, \"Migration: permit invalid signature\");\n150:     }\n151: \n152:     function addMigratedDepositsToAccount(\n153:         address account,\n154:         AccountDepositData calldata depositData\n155:     ) internal returns (uint256 accountStalk) {\n156:         int96 stemTip = LibTokenSilo.stemTipForToken(depositData.token);\n157:         uint256 stalkIssuedPerBdv = s.sys.silo.assetSettings[depositData.token].stalkIssuedPerBdv;\n158:         uint128 totalBdvForAccount;\n159:         uint128 totalDeposited;\n160:         uint128 totalDepositedBdv;\n161:         for (uint256 i; i < depositData.depositIds.length; i++) {\n162:             // verify that depositId is valid.\n163:             uint256 depositId = depositData.depositIds[i];\n164:             (address depositToken, int96 stem) = depositId.unpackAddressAndStem();\n165:             require(depositToken == depositData.token, \"Migration: INVALID_DEPOSIT_ID\");\n166:             require(stemTip >= stem, \"Migration: INVALID_STEM\");\n167: \n168:             // add deposit to account.\n169:             s.accts[account].deposits[depositId].amount = depositData.amounts[i];\n170:             s.accts[account].deposits[depositId].bdv = depositData.bdvs[i];\n171: \n172:             // increment totalBdvForAccount by bdv of deposit:\n173:             totalBdvForAccount += depositData.bdvs[i];\n174: \n175:             // increment by grown stalk of deposit.\n176:             accountStalk += uint96(stemTip - stem) * depositData.bdvs[i];\n177: \n178:             // emit events.\n179:             emit AddDeposit(\n180:                 account,\n181:                 depositData.token,\n182:                 stem,\n183:                 depositData.amounts[i],\n184:                 depositData.bdvs[i]\n185:             );\n186:             emit TransferSingle(msg.sender, address(0), account, depositId, depositData.amounts[i]);\n187:         }\n188: \n189:         // update mowStatuses for account and token.\n190:         s.accts[account].mowStatuses[depositData.token].bdv = totalBdvForAccount;\n191:         s.accts[account].mowStatuses[depositData.token].lastStem = stemTip;\n192: \n193:         // set global state\n194:         s.sys.silo.balances[depositData.token].deposited = totalDeposited;\n195:         s.sys.silo.balances[depositData.token].depositedBdv = totalDepositedBdv;\n196: \n197:         // increment stalkForAccount by the stalk issued per BDV.\n198:         // placed outside of loop for gas effiency.\n199:         accountStalk += stalkIssuedPerBdv * totalBdvForAccount;\n200:     }\n201: \n202:     /**\n203:      * @notice increments the stalk and roots for an account.\n204:      */\n205:     function setStalk(address account, uint256 accountStalk, uint256 accountRoots) internal {\n206:         s.accts[account].stalk += accountStalk;\n207:         s.accts[account].roots += accountRoots;\n208: \n209:         // emit event.\n210:         emit StalkBalanceChanged(account, int256(accountStalk), int256(accountRoots));\n211:     }\n212: \n213:     /**\n214:      * @notice Hashes in an EIP712 compliant way.\n215:      * @dev Returns an Ethereum Signed Typed Data, created from a\n216:      * `domainSeparator` and a `structHash`. This produces hash corresponding\n217:      * to the one signed with the\n218:      * https://eips.ethereum.org/EIPS/eip-712[`eth_signTypedData`]\n219:      * JSON-RPC method as part of EIP-712.\n220:      *\n221:      * Sourced from OpenZeppelin 0.8 ECDSA lib.\n222:      */\n223:     function _hashTypedDataV4(bytes32 structHash) internal view returns (bytes32) {\n224:         return keccak256(abi.encodePacked(\"\\x19\\x01\", _domainSeparatorV4(), structHash));\n225:     }\n226: \n227:     /**\n228:      * @notice Returns the domain separator for the current chain.\n229:      */\n230:     function _domainSeparatorV4() internal view returns (bytes32) {",
+  "gate_verdict": {
+    "finding_id": "BSA-004",
+    "severity": "High",
+    "vuln_type": "behavioral_state_divergence",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.536196+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

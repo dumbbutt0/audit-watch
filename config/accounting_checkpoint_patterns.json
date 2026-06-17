@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "description": "P249 ACCOUNTING examine-time reasoning checkpoint — shape markers for the 5 accounting families (A1-A5). RESEARCH-ONLY, default-off, un-wired. The checkpoint OBSERVES these shapes and emits an interrogative ACCOUNTING_CHECKPOINT reasoning record (questions + empty hypothesis); it NEVER concludes a vulnerability or emits a finding. Markers are intentionally broad (observe, don't conclude) because firing only asks a question — adjudication happens later in the existing precision pipeline. No sixth family.",
+  "checkpoint_only": true,
+  "emits_findings": false,
+  "concludes_vulnerability": false,
+  "families": {
+    "A1_rounding_direction": {
+      "context_markers": ["deposit", "mint", "withdraw", "redeem", "preview", "convertto", "_calculate"],
+      "op_markers": ["converttoassets", "converttoshares", "muldiv", "rounding.", "round", " / ", "frompricedecimals", "topricedecimals"],
+      "directionality_markers": ["rounding.down", "rounding.up", "rounddown", "roundup"]
+    },
+    "A2_conservation": {
+      "context_markers": ["mint", "burn", "deduct", "fee", "payout", "settle", "harvest", "accrue", "_lock", "setlockduration"],
+      "op_markers": ["_mint(", "_burn(", ".mint(", ".burn(", "deductfee", "deduct(", "- fee", "forceharvest", "harvest("]
+    },
+    "A3_double_counting": {
+      "quantity_markers": ["remainder", "reward", "accrued", "schnibbles", "balance", "credit", "shares"],
+      "reuse_markers": ["+=", "+ lockedtoken", "+ remainder", "= remainder", "carried", "reused", "lasttime", "lastlocktime"]
+    },
+    "A4_shared_balance_depletion": {
+      "shared_markers": ["escrow", "pool", "totalsupply", "totalassets", "shared", "common", "balanceof(address(this))", "balanceof(escrow"],
+      "actor_op_markers": ["transferfrom(", "transfer(", "burn(", "mint(", "_decrease", "maxdeposit", "maxmint", "maxwithdraw", "maxredeem", "claim"]
+    },
+    "A5_index_arithmetic_exactness": {
+      "index_markers": ["startindex", "endindex", "slice", "[i]", "length", "_skip", "offset"],
+      "arith_markers": ["end - start", "endindex - startindex", "- start", "- 1", "+ 1", "length =", " - ", "% "]
+    }
+  },
+  "questions": [
+    "Q1: Can value be created?",
+    "Q2: Can value be destroyed?",
+    "Q3: Can value be counted twice?",
+    "Q4: Can another actor be deprived?",
+    "Q5: Can rounding favor the wrong side?",
+    "Q6: Can a repeated action amplify the effect?"
+  ]
+}

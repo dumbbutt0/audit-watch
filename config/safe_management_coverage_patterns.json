@@ -1,0 +1,40 @@
+{
+  "lens": "safe_management_coverage",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Detects guard/policy/blocklist contracts that protect a Gnosis Safe but (A) decode a multi-argument Safe self-management selector at the WRONG calldata offset (read the wrong argument), or (B) leave high-impact Safe self-management selectors UNCOVERED while covering others. Two-signal gate: Signal-1 = a Safe-guard selector-filter context (checkTransaction / BaseGuard / selector-from-calldata + revert) that covers >=1 Safe-specific self-mgmt selector; Signal-2 = a concrete decode-offset mismatch OR a missing high-impact selector. Mechanism-based, NOT answer-key string matching. Anchor: reNFT 2024-01 H-04 (gnosis_safe_disable_module_offset = 0x24 reads prevModule not module) + H-02/H-05 (setFallbackHandler / permit not covered). Scope: Safe-management selector coverage + calldata decode only; does NOT detect hostile-token, reentrancy, Seaport, or economic issues.",
+
+  "guard_context_signals": ["checktransaction", "baseguard", "guardmanager", "enum.operation", "mload(add(data", "bytes4 selector", "_loadvaluefromcalldata", "_checktransaction", "unauthorizedselector", "operation == enum.operation.delegatecall", "guardpolicy_"],
+
+  "safe_selectors": [
+    {"name": "enableModule", "signature": "enableModule(address)", "selector_hex": "0x610b5925", "name_tokens": ["enable_module", "enablemodule"], "protected_offset": "0x24", "multi_arg": false, "tier": "high", "family": "module_mgmt", "role": "install module authority"},
+    {"name": "disableModule", "signature": "disableModule(address,address)", "selector_hex": "0xe009cfde", "name_tokens": ["disable_module", "disablemodule"], "protected_offset": "0x44", "multi_arg": true, "tier": "high", "family": "module_mgmt", "role": "remove a required module (reclaim/stop/settlement)"},
+    {"name": "execTransactionFromModule", "signature": "execTransactionFromModule(address,uint256,bytes,uint8)", "selector_hex": "0x468721a7", "name_tokens": ["exectransactionfrommodule", "exec_transaction_from_module"], "protected_offset": null, "multi_arg": true, "tier": "medium", "family": "module_exec", "role": "grant module execution authority"},
+    {"name": "execTransactionFromModuleReturnData", "signature": "execTransactionFromModuleReturnData(address,uint256,bytes,uint8)", "selector_hex": "0x5229073f", "name_tokens": ["exectransactionfrommodulereturndata"], "protected_offset": null, "multi_arg": true, "tier": "medium", "family": "module_exec", "role": "grant module execution authority"},
+    {"name": "setFallbackHandler", "signature": "setFallbackHandler(address)", "selector_hex": "0xf08a0323", "name_tokens": ["fallback_handler", "fallbackhandler", "setfallbackhandler"], "protected_offset": "0x24", "multi_arg": false, "tier": "high", "family": "fallback_guard", "role": "install malicious fallback behavior (callback hijack)"},
+    {"name": "setGuard", "signature": "setGuard(address)", "selector_hex": "0xe19a9dd9", "name_tokens": ["set_guard", "setguard"], "protected_offset": "0x24", "multi_arg": false, "tier": "high", "family": "fallback_guard", "role": "install malicious guard behavior / disable the guard"},
+    {"name": "addOwnerWithThreshold", "signature": "addOwnerWithThreshold(address,uint256)", "selector_hex": "0x0d582f13", "name_tokens": ["addownerwiththreshold", "add_owner"], "protected_offset": null, "multi_arg": true, "tier": "medium", "family": "owner_mgmt", "role": "change owner/threshold authority"},
+    {"name": "removeOwner", "signature": "removeOwner(address,address,uint256)", "selector_hex": "0xf8dc5dd9", "name_tokens": ["removeowner", "remove_owner"], "protected_offset": null, "multi_arg": true, "tier": "medium", "family": "owner_mgmt", "role": "change owner/threshold authority"},
+    {"name": "swapOwner", "signature": "swapOwner(address,address,address)", "selector_hex": "0xe318b52b", "name_tokens": ["swapowner", "swap_owner"], "protected_offset": null, "multi_arg": true, "tier": "medium", "family": "owner_mgmt", "role": "change owner/threshold authority"},
+    {"name": "changeThreshold", "signature": "changeThreshold(uint256)", "selector_hex": "0x694e80c3", "name_tokens": ["changethreshold", "change_threshold"], "protected_offset": null, "multi_arg": false, "tier": "medium", "family": "owner_mgmt", "role": "change owner/threshold authority"},
+    {"name": "multiSend", "signature": "multiSend(bytes)", "selector_hex": "0x8d80ff0a", "name_tokens": ["multisend", "multi_send"], "protected_offset": null, "multi_arg": false, "tier": "medium", "family": "batched_exec", "role": "delegate batched execution to attacker-controlled code"},
+    {"name": "setApprovalForAll", "signature": "setApprovalForAll(address,bool)", "selector_hex": "0xa22cb465", "name_tokens": ["set_approval_for_all", "setapprovalforall", "approval_for_all"], "protected_offset": null, "multi_arg": true, "tier": "approval", "family": "approval_equiv", "role": "approve token/NFT movement"},
+    {"name": "approve", "signature": "approve(address,uint256)", "selector_hex": "0x095ea7b3", "name_tokens": ["_approve_selector", "approve("], "protected_offset": null, "multi_arg": true, "tier": "approval", "family": "approval_equiv", "role": "approve token/NFT movement"},
+    {"name": "increaseAllowance", "signature": "increaseAllowance(address,uint256)", "selector_hex": "0x39509351", "name_tokens": ["increaseallowance", "increase_allowance"], "protected_offset": null, "multi_arg": true, "tier": "approval", "family": "approval_equiv", "role": "approve token movement (allowance bypass of approve-block)"},
+    {"name": "permit", "signature": "permit(...)", "selector_hex": "0xd505accf", "name_tokens": ["_permit_selector", ".permit(", "permit_selector"], "protected_offset": null, "multi_arg": true, "tier": "approval", "family": "approval_equiv", "role": "gasless approval bypassing approve/setApprovalForAll block"}
+  ],
+
+  "flag_if_missing_high": ["setFallbackHandler", "setGuard", "enableModule", "disableModule"],
+  "flag_if_missing_medium_grouped": ["execTransactionFromModule", "execTransactionFromModuleReturnData", "multiSend", "addOwnerWithThreshold", "removeOwner", "swapOwner", "changeThreshold"],
+  "flag_if_missing_approval_grouped": ["permit", "increaseAllowance"],
+
+  "suppress_admin_only_terms": ["onlyowner", "onlyadmin", "onlyrole(\"admin", "onlygovernance", "onlytimelock", "requiresauth"],
+  "suppress_library_contracts": ["safe", "gnosissafe", "moduleupgrade", "baseguard", "guardmanager", "ownermanager", "modulemanager", "fallbackmanager"],
+
+  "fp_controls": {
+    "two_signal_required": "Signal-1 (Safe-guard selector-filter context AND covers >=1 Safe-specific self-mgmt selector) AND Signal-2 (decode-offset mismatch OR missing high-impact selector). A contract that merely contains these selector names without a guard-filter context is suppressed.",
+    "mechanism_based": "decode_offset_mismatch compares the actual resolved calldata offset used in the selector's branch against the protected-argument offset (e.g. disableModule module @0x44). incomplete_selector_coverage is the set-difference of covered vs required high-impact selectors. Neither matches answer-key strings.",
+    "admin_only_downgrade": "if the guard/path is admin/owner-gated (not reachable by an untrusted user) -> downgrade to low.",
+    "library_suppression": "the Safe contracts themselves (Safe/ModuleManager/FallbackManager/BaseGuard) are the thing being guarded, not an integrator guard -> suppressed.",
+    "coverage_gate": "if the contract covers ZERO Safe-specific self-mgmt selectors (module/fallback/guard/owner), it is not a Safe-management guard (e.g. a plain ERC20 transfer guard) -> no candidate."
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "finding_id": "PC-001",
+  "title": "L1->L2 reseed never initializes global Silo total stalk/roots (s.sys.silo.stalk / s.sys.silo.roots), breaking the protocol-wide stalk-conservation invariant and corrupting roots/earned-Bean accounting for the entire migrated population",
+  "agent": "",
+  "claimed_severity": "High",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+    "function": "reseedSiloDeposit / init",
+    "line_start": 109,
+    "line_end": 180,
+    "related": [
+      "beanstalk/init/InitReseed.sol (init: sets paused/season/flags, no global stalk/roots)",
+      "beanstalk/init/reseed/L2/ReseedSun.sol (init: seedGauge/weather/season, no global stalk/roots)",
+      "libraries/Silo/LibSilo.sol#183-197 (mintActiveStalk roots==0 branch / roots = roots*stalk/silo.stalk)",
+      "libraries/Silo/LibGerminate.sol#100-114 (roots==0 branch / div by silo.stalk)",
+      "libraries/LibGauge.sol#351 (silo.stalk.div(totalBdv))",
+      "beanstalk/Invariable.sol#52-92 (noNetFlow/noOutFlow read s.sys.silo.stalk baseline)"
+    ]
+  },
+  "description": "Stalk and roots are governance weight and earned-Bean share. The protocol-wide invariant is that the global totals s.sys.silo.stalk and s.sys.silo.roots equal the sum of all per-account s.accts[].stalk / .roots; Invariable.noNetFlow/noOutFlow even enforce 'global stalk does not decrease' against s.sys.silo.stalk as a safety net. During the L1->L2 reseed, ReseedSilo.reseedSiloDeposit issues per-account stalk (s.accts[account].stalk = accountStalk) and per-token global balances, but NEVER writes the global aggregates s.sys.silo.stalk or s.sys.silo.roots. Tracing the entire beanstalk/init/ tree (InitReseed.init, ReseedSilo, ReseedSun, ReseedWhitelist, ReseedField, ReseedBarn, ReseedInternalBalances) confirms there is no write to s.sys.silo.stalk or s.sys.silo.roots anywhere in the reseed/init sequence (grep over beanstalk/init/ returns only the per-account s.accts[].stalk assignment). DT-009 raised this symptom as Medium 'pending a trace of where total stalk is set'; that trace is now complete and the global totals are confirmed to remain zero after migration. Consequences span subsystems: (1) Roots minting breaks \u2014 LibSilo.mintActiveStalk and LibGerminate take the `s.sys.silo.roots == 0` branch and mint roots = stalk * ROOTS_BASE as if the first post-migration actor were the genesis depositor, while every reseeded account holds stalk but ZERO roots; since roots (not stalk) determine earned-Bean distribution, the entire migrated population earns near-zero yield and the first mower/depositor captures a grossly disproportionate root share. (2) Global stalk is understated to 0 while Sigma(accts.stalk) is large, violating stalk conservation; LibGauge (s.sys.silo.stalk.div(totalBdv)) computes wrong gauge output, and the Invariable noNetFlow/noOutFlow baseline is wrong from genesis. (3) LibReceiving sunrise earned-Bean shipping increments global stalk by minted Beans only, so the desync between account stalk and global stalk/roots is permanent. This is a protocol-level, cross-subsystem (Silo + Sun + migration-completeness) invariant break not owned by any single specialist's per-account finding.",
+  "impact": "Permanent post-migration corruption of the global Silo stalk/roots accounting for the whole protocol: reseeded depositors hold stalk with zero roots and therefore earn near-zero share of all future earned-Bean (sunrise) distributions, while the first post-migration actor mints genesis-scale roots and captures a disproportionate yield/voting share; governance quorum (vote weight aggregate) and LibGauge output are mis-scaled; the Invariable stalk-conservation safety net operates against a wrong baseline. Affects every migrated holder with no attacker required (self-triggers on the reseed), with an additional opportunistic economic upside for the first mower.",
+  "ite": {
+    "intent": "After the L1->L2 reseed the global Silo total stalk and roots must equal the sum of all reseeded per-account stalk/roots, so earned-Bean distribution, governance weight, gauge math, and the Invariable safety net all operate on a consistent base.",
+    "technique": "The reseed writes only per-account stalk (and per-token deposited balances) and omits initializing the global aggregates s.sys.silo.stalk and s.sys.silo.roots; downstream roots minting branches on roots==0 and divides by silo.stalk.",
+    "evasion": "No attacker is needed to trigger the corruption (it self-triggers on the migration upgrade); an opportunistic first-mover can additionally capture genesis-scale roots before others mow."
+  },
+  "ice_chain": {
+    "corrupted_state": "s.sys.silo.stalk == 0 and s.sys.silo.roots == 0 after reseed, while Sigma(s.accts[].stalk) > 0 (conservation invariant broken)",
+    "consumer_found": true,
+    "consumer_function": "LibSilo.mintActiveStalk / LibGerminate (roots minting), earned-Bean distribution by roots, LibGauge, Invariable.noNetFlow/noOutFlow",
+    "impact": "Reseeded population earns ~0 earned-Bean and holds 0 roots; first post-migration actor mints disproportionate genesis-scale roots; gauge/governance/safety-net all mis-scaled",
+    "exploit_path": "diamondCut runs Reseed* init set -> per-account stalk seeded, global silo.stalk/roots left 0 -> first mow -> mintActiveStalk roots==0 branch mints stalk*ROOTS_BASE to caller -> subsequent earned-Bean shipments distribute by roots, starving reseeded holders"
+  },
+  "source_slice": "79:         SiloDeposits calldata beanEthDeposits,\n80:         SiloDeposits calldata beanWstEthDeposits,\n81:         SiloDeposits calldata bean3CrvDeposits,\n82:         SiloDeposits calldata urBeanDeposits,\n83:         SiloDeposits calldata urBeanLpDeposits\n84:     ) external {\n85:         // initialize beanDeposits.\n86:         reseedSiloDeposit(beanDeposits);\n87: \n88:         // initialize beanEthDeposits.\n89:         reseedSiloDeposit(beanEthDeposits);\n90: \n91:         // initialize beanWstEthDeposits.\n92:         reseedSiloDeposit(beanWstEthDeposits);\n93: \n94:         // initialize beanStableDeposits.\n95:         reseedSiloDeposit(bean3CrvDeposits);\n96: \n97:         // initialize urBeanDeposits.\n98:         reseedSiloDeposit(urBeanDeposits);\n99: \n100:         // initialize urBeanLpDeposits.\n101:         reseedSiloDeposit(urBeanLpDeposits);\n102:     }\n103: \n104:     /**\n105:      * @notice reseed the silo deposit for a given token.\n106:      * @param siloDeposit The silo deposit data\n107:      * @dev all deposits and accounts are mown to the current season.\n108:      */\n109:     function reseedSiloDeposit(SiloDeposits calldata siloDeposit) internal {\n110:         uint256 totalCalcDeposited;\n111:         uint256 totalCalcDepositedBdv;\n112:         uint256 stalkIssuedPerBdv = s.sys.silo.assetSettings[siloDeposit.token].stalkIssuedPerBdv;\n113:         for (uint256 i; i < siloDeposit.siloDepositsAccount.length; i++) {\n114:             AccountSiloDeposits memory deposits = siloDeposit.siloDepositsAccount[i];\n115:             uint128 totalBdvForAccount;\n116:             uint256 accountStalk;\n117:             for (uint256 j; j < deposits.dd.length; j++) {\n118:                 // verify that depositId is valid.\n119:                 int96 stem = deposits.dd[j].stem;\n120:                 require(siloDeposit.stemTip >= stem, \"ReseedSilo: INVALID_STEM\");\n121:                 uint256 depositId = LibBytes.packAddressAndStem(siloDeposit.token, stem);\n122: \n123:                 // add deposit to account. Add to depositIdList.\n124:                 s.accts[deposits.accounts].deposits[depositId].amount = deposits.dd[j].amount;\n125:                 s.accts[deposits.accounts].deposits[depositId].bdv = deposits.dd[j].bdv;\n126:                 s.accts[deposits.accounts].depositIdList[siloDeposit.token].push(depositId);\n127: \n128:                 // increment totalBdvForAccount by bdv of deposit:\n129:                 totalBdvForAccount += deposits.dd[j].bdv;\n130: \n131:                 // increment by grown stalk of deposit.\n132:                 accountStalk += uint96(siloDeposit.stemTip - stem) * deposits.dd[j].bdv;\n133: \n134:                 // increment totalCalcDeposited and totalCalcDepositedBdv.\n135:                 totalCalcDeposited += deposits.dd[j].amount;\n136:                 totalCalcDepositedBdv += deposits.dd[j].bdv;\n137: \n138:                 // emit events.\n139:                 emit AddDeposit(\n140:                     deposits.accounts,\n141:                     siloDeposit.token,\n142:                     stem,\n143:                     deposits.dd[j].amount,\n144:                     deposits.dd[j].bdv\n145:                 );\n146:                 emit TransferSingle(\n147:                     deposits.accounts, // operator\n148:                     address(0), // from\n149:                     deposits.accounts, // to\n150:                     depositId, // depositID\n151:                     deposits.dd[j].amount // token amount\n152:                 );\n153:             }\n154:             // update mowStatuses for account and token.\n155:             s.accts[deposits.accounts].mowStatuses[siloDeposit.token].bdv = totalBdvForAccount;\n156:             s.accts[deposits.accounts].mowStatuses[siloDeposit.token].lastStem = siloDeposit\n157:                 .stemTip;\n158: \n159:             // increment stalkForAccount by the stalk issued per BDV.\n160:             // placed outside of loop for gas effiency.\n161:             accountStalk += stalkIssuedPerBdv * totalBdvForAccount;\n162: \n163:             // set stalk for account.\n164:             s.accts[deposits.accounts].stalk = accountStalk;\n165:         }\n166: \n167:         // verify that the total deposited and total deposited bdv are correct.\n168:         require(\n169:             totalCalcDeposited == siloDeposit.totalDeposited,\n170:             \"ReseedSilo: INVALID_TOTAL_DEPOSITS\"\n171:         );\n172:         require(\n173:             totalCalcDepositedBdv == siloDeposit.totalDepositedBdv,\n174:             \"ReseedSilo: INVALID_TOTAL_DEPOSITED_BDV\"\n175:         );\n176: \n177:         // set global state\n178:         s.sys.silo.balances[siloDeposit.token].deposited = siloDeposit.totalDeposited;\n179:         s.sys.silo.balances[siloDeposit.token].depositedBdv = siloDeposit.totalDepositedBdv;\n180:     }\n181: }",
+  "gate_verdict": {
+    "finding_id": "PC-001",
+    "severity": "High",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.537851+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

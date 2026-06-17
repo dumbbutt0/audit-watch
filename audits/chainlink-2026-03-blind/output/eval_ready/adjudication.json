@@ -1,0 +1,55 @@
+{
+  "audit_id": "chainlink-2026-03-blind",
+  "set": "holdout",
+  "generated_at": "2026-06-12T14:13:52Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": false,
+  "awarded": [],
+  "candidates": [
+    {
+      "id": "F-001",
+      "title": "PriceManager dual-source fallback can serve a data-feed price without independent staleness/round validation",
+      "severity": "Low",
+      "file": "src/PriceManager.sol",
+      "contract": "PriceManager",
+      "function": "_getAssetPrice",
+      "description": "_getAssetPrice prioritizes the Data Streams price; if stale and a Data Feed is configured it uses the data feed only when dataFeedUpdatedAt > streams timestamp, then re-checks combined staleness against the SAME stalenessThreshold. The data feed's own answeredInRound/round completeness is not checked, and both sources share one stalenessThreshold; a data feed with a slow heartbeat but distinct staleness needs could pass/fail incorrectly at the boundary."
+    },
+    {
+      "id": "F-002",
+      "title": "BaseAuction.bid: auctioned asset is transferred to the bidder before assetOut is pulled, with an attacker-controlled callback in between",
+      "severity": "Low",
+      "file": "src/BaseAuction.sol",
+      "contract": "BaseAuction",
+      "function": "bid",
+      "description": "bid() safeTransfers `amount` of assetIn to msg.sender, then invokes IAuctionCallback(msg.sender).auctionCallback before pulling assetOutAmount via safeTransferFrom. Reentry into bid()/isValidSignature is blocked by the s_entered flag and the tx reverts atomically if the assetOut pull fails, so no direct theft; flagged as a flash-style hook to confirm no other state-reading path (e.g. a worker-gated function) can be abused mid-callback."
+    },
+    {
+      "id": "F-003",
+      "title": "GPV2CompatibleAuction._onAuctionStart approves relayer for start-time balance; mid-auction balance increases are under-approved",
+      "severity": "Low",
+      "file": "src/GPV2CompatibleAuction.sol",
+      "contract": "GPV2CompatibleAuction",
+      "function": "_onAuctionStart",
+      "description": "_onAuctionStart forceApproves the CoW vault relayer for balanceOf at auction start. If the auctioned asset balance grows during the live auction, the relayer approval is not refreshed, so the extra cannot be settled via CoW until the next auction (functional under-approval, not a loss)."
+    }
+  ],
+  "summary": {
+    "awarded_total": 0,
+    "awarded_source": "report.md",
+    "adjudicated": 0,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 0,
+    "recall_of_surfaced": null,
+    "strong_only": null,
+    "by_label": {
+      "MISSED": 0,
+      "SAME_AREA": 0,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 0,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

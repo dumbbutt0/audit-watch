@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0",
+  "description": "Per-detector registry for the read-only Research Finding Normalization Layer. Adding a future research detector = add ONE entry here (signal_type + declared_severity_potential capability hint + surface/evidence field maps). declared_severity_potential is a FAMILY-LEVEL capability hint, NOT a computed per-finding severity. confidence is always copied verbatim from the detector and never altered.",
+  "research_only": true,
+  "routing_allowed": false,
+
+  "confidence_weights": { "high": 1.0, "medium": 0.6, "low": 0.3, "needs_context": 0.2 },
+  "severity_weights": { "high": 1.0, "medium": 0.7, "low": 0.4, "info": 0.2 },
+  "suppression_penalty": 0.5,
+
+  "detectors": {
+    "multicall_invariant": {
+      "detector_version": "v1",
+      "signal_type": "batch_invariant_opportunity",
+      "declared_severity_potential": "medium",
+      "surface_fields": ["contract", "function"],
+      "evidence_fields": ["invariant_terms", "evidence_terms", "multicall_function", "check_location", "reason"]
+    },
+    "permit_asset_binding": {
+      "detector_version": "v1",
+      "signal_type": "asset_binding_missing",
+      "declared_severity_potential": "high",
+      "surface_fields": ["contract", "function"],
+      "evidence_fields": ["permit_source", "expected_asset_source", "missing_binding_explanation"]
+    },
+    "safe_management_coverage": {
+      "detector_version": "v1",
+      "signal_type": "safe_management_coverage_gap",
+      "declared_severity_potential": "high",
+      "surface_fields": ["contract", "selector"],
+      "evidence_fields": ["finding_shape", "selector", "used_offset", "expected_offset", "explanation", "signals"]
+    },
+    "hostile_token_settlement": {
+      "detector_version": "v1",
+      "signal_type": "hostile_token_settlement_dos",
+      "declared_severity_potential": "high",
+      "surface_fields": ["contract", "function"],
+      "evidence_fields": ["finding_shape", "cleanup_verb", "transfer_primitive", "token_source", "explanation", "signals"]
+    },
+    "create_time_reentrancy": {
+      "detector_version": "v1",
+      "signal_type": "create_time_reentrancy",
+      "declared_severity_potential": "high",
+      "surface_fields": ["contract", "function"],
+      "evidence_fields": ["finding_shape", "create_verb", "callback", "post_callback_commit", "explanation", "signals"]
+    },
+    "erc4626_share_accounting": {
+      "detector_version": "v1",
+      "signal_type": "erc4626_convert_in_max_misuse",
+      "declared_severity_potential": "medium",
+      "surface_fields": ["contract", "function"],
+      "evidence_fields": ["finding_shape", "function_kind", "approx_call", "wraps_external_max", "explanation", "signals"]
+    }
+  },
+
+  "unknown_detector_fallback": {
+    "detector_version": "unknown",
+    "signal_type": "unclassified_research_signal",
+    "declared_severity_potential": "info",
+    "surface_fields": ["contract", "function"],
+    "evidence_fields": ["reason", "finding_shape"]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "version": "native-eth-sink-gate-v1",
+  "description": "Phase-52 RESEARCH-ONLY native-ETH sink extension for the omitted_term / computed_unapplied dataflow lane. Read ONLY by scripts/native_eth_sink_gate.py (un-wired). Runs AFTER the P47 dataflow gate and the P49 bound guard, only on omitted_term/computed_unapplied candidates whose pre-decision is ADVANCE/REVIEW_ONLY. It can ONLY demote (ADVANCE->REVIEW_ONLY/ABSTAIN, REVIEW_ONLY->ABSTAIN) and never promotes. It repairs the P51 gap: P47 recognizes ERC20-style sinks but not native-ETH value transfers. A computed term is APPLIED (so the omitted/computed candidate is demoted) when it (or a derived alias) is the amount of a native-ETH value transfer: low-level .call{value: x}, 1-arg .transfer(x), or 1-arg .send(x). Generic only — NO subject identifiers. is_gate:false research_only:true routes_in_production:false routed_manifest_ids:[].",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+
+  "processed_mechanisms": ["omitted_term", "computed_unapplied"],
+
+  "call_value_regex": "\\.call\\s*\\{[^}]*\\bvalue\\s*:\\s*([^,}]+)",
+  "native_transfer_methods": ["transfer", "send"],
+  "excluded_call_names": ["delegatecall", "staticcall"],
+  "zero_amount_literals": ["0", "0x0", "0 wei"],
+
+  "check_evidence_signals": ["require(success", "require(sent", "require(ok", "if (!success)", "if(!success)", "if (!sent)", "bool success", "bool sent", "bool ok"],
+
+  "decisions": {"advance": "ADVANCE", "review_only": "REVIEW_ONLY", "abstain": "ABSTAIN"}
+}

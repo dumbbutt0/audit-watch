@@ -1,0 +1,1221 @@
+{
+  "research_only": true,
+  "review_only": true,
+  "is_gate": false,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "phase": "P95",
+  "subject": "wildcat-2024-08",
+  "commit": "7c5d8389b2a368ce6c4fc79e50c39eac3516ea5e",
+  "detector_family": "surface_recall_lens",
+  "lens_machinery_hash": "29a7b915d98a0257",
+  "lead_policy": "P91 top-16 \u222a per-contract top-2 floor (deduped) + 3 governance controls; NOT_RUN target 0; depth via v3.1 completion gate",
+  "per_contract_floor_added": [
+    "WildcatArchController.addBlacklist",
+    "WildcatArchController.registerBorrower",
+    "WildcatMarketBase.accruedProtocolFees",
+    "WildcatMarketBase.withdrawableProtocolFees",
+    "WildcatMarketConfig.setAnnualInterestAndReserveRatioBips",
+    "WildcatMarketToken.transfer",
+    "WildcatMarketToken.transferFrom",
+    "WildcatSanctionsEscrow.releaseEscrow",
+    "WildcatSanctionsSentinel.overrideSanction",
+    "WildcatSanctionsSentinel.removeSanctionOverride"
+  ],
+  "severity_gate_under_test": "193abf9f03f138c8 (P88 frozen)",
+  "lead_count": 27,
+  "leads": [
+    {
+      "candidate_id": "MarketConstraintHooks.onSetAnnualInterestAndReserveRatioBips",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "MarketConstraintHooks",
+      "trigger_function": "onSetAnnualInterestAndReserveRatioBips",
+      "trigger_lines": null,
+      "suspicious_pattern": "bridge_receive,refund_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function onSetAnnualInterestAndReserveRatioBips(\n    uint16 annualInterestBips,\n    uint16  ,\n    MarketState calldata intermediateState,\n    bytes calldata  \n  ) public virtual override returns (uint",
+      "required_followup_questions": [
+        "is the bridge_receive surface adequately guarded?",
+        "is the refund_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "bridge_receive",
+        "refund_path",
+        "auth_boundary"
+      ],
+      "surface_score": 6,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": [
+          "TemporaryExcessReserveRatioActivated",
+          "TemporaryExcessReserveRatioCanceled",
+          "TemporaryExcessReserveRatioExpired",
+          "TemporaryExcessReserveRatioUpdated",
+          "_calculateTemporaryReserveRatioBips",
+          "and",
+          "assertValueInRange",
+          "or"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/access/MarketConstraintHooks.sol",
+      "visibility": "public",
+      "inclusion_source": "top16+per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatMarketWithdrawals.repayAndProcessUnpaidWithdrawalBatches",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarketWithdrawals",
+      "trigger_function": "repayAndProcessUnpaidWithdrawalBatches",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function repayAndProcessUnpaidWithdrawalBatches(\n    uint256 repayAmount,\n    uint256 maxBatches\n  ) public nonReentrant sphereXGuardExternal",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 6,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_getUpdatedState",
+          "_processUnpaidWithdrawalBatch",
+          "_runtimeConstant",
+          "_writeState",
+          "emit_DebtRepaid",
+          "length",
+          "min",
+          "onRepay"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarketWithdrawals.sol",
+      "visibility": "public",
+      "inclusion_source": "top16+per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "AccessControlHooks.onExecuteWithdrawal",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "AccessControlHooks",
+      "trigger_function": "onExecuteWithdrawal",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function onExecuteWithdrawal(\n    address lender,\n    uint128  ,\n    MarketState calldata  ,\n    bytes calldata hooksData\n  ) external override",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "value_exit"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": false,
+        "calls": []
+      },
+      "file": "/tmp/p95-wildcat/src/access/AccessControlHooks.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "AccessControlHooks.setMinimumDeposit",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "AccessControlHooks",
+      "trigger_function": "setMinimumDeposit",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setMinimumDeposit(address market, uint128 newMinimumDeposit) external onlyBorrower",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "MinimumDepositUpdated",
+          "NotHookedMarket"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/access/AccessControlHooks.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "FixedTermLoanHooks.onExecuteWithdrawal",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "FixedTermLoanHooks",
+      "trigger_function": "onExecuteWithdrawal",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function onExecuteWithdrawal(\n    address lender,\n    uint128  ,\n    MarketState calldata  ,\n    bytes calldata hooksData\n  ) external override",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "value_exit"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": false,
+        "calls": []
+      },
+      "file": "/tmp/p95-wildcat/src/access/FixedTermLoanHooks.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "FixedTermLoanHooks.setMinimumDeposit",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "FixedTermLoanHooks",
+      "trigger_function": "setMinimumDeposit",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setMinimumDeposit(address market, uint128 newMinimumDeposit) external onlyBorrower",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "MinimumDepositUpdated",
+          "NotHookedMarket"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/access/FixedTermLoanHooks.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "HooksFactory.updateHooksTemplateFees",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "HooksFactory",
+      "trigger_function": "updateHooksTemplateFees",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,fee_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function updateHooksTemplateFees(\n    address hooksTemplate,\n    address feeRecipient,\n    address originationFeeAsset,\n    uint80 originationFeeAmount,\n    uint16 protocolFeeBips\n  ) external overrid",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "fee_path",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "HooksTemplateFeesUpdated",
+          "HooksTemplateNotFound",
+          "_validateFees"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/HooksFactory.sol",
+      "visibility": "external",
+      "inclusion_source": "control",
+      "p95_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "WildcatMarket.closeMarket",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarket",
+      "trigger_function": "closeMarket",
+      "trigger_lines": null,
+      "suspicious_pattern": "refund_path,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function closeMarket() external onlyBorrower nonReentrant sphereXGuardExternal",
+      "required_followup_questions": [
+        "is the refund_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "refund_path",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_applyWithdrawalBatchPayment",
+          "_getUpdatedState",
+          "_processUnpaidWithdrawalBatch",
+          "_repay",
+          "_writeState",
+          "emit_MarketClosed",
+          "length",
+          "onCloseMarket"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarket.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatMarket.rescueTokens",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarket",
+      "trigger_function": "rescueTokens",
+      "trigger_lines": null,
+      "suspicious_pattern": "refund_path,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function rescueTokens(address token) external onlyBorrower",
+      "required_followup_questions": [
+        "is the refund_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "refund_path",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "or",
+          "revert_BadRescueAsset",
+          "safeTransferAll"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarket.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatMarketConfig.setProtocolFeeBips",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarketConfig",
+      "trigger_function": "setProtocolFeeBips",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,fee_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setProtocolFeeBips(\n    uint16 _protocolFeeBips\n  ) external nonReentrant sphereXGuardExternal",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "fee_path",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "ProtocolFeeBipsUpdated",
+          "_getUpdatedState",
+          "_writeState",
+          "onSetProtocolFeeBips",
+          "revert_NotFactory",
+          "revert_ProtocolFeeChangeOnClosedMarket",
+          "revert_ProtocolFeeNotChanged",
+          "revert_ProtocolFeeTooHigh"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarketConfig.sol",
+      "visibility": "external",
+      "inclusion_source": "control",
+      "p95_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "WildcatMarketWithdrawals.executeWithdrawal",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarketWithdrawals",
+      "trigger_function": "executeWithdrawal",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function executeWithdrawal(\n    address accountAddress,\n    uint32 expiry\n  ) public nonReentrant sphereXGuardExternal returns (uint256)",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "value_exit"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "_executeWithdrawal",
+          "_getUpdatedState",
+          "_runtimeConstant",
+          "_writeState"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarketWithdrawals.sol",
+      "visibility": "public",
+      "inclusion_source": "top16+per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatMarketWithdrawals.executeWithdrawals",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarketWithdrawals",
+      "trigger_function": "executeWithdrawals",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function executeWithdrawals(\n    address[] calldata accountAddresses,\n    uint32[] calldata expiries\n  ) external nonReentrant sphereXGuardExternal returns (uint256[] memory amounts)",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "value_exit"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "_executeWithdrawal",
+          "_getUpdatedState",
+          "_writeState",
+          "revert_InvalidArrayLength"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarketWithdrawals.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatMarketWithdrawals.getWithdrawalBatch",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarketWithdrawals",
+      "trigger_function": "getWithdrawalBatch",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function getWithdrawalBatch(\n    uint32 expiry\n  ) external view nonReentrantView returns (WithdrawalBatch memory batch)",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "value_exit"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "_calculateCurrentState",
+          "and"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarketWithdrawals.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "HooksFactory.deployMarket",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "HooksFactory",
+      "trigger_function": "deployMarket",
+      "trigger_lines": null,
+      "suspicious_pattern": "bridge_receive,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function deployMarket(\n    DeployMarketInputs calldata parameters,\n    bytes calldata hooksData,\n    bytes32 salt,\n    address originationFeeAsset,\n    uint256 originationFeeAmount\n  ) external overri",
+      "required_followup_questions": [
+        "is the bridge_receive surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "bridge_receive",
+        "auth_boundary"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": [
+          "HooksInstanceNotFound",
+          "IWildcatArchController",
+          "NotApprovedBorrower",
+          "_deployMarket",
+          "hooksAddress",
+          "isRegisteredBorrower"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/HooksFactory.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "HooksFactory.deployMarketAndHooks",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "HooksFactory",
+      "trigger_function": "deployMarketAndHooks",
+      "trigger_lines": null,
+      "suspicious_pattern": "bridge_receive,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function deployMarketAndHooks(\n    address hooksTemplate,\n    bytes calldata hooksTemplateArgs,\n    DeployMarketInputs memory parameters,\n    bytes calldata hooksData,\n    bytes32 salt,\n    address or",
+      "required_followup_questions": [
+        "is the bridge_receive surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "bridge_receive",
+        "auth_boundary"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": [
+          "HooksTemplateNotFound",
+          "IWildcatArchController",
+          "NotApprovedBorrower",
+          "_deployHooksInstance",
+          "_deployMarket",
+          "isRegisteredBorrower",
+          "setHooksAddress"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/HooksFactory.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatMarket.collectFees",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarket",
+      "trigger_function": "collectFees",
+      "trigger_lines": null,
+      "suspicious_pattern": "fee_path,value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function collectFees() external nonReentrant sphereXGuardExternal",
+      "required_followup_questions": [
+        "is the fee_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "fee_path",
+        "value_exit"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "_getUpdatedState",
+          "_writeState",
+          "emit_FeesCollected",
+          "revert_InsufficientReservesForFeeWithdrawal",
+          "revert_NullFeeAmount",
+          "safeTransfer",
+          "totalAssets",
+          "withdrawableProtocolFees"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarket.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatMarketBase.withdrawableProtocolFees",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarketBase",
+      "trigger_function": "withdrawableProtocolFees",
+      "trigger_lines": null,
+      "suspicious_pattern": "fee_path,value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function withdrawableProtocolFees() external view returns (uint128)",
+      "required_followup_questions": [
+        "is the fee_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "fee_path",
+        "value_exit"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "asReturnsMarketState",
+          "totalAssets",
+          "withdrawableProtocolFees"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarketBase.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "AccessControlHooks.grantRole",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "AccessControlHooks",
+      "trigger_function": "grantRole",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function grantRole(address account, uint32 roleGrantedTimestamp) external",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "ProviderNotFound",
+          "_grantRole",
+          "isNull"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/access/AccessControlHooks.sol",
+      "visibility": "external",
+      "inclusion_source": "control",
+      "p95_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "WildcatArchController.addBlacklist",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatArchController",
+      "trigger_function": "addBlacklist",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function addBlacklist(address asset) external onlyOwner",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "AssetAlreadyBlacklisted",
+          "AssetBlacklisted",
+          "add"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/WildcatArchController.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatArchController.registerBorrower",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatArchController",
+      "trigger_function": "registerBorrower",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function registerBorrower(address borrower) external onlyOwner",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "BorrowerAdded",
+          "BorrowerAlreadyExists",
+          "add"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/WildcatArchController.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatMarketConfig.setAnnualInterestAndReserveRatioBips",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarketConfig",
+      "trigger_function": "setAnnualInterestAndReserveRatioBips",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setAnnualInterestAndReserveRatioBips(\n    uint16 _annualInterestBips,\n    uint16 _reserveRatioBips\n  ) external onlyBorrower nonReentrant sphereXGuardExternal",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_getUpdatedState",
+          "_writeState",
+          "emit_AnnualInterestBipsUpdated",
+          "emit_ReserveRatioBipsUpdated",
+          "liquidityRequired",
+          "onSetAnnualInterestAndReserveRatioBips",
+          "revert_AnnualInterestBipsTooHigh",
+          "revert_AprChangeOnClosedMarket"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarketConfig.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatMarketToken.transfer",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarketToken",
+      "trigger_function": "transfer",
+      "trigger_lines": null,
+      "suspicious_pattern": "value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function transfer(\n    address to,\n    uint256 amount\n  ) external virtual nonReentrant sphereXGuardExternal returns (bool)",
+      "required_followup_questions": [
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_transfer"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarketToken.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatMarketToken.transferFrom",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarketToken",
+      "trigger_function": "transferFrom",
+      "trigger_lines": null,
+      "suspicious_pattern": "value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function transferFrom(\n    address from,\n    address to,\n    uint256 amount\n  ) external virtual nonReentrant sphereXGuardExternal returns (bool)",
+      "required_followup_questions": [
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_approve",
+          "_transfer"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarketToken.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatSanctionsSentinel.removeSanctionOverride",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatSanctionsSentinel",
+      "trigger_function": "removeSanctionOverride",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function removeSanctionOverride(address account) public override",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "SanctionOverrideRemoved"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/WildcatSanctionsSentinel.sol",
+      "visibility": "public",
+      "inclusion_source": "per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatMarketBase.accruedProtocolFees",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatMarketBase",
+      "trigger_function": "accruedProtocolFees",
+      "trigger_lines": null,
+      "suspicious_pattern": "fee_path",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function accruedProtocolFees() external view nonReentrantView returns (uint256)",
+      "required_followup_questions": [
+        "is the fee_path surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "fee_path"
+      ],
+      "surface_score": 2,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "asReturnsMarketState"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/market/WildcatMarketBase.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatSanctionsEscrow.releaseEscrow",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatSanctionsEscrow",
+      "trigger_function": "releaseEscrow",
+      "trigger_lines": null,
+      "suspicious_pattern": "value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function releaseEscrow() public override",
+      "required_followup_questions": [
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "value_exit"
+      ],
+      "surface_score": 2,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "CanNotReleaseEscrow",
+          "EscrowReleased",
+          "balance",
+          "canReleaseEscrow",
+          "safeTransfer"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/WildcatSanctionsEscrow.sol",
+      "visibility": "public",
+      "inclusion_source": "per_contract_floor",
+      "p95_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "WildcatSanctionsSentinel.overrideSanction",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "WildcatSanctionsSentinel",
+      "trigger_function": "overrideSanction",
+      "trigger_lines": null,
+      "suspicious_pattern": "auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function overrideSanction(address account) public override",
+      "required_followup_questions": [
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "auth_boundary"
+      ],
+      "surface_score": 1,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "SanctionOverride"
+        ]
+      },
+      "file": "/tmp/p95-wildcat/src/WildcatSanctionsSentinel.sol",
+      "visibility": "public",
+      "inclusion_source": "per_contract_floor",
+      "p95_role_expectation": "conversion"
+    }
+  ]
+}

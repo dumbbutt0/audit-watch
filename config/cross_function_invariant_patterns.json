@@ -1,0 +1,65 @@
+{
+  "_doc": "Signals for the cross-function / boundary invariant lens. Two-signal, FP-tight: the lens flags CANDIDATE writer/reader pairs whose cross-function invariant cannot be confirmed by a local clear, and routes them to needs_deep_pass. It never asserts a definite bug. Derived from Recall miss classes H-03/H-04/H-06.",
+
+  "key_deriving_signals": [
+    "\\btoHash\\s*\\(", "\\btoTracingId\\s*\\(", "\\btoId\\s*\\(", "keccak256\\s*\\(",
+    "\\babi\\.encode(Packed)?\\s*\\(", "\\w+Hash\\s*\\(", "\\b_?key\\s*\\(", "\\.cid\\b", "\\bcid\\b"
+  ],
+  "_key_call_names": ["tohash", "totracingid", "toid", "keccak256"],
+
+  "shared_state_signals": [
+    "\\bs\\.\\w+", "\\bself\\.\\w+", "\\bpostbox\\b", "\\bcheckpoints?\\b", "mapping",
+    "\\b\\w+\\s*\\[[^\\]]*\\]\\s*=", "\\b\\w+\\s*\\[\\s*\\w+\\s*\\("
+  ],
+
+  "counter_increment_signals": [
+    "\\+\\+", "\\+=\\s*1\\b", "\\+=\\s*\\w+", "\\.push\\s*\\(", "\\bnonce\\b", "\\bcount\\b", "\\.length\\b"
+  ],
+  "limit_check_signals": [
+    "max\\w*", "\\bMAX_\\w+", "<\\s*\\w*[Ll]imit", "<=\\s*\\w*[Ll]imit", "<\\s*max\\w*",
+    "<=\\s*max\\w*", ">\\s*max\\w*", "PerBatch", "PerBottomUpBatch", "BatchExceeded"
+  ],
+
+  "external_call_signals": [
+    "\\.call\\s*\\{", "\\.call\\s*\\(", "\\.delegatecall\\s*\\(", "safeTransfer", "safeTransferFrom",
+    "sendValue", "\\.transfer\\s*\\(", "functionCall", "performCall", "\\.lock\\s*\\(", "transferFunds"
+  ],
+  "reentrancy_guard_signals": ["nonReentrant", "ReentrancyGuard"],
+
+  "queue_op_signals": [
+    "\\.push\\s*\\(", "\\.pop\\s*\\(", "enqueue", "dequeue", "\\bdelete\\s+\\w+\\[", "compact",
+    "\\bretentionHeight\\b", "\\bpending\\w*\\b", "release"
+  ],
+  "validation_signals": [
+    "\\brequire\\s*\\(", "\\brevert\\b", "\\bif\\s*\\(", "onlyOwner", "systemActorOnly",
+    "enforceIs", "\\bassert\\s*\\("
+  ],
+
+  "mismatch_families": {
+    "store_key_vs_read_key_divergence": {
+      "description": "A value is keyed/hashed with one representation in the writer but looked up/verified with a different one in the reader (e.g. toHash vs toTracingId), so a stored entry can never be found.",
+      "severity_ceiling_hint": "High",
+      "min_signals": 2
+    },
+    "counter_limit_divergence": {
+      "description": "A counter/length is incremented in one function but its bound is enforced (or not) elsewhere with a different limit/width, so the count can exceed the downstream limit or become inconsistent.",
+      "severity_ceiling_hint": "High",
+      "min_signals": 2
+    },
+    "written_consumed_assumption_gap": {
+      "description": "State validated/written under one function's assumptions is consumed by another function without the equivalent validation.",
+      "severity_ceiling_hint": "Medium",
+      "min_signals": 2
+    },
+    "queue_key_length_bound_divergence": {
+      "description": "Queue append/read/drop paths use different keys, lengths, or bounds, so entries can be skipped or stranded.",
+      "severity_ceiling_hint": "High",
+      "min_signals": 2
+    },
+    "cross_function_reentrancy": {
+      "description": "A nonReentrant function makes an external/native call whose post-call state is consumed by a sibling, non-guarded function — the per-function guard does not cover the cross-function transition.",
+      "severity_ceiling_hint": "High",
+      "min_signals": 2
+    }
+  }
+}

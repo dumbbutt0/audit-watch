@@ -1,0 +1,90 @@
+{
+  "candidate_id": "multicall_invariant:Multicall:multicall:delegatecall_self_context:5d1136da",
+  "audit_id": "size-credit-2024-06",
+  "candidate_hash": "5d1136da",
+  "generated_at": "2026-06-01T18:30:11.608503+00:00",
+  "tool": "scripts/candidates/validate_candidate.py",
+  "source_root": "audits/size-credit-2024-06/contracts/2024-06-size",
+  "source_hash": "md5:cecf083ad025a572e8e8766a6e86c1c4",
+  "evidence_refs": [
+    "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol:26"
+  ],
+  "status": "INVARIANT_ANALYZED",
+  "reasons": [
+    "After the multicall batch, Size enforces a RELATIVE/CONDITIONAL check (validateBorrowATokenIncreaseLteDebtTokenDecrease): only if borrowAToken supply ends above the cap, the increase must be <= the debt-token decrease. During the batch the ABSOLUTE per-call cap check (validateBorrowATokenCap) is skipped. The two checks use different accounting bases, so it is NOT established that the final check fully covers the skipped cap \u2014 that is the open question for the sequence gate. No vulnerability is claimed at this stage."
+  ],
+  "unresolved_assumptions": [
+    "borrowAToken.balanceOf(address(this)) tracks total protocol borrow supply for the cap intent.",
+    "No other post-batch guard re-imposes the absolute cap."
+  ],
+  "routing_allowed": false,
+  "research_only": true,
+  "summary_plain_english": "After the multicall batch, Size enforces a RELATIVE/CONDITIONAL check (validateBorrowATokenIncreaseLteDebtTokenDecrease): only if borrowAToken supply ends above the cap, the increase must be <= the debt-token decrease. During the batch the ABSOLUTE per-call cap check (validateBorrowATokenCap) is skipped. The two checks use different accounting bases, so it is NOT established that the final check fully covers the skipped cap \u2014 that is the open question for the sequence gate. No vulnerability is claimed at this stage.",
+  "invariant_claim": "If the multicall batch leaves borrowAToken supply above borrowATokenCap, then (supplyAfter - supplyBefore) must be <= (debtSupplyBefore - debtSupplyAfter); otherwise the batch reverts. Below the cap, no constraint is imposed.",
+  "pre_state_variables": [
+    "borrowATokenSupplyBefore = borrowAToken.balanceOf(address(this))",
+    "debtTokenSupplyBefore = debtToken.totalSupply()"
+  ],
+  "post_state_variables": [
+    "borrowATokenSupplyAfter = borrowAToken.balanceOf(address(this))",
+    "debtTokenSupplyAfter = debtToken.totalSupply()"
+  ],
+  "final_validation_function": "validateBorrowATokenIncreaseLteDebtTokenDecrease",
+  "final_validation_location": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/CapsLibrary.sol:19",
+  "final_validation_code_excerpt": "    function validateBorrowATokenIncreaseLteDebtTokenDecrease(\n        State storage state,\n        uint256 borrowATokenSupplyBefore,\n        uint256 debtTokenSupplyBefore,\n        uint256 borrowATokenSupplyAfter,\n        uint256 debtTokenSupplyAfter\n    ) external view {\n        // If the supply is above the cap\n        if (borrowATokenSupplyAfter > state.riskConfig.borrowATokenCap) {\n            uint256 borrowATokenSupplyIncrease = borrowATokenSupplyAfter > borrowATokenSupplyBefore\n                ? borrowATokenSupplyAfter - borrowATokenSupplyBefore\n                : 0;\n            uint256 debtATokenSupplyDecrease =\n                debtTokenSupplyBefore > debtTokenSupplyAfter ? debtTokenSupplyBefore - debtTokenSupplyAfter : 0;\n\n            // and the supply increase is greater than the debt reduction\n            if (borrowATokenSupplyIncrease > debtATokenSupplyDecrease) {\n                // revert\n                revert Errors.BORROW_ATOKEN_INCREASE_EXCEEDS_DEBT_TOKEN_DECREASE(\n                    borrowATokenSupplyIncrease, debtATokenSupplyDecrease\n                );\n            }\n            // otherwise, it means the debt reduction was greater than the inflow of cash: do not revert\n        }\n        // otherwise, the supply is below the cap: do not revert\n    }",
+  "final_validation_plain_english": "Only acts when borrowATokenSupplyAfter > borrowATokenCap; then requires the borrow increase to be no greater than the debt decrease, else reverts BORROW_ATOKEN_INCREASE_EXCEEDS_DEBT_TOKEN_DECREASE.",
+  "skipped_or_deferred_checks": [
+    {
+      "name": "validateBorrowATokenCap",
+      "file": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/CapsLibrary.sol",
+      "line": 52,
+      "code_excerpt": "    function validateBorrowATokenCap(State storage state) external view {\n        if (state.data.borrowAToken.totalSupply() > state.riskConfig.borrowATokenCap) {\n            revert Errors.BORROW_ATOKEN_CAP_EXCEEDED(\n                state.riskConfig.borrowATokenCap, state.data.borrowAToken.totalSupply()\n            );\n        }\n    }",
+      "basis": "absolute (borrowAToken.totalSupply() > borrowATokenCap -> revert)",
+      "skipped_when_isMulticall": true
+    }
+  ],
+  "coverage_analysis": [
+    {
+      "skipped_check": "validateBorrowATokenCap",
+      "skipped_basis": "absolute cap on total borrowAToken supply",
+      "final_check": "validateBorrowATokenIncreaseLteDebtTokenDecrease",
+      "final_basis": "relative increase vs debt decrease, only evaluated when supply is already above the cap",
+      "coverage_status": "partially_covers / cannot_determine",
+      "reasoning": "The skipped check forbids supply > cap outright. The final check does NOT re-impose that absolute limit; it only requires that any above-cap increase be matched by a debt decrease. These are different accounting bases, so the final check does not obviously replace the per-call cap. Whether an interleaving can end above-cap without a matching debt decrease is UNDETERMINED here and needs sequence generation."
+    }
+  ],
+  "accounting_basis_analysis": {
+    "final_check_conditional_on_cap": true,
+    "final_check_uses_before_after_delta": true,
+    "skipped_check_basis": "absolute (totalSupply vs cap)",
+    "final_check_basis": "relative delta (increase vs debt decrease), conditional on above-cap",
+    "same_basis": false
+  },
+  "what_invariant_covers": [
+    "The 'deposit-to-repay' flow: an above-cap supply increase matched by an equal-or-greater debt decrease."
+  ],
+  "what_invariant_may_not_cover": [
+    "The absolute per-call cap that is skipped in multicall (different accounting basis).",
+    "Interleavings that end above the cap WITHOUT a matching debt decrease \u2014 undetermined here."
+  ],
+  "candidate_risk_statement": "HYPOTHESIS (unconfirmed; not a vulnerability claim): because the per-call absolute cap is deferred in multicall and the final check is relative/conditional, an attacker-controlled batch MIGHT leave the protocol above the borrowAToken cap without a matching debt decrease. A concrete exploit sequence is required to confirm or refute this, and the behavior may be fully covered or intended.",
+  "exploit_sequence_prerequisites": [
+    "A callable sub-call that increases borrowAToken supply without a matching debt decrease.",
+    "Ability to keep the batch's final (increase vs debt-decrease) relation satisfied or below-cap."
+  ],
+  "blockers_before_sequence_generation": [
+    "Need to enumerate which sub-calls move borrowAToken up vs debtToken down (sequence_gate).",
+    "Need to confirm the final check cannot be satisfied trivially while leaving an invalid state."
+  ],
+  "next_required_gate": "sequence_gate",
+  "invariant_statement": "If multicall leaves borrowAToken supply above the cap, the supply increase must be <= the debt-token decrease; below the cap, unconstrained.",
+  "expected_relationship": "borrowATokenSupplyIncrease <= debtTokenSupplyDecrease (only when above cap)",
+  "covers": [
+    "above-cap increase matched by debt decrease (deposit-to-repay)"
+  ],
+  "may_not_cover": [
+    "the skipped absolute per-call cap (validateBorrowATokenCap), different accounting basis"
+  ],
+  "sufficient_or_incomplete": "POSSIBLY_INCOMPLETE (cannot determine without sequence generation)",
+  "security_property": "borrowAToken cap / accounting solvency invariant"
+}

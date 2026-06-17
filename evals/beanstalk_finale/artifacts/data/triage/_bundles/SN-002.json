@@ -1,0 +1,101 @@
+{
+  "finding_id": "SN-002",
+  "title": "Reseed never seeds global silo stalk/roots, desyncing the earned-Bean snapshot denominator",
+  "agent": "",
+  "claimed_severity": "High",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+    "function": "init / reseedSiloDeposit",
+    "line_start": 109,
+    "line_end": 180,
+    "code_snippet": "// only per-account stalk and per-token balances are written;\n// s.sys.silo.stalk, s.sys.silo.roots, and s.accts[account].roots are never set here"
+  },
+  "description": "The earned-Bean snapshot distribution in LibSilo._balanceOfEarnedBeans computes an account's claimable Beans as `s.sys.silo.stalk * s.accts[account].roots / s.sys.silo.roots - s.accts[account].stalk` (LibSilo.sol#689). The global denominators `s.sys.silo.stalk` and `s.sys.silo.roots` are the system-wide snapshot totals. A full scan of beanstalk/init/ shows that NO reseed/init contract ever writes `s.sys.silo.stalk` or `s.sys.silo.roots` (the only non-mock writers are LibReceiving.siloReceive, LibSilo.mint/burnActiveStalk, and LibGerminate.endTotalGermination \u2014 all live-operation paths, not migration seeding). ReseedSilo writes only per-account `s.accts[account].stalk` and per-token `s.sys.silo.balances[token]`. Account roots are likewise never seeded in the reseed path. The result is a snapshot whose per-account numerators and the system denominators are populated by different code paths that are not reconciled at the migration boundary: either the global totals are left at zero/stale (every earned-Bean and burnActiveStalk computation reverts on div-by-zero or returns garbage), or they are seeded by an out-of-scope global-reseed step to a value that does not equal sum(account.stalk) once SN-001 has corrupted the per-account values. Total Stalk != sum(account Stalk) and Total Roots != sum(account Roots) at relaunch.",
+  "impact": "The earned-Bean snapshot is mis-scaled for the entire protocol after migration. _balanceOfEarnedBeans (LibSilo.sol#689) divides by s.sys.silo.roots; if it is 0 the function returns early (0 earned Beans for everyone) or, once seeded inconsistently, mis-distributes every season's minted Beans because the per-account roots numerators do not sum to the global roots denominator. burnActiveStalk (LibSilo.sol#244) and transfer (LibSilo.sol#298) also divide by s.sys.silo.stalk. A denominator that does not match the migrated per-account weights either bricks withdrawals/transfers (div underflow/inconsistent subtraction) or systematically over-/under-credits earned Beans, redistributing real Bean value among stalkholders.",
+  "ite": {
+    "intent": "The migrated silo snapshot must satisfy global total == sum of per-account weights so earned-Bean distribution is conserved; it does not.",
+    "technique": "ReseedSilo writes only per-account stalk and per-token balances; the global s.sys.silo.stalk/roots denominators consumed by _balanceOfEarnedBeans are never reconciled to the migrated account weights.",
+    "evasion": "Per-token require()s validate deposit totals only; there is no global stalk/roots conservation check across the reseed."
+  },
+  "ice_chain": {
+    "corrupted_state": "s.sys.silo.roots / s.sys.silo.stalk (global snapshot denominators) and per-account roots",
+    "consumer_found": true,
+    "consumer_function": "LibSilo._balanceOfEarnedBeans",
+    "consumer_action": "computes each stalkholder's claimable share of season-minted Beans; a desynced denominator mis-distributes or blocks all earned Beans",
+    "severity_ceiling": "High",
+    "search_method": "static_search"
+  },
+  "source_slice": "// only per-account stalk and per-token balances are written;\n// s.sys.silo.stalk, s.sys.silo.roots, and s.accts[account].roots are never set here",
+  "gate_verdict": {
+    "finding_id": "SN-002",
+    "severity": "High",
+    "vuln_type": "logic-error",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.538272+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

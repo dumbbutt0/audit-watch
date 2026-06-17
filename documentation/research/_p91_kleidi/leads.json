@@ -1,0 +1,954 @@
+{
+  "research_only": true,
+  "review_only": true,
+  "is_gate": false,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "phase": "P91",
+  "subject": "kleidi-2024-10",
+  "commit": "89266a7d5287720d925337c82d4ca94248b00b8e",
+  "detector_family": "surface_recall_lens",
+  "lens_machinery_hash": "29a7b915d98a0257",
+  "lead_policy": "P90: global top-16 UNION per-in-scope-contract top-2 floor (deduped) + 3 governance controls; NOT_RUN target 0",
+  "key_blind": "repo-key-blind + web-blind (training contamination acknowledged)",
+  "per_contract_floor_added": [
+    "ConfigurablePause.pause",
+    "Guard.checkTransaction",
+    "InstanceDeployer.createSystemInstance",
+    "RecoverySpellFactory.createRecoverySpell",
+    "TimelockFactory.createTimelock"
+  ],
+  "selection_rule": "top16 \u222a per_contract_top2_floor + controls; inclusion_source tagged per lead",
+  "severity_gate_under_test": "193abf9f03f138c8 (P88, frozen) + advisory maximal_consequence_check",
+  "lead_count": 22,
+  "leads": [
+    {
+      "candidate_id": "RecoverySpell.executeRecovery",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RecoverySpell",
+      "trigger_function": "executeRecovery",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,refund_path",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function executeRecovery(\n        address previousModule,\n        uint8[] calldata v,\n        bytes32[] calldata r,\n        bytes32[] calldata s\n    ) external",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the refund_path surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "refund_path"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "SafeRecovered",
+          "assembly",
+          "encodeWithSelector",
+          "eq",
+          "execTransactionFromModule",
+          "getDigest",
+          "getOwners",
+          "recover"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/RecoverySpell.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.executeWhitelisted",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "executeWhitelisted",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function executeWhitelisted(\n        address target,\n        uint256 value,\n        bytes calldata payload\n    ) external payable onlyRole(HOT_SIGNER_ROLE) whenNotPaused",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "auth_boundary"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": [
+          "CallExecuted",
+          "_execute",
+          "checkCalldata"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.executeWhitelistedBatch",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "executeWhitelistedBatch",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function executeWhitelistedBatch(\n        address[] calldata targets,\n        uint256[] calldata values,\n        bytes[] calldata payloads\n    ) external payable onlyRole(HOT_SIGNER_ROLE) whenNotPause",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "auth_boundary"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": [
+          "CallExecuted",
+          "_execute",
+          "checkCalldata"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.receive",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "receive",
+      "trigger_lines": null,
+      "suspicious_pattern": "bridge_receive,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "receive()  external payable",
+      "required_followup_questions": [
+        "is the bridge_receive surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "bridge_receive",
+        "auth_boundary"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "NativeTokensReceived"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.scheduleBatch",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "scheduleBatch",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function scheduleBatch(\n        address[] calldata targets,\n        uint256[] calldata values,\n        bytes[] calldata payloads,\n        bytes32 salt,\n        uint256 delay\n    ) external onlySafe wh",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "auth_boundary"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": [
+          "CallScheduled",
+          "_schedule",
+          "add",
+          "hashOperationBatch"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.addCalldataCheck",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "addCalldataCheck",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function addCalldataCheck(\n        address contractAddress,\n        bytes4 selector,\n        uint16 startIndex,\n        uint16 endIndex,\n        bytes[] memory data\n    ) external onlyTimelock",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": [
+          "_addCalldataCheck"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.addCalldataChecks",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "addCalldataChecks",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function addCalldataChecks(\n        address[] memory contractAddresses,\n        bytes4[] memory selectors,\n        uint16[] memory startIndexes,\n        uint16[] memory endIndexes,\n        bytes[][] m",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": [
+          "_addCalldataChecks"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.execute",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "execute",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function execute(\n        address target,\n        uint256 value,\n        bytes calldata payload,\n        bytes32 salt\n    ) external payable whenNotPaused",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": false,
+        "calls": [
+          "CallExecuted",
+          "_afterCall",
+          "_execute",
+          "hashOperation",
+          "isOperationReady",
+          "remove"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.executeBatch",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "executeBatch",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function executeBatch(\n        address[] calldata targets,\n        uint256[] calldata values,\n        bytes[] calldata payloads,\n        bytes32 salt\n    ) external payable whenNotPaused",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": false,
+        "calls": [
+          "CallExecuted",
+          "_afterCall",
+          "_execute",
+          "hashOperationBatch",
+          "isOperationReady",
+          "remove"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.hashOperationBatch",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "hashOperationBatch",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function hashOperationBatch(\n        address[] calldata targets,\n        uint256[] calldata values,\n        bytes[] calldata payloads,\n        bytes32 salt\n    ) public pure returns (bytes32)",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": false,
+        "calls": [
+          "encode",
+          "keccak256"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "public",
+      "inclusion_source": "top16",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.onERC1155BatchReceived",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "onERC1155BatchReceived",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function onERC1155BatchReceived(\n        address,\n        address,\n        uint256[] memory,\n        uint256[] memory,\n        bytes memory\n    ) external pure override returns (bytes4)",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": false,
+        "calls": []
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.removeAllCalldataChecks",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "removeAllCalldataChecks",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function removeAllCalldataChecks(\n        address[] memory contractAddresses,\n        bytes4[] memory selectors\n    ) external onlyTimelock",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_removeAllCalldataChecks"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.removeCalldataCheck",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "removeCalldataCheck",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function removeCalldataCheck(\n        address contractAddress,\n        bytes4 selector,\n        uint256 index\n    ) external onlyTimelock",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_removeCalldataCheck"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.removeCalldataCheckDatahash",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "removeCalldataCheckDatahash",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function removeCalldataCheckDatahash(\n        address contractAddress,\n        bytes4 selector,\n        uint256 index,\n        bytes32 dataHash\n    ) external onlyTimelock",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "CalldataRemoved",
+          "add",
+          "length",
+          "pop",
+          "remove",
+          "values"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.revokeHotSigner",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "revokeHotSigner",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function revokeHotSigner(address deprecatedHotSigner) external onlySafe",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_revokeRole"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "control",
+      "p91_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "Timelock.setGuardian",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "setGuardian",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setGuardian(address newGuardian) public onlyTimelock",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_grantGuardian",
+          "_setPauseTime"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "public",
+      "inclusion_source": "control",
+      "p91_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "RecoverySpellFactory.createRecoverySpell",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RecoverySpellFactory",
+      "trigger_function": "createRecoverySpell",
+      "trigger_lines": null,
+      "suspicious_pattern": "refund_path",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function createRecoverySpell(\n        bytes32 salt,\n        address[] memory owners,\n        address safe,\n        uint256 threshold,\n        uint256 recoveryThreshold,\n        uint256 delay\n    ) ext",
+      "required_followup_questions": [
+        "is the refund_path surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "refund_path"
+      ],
+      "surface_score": 2,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "RecoverySpellCreated",
+          "_paramChecks",
+          "assembly",
+          "eq",
+          "tload",
+          "tstore"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/RecoverySpellFactory.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "ConfigurablePause.pause",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "ConfigurablePause",
+      "trigger_function": "pause",
+      "trigger_lines": null,
+      "suspicious_pattern": "auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function pause() public virtual whenNotPaused",
+      "required_followup_questions": [
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "auth_boundary"
+      ],
+      "surface_score": 1,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "PauseGuardianUpdated",
+          "Paused",
+          "_setPauseTime",
+          "uint128"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/ConfigurablePause.sol",
+      "visibility": "public",
+      "inclusion_source": "per_contract_floor",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Guard.checkTransaction",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Guard",
+      "trigger_function": "checkTransaction",
+      "trigger_lines": null,
+      "suspicious_pattern": "auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function checkTransaction(\n        address to,\n        uint256 value,\n        bytes memory data,\n        Enum.Operation operationType,\n        uint256,\n        uint256,\n        uint256,\n        addres",
+      "required_followup_questions": [
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "auth_boundary"
+      ],
+      "surface_score": 1,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": []
+      },
+      "file": "/tmp/p91-kleidi/src/Guard.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "InstanceDeployer.createSystemInstance",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "InstanceDeployer",
+      "trigger_function": "createSystemInstance",
+      "trigger_lines": null,
+      "suspicious_pattern": "auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function createSystemInstance(NewInstance memory instance) external\n        returns (SystemInstance memory walletInstance)",
+      "required_followup_questions": [
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "auth_boundary"
+      ],
+      "surface_score": 1,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "HOT_SIGNER_ROLE",
+          "Safe",
+          "SafeCreationFailed",
+          "SafeProxy",
+          "SafeProxyFactory",
+          "SystemInstanceCreated",
+          "Timelock",
+          "TimelockFactory"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/InstanceDeployer.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "TimelockFactory.createTimelock",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "TimelockFactory",
+      "trigger_function": "createTimelock",
+      "trigger_lines": null,
+      "suspicious_pattern": "auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function createTimelock(address safe, DeploymentParams memory params) external\n        returns (address timelock)",
+      "required_followup_questions": [
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "auth_boundary"
+      ],
+      "surface_score": 1,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "TimelockCreated",
+          "encodePacked",
+          "keccak256"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/TimelockFactory.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p91_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Timelock.updateDelay",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Timelock",
+      "trigger_function": "updateDelay",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function updateDelay(uint256 newDelay) external onlyTimelock",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "MinDelayChange"
+        ]
+      },
+      "file": "/tmp/p91-kleidi/src/Timelock.sol",
+      "visibility": "external",
+      "inclusion_source": "control",
+      "p91_role_expectation": "control_privileged_setter"
+    }
+  ]
+}

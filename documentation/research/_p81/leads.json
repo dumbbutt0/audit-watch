@@ -1,0 +1,169 @@
+{
+  "research_only": true,
+  "review_only": true,
+  "phase": "P81",
+  "subject": "decent-2024-01-holdout",
+  "note": "6 STATIC_LEADs selected from SOURCE-FACING surfaces and FROZEN before investigation and before opening _sealed_answer_key.",
+  "leads": [
+    {
+      "candidate_id": "D1-collectFees",
+      "detector_family": "signature_replay",
+      "trigger_contract": "UTBFeeCollector",
+      "trigger_function": "collectFees",
+      "trigger_lines": "44",
+      "suspicious_pattern": "ecrecover over keccak256(packedInfo); fee transferFrom; NO nonce/deadline/chainId in signed data",
+      "detector_claim": "fee signature replayable",
+      "source_snippets": null,
+      "required_followup_questions": [
+        "is the signed payload bound to a nonce/deadline/chainId?",
+        "can the same signature be reused?",
+        "onlyUtb gating enough?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "signed fields",
+        "consume guard",
+        "state effect"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD"
+    },
+    {
+      "candidate_id": "D2-swapNoPath",
+      "detector_family": "access_control",
+      "trigger_contract": "UniSwapper",
+      "trigger_function": "swapNoPath",
+      "trigger_lines": "swapNoPath public payable",
+      "suspicious_pattern": "swapNoPath is public payable (no onlyUtb, unlike swap) and _sendToRecipient transfers contract-held tokenOut to caller-chosen receiver",
+      "detector_claim": "unauthorized drain of contract token balance",
+      "source_snippets": null,
+      "required_followup_questions": [
+        "who can call swapNoPath?",
+        "does it move contract-held funds?",
+        "is amountOut attacker-controlled?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "visibility/modifier",
+        "fund source",
+        "attacker control"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD"
+    },
+    {
+      "candidate_id": "D3-executor-execute",
+      "detector_family": "value_flow",
+      "trigger_contract": "UTBExecutor",
+      "trigger_function": "execute",
+      "trigger_lines": "41",
+      "suspicious_pattern": "native call success path does NOT refund leftover native (only refunds on failure)",
+      "detector_claim": "leftover native stranded / value mishandled",
+      "source_snippets": null,
+      "required_followup_questions": [
+        "is leftover native refunded on success?",
+        "reachable by attacker?",
+        "impact?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "refund logic",
+        "reachability",
+        "impact"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD"
+    },
+    {
+      "candidate_id": "D4-sgReceive",
+      "detector_family": "cross_chain",
+      "trigger_contract": "StargateBridgeAdapter",
+      "trigger_function": "sgReceive",
+      "trigger_lines": "183",
+      "suspicious_pattern": "cross-chain message receive -> IUTB.receiveFromBridge; who authenticates the message?",
+      "detector_claim": "unauthenticated cross-chain message / spoof",
+      "source_snippets": null,
+      "required_followup_questions": [
+        "who can call sgReceive?",
+        "is the source verified?",
+        "onlyExecutor sufficient?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "caller modifier",
+        "source auth",
+        "downstream effect"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD"
+    },
+    {
+      "candidate_id": "D5-redeemFees",
+      "detector_family": "access_control",
+      "trigger_contract": "UTBFeeCollector",
+      "trigger_function": "redeemFees",
+      "trigger_lines": "69",
+      "suspicious_pattern": "redeemFees moves collected fees out",
+      "detector_claim": "unauthorized fee withdrawal",
+      "source_snippets": null,
+      "required_followup_questions": [
+        "who can call redeemFees?",
+        "onlyOwner?",
+        "escape hatch?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "caller modifier"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD"
+    },
+    {
+      "candidate_id": "D6-utb-bridgeAndExecute",
+      "detector_family": "value_flow",
+      "trigger_contract": "UTB",
+      "trigger_function": "bridgeAndExecute",
+      "trigger_lines": "bridgeAndExecute/performSwap",
+      "suspicious_pattern": "main entry composes fee collection + swap + bridge; fee/amount validation across steps",
+      "detector_claim": "fee/amount mismatch or value leak across composed steps",
+      "source_snippets": null,
+      "required_followup_questions": [
+        "is the fee bound to the swap/bridge amounts?",
+        "msg.value accounting?",
+        "slippage?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "fee binding",
+        "value accounting",
+        "invariant"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD"
+    }
+  ]
+}

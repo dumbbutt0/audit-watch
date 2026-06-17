@@ -1,0 +1,40 @@
+{
+  "phase": "P122",
+  "candidate": "phi-2024-08::PhiFactory.claim",
+  "novel": true,
+  "terminal_state": "KILLED_RUNTIME",
+  "terminal_qualifier": "high-impact hypotheses KILLED; a low-impact, conditional fee-binding behavior was runtime-confirmed and recorded as an observation (not promoted, no severity assigned)",
+  "question": "Can a permissionless caller of claim spoof minter / claim without a valid entitlement, over-claim past the per-art guards, or exploit the fee-binding gap (excess stuck / underpay subsidized by standing balance) to bypass the fee or drain held funds?",
+  "answer": "High-impact: No. The phiSignerAddress signature entitlement cannot be forged (no minter spoof / unauthorized mint) and the maxSupply/time/quantity caps are enforced. Fee-binding: confirmed real but bounded/conditional — overpayment to the claim wrapper is stuck (no refund), and underpayment succeeds only when the factory already holds standing balance (itself from a prior overpayer) AND the caller has a valid signer entitlement; the mintFee still flows to the protocol/art. Not an unconditional theft or unauthorized mint.",
+  "harness": {
+    "type": "standalone Foundry project, no fork (HARNESS_COMPLEX, built)",
+    "path": "/tmp/p122-phifactory-harness",
+    "command": "forge test --use 0.8.25 --match-contract PhiFactoryClaimRuntime -vvv",
+    "solc": "0.8.25",
+    "evm": "paris",
+    "contract_under_test": "real PhiFactory (phi) behind ERC1967Proxy, unmutated, imported via remapping",
+    "deps": "solady + openzeppelin-contracts-upgradeable from phi lib (on disk)",
+    "mocks": ["MockPhiNFT1155 (clone impl: initialize/createArtFromFactory/getTokenIdFromFactoryArtId/claimFromFactory)", "MockPhiRewards (computeMintReward)"]
+  },
+  "cases": [
+    {"id": "A", "scenario": "invalid signer signature", "result": "PASS", "evidence": "reverts AddressNotSigned; no minter spoof"},
+    {"id": "B", "scenario": "exact fee happy path", "result": "PASS", "evidence": "fee split correct; no excess stuck"},
+    {"id": "C", "scenario": "overpayment via claim wrapper", "result": "PASS", "evidence": "excess (0.5e18) STUCK in factory; not refunded"},
+    {"id": "D", "scenario": "underpay (msg.value=0)", "result": "PASS", "evidence": "D1 empty balance reverts; D2 standing balance funds the mintFee (fee-binding gap)"},
+    {"id": "E", "scenario": "over maxSupply", "result": "PASS", "evidence": "6th mint reverts OverMaxAllowedToMint"}
+  ],
+  "all_cases_pass": true,
+  "runtime_proven": true,
+  "source_only_proof_used": false,
+  "fee_binding_observation": "claim() wrapper forwards a computed mintFee (not msg.value); overpayment is stuck (inconsistent with the direct claim refund) and underpayment is subsidized by standing balance. Bounded/conditional; recorded, not promoted.",
+  "awarded": false,
+  "submittable": false,
+  "severity_assigned": null,
+  "report_written": false,
+  "submission_package": false,
+  "ready_for_human_review": false,
+  "production_wiring": false,
+  "research_only": true,
+  "src_mutated": false,
+  "phi_src": "unmutated (PhiFactory.sol imported via remapping; harness in /tmp/p122-phifactory-harness)"
+}

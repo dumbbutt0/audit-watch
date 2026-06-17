@@ -1,0 +1,45 @@
+P144 — read-only review evidence (no code changed, no audit switched)
+
+active audit: audits/quantamm-2024-12-eval/output   (unchanged)
+
+=== consumers of valueOracle.getValue (grep) ===
+helpers/BaseConnector.sol:260                       valueOracle.getValue(token, baseToken, amount)
+accountingManager/AccountingManager.sol:646        valueOracle.getValue(token, base, amount)   (via _getValue :642)
+connectors/PendleConnector.sol:282                 valueOracle.getValue(_underlyingToken, base, underlyingBalance)
+connectors/BalancerConnector.sol:171               valueOracle.getValue(pool.tokens[idx], base, _tokenBalances[idx])
+connectors/Dolomite.sol:114                         valueOracle.getValue(tokens[i], base, amounts[i].value)
+connectors/CompoundConnector.sol:131               valueOracle.getValue(IComet(market).baseToken(), base, balance)
+connectors/AaveConnector.sol:117                    valueOracle.getValue(poolBaseToken, base, poolBaseAmount)
+connectors/UNIv3Connector.sol:148-149              valueOracle.getValue(token0/token1, base, amount0/1)
+helpers/SwapHandler/GenericSwapAndBridgeHandler.sol:110  _priceOracle.getValue(inputToken, outputToken, amount)
+
+=== TVL -> share price chain (AccountingManager.sol) ===
+:591-592  totalAssets() => return TVL();   // "override ... 4626 standard to calculate the shares price"
+:627-628  TVL() => TVLHelper.getTVL(...) + baseToken.balanceOf(this)
+:632      getPositionTVL(...) => _getValue(token, base, amount)
+:642-646  _getValue => valueOracle.getValue(token, base, amount)
+:239      previewDeposit(data.amount)   (deposit path -> shares)
+:344      previewRedeem(data.shares)    (redeem path -> assets)
+:211      TVL() > depositLimitTotalAmount (limit)
+:483-484, :577-583  profit/performance-fee from TVL
+
+=== route/source setters access control (NoyaValueOracle.sol) ===
+:24-25  modifier onlyMaintainer { registry.hasRole(registry.MAINTAINER_ROLE(), msg.sender) }
+:37     updateDefaultPriceSource(...) onlyMaintainer
+:51     updateAssetPriceSource(...) onlyMaintainer
+:61     updatePriceRoute(asset, base, s) onlyMaintainer
+
+=== on-disk route config evidence ===
+grep updatePriceRoute/updateAssetPriceSource/priceRoutes across *.sol/*.js/*.ts/*.json (excl. NoyaValueOracle.sol):
+  NONE on disk
+test/ deploy/ script/ fixture/ dirs in noya clone:
+  NONE  (contracts-only clone)
+=> production route reachability: design-supported, NOT config-demonstrated locally.
+
+=== scope / duplicate ===
+answer_key.md:4   NoyaValueOracle in reviewed in-scope set
+answer_key.md:15  H-03 | NoyaValueOracle::_getValue | "loop reuses static asset instead of advancing quotingToken"
+                  (one of 19 primary Highs)  => DUPLICATE_KNOWN_LOCALLY, IN_SCOPE_LIKELY
+
+DECISION: ADVANCE_TO_HUMAN_REVIEW_FINDING (scope gate DUPLICATE_KNOWN_LOCALLY); submission_ready=false.
+No production/config/test/Python file modified; no audit switched.

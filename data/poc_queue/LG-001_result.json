@@ -1,0 +1,13 @@
+{
+  "finding_id": "LG-001",
+  "status": "proved",
+  "test_file": "pocs/foundry/test/LG001_StrictEqualityDoS.t.sol",
+  "run_command": "forge test --root pocs/foundry --match-contract LG001_StrictEqualityDoS_PoC -vvv",
+  "stdout_excerpt": "Ran 4 tests for test/LG001_StrictEqualityDoS.t.sol:LG001_StrictEqualityDoS_PoC\n[PASS] test_baseline_large_liquidity_no_weth() (gas: 6895)\n[PASS] test_poc_lg001_all_operations_blocked() (gas: 51175810)\n[PASS] test_poc_lg001_fixed_allows_1wei_dust() (gas: 51198977)\n[PASS] test_poc_lg001_rounding_produces_1wei_weth() (gas: 51966665)\nSuite result: ok. 4 passed; 0 failed; 0 skipped",
+  "stderr_excerpt": "",
+  "assertion_hit": true,
+  "repair_attempts": 0,
+  "evidence_summary": "The test `test_poc_lg001_rounding_produces_1wei_weth` scans liquidity values 1..1,000,000 and finds multiple values for which the Q64.96 math in `getAmountsForLiquidity` returns exactly 1 wei WETH (instead of 0) when the pool price is at tick 0 (parity). `test_poc_lg001_all_operations_blocked` proves that calling `updateUnderlyingAssetsBuggy()` with any such liquidity value causes a revert with 'Non zero wethAmount', blocking all deposit/withdraw/rebalance operations that call `_updateUnderlyingAssets`. `test_poc_lg001_fixed_allows_1wei_dust` confirms the fix (`require(_wethAmount <= 1)`) resolves the DoS without any other code changes.",
+  "next_steps": [],
+  "generated_at": "2026-05-13T22:00:00.000000+00:00"
+}

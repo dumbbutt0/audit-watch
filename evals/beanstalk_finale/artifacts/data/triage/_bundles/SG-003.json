@@ -1,0 +1,98 @@
+{
+  "finding_id": "SG-003",
+  "title": "ClaimFacet mow/mowMultiple and setApprovalForAll omit sibling's nonReentrant",
+  "agent": "",
+  "claimed_severity": "Low",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/SiloFacet/ClaimFacet.sol",
+    "function": "mow / mowMultiple (and ApprovalFacet.setApprovalForAll)",
+    "line_start": 116,
+    "line_end": 127
+  },
+  "description": "Two intra-facet guard asymmetries in the same semantic group. ClaimFacet: `claimPlenty`/`claimAllPlenty`/`plant` carry `nonReentrant`, but `mow` (L116) and `mowMultiple` (L124) carry only `fundsSafu noNetFlow noSupplyChange` (no nonReentrant). ApprovalFacet: `approveDeposit`/`increaseDepositAllowance`/`decreaseDepositAllowance`/`permitDeposit(s)` all carry `nonReentrant`, but `setApprovalForAll` (L189) carries only `fundsSafu noNetFlow noSupplyChange` (no nonReentrant).",
+  "impact": "None exploitable. mow/mowMultiple perform only internal stalk/seed accounting (LibSilo._mow) with no external call where a reentry could observe inconsistent state and no token outflow (guarded by noNetFlow). setApprovalForAll writes a single approval mapping slot with no external interaction. The noNetFlow modifier already asserts token balances and stalk are unchanged across the call. Guard-consistency blemish, not a reachable issue.",
+  "ite": {
+    "intent": "Apply nonReentrant uniformly across each facet's state-mutating group",
+    "technique": "mow/setApprovalForAll rely on noNetFlow + absence of external calls instead of nonReentrant",
+    "evasion": "No external-call/callback exists in these functions to leverage for reentry"
+  },
+  "ice_chain": {
+    "corrupted_state": "none (no external call inside mow/mowMultiple/setApprovalForAll; noNetFlow enforces balance/stalk invariance)",
+    "impact": "none",
+    "consumer_found": false,
+    "exploit_path": "n/a"
+  },
+  "source_slice": "86:     }\n87: \n88:     //////////////////////// INTERNAL: SEASON OF PLENTY ////////////////////////\n89: \n90:     /**\n91:      * @dev Gas optimization: An account can call `{SiloFacet:claimPlenty}` even\n92:      * if `s.accts[account].sop.plenty == 0`. This would emit a ClaimPlenty event\n93:      * with an amount of 0.\n94:      */\n95:     function _claimPlenty(address account, address well, LibTransfer.To toMode) internal {\n96:         uint256 plenty = s.accts[account].sop.perWellPlenty[well].plenty;\n97:         if (plenty > 0 && LibWell.isWell(well)) {\n98:             IERC20[] memory tokens = IWell(well).tokens();\n99:             IERC20 sopToken = tokens[0] != C.bean() ? tokens[0] : tokens[1];\n100:             LibTransfer.sendToken(sopToken, plenty, LibTractor._user(), toMode);\n101:             s.accts[account].sop.perWellPlenty[well].plenty = 0;\n102: \n103:             // reduce from Beanstalk's total stored plenty for this well\n104:             s.sys.sop.plentyPerSopToken[address(sopToken)] -= plenty;\n105: \n106:             emit ClaimPlenty(account, address(sopToken), plenty);\n107:         }\n108:     }\n109: \n110:     //////////////////////// YIELD DISTRUBUTION ////////////////////////\n111: \n112:     /**\n113:      * @notice Claim Grown Stalk for `account`.\n114:      * @dev See {Silo-_mow}.\n115:      */\n116:     function mow(\n117:         address account,\n118:         address token\n119:     ) external payable fundsSafu noNetFlow noSupplyChange {\n120:         LibSilo._mow(account, token);\n121:     }\n122: \n123:     //function to mow multiple tokens given an address\n124:     function mowMultiple(\n125:         address account,\n126:         address[] calldata tokens\n127:     ) external payable fundsSafu noNetFlow noSupplyChange {\n128:         for (uint256 i; i < tokens.length; ++i) {\n129:             LibSilo._mow(account, tokens[i]);\n130:         }\n131:     }\n132: \n133:     /**\n134:      * @notice Claim Earned Beans and their associated Stalk and Plantable Seeds for\n135:      * user.\n136:      *\n137:      * The Stalk associated with Earned Beans is commonly called \"Earned Stalk\".\n138:      * Earned Stalk DOES contribute towards the Farmer's Stalk when earned beans is issued.\n139:      *\n140:      * The Seeds associated with Earned Beans are commonly called \"Plantable\n141:      * Seeds\". The word \"Plantable\" is used to highlight that these Seeds aren't\n142:      * yet earning the Farmer new Stalk. In other words, Seeds do NOT automatically\n143:      * compound; they must first be Planted with {plant}.\n144:      *\n145:      * In practice, when Seeds are Planted, all Earned Beans are Deposited in\n146:      * the current Season.\n147:      */\n148:     function plant()\n149:         external\n150:         payable\n151:         fundsSafu\n152:         noNetFlow\n153:         noSupplyChange\n154:         returns (uint256 beans, int96 stem)\n155:     {\n156:         return _plant(LibTractor._user());\n157:     }",
+  "gate_verdict": {
+    "finding_id": "SG-003",
+    "severity": "Low",
+    "vuln_type": "reentrancy",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.545482+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": false
+}

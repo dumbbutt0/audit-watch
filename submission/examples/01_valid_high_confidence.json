@@ -1,0 +1,61 @@
+{
+  "finding_id": "SUB-001",
+  "title": "Missing reentrancy guard on Vault.withdraw lets attacker drain WETH backing",
+  "root_cause": "Vault.withdraw() transfers ETH to the caller via a low-level call before decrementing balances[msg.sender], violating checks-effects-interactions; a malicious receiver re-enters withdraw() while its recorded balance is still non-zero.",
+  "affected_contracts": ["contracts/Vault.sol"],
+  "affected_functions": ["Vault.withdraw(uint256)"],
+  "attacker_entrypoint": "Vault.withdraw(uint256) called from an attacker-controlled contract with a malicious receive() hook; no privileged setup.",
+  "attacker_capabilities": ["deploy a contract", "call any public function from an EOA"],
+  "privilege_required": "none",
+  "scope_status": "in_scope",
+  "in_scope_asset": "Vault.sol @ 0xVault... (listed in program scope)",
+  "out_of_scope_risks": [],
+  "impact_category": "fund_loss",
+  "severity_claim": "High",
+  "severity_justification": {
+    "worst_case": "Attacker drains the full WETH balance of the vault in a single transaction.",
+    "realistic_case": "Attacker drains the liquid (non-strategy) WETH portion, ~38% of TVL at current allocation.",
+    "program_table_mapping": "Immunefi v2.2 — Direct theft of user funds (High/Critical row)."
+  },
+  "bounty_program_mapping": {
+    "program": "ExampleProtocol",
+    "platform": "Immunefi",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "https://immunefi.com/bounty/exampleprotocol/#scope"
+  },
+  "call_trace": [
+    "Attacker.attack() -> Vault.withdraw(100e18)",
+    "Vault.withdraw: (bool ok,) = msg.sender.call{value: amount}('')",
+    "Attacker.receive() -> Vault.withdraw(100e18)  // re-entry, balances not yet decremented",
+    "Vault.withdraw: second transfer succeeds, then balances[attacker] -= amount underflows-protected to 0"
+  ],
+  "state_transition": {
+    "before": "vault ETH balance = 1000e18; balances[attacker] = 100e18",
+    "after": "vault ETH balance = 800e18; balances[attacker] = 0",
+    "slots_or_balances": ["balances[attacker]", "address(vault).balance"]
+  },
+  "asset_delta": "Attacker withdraws 200e18 against a recorded 100e18 deposit; net +100e18 stolen.",
+  "proof_type": "runnable_poc",
+  "poc_path": "submission/examples/poc/VaultReentrancy.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "forge test --match-test test_reentrancy_drain -vvv",
+    "Observe vault.balance drops by 200e18 while attacker deposited 100e18",
+    "Assert balances[attacker] == 0 and attacker contract ETH == +100e18"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "searched_clear",
+  "prior_audit_overlap": [],
+  "false_positive_risks": ["If a nonReentrant modifier is added in an inherited base not shown in scope, the path would be blocked (verified absent)."],
+  "invalidating_conditions": ["Finding is invalid if withdraw() decrements balances before the external call."],
+  "defense_analysis": [
+    {"defense": "nonReentrant modifier", "blocks_path": true, "why_it_fails": "Vault.withdraw has no nonReentrant modifier and the inherited base does not define one; verified at contracts/Vault.sol:142.", "uncertain": false},
+    {"defense": "pull-payment pattern", "blocks_path": false, "why_it_fails": "Vault uses a push transfer via low-level call, not a pull pattern.", "uncertain": false}
+  ],
+  "assumptions": ["Attacker has at least one legitimate deposit to seed balances[attacker]."],
+  "evidence_links": ["contracts/Vault.sol:138-150", "submission/examples/poc/VaultReentrancy.t.sol:1-80"],
+  "triager_summary": "Classic CEI reentrancy with a runnable PoC proving a 100e18 net theft. Permissionless, in scope, fully traced.",
+  "recommended_status": "READY_TO_SUBMIT_AFTER_APPROVAL",
+  "human_approval_required": true
+}

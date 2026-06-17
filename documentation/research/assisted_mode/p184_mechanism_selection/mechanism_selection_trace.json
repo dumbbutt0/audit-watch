@@ -1,0 +1,91 @@
+{
+  "phase": "P184",
+  "type": "blind_subagent_deep_pass_mechanism_selection",
+  "read_only": true,
+  "protocol": "one blind subagent per function; prompt = P183 deep_trace.md + verbatim source ONLY; no answer key, no finding IDs, no phase context. Scorer (answer-aware) maps each blind output to the awarded mechanism. Raw outputs preserved verbatim below.",
+  "blindness_checks": {
+    "answer_key_in_prompt": false,
+    "finding_ids_in_prompt": false,
+    "subagent_cited_answer_key_ids": false,
+    "residual_caveat": "same model family -> faint training priors on QuantAMM cannot be fully excluded; evidence of genuine blindness = 2/9 awarded mechanisms missed + all reasoning cites exact source facts"
+  },
+  "checker_on_blind_outputs": {
+    "result": "all 5 flagged mechanism_incomplete on {chosen_mechanism (returned as LIST), impact_direction (returned as PROSE)}",
+    "interpretation": "SCHEMA-FORMAT gap, not a reasoning gap — inventory/rejection/who-loses-gains/impact/stop reasoning all present. The P183 checker/prompt schema expects chosen_mechanism as a single dict + impact_direction as a dict; multi-mechanism enumeration needs chosen_mechanism to be a LIST. FLAGGED for a P185 schema tweak; NOT fixed in P184 (measurement only)."
+  },
+  "functions": [
+    {
+      "function": "UpliftOnlyExample.onAfterRemoveLiquidity",
+      "awarded_here": ["H-07", "M-02", "M-17"],
+      "blind_verdict": "CRITICAL_THREAD",
+      "blind_mechanism_inventory": ["spoofed owner identity via userData", "loop index underflow (i=length-1;i>=0;--i)", "unauthorized state deletion / NFT burn of another owner's positions", "stale/integer-division accounting in lpTokenDepositValueChange", "fee percentage integer truncation", "delete-then-pop during reverse iteration"],
+      "blind_chosen_mechanisms": [
+        "userData-controlled owner: userAddress=address(bytes20(userData)) vs deposit keyed on msg.sender; onlySelfRouter only proves router==self -> operate on victim's poolsFeeData",
+        "unauthorized NFT burn + state deletion of victim entries selected by attacker-chosen userAddress",
+        "reverse-iteration unsigned loop underflow / DoS"],
+      "blind_stop_condition": "satisfied (3 carried)",
+      "scoring": [
+        {"awarded": "H-07", "awarded_mechanism": "unauthorized access/malicious deletion of users' deposited liquidity via userData", "enumerated": true, "selected": true, "match": "EXACT - blind chosen #1+#2 = userData identity spoofing -> delete/burn victim positions"},
+        {"awarded": "M-02", "awarded_mechanism": "lpTokenDepositValueChange underflow in uplift fee calc", "enumerated": true, "selected": false, "match": "ENUMERATED + in rejection_table as 'carried/folded fee-evasion amplifier' but NOT a standalone chosen mechanism -> enumerated-not-selected"},
+        {"awarded": "M-17", "awarded_mechanism": "feePerLP can exceed 100%", "enumerated": false, "selected": false, "match": "MISS - blind enumerated 'fee percentage truncation' (different mechanism, rejected as dust); did not surface the feePerLP>100% bound mechanism"}
+      ]
+    },
+    {
+      "function": "UpliftOnlyExample.afterUpdate",
+      "awarded_here": ["M-03", "M-10", "L-01"],
+      "blind_verdict": "HIGH_THREAD",
+      "blind_mechanism_inventory": ["block.number written to blockTimestampDeposit (timestamp field)", "cost-basis reset / uplift-fee evasion on transfer", "deposit-cap (>100) bypass / unbounded array growth on the transfer push", "upliftFeeBps re-stamp", "swap-and-pop reordering", "access-control (only lpNFT)"],
+      "blind_chosen_mechanisms": [
+        "cost-basis reset: lpTokenDepositValue=lpTokenDepositValueNow on transfer erases accrued uplift fee",
+        "block.number vs block.timestamp unit confusion in blockTimestampDeposit (uint32(block.number))",
+        "cap bypass: afterUpdate pushes to poolsFeeData[_to] with NO >100 check (addLiquidity has it) -> attacker transfers NFTs into victim -> unbounded array growth -> gas DoS locks victim"],
+      "blind_stop_condition": "more_mechanisms_pending: distinct state vars (lpTokenDepositValue vs blockTimestampDeposit) + distinct actors (holder fee-evasion vs victim DoS)",
+      "scoring": [
+        {"awarded": "M-03", "awarded_mechanism": "poolsFeeData[_to] length not checked in afterUpdate (transfer past 100-cap)", "enumerated": true, "selected": true, "match": "EXACT - blind chosen #3 root cause = 'pushes with no length cap, unlike addLiquidity >100'"},
+        {"awarded": "M-10", "awarded_mechanism": "permanently DoS a victim from managing LP NFTs (malicious transfer)", "enumerated": true, "selected": true, "match": "EXACT - blind chosen #3 exploit = attacker transfers NFTs into victim -> unbounded growth -> gas DoS locks victim positions"},
+        {"awarded": "L-01", "awarded_mechanism": "blockTimestampDeposit assigned block.number instead of block.timestamp", "enumerated": true, "selected": true, "match": "EXACT - blind chosen #2 = block.number vs block.timestamp unit confusion"}
+      ]
+    },
+    {
+      "function": "UpliftOnlyExample.onAfterSwap",
+      "awarded_here": ["H-03"],
+      "blind_verdict": "VULNERABLE",
+      "blind_mechanism_inventory": ["nested integer division hookFee/(1e18/take) wrong admin/owner fee split", "div-by-zero DoS when take>1e18 (missing upper bound)", "missing cap on quantAMMFeeTake", "mulUp rounding direction", "access-control"],
+      "blind_chosen_mechanisms": [
+        "nested integer division -> admin captures up to 100% (overcharges admin fees), ownerFee driven to 0",
+        "missing upper bound on quantAMMFeeTake -> hookFee/0 revert -> all swaps DoS"],
+      "blind_stop_condition": "stopped after 2 carried",
+      "scoring": [
+        {"awarded": "H-03", "awarded_mechanism": "missing/improper fee application in swap logic (raw: overcharging of QuantAMM admin fees)", "enumerated": true, "selected": true, "match": "MATCH (loose, near-duplicate of found H-02): blind chosen #1 = admin overcharge via wrong fee split = the awarded 'overcharging admin fees / improper fee application'. NOTE H-02 (precision, same expression) was already FOUND PARTIAL at eval; H-03/H-02 are near-duplicate -> conservative scoring may exclude H-03"}
+      ]
+    },
+    {
+      "function": "UpdateWeightRunner._getData (+ ChainlinkOracle._getData)",
+      "awarded_here": ["M-06"],
+      "blind_verdict": "VULNERABLE",
+      "blind_mechanism_inventory": ["unhandled external-call/revert DoS (no try/catch around latestRoundData)", "backup-fallthrough revert / stale", "missing bounds on returned data", "stale-snapshot via length-1 backup (j=1 skip)", "access-control gate"],
+      "blind_chosen_mechanisms": [
+        "unhandled latestRoundData revert (or require(data>0)) bubbles up with NO try/catch -> _getData reverts -> all consumers (swap/add/remove/weight-update) revert -> pool frozen",
+        "broken backup loop (j=1 off-by-one + revert-on-all-stale + silent stale on length-1)"],
+      "blind_stop_condition": "did not stop (2 carried)",
+      "scoring": [
+        {"awarded": "M-06", "awarded_mechanism": "unhandled Chainlink revert locks all price-oracle access", "enumerated": true, "selected": true, "match": "EXACT - blind chosen #1 = unhandled latestRoundData revert (no try/catch) bricks _getData -> all pool ops DoS"}
+      ]
+    },
+    {
+      "function": "MultiHopOracle._getData",
+      "awarded_here": ["L-02"],
+      "blind_verdict": "VULNERABLE",
+      "blind_mechanism_inventory": ["missing zero/negative validation (div-by-zero DoS)", "stale-snapshot (min timestamp, no freshness floor)", "precision/normalization truncation compounded across hops", "int216 multiplicative overflow DoS", "signed-price sign mishandling"],
+      "blind_chosen_mechanisms": [
+        "div-by-zero on zero sub-oracle return (10**36/data, (data*1e18)/oracleRes)",
+        "no staleness floor -> stale hop poisons composite price",
+        "integer-division truncation compounded across hops -> downward bias / inversion-to-zero (precision loss)",
+        "int216 multiplicative overflow DoS"],
+      "blind_stop_condition": "multiple confirmed",
+      "scoring": [
+        {"awarded": "L-02", "awarded_mechanism": "precision loss in MultiHopOracle._getData", "enumerated": true, "selected": true, "match": "EXACT - blind chosen #3 = integer-division truncation compounded across hops = precision loss"}
+      ]
+    }
+  ]
+}

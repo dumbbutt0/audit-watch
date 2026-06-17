@@ -1,0 +1,77 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "ILOPool.claim",
+  "detector_family": "surface_recall_lens",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "ILOPool",
+    "function": "claim",
+    "lines": null,
+    "suspicious_pattern": "fee_path,value_exit",
+    "detector_claim": "security-relevant surface; mechanism uncertain"
+  },
+  "context_summary": {
+    "source_available": true,
+    "source_resolved": true,
+    "reachability": "external"
+  },
+  "attacker_reachability": "external",
+  "defense_ledger": {
+    "access_control": {
+      "classification": "irrelevant",
+      "evidence": "isAuthorizedForToken \u2014 each user claims own position"
+    },
+    "accounting_invariant": {
+      "classification": "bypassed",
+      "evidence": "pool.collect(this, max, max) collects the WHOLE shared position; only claimer's share goes to user, residual -> feeTaker"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "a user's claim must not transfer other users' unclaimed liquidity/fees to the fee taker",
+    "why_defenses_do_not_block": null
+  },
+  "exploit_path": {
+    "attacker_profile": "EOA",
+    "entrypoint": "see trigger",
+    "preconditions": null,
+    "transaction_sequence": "user A calls claim(tokenIdA); collect(max) pulls all accrued fees/owed tokens for the shared position; A receives only A's share; the remainder belonging to other un-claimed positions is transferred to feeTaker -> other users' funds siphoned",
+    "state_before": null,
+    "state_after": null,
+    "rejection_case": "isAuthorizedForToken gates per-NFT \u2014 but the ILOPool holds ONE Uniswap position for ALL users; claim() does pool.collect(max,max) which collects every owed token/fee for the whole position, hands the claimer their computed amount0/amount1, and sends amountCollected-amount (which contains OTHER non-claiming users' fee/token shares) to feeTaker",
+    "source_evidence": "vultisig befb1b1170"
+  },
+  "impact_analysis": {
+    "impact_category": "user_fund_loss",
+    "minimum_profit_or_damage_condition": "more than one position exists and fees/tokens have accrued for non-claiming users"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED"
+}

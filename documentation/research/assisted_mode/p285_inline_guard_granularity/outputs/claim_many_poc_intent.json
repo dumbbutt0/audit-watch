@@ -1,0 +1,25 @@
+{
+  "candidate_id": "coverage_manifest:RewardsDistributor:claim_many:7",
+  "award_class": "REWARDS_CLAIMS",
+  "status": "READY_FOR_POC_INTENT",
+  "sibling_reference_basis": "sibling claim (recipient_parity)",
+  "observed_recipient_path": "claim_many omits getOriginalOwner on a shared mutating path",
+  "expected_recipient_path": "apply getOriginalOwner as sibling claim does",
+  "missing_component": [
+    "getOriginalOwner"
+  ],
+  "delta_hypothesis": "claim_many diverges from claim: missing getOriginalOwner (recipient_parity)",
+  "attacker": "permissionless call to claim_many reaches the divergent path",
+  "victim_gainer": "stakeholder of the omitted component (recipient/guarded state)",
+  "tx_sequence": "1) attacker (or anyone) calls claim_many([tokenId]) for an AVM-managed-lock NFT whose current ownerOf != original owner; 2) reward is sent to ownerOf(tokenId) instead of getOriginalOwner(tokenId).",
+  "expected_invariant_break": "rewards for an AVM-managed lock must go to the original owner (getOriginalOwner), as the single-claim path claim() does",
+  "poc_assertion": "assert claim_many result differs from the claim reference because getOriginalOwner is not applied",
+  "control_refutation": "control: claim() on the same tokenId sends to getOriginalOwner; claim_many sends to ownerOf \u2014 assert recipients differ when ownerOf != getOriginalOwner",
+  "recommended_poc_tier": "Tier-C faithful reproduction (RewardsDistributor claim vs claim_many recipient divergence); L3 = recipient/balance flip",
+  "derived_confidence": {
+    "attacker_path": "HIGH",
+    "impact_delta": "HIGH",
+    "victim_gainer": "MEDIUM"
+  },
+  "note": "Documented Blackhole M-04 anchor. Unblocked by P285 (ownerOf reclassified RECIPIENT_READ, not an execution guard)."
+}

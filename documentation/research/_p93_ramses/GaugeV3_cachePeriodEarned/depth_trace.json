@@ -1,0 +1,21 @@
+{
+  "trace": {
+    "localized_mechanism": "reward = mulDiv(tokenTotalSupplyByPeriod, periodSecondsInsideX96, WEEK<<96) - periodClaimedAmount",
+    "controlled_inputs": "period/token/position (NFP owner+ticks); permissionless view+caching",
+    "pre_state": "tokenTotalSupplyByPeriod[period][token]; periodNfpSecondsX96; periodClaimedAmount; lastClaimByToken",
+    "operation_trace": "amount = FullMath.mulDiv(total, secondsX96, WEEK<<96); then amount -= claimed (floored at 0); _getAllRewards loops lastClaim..currentPeriod and sets lastClaim=currentPeriod-1",
+    "boundary_cases": "partial current-period claim: claimed tracked per period; lastClaim=currentPeriod-1 deliberately re-visits the just-finalized period next week to pay its remainder; re-claim of a finalized period yields 0 (claimed==amount)",
+    "post_state": "no double-pay (claimed subtracted); no under-pay (remainder paid next week); self-consistent",
+    "recovery_paths": "n/a (no loss)",
+    "concrete_outcome": "REJECT",
+    "recommended_verdict": "REJECT"
+  },
+  "localized_depth_trace_result": {
+    "recommended_verdict": "REJECT",
+    "trace_complete": true,
+    "missing_fields": [],
+    "reasons": [
+      "REJECT honored: boundary-cases + post-state show a traced source-backed harmless/bounded outcome (reject-first preserved)"
+    ]
+  }
+}

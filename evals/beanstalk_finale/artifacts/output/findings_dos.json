@@ -1,0 +1,204 @@
+{
+  "agent": "dos",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T21:30:00Z",
+  "findings": [
+    {
+      "id": "DS-001",
+      "title": "ReseedField inner loop increments i not j: OOB revert bricks Field migration",
+      "severity": "High",
+      "vuln_type": "dos",
+      "description": "ReseedField.init re-issues every account's plots during the L1->L2 migration upgrade. The inner loop header is `for (uint j; j < accountPlots[i].plots.length; i++)` \u2014 the post-statement increments the OUTER index `i`, not the inner index `j`. `j` therefore never advances (the inner loop body always reads `plots[j]` with j==0), while `i` is incremented on every inner iteration. For any account whose `plots` array has length > 0, `i` runs past `accountPlots.length` within the inner loop and `accountPlots[i]` reverts with an array-out-of-bounds panic (0x32). The migration transaction reverts deterministically on the first account that holds any plot. Because Field reseed cannot complete, the Field (pod line) cannot be migrated to L2 at all. This is the static/deep-trace DT-004 and violates invariant STATE-001.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedField.sol",
+        "function": "init",
+        "line_start": 48,
+        "line_end": 57,
+        "code_snippet": "for (uint i; i < accountPlots.length; i++) {\n    for (uint j; j < accountPlots[i].plots.length; i++) {   // <-- increments i, not j\n        ... accountPlots[i].plots[j] ...\n    }\n}"
+      },
+      "impact": "Field/pod migration to L2 is bricked: the reseed upgrade step that re-issues plots reverts deterministically whenever the supplied data contains any account with at least one plot (i.e. always, in practice). Pods and the entire pod line cannot be reconstituted on L2 until the contract is patched and the upgrade re-attempted. Temporary freeze of all Field positions across the migration window \u2014 High under Immunefi v2.2 (temporary freeze of funds / core flow DoS).",
+      "proof_of_concept": "Construct accountPlots with a single entry: account=A, plots=[{podIndex:0, podAmounts:100}]. Call ReseedField.init([{A,[{0,100}]}], 100, 0, 0, 0, 1). Trace: outer i=0; inner j=0 < 1 -> body executes, then `i++` makes i=1; inner condition re-checks `j(0) < accountPlots[1].plots.length` -> `accountPlots[1]` indexes a length-1 array -> Panic(0x32) revert. L1-Entry: this is the privileged diamondCut upgrade call (no EOA exploit needed); L2-StateFlip: control flow reverts before s.sys.field.pods is written; L3-Outcome: ReseedField.init() reverts -> migration aborts -> Field never initialized on L2.",
+      "recommendation": "Increment the inner counter: `for (uint j; j < accountPlots[i].plots.length; j++)`.",
+      "confidence": "High",
+      "invariant_violated": "STATE-001",
+      "attack_surface_rank": 4,
+      "ice": {
+        "intent": "Assign each account its plots exactly once and finalize the L2 pod line during migration.",
+        "technique": "Loop post-statement increments the outer index `i` instead of the inner index `j`, so `i` overruns `accountPlots.length` inside the inner loop.",
+        "evasion": "Deterministic logic bug, self-triggering on the first account with plots; not gated behind any attacker setup. Compiler does not flag because the expression is syntactically valid."
+      },
+      "ice_chain": {
+        "corrupted_state": "control flow: array index `i` overruns accountPlots.length; s.sys.field.pods/harvestable/harvested never written",
+        "impact": "ReseedField.init reverts; Field state is never initialized on L2, so the migration cannot complete and all pod positions are frozen pending a patch.",
+        "consumer_found": true,
+        "consumer_function": "FieldFacet.harvest / FieldFacet.sow and overall migration completion depend on a successful ReseedField.init",
+        "exploit_path": "diamondCut upgrade calls ReseedField.init -> inner loop increments i -> accountPlots[i] OOB -> Panic revert -> migration tx reverts"
+      },
+      "thread_id": "DT-004",
+      "thread_refs": [
+        "T-004",
+        "T-009"
+      ],
+      "thread_note": "T-004: High (score=?) \u2014 ; T-009: Medium (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-009",
+          "note": "score-3 invariant covers same state vars (s.sys.field.pods, s.sys.field.harvestable, s.sys.field.harvested); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "DS-002",
+      "title": "BeanL1RecieverFacet cap=0 reverts every L2 Bean mint after L1 burn (freeze)",
+      "severity": "High",
+      "vuln_type": "dos",
+      "description": "BeanL1RecieverFacet.recieveL1Beans increments s.sys.migration.migratedL1Beans by `amount` and then requires `EXTERNAL_L1_BEANS >= s.sys.migration.migratedL1Beans`, where the constant EXTERNAL_L1_BEANS is hardcoded to 0 (placeholder). For any `amount > 0` this evaluates to `0 >= (positive)`, which is false, so the call always reverts. Because the L1 side (BeanL2MigrationFacet.migrateL2Beans) burns the user's Beans on L1 before the cross-chain message is relayed, an honest external Bean holder loses their L1 Beans and can never receive the corresponding L2 Beans: the mint at the end of recieveL1Beans is unreachable. This is DT-005 and violates ACC-004. Treated here as a DoS because the failure mode is a deterministic, un-bypassable revert that freezes the migration path for every external migrant; the same defect also causes direct loss of the burned L1 Beans.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/migration/BeanL1RecieverFacet.sol",
+        "function": "recieveL1Beans",
+        "line_start": 22,
+        "line_end": 43,
+        "code_snippet": "s.sys.migration.migratedL1Beans += amount;\nrequire(EXTERNAL_L1_BEANS >= s.sys.migration.migratedL1Beans, ...);  // EXTERNAL_L1_BEANS == 0\nC.bean().mint(reciever, amount);  // never reached for amount>0"
+      },
+      "impact": "Every L1->L2 external-Bean migration reverts on the L2 receive side. With L1 Beans already burned, this is a permanent freeze / loss of all externally-held Beans that attempt to migrate, and a complete DoS of the external-Bean migration path. High under Immunefi v2.2 (permanent freeze of user funds via core-flow DoS).",
+      "proof_of_concept": "Bridge relays recieveL1Beans(reciever, amount=1e6 Beans) from the canonical bridge with xDomainMessageSender == L1BEANSTALK (auth passes). Execution: migratedL1Beans becomes 1e6; require(0 >= 1e6) is false -> revert. The earlier L1 migrateL2Beans already burned the user's 1e6 Beans. Assert: pre-call user L1 Bean balance reduced by amount (burned); post-call L2 reciever balance unchanged (mint never executes); the receive call always reverts.",
+      "recommendation": "Set EXTERNAL_L1_BEANS to the actual migratable external supply (or remove the cap and rely on the bridge/merkle accounting). Until set, do not enable the L1 burn step.",
+      "confidence": "High",
+      "invariant_violated": "ACC-004",
+      "attack_surface_rank": 4,
+      "ice": {
+        "intent": "Allow externally-held L1 Beans to be reminted on L2 up to the migratable supply.",
+        "technique": "Cap constant left at 0 makes the post-increment require always fail for any positive amount.",
+        "evasion": "No attacker; affects every legitimate external migrant. NatSpec says the function migrates Beans to L2, masking that the cap forces a revert."
+      },
+      "ice_chain": {
+        "corrupted_state": "n/a (revert); user's L1 Beans already burned in the preceding L1 step",
+        "impact": "L2 mint never executes; burned L1 Beans are unrecoverable -> permanent freeze/loss and full DoS of external-Bean migration.",
+        "consumer_found": true,
+        "consumer_function": "C.bean().mint(reciever, amount) at the tail of recieveL1Beans is never reached",
+        "exploit_path": "migrateL2Beans burns on L1 -> bridge relays recieveL1Beans -> migratedL1Beans += amount -> require(0 >= amount) reverts -> mint skipped"
+      },
+      "thread_id": "DT-005",
+      "thread_refs": [
+        "T-005"
+      ],
+      "thread_note": "T-005: High (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACCESS-002",
+          "note": "score-3 invariant covers same state vars (s.sys.migration.migratedL1Beans); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "DS-003",
+      "title": "LibUsdOracle 1e24/price no zero-check: frozen feed reverts, DoSing sunrise",
+      "severity": "Medium",
+      "vuln_type": "dos",
+      "description": "In the encodeType 0x01 branch, getTokenPriceFromExternal returns `uint256(1e24).div(LibChainlinkOracle.getTokenPrice(addr, FOUR_HOUR_TIMEOUT, lookback))`. LibChainlinkOracle.getTokenPrice \u2014 through both getPrice() and getTwap() \u2014 is explicitly documented and coded to RETURN 0 (not revert) when the feed is broken or frozen: it returns 0 on a decimals() revert, a latestRoundData() revert, roundId==0, or a stale/invalid timestamp/answer (LibChainlinkOracle.sol L67/L79/L81/L87 and L109/L121/L123/L151/L161). When that 0 is fed into `1e24.div(0)`, the division reverts (LibRedundantMath / Solidity panic 0x12) instead of degrading gracefully. The whole pricing call therefore reverts during a feed outage, contrary to the 0-sentinel contract the rest of the file relies on. This is DT-007 and violates ARITH-003. (Note: this DoS is independent of the inverted ternary in DT-006/OR-001 \u2014 whichever helper is selected, a frozen feed yields 0 and the unguarded division reverts.)",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibUsdOracle.sol",
+        "function": "getTokenPriceFromExternal",
+        "line_start": 120,
+        "line_end": 127,
+        "code_snippet": "return uint256(1e24).div(LibChainlinkOracle.getTokenPrice(chainlinkOraclePriceAddress, LibChainlinkOracle.FOUR_HOUR_TIMEOUT, lookback));"
+      },
+      "impact": "When a Chainlink feed backing a whitelisted token (encodeType 0x01) is frozen, stale beyond FOUR_HOUR_TIMEOUT, or reverting, every consumer of getUsdPrice/getTokenPriceFromExternal for that token reverts instead of receiving the documented 0 sentinel. Consumers include the sunrise oracle step and convert pricing; a reverting price call can block season advancement and conversions for the affected token during the outage. Temporary availability DoS gated by an external feed condition (not attacker-triggered). Medium under Immunefi v2.2 (temporary DoS of a core flow). Strong KB precedent (Solodit ~0.58: Chainlink frozen/phase-change feed DoS, Medium).",
+      "proof_of_concept": "Register a token with an encodeType 0x01 (Chainlink) oracle implementation. Simulate the aggregator returning a stale timestamp (older than FOUR_HOUR_TIMEOUT) or reverting on latestRoundData. Call any consumer of getTokenPriceFromExternal(token, lookback). Trace: getTokenPrice -> getPrice/getTwap hits a 0-return branch -> returns 0 -> 1e24.div(0) -> revert. Assert: with a healthy feed the call returns a finite price; with the frozen feed the identical call reverts (panic 0x12), and the calling sunrise/convert path reverts with it.",
+      "recommendation": "Check the price before dividing: `uint256 p = LibChainlinkOracle.getTokenPrice(...); if (p == 0) return 0; return uint256(1e24).div(p);` so a feed outage degrades to the documented 0 sentinel instead of reverting.",
+      "confidence": "High",
+      "invariant_violated": "ARITH-003",
+      "attack_surface_rank": 4,
+      "ice": {
+        "intent": "Return 0 on feed failure so downstream pricing can handle an outage gracefully.",
+        "technique": "Unguarded 1e24/price division over a value that the underlying oracle legitimately returns as 0 on failure.",
+        "evasion": "Triggered by external feed conditions, not an attacker; the 0-sentinel contract is documented elsewhere in the same file, so the omission is easy to miss."
+      },
+      "ice_chain": {
+        "corrupted_state": "n/a (revert via 1e24/0)",
+        "impact": "Pricing call reverts during a feed outage, blocking season advancement / conversions for the affected token until the feed recovers.",
+        "consumer_found": true,
+        "consumer_function": "sunrise/oracle step and convert pricing consumers of LibUsdOracle.getUsdPrice / getTokenPriceFromExternal",
+        "exploit_path": "feed frozen/stale -> LibChainlinkOracle.getTokenPrice returns 0 -> 1e24.div(0) reverts -> caller (sunrise/convert) reverts"
+      },
+      "thread_id": "DT-007",
+      "thread_refs": [
+        "T-007",
+        "T-006"
+      ],
+      "thread_note": "T-007: Medium (score=?) \u2014 ; T-006: High (score=?) \u2014 "
+    },
+    {
+      "id": "DS-004",
+      "title": "LibFlood.calculateSopPerWell div-by-(i-1)=0 reverts flood path in sunrise",
+      "severity": "Medium",
+      "vuln_type": "dos",
+      "description": "calculateSopPerWell distributes the flood (Season of Plenty) reduction across positive-deltaB wells. Its final loop runs `for (uint256 i = positiveDeltaBCount; i > 0; i--)` and, inside the branch `if (shaveToLevel > uint256(wellDeltaBs[i-1].deltaB))`, executes `shaveToLevel += (shaveToLevel - uint256(wellDeltaBs[i-1].deltaB)) / (i - 1);`. On the final iteration `i == 1`, so `(i - 1) == 0` and the expression divides by zero, reverting (panic 0x12) whenever that branch is taken for the last (largest, since wells are sorted descending in getWellsByDeltaB) positive well. calculateSopPerWell is called by LibFlood.handleRain, which runs in the flood/Season-of-Plenty branch reached during sunrise (SeasonFacet.gm -> stepSun/weather -> handleRain). When the configuration is mixed-sign (at least one positive and one non-positive well, totalPositiveDeltaB >= totalNegativeDeltaB) and the accumulated shaveToLevel exceeds the largest positive well's deltaB on the final step, the flood computation reverts \u2014 and because handleRain executes within the season-advance flow, the revert propagates and blocks that sunrise. Not present in deep-trace; surfaced directly from source.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+        "function": "calculateSopPerWell",
+        "line_start": 371,
+        "line_end": 379,
+        "code_snippet": "for (uint256 i = positiveDeltaBCount; i > 0; i--) {\n    if (shaveToLevel > uint256(wellDeltaBs[i - 1].deltaB)) {\n        shaveToLevel += (shaveToLevel - uint256(wellDeltaBs[i - 1].deltaB)) / (i - 1);  // i==1 -> /0\n        wellDeltaBs[i - 1].deltaB = 0;\n    } else { ... }\n}"
+      },
+      "impact": "In a multi-well configuration with mixed-sign deltaBs during a Season of Plenty, the per-well sop allocation can divide by zero and revert. Because the flood logic runs inside the sunrise (gm) call, that revert blocks season advancement for the affected season until the deltaB distribution changes (e.g. reserves shift across a block). Conditional, configuration-dependent temporary DoS of sunrise during flood. Medium under Immunefi v2.2 (season/sunrise DoS, conditional). Currently bounded by the live whitelist having few soppable wells, hence not High.",
+      "proof_of_concept": "Requires >=2 soppable whitelisted wells with mixed-sign instantaneous deltaB so positiveDeltaBCount>0, positiveDeltaBCount != length, and totalPositiveDeltaB >= totalNegativeDeltaB, with the largest positive well small enough that the redistributed shaveToLevel exceeds it on the final (i==1) iteration. Under those reserves, calling sunrise during oversaturation routes to handleRain -> calculateSopPerWell -> `/(i-1)` with i==1 -> panic 0x12 revert. Assert: the sunrise tx reverts; with a single positive well (positiveDeltaBCount==length) the early return at the top of calculateSopPerWell is taken and no revert occurs (confirming the branch dependence). NOTE: end-to-end reachability depends on having multiple soppable wells and a specific deltaB shape; consumer is found but the triggering market state must be reproduced on a fork before severity is finalized.",
+      "recommendation": "Guard the divisor: when `i == 1` the remaining amount has no other well to redistribute to, so set `wellDeltaBs[0].deltaB = 0` (or break) instead of dividing by `i-1`; equivalently restructure the redistribution so the divisor is always > 0.",
+      "confidence": "Medium",
+      "attack_surface_rank": 4,
+      "ice": {
+        "intent": "Distribute the flood reduction across positive-deltaB wells so each is shaved toward zero.",
+        "technique": "The redistribution divides the leftover by the count of remaining wells `(i-1)`, which is 0 on the final iteration when `i==1`.",
+        "evasion": "Only reached in the flood branch with a multi-well, mixed-sign deltaB configuration; single-well or all-positive configurations hit earlier returns, masking the bug in common cases and in the current limited well set."
+      },
+      "ice_chain": {
+        "corrupted_state": "n/a (revert via /(i-1) when i==1)",
+        "impact": "Flood (SOP) allocation reverts inside sunrise, blocking season advancement for that season under the triggering market state.",
+        "consumer_found": true,
+        "consumer_function": "LibFlood.handleRain (flood branch) invoked during SeasonFacet.gm/sunrise season advance",
+        "exploit_path": "sunrise during oversaturation -> handleRain -> getWellsByDeltaB (mixed sign) -> calculateSopPerWell -> final i==1 branch divides by 0 -> revert"
+      },
+      "thread_refs": [
+        "T-004",
+        "T-007"
+      ],
+      "thread_note": "T-004: High (score=?) \u2014 ; T-007: Medium (score=?) \u2014 "
+    },
+    {
+      "id": "DS-005",
+      "title": "ReseedInternalBalances: no farmers/balances length check, OOB revert DoS",
+      "severity": "Low",
+      "vuln_type": "dos",
+      "description": "setInternalBalances iterates `i` over `internalBalances.farmers.length` and reads `internalBalances.balances[i]` without first requiring `farmers.length == balances.length`. If the supplied `balances` array is shorter than `farmers`, `balances[i]` reverts with an array-out-of-bounds panic, aborting the internal-balance reseed step (and thus the whole migration upgrade). If `balances` is longer, trailing entries are silently ignored but the subsequent `require(totalInternalBalance == internalBalances.totalInternalBalance)` guard catches the mismatch and reverts cleanly. This is DT-011. The defect only triggers on malformed upgrade input supplied by the privileged migration caller (no permissionless attacker), so impact is bounded to a recoverable migration-step revert with a non-descriptive panic.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedInternalBalances.sol",
+        "function": "setInternalBalances",
+        "line_start": 44,
+        "line_end": 64,
+        "code_snippet": "for (uint i; i < internalBalances.farmers.length; i++) {\n    s.accts[internalBalances.farmers[i]].internalTokenBalance[IERC20(internalBalances.token)] = internalBalances.balances[i];  // no length-equality precondition\n    ...\n}"
+      },
+      "impact": "A malformed (shorter-balances) input array reverts the internal-balance reseed step of the migration with an opaque OOB panic rather than a clear precondition error. Bounded to the privileged upgrade path and recoverable by resubmitting correct data; the totalInternalBalance guard already catches most mismatches. Low (best-practice / robustness of a one-shot privileged init).",
+      "proof_of_concept": "Call init with a BeanstalkInternalBalance where farmers.length == 3 and balances.length == 2. Trace: loop reaches i=2; reads balances[2] on a length-2 array -> Panic(0x32) revert. With farmers.length == balances.length the loop completes and the totalInternalBalance require validates the sum. Attacker entry is not applicable (privileged upgrade input).",
+      "recommendation": "Add `require(internalBalances.farmers.length == internalBalances.balances.length, \"ReseedInternalBalances: length mismatch\");` at the top of setInternalBalances.",
+      "confidence": "High",
+      "attack_surface_rank": 3,
+      "ice": {
+        "intent": "Credit each farmer exactly its internal balance during migration.",
+        "technique": "Parallel-array indexing of balances[i] over farmers.length without a length-equality precondition.",
+        "evasion": "Only reachable via the privileged migration upgrade input; no permissionless trigger, so it is a robustness gap rather than an exploitable DoS."
+      },
+      "ice_chain": {
+        "corrupted_state": "n/a (revert) or silently truncated credits caught by the totalInternalBalance guard",
+        "impact": "Internal-balance reseed step reverts on malformed input, aborting that migration step until correct data is supplied.",
+        "consumer_found": true,
+        "consumer_function": "LibBalance internal-balance consumers depend on a completed reseed",
+        "exploit_path": "init with farmers.length > balances.length -> balances[i] OOB -> Panic revert"
+      },
+      "thread_id": "DT-011",
+      "thread_refs": [
+        "T-004"
+      ],
+      "thread_note": "T-004: High (score=?) \u2014 "
+    }
+  ]
+}

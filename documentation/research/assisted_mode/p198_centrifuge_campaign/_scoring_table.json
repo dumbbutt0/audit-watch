@@ -1,0 +1,90 @@
+{
+  "awarded": [
+    {
+      "id": "M-01",
+      "title": "onlyCentrifugeChainOrigin can't require msg.sender==axelarGateway",
+      "surface": "Gateway/axelar Router",
+      "in_sample": false,
+      "score": "OUT_OF_SAMPLE",
+      "blind": null,
+      "note": "axelar Router auth not in bounded invariant-core sample"
+    },
+    {
+      "id": "M-02",
+      "title": "requestRedeemWithPermit front-run with different liquidity pool",
+      "surface": "LiquidityPool.requestRedeemWithPermit",
+      "in_sample": false,
+      "score": "OUT_OF_SAMPLE",
+      "blind": null,
+      "note": "permit entrypoint not sampled (sampled LP.withdraw)"
+    },
+    {
+      "id": "M-03",
+      "title": "Cached DOMAIN_SEPARATOR incorrect for tranche tokens",
+      "surface": "ERC20/Tranche permit DOMAIN_SEPARATOR",
+      "in_sample": false,
+      "score": "OUT_OF_SAMPLE",
+      "blind": null,
+      "note": "permit/domain-separator not sampled (sampled Tranche.transfer)"
+    },
+    {
+      "id": "M-04",
+      "title": "Deposit small amount for other users to DoS them",
+      "surface": "LiquidityPool.deposit/mint (-> processDeposit)",
+      "in_sample": true,
+      "score": "MISS_WRONG_MECHANISM",
+      "blind": "IM-04",
+      "note": "IM-04 traced the auth-gated callee processDeposit and REJECTED the access-control angle (auth-gated), missing that the PUBLIC LiquidityPool.deposit wrapper has no access control -> the awarded front-run griefing. wrong-layer / non-responsive-rejection class"
+    },
+    {
+      "id": "M-05",
+      "title": "Claiming maxDeposit via deposit() starves Escrow shares for other claimers",
+      "surface": "LiquidityPool.deposit -> Escrow shares / processDeposit",
+      "in_sample": true,
+      "score": "PARTIAL",
+      "blind": "IM-04",
+      "note": "IM-04 selected 'maxDeposit not decremented -> drains Escrow tranche tokens beyond earned, affecting other holders' = same Escrow-share-conservation family, related but not the exact epoch-accumulation framing"
+    },
+    {
+      "id": "M-06",
+      "title": "DelayedAdmin cannot PauseAdmin.removePauser",
+      "surface": "PauseAdmin/DelayedAdmin",
+      "in_sample": false,
+      "score": "OUT_OF_SAMPLE",
+      "blind": null,
+      "note": "admin module not sampled"
+    },
+    {
+      "id": "M-07",
+      "title": "trancheTokenAmount should be rounded UP on withdrawal (currently DOWN)",
+      "surface": "InvestmentManager._calculateTrancheTokenAmount (L591) via processWithdraw",
+      "in_sample": true,
+      "score": "HIT",
+      "blind": "IM-06",
+      "note": "IM-06 selected EXACTLY _calculateTrancheTokenAmount rounding-DOWN as a precision/conservation defect (exact function L591 + rounding-direction mechanism)"
+    },
+    {
+      "id": "M-08",
+      "title": "RestrictionManager incomplete ERC1404: only checks receiver, not sender",
+      "surface": "RestrictionManager.detectTransferRestriction",
+      "in_sample": true,
+      "score": "HIT",
+      "blind": "RM-12",
+      "note": "RM-12 selected EXACTLY 'checks hasMember(to) but NOT hasMember(from)' -> revoked sender can transfer; exact function + exact mechanism. TR-11 also flagged the restriction gap"
+    }
+  ],
+  "blind_verdicts": {
+    "IM-01": "HIGH",
+    "IM-02": "HIGH",
+    "IM-03": "HIGH",
+    "IM-04": "HIGH",
+    "IM-05": "HIGH",
+    "IM-06": "MEDIUM",
+    "IM-07": "HIGH",
+    "ESC-08": "HIGH",
+    "ESC-09": "HIGH",
+    "LP-10": "HIGH",
+    "TR-11": "HIGH",
+    "RM-12": "HIGH"
+  }
+}

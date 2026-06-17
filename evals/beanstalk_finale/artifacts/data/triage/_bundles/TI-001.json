@@ -1,0 +1,99 @@
+{
+  "finding_id": "TI-001",
+  "title": "Fertilizer purchase path credits the requested tokenAmountIn rather than the actually-received Barn-Raise token amount (argument-based accounting, raw transferFrom)",
+  "agent": "",
+  "claimed_severity": "Low",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/LibFertilizer.sol",
+    "function": "addFertilizer",
+    "line_start": 116,
+    "line_end": 142
+  },
+  "description": "FertilizerFacet.mintFertilizer -> LibFertilizer.addFertilizer pulls the Barn-Raise token with a raw, return-value-unchecked IERC20(barnRaiseToken).transferFrom(user, this, tokenAmountIn) and then uses the SAME tokenAmountIn argument for (a) the well addLiquidity tokenAmountsIn, (b) the Fertilizer/recapitalization accounting (recapitalized += usdAmount derived from tokenAmountIn), and (c) the minted Fertilizer id/amount. There is no balanceOf-before/after measurement. If the Barn-Raise token were ever a fee-on-transfer or rebasing token, the contract would record/recapitalize more value than it actually received, drifting recapitalization accounting and over-issuing Fertilizer relative to backing. With the current Barn-Raise token (wstETH via BEAN_WSTETH_WELL \u2014 non-rebasing, standard, returns bool) there is no drift and the raw transferFrom cannot silently fail, so the live impact is nil. This contrasts with the Silo deposit path, which correctly uses the receiveToken balance delta.",
+  "impact": "Latent accounting-drift / over-issuance risk that only materializes if a fee-on-transfer or rebasing token is selected as the Barn-Raise token. Bounded to Low because the Barn-Raise token is governance-controlled and is currently wstETH (standard, non-FOT). Raw transferFrom return value is also unchecked, but wstETH reverts on failure so it is benign here.",
+  "ite": {
+    "intent": "Record Fertilizer/recapitalization equal to the value actually delivered to the protocol",
+    "technique": "Argument-based accounting (tokenAmountIn) instead of measured balanceOf delta, combined with raw transferFrom",
+    "evasion": "Only triggers if governance whitelists a non-standard Barn-Raise token; standard wstETH gives no drift"
+  },
+  "ice_chain": {
+    "corrupted_state": "s.sys.fert.recapitalized and minted Fertilizer amount (would exceed value actually received for an FOT/rebasing barn-raise token)",
+    "impact": "Over-recapitalization / over-issued Fertilizer vs. backing; addLiquidity may also revert (DoS) on under-delivered amount",
+    "consumer_found": true,
+    "consumer_function": "LibFertilizer.remainingRecapitalization / Sun fertilizer payout read s.sys.fert.recapitalized and Fertilizer balances",
+    "exploit_path": "mintFertilizer(tokenAmountIn) -> addFertilizer raw transferFrom + argument-based usdAmount -> recapitalized/Fertilizer overstated only when barnRaiseToken is FOT/rebasing"
+  },
+  "source_slice": "86:         uint256 tokenAmountIn,\n87:         uint256 usdAmount,\n88:         uint256 minAmountOut\n89:     ) internal {\n90:         AppStorage storage s = LibAppStorage.diamondStorage();\n91:         // Calculate how many new Deposited Beans will be minted\n92:         uint256 percentToFill = usdAmount.mul(C.precision()).div(remainingRecapitalization());\n93: \n94:         uint256 newDepositedBeans;\n95:         if (\n96:             C.unripeBean().totalSupply() >\n97:             s.sys.silo.unripeSettings[C.UNRIPE_BEAN].balanceOfUnderlying\n98:         ) {\n99:             newDepositedBeans = (C.unripeBean().totalSupply()).sub(\n100:                 s.sys.silo.unripeSettings[C.UNRIPE_BEAN].balanceOfUnderlying\n101:             );\n102:             newDepositedBeans = newDepositedBeans.mul(percentToFill).div(C.precision());\n103:         }\n104:         // Calculate how many Beans to add as LP\n105:         uint256 newDepositedLPBeans = usdAmount.mul(C.exploitAddLPRatio()).div(DECIMALS);\n106: \n107:         // Mint the Deposited Beans to Beanstalk.\n108:         C.bean().mint(address(this), newDepositedBeans);\n109: \n110:         // Mint the LP Beans and add liquidity to the well.\n111:         address barnRaiseWell = LibBarnRaise.getBarnRaiseWell();\n112:         address barnRaiseToken = LibBarnRaise.getBarnRaiseToken();\n113: \n114:         C.bean().mint(address(this), newDepositedLPBeans);\n115: \n116:         IERC20(barnRaiseToken).transferFrom(\n117:             LibTractor._user(),\n118:             address(this),\n119:             uint256(tokenAmountIn)\n120:         );\n121: \n122:         IERC20(barnRaiseToken).approve(barnRaiseWell, uint256(tokenAmountIn));\n123:         C.bean().approve(barnRaiseWell, newDepositedLPBeans);\n124: \n125:         uint256[] memory tokenAmountsIn = new uint256[](2);\n126:         IERC20[] memory tokens = IWell(barnRaiseWell).tokens();\n127:         (tokenAmountsIn[0], tokenAmountsIn[1]) = tokens[0] == C.bean()\n128:             ? (newDepositedLPBeans, tokenAmountIn)\n129:             : (tokenAmountIn, newDepositedLPBeans);\n130: \n131:         uint256 newLP = IWell(barnRaiseWell).addLiquidity(\n132:             tokenAmountsIn,\n133:             minAmountOut,\n134:             address(this),\n135:             type(uint256).max\n136:         );\n137: \n138:         // Increment underlying balances of Unripe Tokens\n139:         LibUnripe.incrementUnderlying(C.UNRIPE_BEAN, newDepositedBeans);\n140:         LibUnripe.incrementUnderlying(C.UNRIPE_LP, newLP);\n141: \n142:         s.sys.fert.recapitalized = s.sys.fert.recapitalized.add(usdAmount);\n143:     }\n144: \n145:     function push(uint128 id) internal {\n146:         AppStorage storage s = LibAppStorage.diamondStorage();\n147:         if (s.sys.fert.fertFirst == 0) {\n148:             // Queue is empty\n149:             s.sys.season.fertilizing = true;\n150:             s.sys.fert.fertLast = id;\n151:             s.sys.fert.fertFirst = id;\n152:         } else if (id <= s.sys.fert.fertFirst) {\n153:             // Add to front of queue\n154:             setNext(id, s.sys.fert.fertFirst);\n155:             s.sys.fert.fertFirst = id;\n156:         } else if (id >= s.sys.fert.fertLast) {\n157:             // Add to back of queue\n158:             setNext(s.sys.fert.fertLast, id);\n159:             s.sys.fert.fertLast = id;\n160:         } else {\n161:             // Add to middle of queue\n162:             uint128 prev = s.sys.fert.fertFirst;\n163:             uint128 next = getNext(prev);\n164:             // Search for proper place in line\n165:             while (id > next) {\n166:                 prev = next;\n167:                 next = getNext(next);\n168:             }\n169:             setNext(prev, id);\n170:             setNext(id, next);\n171:         }\n172:     }",
+  "gate_verdict": {
+    "finding_id": "TI-001",
+    "severity": "Low",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.545718+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": false
+}

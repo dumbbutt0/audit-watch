@@ -1,0 +1,81 @@
+{
+  "finding_id": "FL-003",
+  "title": "AerodromeAMO spot slot0 price used in mintForStrategy enables flash-loan OETHb over-minting",
+  "approach": "pure_arithmetic",
+  "test_name": "poc_fl_003_slot0_price_oethb_overmint",
+  "test_file_path": "tests/unit-tests/src/poc_fl_003_slot0_price_oethb_overmint.rs",
+  "language": "rust",
+  "framework": "soroban",
+  "run_command": "cargo test --manifest-path pocs/k2/FL-003/Cargo.toml -- --nocapture",
+  "setup": {
+    "constants": [
+      {
+        "name": "Q96",
+        "value": "79228162514264337593543950336u128",
+        "comment": "2^96, base for sqrtPriceX96"
+      },
+      {
+        "name": "SQRT_PRICE_1_TO_1_X96",
+        "value": "79228162514264337593543950336u128",
+        "comment": "sqrtPriceX96 for exact 1:1 WETH:OETHb parity"
+      },
+      {
+        "name": "WETH_BALANCE",
+        "value": "10_000_000_000_000_000_000u128",
+        "comment": "10 WETH (1e18 each)"
+      }
+    ],
+    "actors": [],
+    "initial_state": "No contract deployment needed. Pure arithmetic reproduces the estimateAmount1 / mintForStrategy logic."
+  },
+  "reproduction_steps": [
+    {
+      "step": 1,
+      "action": "Define estimate_amount1_for_price() reproducing the Uniswap v3 concentrated-liquidity formula: amount1 = L * (sqrtP - sqrtLower), with L = amount0 * sqrtP * sqrtLower / (sqrtUpper - sqrtLower) expressed via Q96 fixed-point arithmetic.",
+      "expected_effect": "Function computes OETHb required for a given WETH amount and sqrtPriceX96"
+    },
+    {
+      "step": 2,
+      "action": "Call estimate_amount1_for_price() with the fair 1:1 sqrtPriceX96. Record oethb_required_fair.",
+      "expected_effect": "Returns the correct, unmanipulated OETHb requirement at peg price"
+    },
+    {
+      "step": 3,
+      "action": "Simulate a flash-loan manipulation: compute a depressed sqrtPriceX96 (slot0 moved 1% toward lower tick, i.e., OETHb cheapened relative to WETH). Call estimate_amount1_for_price() with this manipulated price. Record oethb_required_manipulated.",
+      "expected_effect": "Returns a larger OETHb requirement because at depressed OETHb price more OETHb is needed per WETH"
+    },
+    {
+      "step": 4,
+      "action": "Compute excess_minted = oethb_required_manipulated - oethb_required_fair (this is the unbacked OETHb that would be minted via mintForStrategy).",
+      "expected_effect": "excess_minted > 0, demonstrating over-minting"
+    },
+    {
+      "step": 5,
+      "action": "Assert that excess_minted > 0 (proving the bug), and print both values with --nocapture for clarity.",
+      "expected_effect": "Test passes (confirming the bug exists) only when slot0 is manipulable; would fail after TWAP fix"
+    }
+  ],
+  "assertions": [
+    {
+      "variable": "oethb_required_manipulated",
+      "expected_value": "equal to oethb_required_fair",
+      "actual_buggy_value": "greater than oethb_required_fair (larger by excess_minted)",
+      "explanation": "Because _addLiquidity reads the spot slot0 price rather than a TWAP, a flash-loan that moves sqrtPriceX96 1% toward the lower tick causes estimateAmount1 to compute a proportionally larger OETHb requirement, triggering mintForStrategy to mint the excess unbacked OETHb."
+    },
+    {
+      "variable": "excess_minted",
+      "expected_value": "0 (no unbacked OETHb should be minted)",
+      "actual_buggy_value": "> 0 (specifically proportional to the price deviation * WETH_BALANCE)",
+      "explanation": "The excess represents OETHb minted beyond what the actual WETH deposited warrants at the true 1:1 peg price, representing protocol insolvency pressure."
+    }
+  ],
+  "inline_buggy_code": "// Reproduces _addLiquidity's estimateAmount1 call using slot0 spot price\n// Solidity original:\n//   uint160 _currentPrice = getPoolX96Price();  // reads clPool.slot0()\n//   uint256 _oethbRequired = helper.estimateAmount1(\n//       _wethBalance, address(0), _currentPrice, lowerTick, upperTick\n//   );\n//   if (_oethbRequired > _oethbBalance) {\n//       IVault(vaultAddress).mintForStrategy(_oethbRequired - _oethbBalance);\n//   }\n\nfn estimate_oethb_required(weth_amount: u128, sqrt_price_x96: u128, sqrt_lower_x96: u128, sqrt_upper_x96: u128) -> u128 {\n    // Uniswap v3 concentrated liquidity: L = amount0 * sqrtP * sqrtLower / (Q96 * (sqrtUpper - sqrtLower))\n    // amount1 = L * (sqrtP - sqrtLower) / Q96\n    // Simplified integer approximation (matches estimateAmount1 semantics):\n    let q96: u128 = 79_228_162_514_264_337_593_543_950_336u128;\n    // L numerator: weth * sqrtP * sqrtLower\n    // Use u256 approximation via scaling to avoid overflow in pure u128\n    let sqrt_diff = sqrt_price_x96.saturating_sub(sqrt_lower_x96);\n    let sqrt_range = sqrt_upper_x96.saturating_sub(sqrt_lower_x96);\n    // amount1 = weth_amount * sqrtP * (sqrtP - sqrtLower) / (sqrtLower * (sqrtUpper - sqrtLower)) scaled by Q96^0\n    // Simplified: oethb = weth * (sqrtP - sqrtLower) * sqrtP / (sqrt_range * sqrtLower) -- matches Uniswap v3 math direction\n    let numerator = weth_amount\n        .saturating_mul(sqrt_diff / (q96 / 1_000_000))\n        .saturating_mul(sqrt_price_x96 / (q96 / 1_000_000));\n    let denominator = (sqrt_range / (q96 / 1_000_000))\n        .saturating_mul(sqrt_lower_x96 / (q96 / 1_000_000));\n    if denominator == 0 { return 0; }\n    numerator / denominator\n}",
+  "failure_modes": [
+    "The pure arithmetic approximation of estimateAmount1 may not exactly match the Sugar helper's Solidity implementation, making the excess_minted value approximate rather than exact \u2014 but the direction (positive excess) is preserved.",
+    "Integer overflow in u128 arithmetic if WETH_BALANCE or price values are too large; mitigated by choosing moderate constants.",
+    "The test may not compile if the Cargo.toml for pocs/k2/FL-003 is not created with the correct [package] and no external dependencies.",
+    "If the repository maintainers have already fixed the issue by switching to TWAP in getPoolX96Price(), the excess_minted will be 0 and the PoC assertion about excess > 0 will fail, which is the correct fixed behavior.",
+    "The sqrtPriceX96 arithmetic scaling trick (dividing by q96/1_000_000 to keep values in u128 range) introduces rounding that could produce excess_minted = 0 for small price deviations; using 1% deviation (rather than 0.1%) mitigates this."
+  ],
+  "notes": "This is a Solidity/EVM finding in an Origin Dollar contract. The repository profile reports Rust/Soroban, but the bug is in AerodromeAMOStrategy.sol. The pure_arithmetic approach is chosen to reproduce the mathematical vulnerability without requiring EVM infrastructure. The test duplicates the estimateAmount1 calculation logic to demonstrate that reading slot0 (a spot price) versus a TWAP produces different oethb_required values, and that the difference triggers an excess mintForStrategy call. The test PASSES (demonstrates the bug) with the current code and would FAIL (excess=0) after a TWAP fix."
+}

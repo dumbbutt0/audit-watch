@@ -1,0 +1,91 @@
+{
+  "finding_id": "M-4",
+  "title": "setSyntheticAssetsInfo does not bump configVersion, defeating the stale-config batch guard",
+  "root_cause": "setSyntheticAssetsInfo (risk segments, oracle signers, quorum) has its incrConfigVersionInternal() commented out, so the MultiTransactionProcessor stale-config guard never fires for these changes.",
+  "affected_contracts": [
+    "src/.../GeneralConfig.sol"
+  ],
+  "affected_functions": [
+    "GeneralConfig.setSyntheticAssetsInfo",
+    "MultiTransactionProcessor.processMultiTransactions"
+  ],
+  "attacker_entrypoint": "GeneralConfig.setSyntheticAssetsInfo (owner/batchConfig) \u2014 version not bumped",
+  "attacker_capabilities": [
+    "config admin (owner/batchConfig) changes risk/oracle params"
+  ],
+  "privilege_required": "admin",
+  "scope_status": "uncertain",
+  "in_scope_asset": "GeneralConfig (setSyntheticAssetsInfo)",
+  "out_of_scope_risks": [
+    "relies on trusted operator/admin behavior (program trust model dependent)"
+  ],
+  "impact_category": "accounting_corruption",
+  "severity_claim": "Medium",
+  "severity_justification": {
+    "worst_case": "Risk/oracle config changes apply to already-signed batches without protection.",
+    "realistic_case": "Admin-triggered; undermines a built-in safety mechanism.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "TipRun",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": true,
+    "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
+  },
+  "call_trace": [
+    "record configVersion",
+    "setSyntheticAssetsInfo (change risk segment) => version unchanged",
+    "control: setMaxFundingRate => version increments by 1"
+  ],
+  "state_transition": {
+    "before": "configVersion = V",
+    "after": "configVersion still V after risk-param change (should be V+1)",
+    "slots_or_balances": []
+  },
+  "asset_delta": "In-flight user txs execute under changed risk/oracle params without the version-mismatch protection.",
+  "proof_type": "runnable_poc",
+  "poc_path": "reports/tiprun-2026-06-13/submissions/M-4/poc/PoC_ConfigVersionNotBumped.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "cd reports/tiprun-2026-06-13/harness",
+    "forge test --match-contract PoC_ConfigVersionNotBumped -vv"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [],
+  "false_positive_risks": [
+    "severity/scope depend on the official program trust model"
+  ],
+  "invalidating_conditions": [
+    "program may treat operator/admin actions as out of scope"
+  ],
+  "defense_analysis": [
+    {
+      "defense": "config version guard in MultiTransactionProcessor",
+      "blocks_path": false,
+      "why_it_fails": "guard relies on the version being bumped; this path skips the bump"
+    }
+  ],
+  "assumptions": [
+    "perp profile (RiskPlugin wired as CAP_MARGIN_CHECK)"
+  ],
+  "evidence_links": [
+    "src/core/config/GeneralConfig.sol:setSyntheticAssetsInfo (incr commented out ~179-182)",
+    "src/MultiTransactionProcessor.sol:processMultiTransactions (configVersion<current guard)",
+    "harness/test/PoC_ConfigVersionNotBumped.t.sol",
+    "submissions/M-4/poc_output.log"
+  ],
+  "triager_summary": "setSyntheticAssetsInfo does not bump configVersion, defeating the stale-config batch guard \u2014 PoC passing (PASS: configVersion unchanged after setSyntheticAssetsInfo; setMaxFundingRate increments it).",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Business Logic Errors (`setSyntheticAssetsInfo` does not bump `configVersion`; signature/cache validation keyed on the version can pass against stale config)",
+  "cvss": [
+    {
+      "aspect": "Missing config-version increment",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:N/I:L/A:N",
+      "score": 2.2,
+      "severity": "Low"
+    }
+  ]
+}

@@ -1,0 +1,783 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "SUPERVISED_EVAL_DERIVED_EVIDENCE",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "packages": [
+    {
+      "candidate_id": "coverage_manifest:GrowthHYBR:withdraw:5",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "GrowthHYBR.withdraw",
+      "source_refs": "GrowthHYBR.withdraw function withdraw(uint256 shares) external nonReentrant returns (uint256 userTokenId) {",
+      "mechanism_hypothesis": "[T2] GrowthHYBR.withdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "GrowthHYBR.withdraw function withdraw(uint256 shares) external nonReentrant returns (uint256 userTokenId) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls GrowthHYBR.withdraw with chosen inputs (function withdraw(uint256 shares) external nonReentrant retu)",
+      "attacker_controlled_inputs": "msg.sender + args of function withdraw(uint256 shares) external nonReentrant returns (uint256 userTok",
+      "victim_gainer": "victim = users/LPs of GrowthHYBR (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GrowthHYBR via withdraw (value-moving op)",
+      "invariant_expected": "GrowthHYBR.withdraw preserves the relevant protocol invariant",
+      "invariant_broken": "GrowthHYBR.withdraw violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls GrowthHYBR.withdraw with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert GrowthHYBR.withdraw produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:HYBR:initialMint:6",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "HYBR.initialMint",
+      "source_refs": "HYBR.initialMint function initialMint(address _recipient) external {",
+      "mechanism_hypothesis": "[T8] HYBR.initialMint: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "HYBR.initialMint function initialMint(address _recipient) external {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls HYBR.initialMint with chosen inputs (function initialMint(address _recipient) external {)",
+      "attacker_controlled_inputs": "msg.sender + args of function initialMint(address _recipient) external {",
+      "victim_gainer": "victim = users/LPs of HYBR (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in HYBR via initialMint (value-moving op)",
+      "invariant_expected": "share<->asset conversion in HYBR.initialMint conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "HYBR.initialMint rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls HYBR.initialMint with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through HYBR.initialMint nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:GaugeCL:withdraw:8",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "GaugeCL.withdraw",
+      "source_refs": "GaugeCL.withdraw function withdraw(uint256 tokenId, uint8 redeemType) external nonReentrant isNotEmergency {",
+      "mechanism_hypothesis": "[T1] GaugeCL.withdraw: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "GaugeCL.withdraw function withdraw(uint256 tokenId, uint8 redeemType) external nonReentrant isNotEmergency {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls GaugeCL.withdraw with chosen inputs (function withdraw(uint256 tokenId, uint8 redeemType) externa)",
+      "attacker_controlled_inputs": "msg.sender + args of function withdraw(uint256 tokenId, uint8 redeemType) external nonReentrant isNot",
+      "victim_gainer": "victim = users/LPs of GaugeCL (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GaugeCL via withdraw (value-moving op)",
+      "invariant_expected": "GaugeCL.withdraw preserves the relevant protocol invariant",
+      "invariant_broken": "GaugeCL.withdraw violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls GaugeCL.withdraw with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert GaugeCL.withdraw produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant', 'isNotEmergency'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant', 'isNotEmergency'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:GaugeV2:withdrawAllAndHarvest:10",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "GaugeV2.withdrawAllAndHarvest",
+      "source_refs": "GaugeV2.withdrawAllAndHarvest function withdrawAllAndHarvest(uint8 _redeemType) external {",
+      "mechanism_hypothesis": "[T1] GaugeV2.withdrawAllAndHarvest: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "GaugeV2.withdrawAllAndHarvest function withdrawAllAndHarvest(uint8 _redeemType) external {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls GaugeV2.withdrawAllAndHarvest with chosen inputs (function withdrawAllAndHarvest(uint8 _redeemType) external {)",
+      "attacker_controlled_inputs": "msg.sender + args of function withdrawAllAndHarvest(uint8 _redeemType) external {",
+      "victim_gainer": "victim = users/LPs of GaugeV2 (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GaugeV2 via withdrawAllAndHarvest (value-moving op)",
+      "invariant_expected": "rewards via GaugeV2.withdrawAllAndHarvest go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "GaugeV2.withdrawAllAndHarvest mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls GaugeV2.withdrawAllAndHarvest with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert GaugeV2.withdrawAllAndHarvest pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:HYBR:_mint:11",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "HYBR._mint",
+      "source_refs": "HYBR._mint function _mint(address _to, uint _amount) internal returns (bool) {",
+      "mechanism_hypothesis": "[T8] HYBR._mint: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "HYBR._mint function _mint(address _to, uint _amount) internal returns (bool) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "HYBR._mint is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _mint(address _to, uint _amount) internal returns (bool) {",
+      "victim_gainer": "victim = users/LPs of HYBR (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in HYBR via _mint (value-moving op)",
+      "invariant_expected": "share<->asset conversion in HYBR._mint conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "HYBR._mint rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls HYBR._mint with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through HYBR._mint nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:GrowthHYBR:claimRewards:15",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "GrowthHYBR.claimRewards",
+      "source_refs": "GrowthHYBR.claimRewards function claimRewards() external onlyOperator {",
+      "mechanism_hypothesis": "[T2] GrowthHYBR.claimRewards: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "GrowthHYBR.claimRewards function claimRewards() external onlyOperator {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "GrowthHYBR.claimRewards is guarded by modifier(s) ['onlyOperator']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function claimRewards() external onlyOperator {",
+      "victim_gainer": "victim = users/LPs of GrowthHYBR (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GrowthHYBR via claimRewards (value-moving op)",
+      "invariant_expected": "rewards via GrowthHYBR.claimRewards go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "GrowthHYBR.claimRewards mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls GrowthHYBR.claimRewards with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert GrowthHYBR.claimRewards pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyOperator'] would be the CORE exploitability claim - needs source review",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyOperator'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyOperator'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:GaugeCL:claimFees:18",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "GaugeCL.claimFees",
+      "source_refs": "GaugeCL.claimFees function claimFees() external nonReentrant returns (uint256 claimed0, uint256 claimed1) {",
+      "mechanism_hypothesis": "[T2] GaugeCL.claimFees: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "GaugeCL.claimFees function claimFees() external nonReentrant returns (uint256 claimed0, uint256 claimed1) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls GaugeCL.claimFees with chosen inputs (function claimFees() external nonReentrant returns (uint256 )",
+      "attacker_controlled_inputs": "msg.sender + args of function claimFees() external nonReentrant returns (uint256 claimed0, uint256 cl",
+      "victim_gainer": "victim = users/LPs of GaugeCL (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GaugeCL via claimFees (value-moving op)",
+      "invariant_expected": "post-GaugeCL.claimFees accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "GaugeCL.claimFees leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls GaugeCL.claimFees with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-GaugeCL.claimFees accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:GaugeManager:distributeFees:19",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "GaugeManager.distributeFees",
+      "source_refs": "GaugeManager.distributeFees function distributeFees(uint256 _start, uint256 _finish) external nonReentrant {",
+      "mechanism_hypothesis": "[T6] GaugeManager.distributeFees: Separate txs/epochs/delayed checkpoints may create a stale or double-counted accounting view.",
+      "root_cause": "GaugeManager.distributeFees function distributeFees(uint256 _start, uint256 _finish) external nonReentrant {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls GaugeManager.distributeFees with chosen inputs (function distributeFees(uint256 _start, uint256 _finish) ext)",
+      "attacker_controlled_inputs": "msg.sender + args of function distributeFees(uint256 _start, uint256 _finish) external nonReentrant {",
+      "victim_gainer": "victim = users/LPs of GaugeManager (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GaugeManager via distributeFees (value-moving op)",
+      "invariant_expected": "post-GaugeManager.distributeFees accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "GaugeManager.distributeFees leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls GaugeManager.distributeFees with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Across two transactions/epochs, can an index/accrual be applied twice or skipped?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-GaugeManager.distributeFees accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

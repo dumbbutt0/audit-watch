@@ -1,0 +1,30 @@
+{
+  "audit_id": "iq-ai-2025-01-blind",
+  "set": "holdout",
+  "language": "solidity",
+  "generated_at": "2026-06-12",
+  "awarded_source": "code4rena.com/reports/2025-01-iq-ai (1H/3M)",
+  "auto_heuristic": false,
+  "_do_not_auto_overwrite": "Hand-adjudicated GENUINE-BLIND FULL-COVERAGE cold pass (7/7). Only counts (H=1/M=3) + scope peeked pre-pass; titles SEALED on code4rena until reveal. Cutoff waived. LIFT TEST after neobase/init-capital/particle reincorporations.",
+  "awarded": [
+    {"id": "H-01", "severity": "High", "title": "Adversary can win proposals with voting power as low as 4% (GovernorVotesQuorumFraction(4) is 4%, not the intended 25%)", "label": "MISSED", "read_file": true, "mechanism_class": "oz-quorum-fraction-percent-misuse", "source": "human", "note": "MISS (reasoning): I READ `GovernorVotesQuorumFraction(4) // quorum is 25% (1/4th)` and TRUSTED THE COMMENT — OZ's quorumFraction numerator is a PERCENT (4 = 4%), not 1/4. Misleading-comment + OZ-semantics-misuse; a real miss."},
+    {"id": "M-01", "severity": "Medium", "title": "Anyone can deploy a new FraxSwap pair with a low fee incurring losses (moveLiquidity)", "label": "SAME_AREA", "read_file": true, "mechanism_class": "lp-migration-precreated-pair-manipulation", "source": "human", "matched_candidate": "IQ-01", "note": "SAME_AREA: my IQ-01 flagged the permissionless moveLiquidity using a PRE-CREATED/attacker-controlled Fraxswap pair to steal value; M-01 is the specific low-fee-pair variant of that pre-created-pair attack."},
+    {"id": "M-02", "severity": "Medium", "title": "Attacker can DOS liquidity migration (moveLiquidity)", "label": "SAME_AREA", "read_file": true, "mechanism_class": "lp-migration-precreated-pair-manipulation", "source": "human", "matched_candidate": "IQ-01", "note": "SAME_AREA: same moveLiquidity pre-created-pair attack surface I flagged (IQ-01); M-02 is the DoS impact of an attacker-seeded/skewed pair on the permissionless migration."},
+    {"id": "M-03", "severity": "Medium", "title": "Ineffective proposal threshold validation allows setting arbitrary high values", "label": "STRONG", "read_file": true, "mechanism_class": "wrong-variable-validated", "source": "human", "matched_candidate": "IQ-03", "note": "STRONG exact: my IQ-03 named it — setProposalThresholdPercentage checks the OLD `proposalThresholdPercentage` storage var, not the new `_proposalThresholdPercentage` param, so arbitrarily high values pass."}
+  ],
+  "candidates": [
+    {"id": "IQ-01", "matched": "M-01 + M-02 (SAME_AREA)"},
+    {"id": "IQ-02", "title": "moveLiquidity spot-price ratio", "matched": null, "note": "adjacent to M-01/M-02 migration family"},
+    {"id": "IQ-03", "matched": "M-03 (STRONG)"},
+    {"id": "IQ-04", "title": "bootstrap pool no-slippage direct buy/sell", "matched": null, "note": "router provides minOut; not awarded"},
+    {"id": "IQ-05", "title": "asymmetric fee-backing check", "matched": null}
+  ],
+  "summary": {
+    "awarded_total": 4, "adjudicated": 4, "pending": 0,
+    "recall_of_surfaced": 0.75, "strong_only": 0.25,
+    "missed": 1, "missed_coverage_gap": 0, "missed_reasoning_gap": 1,
+    "by_label": {"STRONG": 1, "SAME_AREA": 2, "SUBSYSTEM_ONLY": 0, "MISSED": 1, "UNADJUDICATED": 0},
+    "complete": true, "blind": true, "full_coverage": true,
+    "note": "GENUINE-BLIND FULL-COVERAGE (7/7). recall_of_surfaced 0.75 (3/4), strong 0.25 (1/4) — HIGHEST full-coverage Solidity recall so far. STRONG M-03 wrong-variable-validated (IQ-03). SAME_AREA M-01+M-02 moveLiquidity pre-created-pair migration attack (IQ-01). 1 MISS (reasoning): H-01 OZ quorumFraction(4)=4% not 25% (trusted the misleading comment). Small (4-finding) target -> high variance; lift attribution cautious."
+  }
+}

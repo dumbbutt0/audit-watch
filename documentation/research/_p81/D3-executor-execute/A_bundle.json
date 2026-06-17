@@ -1,0 +1,69 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "D3-executor-execute",
+  "detector_family": "value_flow",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "UTBExecutor",
+    "function": "execute",
+    "lines": "41",
+    "suspicious_pattern": "native call success path does NOT refund leftover native (only refunds on failure)",
+    "detector_claim": "leftover native stranded / value mishandled"
+  },
+  "context_summary": {
+    "source_resolved": true,
+    "reachability": "external"
+  },
+  "attacker_reachability": "external",
+  "defense_ledger": {},
+  "invariant_analysis": {
+    "broken_invariant": "all native accounted/refunded",
+    "why_defenses_do_not_block": "see ledger"
+  },
+  "exploit_path": {
+    "attacker_profile": "EOA",
+    "entrypoint": "execute",
+    "preconditions": "reachable",
+    "transaction_sequence": "native call succeeds with leftover value -> not refunded (only refunds on failure)",
+    "state_before": "s0",
+    "state_after": "s1",
+    "rejection_case": "considered defenses/falsifiers from source",
+    "source_evidence": "execute"
+  },
+  "impact_analysis": {
+    "impact_category": "stranded_native",
+    "minimum_profit_or_damage_condition": "leftover native stuck"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED",
+  "arm": "A",
+  "claimed_mechanism": "value_flow"
+}

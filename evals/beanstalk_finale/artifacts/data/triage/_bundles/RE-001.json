@@ -1,0 +1,101 @@
+{
+  "finding_id": "RE-001",
+  "title": "Arbitrary-call facets (Farm/Depot/Tractor) lack nonReentrant guard",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "Medium",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/farm/FarmFacet.sol",
+    "function": "farm / advancedFarm (also DepotFacet.advancedPipe, TractorFacet.tractor, LibPipelineConvert.executeAdvancedFarmCalls)",
+    "line_start": 29,
+    "line_end": 51,
+    "code_snippet": "function farm(bytes[] calldata data) external payable fundsSafu withEth returns (bytes[] memory results) { ... }  // no nonReentrant; LibFarm._farm -> facet.delegatecall(data)"
+  },
+  "description": "Beanstalk's reentrancy defense is a hybrid model: a diamond-wide ReentrancyGuard (shared storage slot s.sys.reentrantStatus) applied to the genuinely sensitive Silo/Convert functions (SiloFacet deposit/withdraw/transfer, ConvertFacet.convert, PipelineConvertFacet.pipelineConvert, EnrootFacet, ClaimFacet, MarketplaceFacet, UnripeFacet.chop) PLUS the Invariable balance/stalk/supply modifiers (fundsSafu, noNetFlow, noOutFlow, oneOutFlow, noSupplyChange/Increase) on everything else. The four general-purpose ARBITRARY EXTERNAL CALL entrypoints that the attack-surface map flags as the prime reentrancy surface -- FarmFacet.farm/advancedFarm, DepotFacet.pipe/multiPipe/advancedPipe/etherPipe, TractorFacet.tractor, and the executeAdvancedFarmCalls window inside LibPipelineConvert -- carry NO nonReentrant modifier (FarmFacet nonReentrant=0, DepotFacet nonReentrant=0, TractorFacet nonReentrant=0). They depend entirely on (a) the shared guard being already set by an outer guarded caller, and (b) the Invariable post-conditions. The architectural consequence: when a user enters through one of these unguarded entrypoints (e.g. FarmFacet.farm or DepotFacet.advancedPipe), the shared reentrant flag is NOT set, so an external call made through Pipeline can re-enter the diamond and reach OTHER unguarded state-mutating functions (FieldFacet.sow/harvest -- 0 guards, SeasonFacet.sunrise/gm -- 0 guards, FertilizerFacet.mintFertilizer/claimFertilized -- 0 guards) while the outer batch is mid-execution. Reentry into a nonReentrant function (any Silo/Convert op) IS correctly blocked by the shared flag once one is active; the gap is the unguarded<->unguarded reentry surface, where the only backstop is the Invariable balance equality/inequality checks evaluated at each modifier's closing brace. Those checks defend token *custody* (balances cannot net-decrease) but do NOT defend internal accounting consistency (stalk attribution, deltaB snapshots, soil/temperature, season state) read mid-batch. This is the structural seam that the economic/oracle reserve-skew vectors (see cross_agent_refs) ride on; on its own it is a Medium reentrancy-surface exposure pending a traced consumer that converts the mid-batch state read into fund loss.",
+  "impact": "An external call routed through Pipeline/Farm/Depot can re-enter the diamond and reach unguarded state-mutating functions (sow, harvest, sunrise, mintFertilizer) while an outer arbitrary-call batch is mid-execution and internal accounting (stalk/deltaB/season) is transiently inconsistent. Token custody is protected by the Invariable balance modifiers, so direct theft is not demonstrated by reentrancy alone; the realized impact is the enabling seam for the reserve-skew/oracle economic exploits tracked by the flash_loan/oracle/economic agents. Standalone severity Medium (state-read inconsistency, no traced direct drain).",
+  "ite": {
+    "intent": "Re-enter Beanstalk through an unguarded arbitrary-call entrypoint to read/act on transiently inconsistent internal accounting (stalk/deltaB/season) before the outer batch finalizes.",
+    "technique": "Enter via DepotFacet.advancedPipe or FarmFacet.farm (neither sets s.sys.reentrantStatus). Inside Pipeline, craft a PipeCall whose target calls back into FarmFacet.farm -> delegatecall sunrise/sow/mintFertilizer (also unguarded). The shared guard is not active, so the reentry is not blocked; LibFarm._farm executes the reentered function in diamond context.",
+    "evasion": "Developer intent: Invariable balance modifiers + diamond-wide guard. The gap: the guard is NOT applied to the arbitrary-call entrypoints, so unguarded->unguarded reentry is unblocked; Invariable checks custody (balances) at modifier exit, not transient stalk/deltaB/season accounting consumed mid-batch."
+  },
+  "ice_chain": {
+    "corrupted_state": "Transient internal accounting read during an arbitrary-call batch: well reserves / LibDeltaB.currentDeltaB, s.sys.season state, stalk attribution -- none are persistently corrupted, but they are readable in an inconsistent mid-batch state.",
+    "consumer_found": false,
+    "consumer_function": "PipelineConvertFacet.pipelineConvert stalk-penalty / SeasonFacet.sunrise mint (candidate consumers; manual trace required)",
+    "consumer_action": "Could mint mispriced BDV/stalk or over-issue sunrise reward Beans if the mid-batch reserve/deltaB read is attacker-skewed.",
+    "severity_ceiling": "Medium",
+    "search_method": "manual_trace"
+  },
+  "source_slice": "1: /**\n2:  * SPDX-License-Identifier: MIT\n3:  **/\n4: \n5: pragma solidity ^0.8.20;\n6: \n7: import {AppStorage} from \"../storage/AppStorage.sol\";\n8: import {LibDiamond} from \"../../libraries/LibDiamond.sol\";\n9: import {LibEth} from \"../../libraries/Token/LibEth.sol\";\n10: import {AdvancedFarmCall, LibFarm} from \"../../libraries/LibFarm.sol\";\n11: import {LibFunction} from \"../../libraries/LibFunction.sol\";\n12: import {Invariable} from \"contracts/beanstalk/Invariable.sol\";\n13: \n14: /**\n15:  * @title Farm Facet\n16:  * @author Beasley, Publius\n17:  * @notice Perform multiple Beanstalk functions calls in a single transaction using Farm calls.\n18:  * Any function stored in Beanstalk's EIP-2535 DiamondStorage can be called as a Farm call. (https://eips.ethereum.org/EIPS/eip-2535)\n19:  **/\n20: \n21: contract FarmFacet is Invariable {\n22:     AppStorage internal s;\n23: \n24:     /**\n25:      * @notice Execute multiple Farm calls.\n26:      * @param data The encoded function data for each of the calls\n27:      * @return results The return data from each of the calls\n28:      **/\n29:     function farm(\n30:         bytes[] calldata data\n31:     ) external payable fundsSafu withEth returns (bytes[] memory results) {\n32:         results = new bytes[](data.length);\n33:         for (uint256 i; i < data.length; ++i) {\n34:             results[i] = LibFarm._farm(data[i]);\n35:         }\n36:     }\n37: \n38:     /**\n39:      * @notice Execute multiple AdvancedFarmCalls.\n40:      * @param data The encoded function data for each of the calls to make to this contract\n41:      * See LibFunction.buildAdvancedCalldata for details on advanced data\n42:      * @return results The results from each of the calls passed in via data\n43:      **/\n44:     function advancedFarm(\n45:         AdvancedFarmCall[] calldata data\n46:     ) external payable fundsSafu withEth returns (bytes[] memory results) {\n47:         results = new bytes[](data.length);\n48:         for (uint256 i = 0; i < data.length; ++i) {\n49:             results[i] = LibFarm._advancedFarm(data[i], results);\n50:         }\n51:     }\n52: \n53:     // signals to Beanstalk functions that they should not refund Eth\n54:     // at the end of the function because the function is wrapped in a Farm function\n55:     modifier withEth() {\n56:         if (msg.value > 0) s.sys.isFarm = 2;\n57:         _;\n58:         if (msg.value > 0) {\n59:             s.sys.isFarm = 1;\n60:             LibEth.refundEth();\n61:         }\n62:     }\n63: }",
+  "gate_verdict": {
+    "finding_id": "RE-001",
+    "severity": "Medium",
+    "vuln_type": "reentrancy",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.543695+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

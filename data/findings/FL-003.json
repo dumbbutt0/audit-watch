@@ -1,0 +1,19 @@
+{
+  "finding_id": "FL-003",
+  "title": "AerodromeAMO spot slot0 price used in mintForStrategy enables flash-loan OETHb over-minting",
+  "bug_class": "oracle_slot0_manipulation",
+  "claimed_severity": "critical",
+  "contract": "AerodromeAMOStrategy",
+  "function": "_addLiquidity",
+  "location": "contracts/origin/origin-dollar/contracts/contracts/strategies/aerodrome/AerodromeAMOStrategy.sol",
+  "line_reference": "~978 (getPoolX96Price calls slot0), ~_addLiquidity calls estimateAmount1 with slot0 price",
+  "root_cause": "getPoolX96Price() reads clPool.slot0() for current sqrtPriceX96 which is flash-loan manipulable within the same block. estimateAmount1() uses this price to determine oethbRequired, which is then minted via mintForStrategy(). Pushing price toward the upper tick increases priceDelta in estimateAmount1, causing more OETHb to be minted than the deposited WETH can back.",
+  "impact": "Protocol mints excess unbacked OETHb. The _checkForExpectedPoolPrice guard uses the same slot0 price so does not prevent manipulation within the allowedWethShare band. _solvencyAssert at 99.8% provides a backstop but bounded excess minting per transaction is still possible.",
+  "mitigations": [
+    "_checkForExpectedPoolPrice limits deviation to allowedWethShare band",
+    "_solvencyAssert 99.8% backstop",
+    "Operator-only deposit() access"
+  ],
+  "fix": "Use a TWAP oracle (e.g. Aerodrome slot0 + observe() 30-min TWAP) instead of spot slot0 for estimateAmount1 price input.",
+  "immunefi_v22_severity": "critical"
+}

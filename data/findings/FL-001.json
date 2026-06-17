@@ -1,0 +1,15 @@
+{
+  "finding_id": "FL-001",
+  "title": "Curve get_virtual_price in checkBalance enables flash-loan yield inflation",
+  "bug_class": "read_only_reentrancy_oracle",
+  "claimed_severity": "high",
+  "claimed_impact": "A privileged attacker (operator or strategist) can flash-loan large amounts into the Curve pool, inflate get_virtual_price(), then trigger rebase() in the same block to artificially increase OETH/OETHb supply beyond real backing. Normal rebasing holders receive inflated yield that is not backed by real assets, diluting the protocol's real backing ratio. Over multiple executions, this erodes the 1:1 OETH:WETH backing peg. Additionally, this same price can be used in the _withdrawAndRemoveFromPool() slippage calculation (see FL-002).",
+  "location": {
+    "file": "contracts/origin/origin-dollar/contracts/contracts/strategies/BaseCurveAMOStrategy.sol",
+    "function": "checkBalance",
+    "line_start": 582,
+    "line_end": 596,
+    "code_snippet": "uint256 lpTokens = gauge.balanceOf(address(this));\nif (lpTokens > 0) {\n    balance += (lpTokens * curvePool.get_virtual_price()) / 1e18;\n}"
+  },
+  "immunefi_v22_severity": "high"
+}

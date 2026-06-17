@@ -1,0 +1,25 @@
+{
+  "_comment": "Regression fixture (Guardrail 4): two DISTINCT oracle bugs that share a function name and vuln_type but live in DIFFERENT files (the Beanstalk OR-001 vs OR-002 shape). The merge must keep them SEPARATE. Old deduplicate() keyed on (function, vuln_type) ignoring file, so it wrongly collapsed them.",
+  "findings": [
+    {
+      "id": "OR-001",
+      "_source_agent": "oracle",
+      "title": "LibChainlinkOracle.getTokenPrice inverts lookback: returns spot when TWAP requested",
+      "severity": "High",
+      "confidence": "High",
+      "vuln_type": "oracle-manipulation",
+      "description": "Inverted ternary in LibChainlinkOracle returns the instantaneous price when a non-zero lookback (TWAP) is requested.",
+      "location": {"file": "contracts/libraries/Oracle/LibChainlinkOracle.sol", "function": "getTokenPrice", "line_start": 39}
+    },
+    {
+      "id": "OR-002",
+      "_source_agent": "oracle",
+      "title": "LibUsdOracle.getTokenPrice ignores lookback for WSTETH, returns spot",
+      "severity": "Medium",
+      "confidence": "High",
+      "vuln_type": "oracle-manipulation",
+      "description": "The WSTETH branch in LibUsdOracle hardcodes lookback=0, returning the instantaneous wstETH price regardless of the caller's TWAP request.",
+      "location": {"file": "contracts/libraries/Oracle/LibUsdOracle.sol", "function": "getTokenPrice", "line_start": 83}
+    }
+  ]
+}

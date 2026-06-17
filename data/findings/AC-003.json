@@ -1,0 +1,15 @@
+{
+  "finding_id": "AC-003",
+  "title": "verifyDeposit() is callable by anyone \u2014 no access control \u2014 unsafe beacon proof state mutation",
+  "bug_class": "missing_auth_accounting_drift",
+  "claimed_severity": "medium",
+  "claimed_impact": "An attacker can call verifyDeposit with a valid proof while snapTimestamp is 0, removing a deposit from the depositList before the next verifyBalances cycle. This causes verifyBalances to undercount totalDepositsWei (the removed deposit is no longer in the list), but the deposit's ETH is now counted in the validator's beacon chain balance which may not yet be verified. This creates a temporary window where the strategy's reported balance (lastVerifiedEthBalance) is understated, allowing the vault to perceive a shortfall and potentially triggering unwanted allocation decisions.",
+  "location": {
+    "file": "contracts/origin/origin-dollar/contracts/contracts/strategies/NativeStaking/CompoundingValidatorManager.sol",
+    "function": "verifyDeposit",
+    "line_start": 719,
+    "line_end": 831,
+    "code_snippet": "function verifyDeposit(\n    bytes32 pendingDepositRoot,\n    uint64 depositProcessedSlot,\n    FirstPendingDepositSlotProofData calldata firstPendingDeposit,\n    StrategyValidatorProofData calldata strategyValidatorData\n) external { // no modifier"
+  },
+  "immunefi_v22_severity": "medium"
+}

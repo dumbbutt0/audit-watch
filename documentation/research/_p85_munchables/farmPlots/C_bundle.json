@@ -1,0 +1,86 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "LandManager.farmPlots",
+  "detector_family": "surface_recall_lens",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "LandManager",
+    "function": "farmPlots",
+    "lines": null,
+    "suspicious_pattern": "auth_boundary",
+    "detector_claim": "security-relevant surface; mechanism uncertain"
+  },
+  "context_summary": {
+    "source_available": true,
+    "source_resolved": true,
+    "reachability": "external"
+  },
+  "attacker_reachability": "external",
+  "defense_ledger": {
+    "toilerState_reset_on_unstake_restake": {
+      "classification": "does_not_cover",
+      "evidence": "dirty=false written only when toilerState is (re)created at stake L167 / unstake L191; does NOT cover recovery while staked"
+    },
+    "numPlots_range_check_at_stake": {
+      "classification": "irrelevant",
+      "evidence": "L146 plotId>=totalPlotsAvail revert at stake; does not prevent later numPlots drop"
+    },
+    "dirty_continue_guard": {
+      "classification": "bypassed",
+      "evidence": "L251 `if (_toiler.dirty) continue;` is unconditional once dirty set at L260; no reset path -> permanent skip"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "a validly-staked token on an in-range plot must keep accruing; dirty must clear when plot is back in range",
+    "why_defenses_do_not_block": "no guard reverses dirty; continue at L251 is unconditional once dirty"
+  },
+  "exploit_path": {
+    "attacker_profile": "EOA (renter or landlord); also natural lock fluctuation \u2014 permissionless",
+    "entrypoint": "farmPlots (and every forceFarmPlots-modified call)",
+    "preconditions": "renter has a token staked to landlord L on plotId p (p<numPlots(L) at stake)",
+    "transaction_sequence": "L's locked weighted value drops so numPlots(L)<=p (or numPlots(L)<p off-by-one at L258); a farm runs _farmPlots -> sets toiler.dirty=true (L260). L re-locks so numPlots(L)>p again; subsequent farms hit `if (_toiler.dirty) continue;` (L251) and skip the token forever -> renter accrues 0 for it.",
+    "state_before": "toilerState[t].dirty=false; token validly staked, in-range plot",
+    "state_after": "toilerState[t].dirty=true permanently (cleared only by unstake/restake), accrual halted",
+    "rejection_case": "Maybe dirty is reset on recovery. Searched all of LandManager: dirty=false is written ONLY when toilerState is (re)created in stakeMunchable (L167), unstakeMunchable (L191), transferToUnoccupiedPlot (no dirty write). No path clears dirty while the token stays staked. So the skip at L251 is permanent. Not falsified.",
+    "source_evidence": "_farmPlots L251 (continue on dirty), L258-261 (sets dirty true, never reset); dirty=false only at L167/L191"
+  },
+  "impact_analysis": {
+    "impact_category": "stuck_funds (permanent loss of renter yield / griefing)",
+    "minimum_profit_or_damage_condition": "one transient dip in landlord locked value (or the numPlots<plotId off-by-one) permanently bricks the renter's accrual for that token until unstake+restake"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED",
+  "_hygiene": {
+    "ok": true,
+    "violations": [],
+    "recommended": "POC_REQUIRED"
+  }
+}

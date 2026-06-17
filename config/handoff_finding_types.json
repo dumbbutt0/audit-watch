@@ -1,0 +1,142 @@
+{
+  "schema_version": "handoff-types-1",
+  "research_only": true,
+  "routes_in_production": false,
+  "is_gate": false,
+  "note": "Finding-type registry for the P84 handoff-bundle generator (scripts/handoff_generator.py). Each entry supplies TYPE-SPECIFIC template fragments (root-cause skeleton, severity argument, non-dust argument, mitigation options, PoC invariant pattern, evidence prompts). The reject-first GATE is identical across all types (it lives in scripts/funnel.py + the gate template) — only the narrative fragments differ. proof_requirements_ref points at templates/proof_requirements/<bug_class>.json for the L3 PoC requirements + negative control + severity rationale. The H-01 (shared_position_fee_routing) entry is the canonical worked example.",
+  "finding_types": {
+    "shared_position_fee_routing": {
+      "label": "Shared-accounting / fee-routing",
+      "proof_requirements_ref": "shared_position_fee_routing",
+      "poc_invariant_pattern": "order-independence / value-conservation: a user's claim proceeds must be independent of whether another sharer of the same pooled position acted first; total distributed must conserve each sharer's entitlement.",
+      "poc_setup_hint": "Set up >=2 users holding internal shares of ONE shared position; accrue fees via realistic trading; compare a user's payout claiming first vs claiming after another user using vm.snapshot/vm.revertTo at the same unlock and price.",
+      "root_cause_skeleton": "{{FUNCTION}} treats a per-sharer action as if it owned the whole pooled position: it collects/settles the entire position's accrued value but accounts only the caller's share, with no mechanism to leave the other sharers' value in place or credit it internally. The other shares' checkpoints are never advanced, so their later settlement references value already removed.",
+      "severity_argument": "Two fund-impacting consequences reachable permissionlessly: (1) direct misallocation of other sharers' accrued value to a third party; (2) denial of vested funds once the diverted amount is material (later settlement reverts -> principal-class funds locked). Either is serious; together and order-dependent, this is High-band pending program-tier mapping by a human.",
+      "non_dust_argument": "The affected amount is the other sharers' entire accrued value on the shared position, not a rounding remainder, and scales with volume and number of sharers; the second consequence is a hard revert (funds locked), not an off-by-wei discrepancy; the minimal patch flips the outcome cleanly.",
+      "mitigation_options": [
+        "Collect/settle only the amount this action distributes (the caller's principal + the caller's pro-rata share), leaving other sharers' value in the pooled position.",
+        "Account value internally per share (advance each share's checkpoint) so a global collect/settle cannot over-distribute another sharer's entitlement."
+      ],
+      "evidence_prompts": [
+        "the line that collects/settles the WHOLE pooled position (e.g. collect(max,max))",
+        "the line that pays the caller only its share",
+        "the line that routes the residual to a third party (or fails to credit other shares)",
+        "where other shares' checkpoints would be advanced (and are not)"
+      ]
+    },
+    "access_control_privileged": {
+      "label": "Access-control / privileged",
+      "proof_requirements_ref": "missing_auth_accounting_drift",
+      "poc_invariant_pattern": "authorization invariant: a state-mutating or value-moving function must reject callers without the required role; an unauthorized EOA/contract call must revert (and leave guarded state unchanged).",
+      "poc_setup_hint": "From an unprivileged attacker account/contract, call the under-guarded entrypoint directly; assert the call succeeds when it should not, the guarded state mutated, and (for High) a downstream fund-impacting consequence follows.",
+      "root_cause_skeleton": "{{FUNCTION}} performs a privileged state change without enforcing the required authorization (missing/incorrect modifier or check), so any caller can invoke it. The trust assumption that only an authorized role reaches this code path does not hold on-chain.",
+      "severity_argument": "An unprivileged caller can drive a state change intended to be privileged. Severity depends on the downstream consequence: Medium if it causes accounting drift/incorrect state; High if it leads to direct fund loss or a broken core invariant. Final tier mapping is the human's.",
+      "non_dust_argument": "This is a missing trust boundary, not a cosmetic issue: the unauthorized call succeeds outright (a binary auth failure), and the PoC asserts the guarded state actually changed; the negative control (adding the modifier) makes the same call revert.",
+      "mitigation_options": [
+        "Add the correct authorization modifier/check (e.g. onlyOwner / onlyRole / onlyRegistrator) to the entrypoint.",
+        "Validate the caller against the intended role set and revert otherwise; add a negative test asserting the unauthorized call reverts and guarded state is unchanged."
+      ],
+      "evidence_prompts": [
+        "the entrypoint declaration showing the missing/insufficient modifier",
+        "the privileged state it mutates",
+        "the role/owner variable that should have gated it",
+        "any sibling function that IS correctly guarded (parity evidence)"
+      ]
+    },
+    "reward_accrual_state_lifecycle": {
+      "label": "Reward-accrual / state-lifecycle",
+      "proof_requirements_ref": "reward_accrual_state_lifecycle",
+      "poc_invariant_pattern": "reward-lifecycle invariant: a validly-participating user must keep accruing; a dirty/stale flag or per-user reward checkpoint (reward debt / index) must be reset/advanced when the user returns to a valid state; reward owed must remain claimable. Set-but-never-reset breaks this permanently.",
+      "poc_setup_hint": "Put a user in a valid reward-earning state; trigger the path that sets the dirty/stale flag or skips the checkpoint update; restore the valid state (re-enter / move to a valid slot / re-lock); read the flag/checkpoint storage slot before/after to show it is NOT reset; then show the user accrues 0 / cannot claim owed reward and that no normal later action recovers it.",
+      "root_cause_skeleton": "{{FUNCTION}} (and/or the recovery path) sets a per-user reward-lifecycle flag / checkpoint on one branch but never resets/advances it when the user returns to a valid earning state, so a stale dirty/checkpoint value permanently suppresses accrual or makes owed reward unclaimable.",
+      "severity_argument": "A validly-participating user permanently (or until an abnormal action) stops earning or cannot claim owed reward through ordinary protocol use. High when the loss is permanent/unrecoverable-by-normal-action and quantified; Medium when accrual is demonstrably halted without a permanence/quantified-loss proof. A bounded mismatch that self-corrects on the next normal claim is NOT this class (-> Low via the severity gate).",
+      "non_dust_argument": "This is a stuck/unrecoverable reward-state, not a transient rounding skew: the flag/checkpoint is provably never reset on the valid-state path (read the slot), the victim's accrual is 0 (or strictly below the recoverable baseline) with no normal recovery, and the one-line reset patch flips the outcome cleanly.",
+      "mitigation_options": [
+        "Reset the dirty/stale flag (or advance the per-user reward checkpoint / clear reward debt) on the recovery path, and refresh the last-reward timestamp, so a user returning to a valid state resumes accrual.",
+        "Make accrual depend on the live valid-state check each period rather than a sticky flag, so recovery is automatic and no manual reset is needed."
+      ],
+      "evidence_prompts": [
+        "the line that sets the dirty/stale flag or skips the per-user checkpoint update",
+        "the accrual path that skips/zeroes reward when the flag is set (e.g. `continue` on dirty)",
+        "the recovery path that returns the user to a valid state but does NOT reset the flag/checkpoint",
+        "every write to the flag/checkpoint (prove no while-active reset exists)"
+      ]
+    },
+    "validation_liveness_counter_scope": {
+      "label": "Validation-liveness / counter-scope",
+      "proof_requirements_ref": "validation_liveness_counter_scope",
+      "poc_invariant_pattern": "validation-domain invariant: a capacity/eligibility check must use the CORRECT scope (per-generation / per-user / per-listing), not a global or wrong-domain counter; a user-facing mint/claim/withdraw/settle/forge/buy/sell path must remain usable while the correct-scope condition holds. A wrong-scope check that permanently blocks the path is a liveness failure.",
+      "poc_setup_hint": "Drive the system to the boundary where the wrong-domain check trips (e.g. global token count reaches the per-generation cap); call the user-facing path as a normal user; assert it is blocked (mints 0 / reverts / full refund); then show no self-recovery (no setter, counter never reset) so the brick is permanent from that point.",
+      "root_cause_skeleton": "{{FUNCTION}} validates against the wrong domain — a global/monotonic counter (or a wrong validation set) is compared to a per-generation/per-user/local limit — so once the global value crosses the local limit the check permanently blocks a user-facing path even though the correct-scope condition still permits it.",
+      "severity_argument": "A user-facing path (mint/claim/withdraw/settle/forge/buy/sell) is materially blocked by an incorrect validation scope. This is a LIVENESS / denial-of-asset-movement class — it must not be under-rated below Medium when source-backed (P88). High when the brick is permanent/indefinite, affects a core lifecycle phase or many/all users, and recovers only via privileged intervention / migration / upgrade.",
+      "non_dust_argument": "This is not a bounded/lazy accounting skew: the path is provably unusable for normal users (0 minted / revert / full refund), the brick is permanent (no setter, counter never reset), and the one-line scope-fix restores it cleanly. It denies intended asset movement / mint rights, not a rounding remainder.",
+      "mitigation_options": [
+        "Use the correct-scope counter in the check (e.g. generationMintCounts[currentGeneration] / per-user counter) instead of the global/monotonic counter.",
+        "Add the per-scope validation domain explicitly and a regression test asserting the user-facing path works at and beyond the boundary."
+      ],
+      "evidence_prompts": [
+        "the validation/loop-guard line using the wrong-domain counter",
+        "the declaration of that counter showing it is global/monotonic (never reset)",
+        "the correct per-scope counter that should have been used (and where it is enforced elsewhere)",
+        "the user-facing path that becomes blocked once the global value crosses the local limit"
+      ]
+    },
+    "access_control_index_integrity": {
+      "label": "Access-control / index-integrity (P90)",
+      "proof_requirements_ref": "access_control_index_integrity",
+      "poc_invariant_pattern": "index-integrity invariant: per-user/global index<->array bookkeeping must be mutated ONLY through the contract's own guarded paths; no external caller may add/remove/reorder index entries for an arbitrary address. A public unguarded mutator that desyncs the index breaks later legitimate operations.",
+      "poc_setup_hint": "Show the index/array mutator is public/external with no auth and an arbitrary target address; as an unrelated attacker call it for a victim; read storage to show index<->array desync/bloat; then show a later legitimate op for the victim reverts (IndexOutofBounds/WrongCredId-style) or mis-accounts; argue many/all holders + permanence.",
+      "root_cause_skeleton": "{{FUNCTION}} is an internal-style (underscore-prefixed) bookkeeping mutator left `public`/`external` with no access control and an arbitrary address parameter, so any caller corrupts another address's index<->array invariant.",
+      "severity_argument": "Unauthorized state mutation of per-user index bookkeeping by an arbitrary caller. Medium for the public unguarded mutator + corruption; High when it causes downstream reverts/mis-accounting for legitimate users and affects many/all holders (current and upcoming) without self-recovery. Apply the maximal-consequence check (P90-C) before settling on Medium.",
+      "non_dust_argument": "Not a cosmetic enumeration quirk: the desync provably reverts/mis-accounts a later legitimate op (sell/claim/enumerate), is reachable permissionlessly for any address, and the one-line visibility fix removes it.",
+      "mitigation_options": [
+        "Make the mutator `internal` (remove public/external) or gate it so only the contract's own buy/sell/update path can call it.",
+        "Validate the caller and the index<->array invariant; add a regression test asserting an external attacker call reverts and victim bookkeeping is unchanged."
+      ],
+      "evidence_prompts": [
+        "the mutator declaration showing public/external + no auth + arbitrary address param",
+        "the index<->array storage it desyncs (e.g. array + index map + length counter)",
+        "the later legitimate op that reverts/mis-accounts due to the desync",
+        "the scale/permanence (many/all holders, no self-recovery)"
+      ]
+    },
+    "signature_replay_authorization": {
+      "label": "Signature/merkle replay & authorization (P90)",
+      "proof_requirements_ref": "signature_replay_authorization",
+      "poc_invariant_pattern": "authorization-binding invariant: a signed/merkle-authorized action must be single-use and fully field-bound — the verified payload must include a nonce or consumed-flag, a deadline, the chainId, and a binding of the sensitive fields (recipient/id/amount) so it cannot be replayed or re-bound.",
+      "poc_setup_hint": "Show the signed/verified payload lacks a nonce/consumed-flag/deadline/chainId/field-binding; submit the same signature (or re-bound fields) a second time or from a second context and assert it is accepted; then show the unauthorized value/rights obtained (double reward, stolen royalty, impersonation) with the victim passive.",
+      "root_cause_skeleton": "{{FUNCTION}} verifies a signature/merkle proof over a payload that omits a replay guard (nonce/consumed-flag/deadline/chainId) or does not bind the sensitive fields, so the authorized action can be replayed or its fields re-bound.",
+      "severity_argument": "Replayable/re-bindable authorization. Medium for an accepted replay/rebind; High when it yields unauthorized value or rights (double reward, stolen royalties, impersonated minter) reachable by the attacker with the victim passive.",
+      "non_dust_argument": "Not a theoretical signature nit: the second execution is provably accepted and yields concrete unauthorized value/rights; the negative control (nonce/consumed mapping) makes the replay revert.",
+      "mitigation_options": [
+        "Add a per-signature nonce or a consumed mapping keyed by the signature/leaf hash; include a deadline + chainId; bind the sensitive fields (ref/id/minter) into the signed payload.",
+        "Assert in tests that a second submission of the same signature reverts and re-bound fields are rejected."
+      ],
+      "evidence_prompts": [
+        "the signed/verified payload fields (showing the missing nonce/consumed-flag/deadline/chainId/binding)",
+        "the verify call (ecrecover/MerkleProof) and what it does/does not bind",
+        "the absence of a consumed/nonce mapping update on success",
+        "the unauthorized value/rights obtained on replay/rebind"
+      ]
+    },
+    "oracle_price_manipulation": {
+      "label": "Oracle / price manipulation",
+      "proof_requirements_ref": "oracle_slot0_manipulation",
+      "poc_invariant_pattern": "price-integrity invariant: a value/mint/liquidation decision must not be derivable from an instantaneously manipulable price (spot slot0 / single-sided liquidity); a flash-loan-sized swap must not move the consumed price enough to change the protocol's decision.",
+      "poc_setup_hint": "Manipulate the consumed price source within one transaction (large swap / single-sided liquidity / flash loan), then call the function that reads it; assert the inflated/deflated price changed the protocol's computed amount or decision, and quantify the resulting overstatement/attacker profit for High.",
+      "root_cause_skeleton": "{{FUNCTION}} reads a manipulable spot price (e.g. slot0 sqrtPriceX96 / instantaneous reserves) and uses it to size a value-bearing decision, with no TWAP/sanity bound, so an attacker who moves the price within a transaction controls the outcome.",
+      "severity_argument": "An attacker can manipulate the consumed price within a single transaction to mis-size a value decision. Medium if price inflation + balance/decision distortion is shown; High if the overstatement magnitude and attacker profit (or protocol loss) are quantified. Human sets the final tier.",
+      "non_dust_argument": "The manipulation is attacker-controlled and bounded only by available capital/flash-loan size, not a rounding artifact; the PoC quantifies the price move and the resulting decision delta, and the negative control (TWAP/bound) removes the manipulability.",
+      "mitigation_options": [
+        "Consume a manipulation-resistant price (e.g. Uniswap V3 TWAP over a sufficient window) instead of spot slot0.",
+        "Add sanity bounds / deviation checks between the spot price and a reference, and reject when they diverge beyond a threshold."
+      ],
+      "evidence_prompts": [
+        "the line that reads the spot/manipulable price",
+        "the value/mint/liquidation decision that consumes it",
+        "the absence of a TWAP or deviation bound",
+        "the attacker's single-transaction manipulation path"
+      ]
+    }
+  }
+}

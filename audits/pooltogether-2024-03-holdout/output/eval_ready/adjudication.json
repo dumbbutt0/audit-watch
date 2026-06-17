@@ -1,0 +1,245 @@
+{
+  "audit_id": "pooltogether-2024-03-holdout",
+  "set": "training",
+  "generated_at": "2026-06-12T14:11:02Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": true,
+  "awarded": [
+    {
+      "id": "H-01",
+      "severity": "High",
+      "title": "Any fee claim lesser than the total `yieldFeeBalance` as unit of shares is lost and locked in the `PrizeVault` contract",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "DT-01",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "The winner can steal claimer fees, and force him to pay for the gas",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "`_maxYieldVaultWithdraw()` uses `yieldVault.convertToAssets()`",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "`maxDeposit()` uses `yieldVault.maxDeposit()` but `_depositAndMint()` uses `yieldVault.mint()`",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-04",
+      "severity": "Medium",
+      "title": "Lack of Slippage Protection in `withdraw`/`redeem` Functions of the Vault",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-05",
+      "severity": "Medium",
+      "title": "`yieldFeeBalance` wouldn't be claimed after calling `transferTokensOut()`",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-06",
+      "severity": "Medium",
+      "title": "Funds locked due to missing transfer check",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-07",
+      "severity": "Medium",
+      "title": "`PrizeVault.maxDeposit()` doesn't take into account produced fees",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-08",
+      "severity": "Medium",
+      "title": "Permit doesn't work with DAI",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "DT-01",
+      "title": "claimYieldFeeShares zeroes the entire yieldFeeBalance on a partial claim",
+      "severity": "Medium",
+      "file": "PrizeVault.sol:611-622 (line 617)",
+      "contract": "",
+      "function": "",
+      "description": "claimYieldFeeShares(_shares) caches _yieldFeeBalance = yieldFeeBalance, validates _shares <= _yieldFeeBalance, then executes `yieldFeeBalance -= _yieldFeeBalance` (subtracting the full cached balance) while minting only `_shares`. On any claim where _shares < yieldFeeBalance the recipient forfeits the unclaimed remainder, which is permanently zeroed without shares being minted for it."
+    },
+    {
+      "id": "LG-01",
+      "title": "claimYieldFeeShares zeroes the full yieldFeeBalance on a partial claim",
+      "severity": "Medium",
+      "file": "PrizeVault.sol:611-622 (617)",
+      "contract": "",
+      "function": "",
+      "description": "claimYieldFeeShares caches _yieldFeeBalance then executes `yieldFeeBalance -= _yieldFeeBalance` (full balance) while minting only `_shares`. A partial claim (_shares < balance) destroys the unclaimed remainder."
+    },
+    {
+      "id": "DT-02",
+      "title": "Malicious/reverting winner prize hook griefs the claimer and blocks the prize claim",
+      "severity": "Medium",
+      "file": "Claimable.sol:85-96 / 108-116; HookManager.sol:29",
+      "contract": "",
+      "function": "",
+      "description": "claimPrize calls a winner-controlled hook (beforeClaimPrize/afterClaimPrize) set via the permissionless, unvalidated HookManager.setHooks. Although the call is gas-capped at HOOK_GAS (150k), a hook that reverts (or forces an OOG that bubbles) reverts the entire claimPrize, so the claimer expends gas with no reward and the prize cannot be claimed for that winner."
+    },
+    {
+      "id": "DOS-01",
+      "title": "Reverting/gas-griefing winner hook blocks the prize claim and griefs the claimer",
+      "severity": "Medium",
+      "file": "Claimable.sol:85-96,108-116; HookManager.sol:29",
+      "contract": "",
+      "function": "",
+      "description": "claimPrize invokes a winner-controlled hook (set via permissionless setHooks) capped at HOOK_GAS. A hook that reverts (or causes an OOG that propagates) reverts the whole claim, denying the claimer's reward and stranding the winner's prize."
+    },
+    {
+      "id": "E46-01",
+      "title": "Lossy-state withdrawals round down against depositors once the yield buffer is depleted",
+      "severity": "Medium",
+      "file": "PrizeVault.sol:355-366,454-467",
+      "contract": "",
+      "function": "",
+      "description": "convertToAssets/previewWithdraw use mulDiv rounding DOWN of (totalAssets,totalDebt) when totalAssets < totalDebt. The no-loss guarantee only holds while the yield buffer covers the 1-wei rounding; once depleted, withdrawers lose dust and the loss can be ground down by repeated small withdrawals."
+    },
+    {
+      "id": "AC-01",
+      "title": "setHooks is permissionless and the hook implementation is unvalidated",
+      "severity": "Low",
+      "file": "HookManager.sol:29; Claimable.sol:85-116",
+      "contract": "",
+      "function": "",
+      "description": "Any account can set an arbitrary hook implementation; combined with the gas-capped external call in claimPrize this enables the claimer-griefing DoS (see DOS-01). By design but the unvalidated external call is the root enabler."
+    },
+    {
+      "id": "AR-01",
+      "title": "Liquidation fee rounding asymmetry can revert a max liquidation",
+      "severity": "Low",
+      "file": "PrizeVault.sol:647-653 vs 675-681",
+      "contract": "",
+      "function": "",
+      "description": "liquidatableBalanceOf rounds the liquid yield DOWN via mulDiv(FEE_PRECISION-fee,FEE_PRECISION); transferTokensOut re-derives the fee with amountOut*FEE_PRECISION/(FEE_PRECISION-fee)-amountOut and enforces a strict revert. The roundings are inconsistent so quoting exactly the advertised max can revert."
+    },
+    {
+      "id": "DT-03",
+      "title": "Liquidation rounding asymmetry may revert a max liquidation quoted by liquidatableBalanceOf",
+      "severity": "Low",
+      "file": "PrizeVault.sol:647-653 vs 675-681",
+      "contract": "",
+      "function": "",
+      "description": "liquidatableBalanceOf rounds the liquid yield DOWN using (FEE_PRECISION - fee)/FEE_PRECISION, while transferTokensOut re-derives the fee with a different formula (amountOut*FEE_PRECISION/(FEE_PRECISION-fee) - amountOut) and enforces a strict `amountOut + yieldFee > availableYield` revert. The two roundings are not mutually consistent, so a liquidation pair quoting exactly the advertised liquidatable balance can revert by ~1 wei."
+    },
+    {
+      "id": "EA-01",
+      "title": "Direct asset donation inflates totalAssets / availableYield",
+      "severity": "Low",
+      "file": "PrizeVault.sol:336-338,591-593,631-653",
+      "contract": "",
+      "function": "",
+      "description": "totalAssets() includes _asset.balanceOf(this) (latent balance). A direct token donation increases availableYield and can be liquidated to the prize pool; combined with the dust-collection strategy, donation timing around liquidations may be gameable. Yield buffer + 1:1 mint mitigate the classic first-depositor inflation."
+    },
+    {
+      "id": "E46-02",
+      "title": "maxRedeem/maxWithdraw may over-report relative to the yield vault's instantaneous redemption limit",
+      "severity": "Low",
+      "file": "PrizeVault.sol:404-438,921-923",
+      "contract": "",
+      "function": "",
+      "description": "maxWithdraw/maxRedeem derive from _maxYieldVaultWithdraw()=convertToAssets(maxRedeem) of the yield vault plus latent balance; if the underlying yield vault's withdraw path imposes tighter limits than redeem, a withdraw at the reported max can revert."
+    },
+    {
+      "id": "RE-01",
+      "title": "No reentrancy guard on the claim path; winner hook can re-enter the vault",
+      "severity": "Low",
+      "file": "Claimable.sol:76-119",
+      "contract": "",
+      "function": "",
+      "description": "claimPrize calls beforeClaimPrize/afterClaimPrize (attacker contracts) with no nonReentrant guard. A winner hook can re-enter deposit/withdraw/transfer/setHooks during the claim. Impact depends on PrizePool semantics; flagged for trace."
+    },
+    {
+      "id": "TI-01",
+      "title": "_withdraw uses raw _asset.transfer instead of SafeERC20.safeTransfer",
+      "severity": "Low",
+      "file": "PrizeVault.sol:939",
+      "contract": "",
+      "function": "",
+      "description": "Line 939 calls `_asset.transfer(_receiver,_assets)` without checking the return value, while the rest of the contract uses SafeERC20. Non-standard ERC20s (e.g. USDT) that return no bool or return false silently can cause a silent failure / inconsistency."
+    },
+    {
+      "id": "TI-02",
+      "title": "Fee-on-transfer / rebasing assets break deposit accounting",
+      "severity": "Low",
+      "file": "PrizeVault.sol:843-877",
+      "contract": "",
+      "function": "",
+      "description": "_depositAndMint mints shares 1:1 to _assets while assuming the full _assets arrived; a fee-on-transfer asset delivers less, leaving totalAssets<totalDebt. The vault documents non-support but does not enforce it."
+    }
+  ],
+  "summary": {
+    "awarded_total": 9,
+    "awarded_source": "report.md",
+    "adjudicated": 9,
+    "pending": 0,
+    "auto_adjudicated": 9,
+    "misses_detected": 8,
+    "recall_of_surfaced": 0.111,
+    "strong_only": 0.0,
+    "by_label": {
+      "MISSED": 8,
+      "SAME_AREA": 0,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 1,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

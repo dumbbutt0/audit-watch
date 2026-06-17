@@ -1,0 +1,136 @@
+{
+  "module": "mechanism_pairwise_selector",
+  "generated_at": "2026-06-09T18:51:39.437000+00:00",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "emits_findings": false,
+  "concludes_vulnerability": false,
+  "output_type": "advisory_selector_decisions",
+  "guard_violations": 0,
+  "decision_count": 3,
+  "decisions": [
+    {
+      "pair_id": "pool_swap_txorigin_auth|beacon_constructor",
+      "M1": {
+        "id": "pool_swap_txorigin_auth",
+        "label": "KatanaV3Pool.swap skips router-authorization via `if (tx.origin != address(0))` (tx.origin-based access gate)",
+        "terminal_impact": 9,
+        "validity": 6,
+        "plausible": true,
+        "poc_feasibility": "moderate"
+      },
+      "M2": {
+        "id": "beacon_constructor",
+        "label": "KatanaV3PoolBeacon.constructor (thin pass-through to OZ UpgradeableBeacon)",
+        "terminal_impact": 1,
+        "validity": 1,
+        "plausible": false,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 8,
+      "anti_easy_poc_flag": true,
+      "outcome": "SELECT_M1",
+      "decisive_dimensions": [
+        "terminal_impact_dominance",
+        "rival weak/refuted",
+        "anti_easy_poc_bias: lower-impact rival is easier to PoC -> do not drop high-impact"
+      ],
+      "uncertainty": [
+        "at least one mechanism is refuted/unreachable as scored"
+      ],
+      "falsification_questions": [
+        "Can a non-router caller reach pool.swap with the auth check skipped (tx.origin==0), and does that have any state-changing consequence?",
+        "Does the beacon constructor add any logic beyond OZ UpgradeableBeacon?"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "pair_0"
+    },
+    {
+      "pair_id": "pool_mint_burn_conservation|migrate_dust",
+      "M1": {
+        "id": "pool_mint_burn_conservation",
+        "label": "KatanaV3Pool.mint/burn concentrated-liquidity amount/fee accounting",
+        "terminal_impact": 9,
+        "validity": 7,
+        "plausible": true,
+        "poc_feasibility": "hard"
+      },
+      "M2": {
+        "id": "migrate_dust",
+        "label": "V3Migrator.migrate dust/refund handling on V2->V3 migration",
+        "terminal_impact": 2,
+        "validity": 4,
+        "plausible": true,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 7,
+      "anti_easy_poc_flag": true,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "terminal_impact_dominance",
+        "both plausible -> protect high-impact before PoC",
+        "anti_easy_poc_bias: lower-impact rival is easier to PoC -> do not drop high-impact"
+      ],
+      "uncertainty": [],
+      "falsification_questions": [
+        "Does mint/burn deviate from vanilla Uniswap V3 conservation in a way that mis-accounts liquidity/fees?",
+        "Is migration dust refunded correctly to msg.sender in all branches?"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "pair_1"
+    },
+    {
+      "pair_id": "router_swap_auth|npm_mint_auth",
+      "M1": {
+        "id": "router_swap_auth",
+        "label": "AggregateRouter/V3SwapRouter swap authorization (governance.isAuthorized) + callback validation",
+        "terminal_impact": 9,
+        "validity": 7,
+        "plausible": true,
+        "poc_feasibility": "moderate"
+      },
+      "M2": {
+        "id": "npm_mint_auth",
+        "label": "NonfungiblePositionManager.mint AuthorizationLib.checkPair gate",
+        "terminal_impact": 9,
+        "validity": 6,
+        "plausible": true,
+        "poc_feasibility": "moderate"
+      },
+      "impact_gap": 0,
+      "anti_easy_poc_flag": false,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "near-equal impact, both plausible -> keep both"
+      ],
+      "uncertainty": [
+        "terminal-impact gap below min_gap; decision is low-confidence"
+      ],
+      "falsification_questions": [
+        "Can a user bypass governance.isAuthorized() token-whitelist via the router, or spoof the swap callback?",
+        "Does checkPair correctly gate position minting against the governance whitelist window?"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "pair_2"
+    }
+  ]
+}

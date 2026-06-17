@@ -1,0 +1,32 @@
+{
+  "version": "packed-field-mask-opcode-lens-v1",
+  "description": "Phase-40 RESEARCH-ONLY packed-field mask-opcode anomaly lens. Read ONLY by scripts/packed_field_mask_opcode_lens.py (un-wired). Detects a field extracted via shr/shl/slice that is then combined with a MASK constant using add/or/xor where AND (masking) is required — a wrong-combinator anomaly. High-precision: requires an exact packed extraction + mask-like constant + operator mismatch + downstream value/authority use + >=1 source corroborator; STRONG needs all of them + no source-backed justification. This is NOT a generic 'suspicious bitwise math' detector. Generic Solidity vocab only — NO subject-specific file/contract/function/constant/comment/award identifiers. is_gate:false research_only:true routes_in_production:false routed_manifest_ids:[].",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+
+  "extract_ops": ["shr", "shl"],
+  "extract_slice_re": "\\.slice\\s*\\(|\\[\\s*\\d+\\s*:\\s*\\d+\\s*\\]",
+  "mask_idiom_op": "and",
+  "suspicious_ops_asm": ["add", "or", "xor", "sub"],
+  "suspicious_ops_infix": ["+", "|", "^"],
+
+  "mask_literal_re": "0x[fF]{2,}",
+  "mask_width_minus_one_re": "\\(\\s*1\\s*<<\\s*\\w+\\s*\\)\\s*-\\s*1|2\\s*\\*\\*\\s*\\w+\\s*-\\s*1",
+  "mask_name_tokens": ["mask", "width", "bits", "bytes", "field"],
+
+  "corroborator_comment_tokens": ["mask", "bytes1", "bytes2", "bytes4", "bytes8", "bytes16", "bytes20", "bytes32", "bits", "field", "truncate", "lower bits", "upper bits", "extract", "= 0xff"],
+  "value_authority_roles": {
+    "amount": ["amount", "amt", "value", "qty"],
+    "price": ["price", "rate"],
+    "id": ["id", "index", "key", "nonce"],
+    "address": ["address", "owner", "recipient", "to", "sender", "beneficiary"],
+    "debt": ["debt"], "collateral": ["collateral", "col"],
+    "share": ["share", "stake", "reserve"], "fee": ["fee", "penalty"],
+    "reward": ["reward", "yield"], "authority": ["role", "auth", "admin", "owner", "permission"],
+    "order_field": ["order", "bid", "ask", "ticket"]
+  },
+
+  "intentional_bitset_markers": ["flag", "set bit", "setbit", "enable", "turn on", "packbits", "compose", "pack(", "1 <<", "1<<"]
+}

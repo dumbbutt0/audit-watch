@@ -1,0 +1,84 @@
+{
+  "research_only": true,
+  "phase": "P97",
+  "subject": "secondswap-2024-12",
+  "commit": "6693d9e4f03a37919a52626de64b1cadf632fd29",
+  "purpose": "FINAL DECISION RUN after P96. Eighth fresh sealed-key blind run. Does adversarial_ordering_check (P96) improve autonomous blind conversion while preserving 0 severity FP + reject-first?",
+  "blindness": "repo/key-blind + web-blind until freeze (prekey_freeze.json answer_key_opened=false); answer key (Code4rena report) opened ONLY after all artifacts frozen; residual model-training contamination acknowledged.",
+  "answer_key": {"high": 3, "medium": 20, "source": "code4rena.com/reports/2024-12-secondswap"},
+
+  "metrics": {
+    "blind_surface_recall": {"lens_raw_leads": 43, "selected": 20, "controls": 3,
+      "policy": "global top-16 ∪ per-contract top-2 floor + 3 controls",
+      "per_contract_floor_contribution_to_hits": "1 (StepVesting.claim/claimable surfaced via floor; the single Medium HIT M-14 came via a transitive C-chain read of a value_exit lead, not the floor)",
+      "lens_recall_gap": "CRITICAL: the economic core (Marketplace.spotPurchase/listVesting, VestingManager.completePurchase/listVesting/unlistVesting) scored 1 (only auth_boundary matched; value_exit/fee_path NOT tagged on the transfer body) and was NOT selected by top-16 or floor. The lens over-weighted admin_config_setter (fee setters scored 5). Most awarded findings live in the under-scored economic functions — same P81b/P91 lens bias, more severe on this subject."},
+    "selected_lead_recall": "Of the 20 selected, only StepVesting.claim/claimable + Marketplace.unlistVesting + the fee setters were genuine; the economic bug-bearing functions were reached only TRANSITIVELY during C-chain tracing.",
+    "NOT_RUN": 0,
+    "investigation_safety": {"C_SOURCE_FALSE": 0, "C_unsupported_READY": 0, "C_HARD_FAIL": 0, "C_detector_to_finding": 0},
+    "severity_FP_after_gate": 1,
+    "severity_FP_detail": "F2 (Whitelist.whitelistAddress permissionless self-registration) was promoted Medium/POC_REQUIRED and passed severity_impact_gate, but does NOT map to any awarded H/M. The contract has NO curated-add function at all -> open self-registration up to a seller-set cap is almost certainly BY DESIGN ('private listing' = capacity-limited open sale). The 'private-not-private' interpretation is a probable FALSE POSITIVE / over-claim; the sybil-fill griefing angle is real-ish but unawarded. Counted conservatively as 1 severity FP. (Note: it was POC_REQUIRED, never READY/submitted.)",
+
+    "clean_hits": [
+      {"finding": "M-14 Incorrect Referral Fee Calculations", "via": "F1", "blind_severity": "Medium", "awarded": "Medium",
+       "note": "_handleTransfers computes referralFeeCost but never transfers it to _referral; feeCollectorTotal does not subtract it; referralFeeCollector unused. CLEAN_HIT (exact function/root cause). Isolated key-blind adversarial review CONFIRMED Medium, flagged surplus accrues to feeCollector (not user loss) -> Medium not over-rated."}
+    ],
+
+    "completed_but_wrong_rejects_of_true_findings": [
+      {"awarded": "H-01 (HIGH) Vesting listing order affects claimable", "blind": "FALSE-REJECT",
+       "detail": "I localized the EXACT mechanism (VestingManager holds one aggregated vesting whose stepsClaimed is set by the FIRST lister and is STALE for later listers; buyers inherit manager.stepsClaimed via transferVesting). I traced it and concluded REJECT ('token sum conserves'). WRONG: I checked only TOKEN-SUM conservation, not the per-vesting CLAIM-SCHEDULE correctness the bug actually breaks (cross-seller stale stepsClaimed). Completed-but-wrong REJECT of a true High."},
+      {"awarded": "H-02 (HIGH) transferVesting assigns same stepsClaimed -> sell+repurchase premature unlock", "blind": "FALSE-REJECT",
+       "detail": "I traced the sybil sell/repurchase ordering but only for the maxSellPercent cap (R1), concluded 'no bypass'. I missed that repurchase RESETS the buyer's stepsClaimed to the manager's (stale, often 0), unlocking faster than the original schedule. Completed-but-wrong REJECT of a true High."},
+      {"awarded": "H-03 (HIGH) Incorrect releaseRate in transferVesting", "blind": "UNDER-RATED REJECT (F4)",
+       "detail": "I localized the EXACT formula (releaseRate = totalAmount/numOfSteps, ignoring stepsClaimed) but concluded it was BOUNDED/self-correcting (REJECT, Low) because the final-step branch trues up. Judges rated it HIGH (sellers re-claim previously-distributed tokens). Localized-but-under-rated -> not promoted. Effectively a false-reject of a true High."},
+      {"awarded": "M-11 (MEDIUM) maxSellPercent bypass via repeated buy/sell", "blind": "FALSE-REJECT",
+       "detail": "Explicitly traced the sybil buy-and-resell ordering in R1 and concluded 'no cap multiplication / conserves'. Awarded as a real Medium. Completed-but-wrong REJECT."}
+    ],
+
+    "under_promoted_observations": [
+      {"awarded": "M-04 Multiple token owners (_tokenOwner owner=>token)", "blind": "OBSERVED, not promoted",
+       "detail": "I noted setTokenOwner maps owner->token and the same token is assignable to multiple owners, but filed it as a privileged side-note rather than a finding."},
+      {"awarded": "M-10 Already-vested tokens can be transferred", "blind": "PARTIAL (F3)",
+       "detail": "I flagged VestingDeployer.transferVesting arbitrary-grantor as a PRIVILEGED centralization caveat (token-issuer), not promoted. Awarded Medium. Under-promoted via 'privileged_only' demotion."}
+    ],
+
+    "honest_misses_below_cutoff_or_unsurfaced": ["M-01 listing-type != vs == minPurchase bypass", "M-02 discounted rounding revert", "M-03 no token-removal", "M-05..M-09, M-12, M-13, M-15..M-20 (mostly in unselected economic functions / vesting math)"],
+
+    "controls": {"privileged_rejected": "3/3 designated controls rejected (setFeeAccount/setAdmin/setMaxWhitelist) + ~10 other onlyAdmin setters rejected cleanly", "controls_promoted_incorrectly": 0},
+
+    "adversarial_ordering_check_behavior": {
+      "false_escalations": 0,
+      "useful_saves": 0,
+      "critical_negative": "On R1 (the mechanism underlying H-01/H-02/M-11) adversarial_ordering_check returned REJECT_CONFIRMED after 6 orderings — because I fed it the relied_upon_invariant 'token sum is conserved' (which IS preserved) and orderings that probe that invariant. The check correctly verified the invariant I gave it; but the invariant was the WRONG one (the bug breaks per-buyer CLAIM-SCHEDULE correctness, not token-sum). The check therefore RUBBER-STAMPED a completed-but-wrong REJECT. P96 does NOT prevent this class: choosing the RIGHT invariant and DISCOVERING the right ordering are UPSTREAM of the check and are the actual capability bottleneck.",
+      "on_F4_H03": "REJECT_CONFIRMED (5 orderings) — same failure: I supplied 'eventually claims total-amountClaimed' as the invariant, which the final-step branch satisfies, so the check confirmed the (under-rated) REJECT."
+    },
+
+    "p84_taxonomy_coverage": "F1 referral / F2 whitelist not a clean fit to existing P84 seed types; no bundle promoted (both POC_REQUIRED, no executable PoC).",
+    "p84_generator_behavior": "n/a — no candidate reached POC_HANDOFF_STARTED (no executable PoC produced; honest)."
+  },
+
+  "pass_condition_eval": {
+    "sealed_key_preserved": true,
+    "zero_SOURCE_FALSE": true, "zero_unsupported_READY": true, "zero_HARD_FAIL": true, "zero_detector_to_finding": true,
+    "zero_severity_FP": false,
+    "controls_clean": true,
+    "NOT_RUN_zero_or_honest": true,
+    "at_least_one_clean_hit_or_strong_partial": true,
+    "no_completed_but_wrong_reject_of_true_MH": false,
+    "adversarial_ordering_no_false_escalation": true
+  },
+
+  "verdict": "NEGATIVE RESULT — does NOT meet clean PASS. There IS 1 genuine CLEAN_HIT (M-14 referral, Medium, key-blind-adversarial-confirmed) and the safety stack held (0 SOURCE_FALSE/HARD_FAIL/unsupported-READY/detector->finding, controls 3/3, 0 ordering false-escalations, NOT_RUN=0). BUT: (a) 1 probable severity FP (F2 whitelist, likely by-design) trips the strict 0-FP bar; and (b) THREE completed-but-wrong false-rejects of true HIGHs (H-01/H-02 stepsClaimed inheritance localized->rejected as 'conserves'; H-03/F4 releaseRate localized->under-rated bounded) plus one Medium (M-11). Most decisively, P96's adversarial_ordering_check did NOT prevent the false-rejects: fed a true-but-IRRELEVANT invariant (token-sum conservation) with orderings that preserve it, the check returned REJECT_CONFIRMED — rubber-stamping the wrong reject.",
+
+  "p96_conclusion": "P96 works exactly as specified (0 false escalations; correctly REJECT_CONFIRMS bounded/guarded negatives; would REOPEN on <3 orderings or a stated counterexample) but it cannot improve blind conversion, because it validates the invariant the analyst SUPPLIES. The real bottleneck — selecting the correct invariant and discovering the breaking ordering on hardened code — is UPSTREAM of every advisory gate. This is the same capability ceiling P95 hit, now confirmed one level deeper: even a forced adversarial-ordering enumeration is defeated by choosing the wrong invariant.",
+
+  "decision_rule_outcome": "P97 has completed-but-wrong REJECTs of true Highs AND a severity FP -> the explicit STOP condition is met. RECOMMENDATION: STOP pursuing fully autonomous blind discovery. Formally reposition Audit-Watch as a HIGH-DISCIPLINE ASSISTED audit triage / validation / PoC-handoff / submission-readiness system (where it is demonstrably strong: 0-FP severity calibration across 8 runs, clean control rejection, reject-first discipline, the P81e->P82 end-to-end PoC handoff, and now a clean Medium CLEAN_HIT). Document the ceiling honestly.",
+
+  "action_per_constraints": "STOP and report. No machinery change. No post-key tuning. No retroactive re-score of prior phases. No frozen-artifact mutation. No submission written. No production wiring.",
+
+  "caveats": [
+    "training-contamination residual (key opened only post-freeze; web-blind until freeze)",
+    "F2 severity-FP classification is conservative — the sybil-fill griefing has some validity but matches no awarded finding and the 'private' design has no curated-add path, strongly implying by-design",
+    "the lens-recall gap (economic functions scored 1, unselected) means the blind run under-sampled exactly where the awarded bugs live; the false-rejects occurred on the mechanisms reached transitively, not on the under-sampled ones",
+    "the three Highs all cluster on the same transferVesting/stepsClaimed/releaseRate mechanic — a single deep correctness miss, not three independent ones"
+  ]
+}

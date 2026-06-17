@@ -1,0 +1,47 @@
+{
+  "agent": "semantic_guard",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T00:00:00+00:00",
+  "findings": [
+    {
+      "id": "SG-001",
+      "title": "transferPlots swaps fieldId/amount args; pod allowance never consumed",
+      "severity": "High",
+      "vuln_type": "access-control",
+      "description": "The pod-transfer family is split into a single-plot entry (transferPlot) and a batch entry (transferPlots) on MarketplaceFacet. Both consume the spender's pod allowance via the same internal helper:\n\n    function decrementAllowancePods(address owner, address spender, uint256 fieldId, uint256 amount) internal\n        (PodTransfer.sol#89)\n\ntransferPlot (single) calls it with the correct argument order (MarketplaceFacet.sol#128):\n    decrementAllowancePods(sender, LibTractor._user(), fieldId, transferAmount);\n\ntransferPlots (batch) calls it with fieldId and the amount TRANSPOSED (MarketplaceFacet.sol#163):\n    decrementAllowancePods(sender, LibTractor._user(), totalAmount, fieldId);\n                                                       ^^^^^^^^^^^  ^^^^^^^\n                                                       (fieldId pos) (amount pos)\n\nThere is only one definition of decrementAllowancePods (no overload), so this compiles with totalAmount bound to the `fieldId` parameter and fieldId bound to the `amount` parameter. Inside the helper this means:\n  - currentAllowance = allowancePods(owner, spender, totalAmount)  -> reads s.accts[owner].fields[totalAmount].podAllowances[spender], the WRONG field index (indexed by the pod amount, which is essentially never a real fieldId), so it is 0 in practice.\n  - require(currentAllowance < amount) becomes require(0 < fieldId).\n  - setAllowancePods(owner, spender, totalAmount, 0 - fieldId) writes to the wrong field slot.\n\nThe guard at MarketplaceFacet.sol#159-164 only runs for the delegated case (LibTractor._user() != sender, i.e. an approved spender moving the owner's plots) and only when the allowance is not unlimited. For the default/active Field (fieldId == 0, the production Beanstalk field per FieldFacet.activeField), the rewritten check is `0 < 0` which is false: no revert occurs, and the owner's REAL allowance in fields[0].podAllowances[spender] is never decremented. The spender's finite approval therefore behaves as an unlimited approval under the batch path. For a non-zero fieldId the same swap instead reverts (`0 < fieldId` true) for any finite allowance, bricking legitimate delegated batch transfers (secondary DoS).\n\nThis is an asymmetric/mis-scoped guard between sibling functions: the single-transfer guard correctly authorizes and consumes the allowance; the batch sibling reads and writes the wrong storage slot, so the authorization it appears to enforce is a no-op for the active field. Note also that in transferPlots the plots are moved by _transferPlots (MarketplaceFacet.sol#156) BEFORE this (broken) allowance check runs, so even the intended revert cannot un-move the plots.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/market/MarketplaceFacet/MarketplaceFacet.sol",
+        "function": "transferPlots",
+        "line_start": 159,
+        "line_end": 164,
+        "code_snippet": "        // Decrement allowance is done on totalAmount rather than per plot.\n        if (\n            LibTractor._user() != sender &&\n            allowancePods(sender, LibTractor._user(), fieldId) != type(uint256).max\n        ) {\n            decrementAllowancePods(sender, LibTractor._user(), totalAmount, fieldId);\n        }"
+      },
+      "impact": "An approved spender (someone the owner granted a FINITE pod allowance via approvePods) can drain ALL of the owner's plots in the active Field (fieldId 0) by calling transferPlots, because the allowance is never decremented and so never runs out. The single-transfer guard would have stopped this; the batch sibling does not. Worst case: full theft of an approving owner's pods up to all plots they hold, far beyond the amount they intended to approve. Secondary impact: for any non-zero fieldId, legitimate delegated batch transfers with a finite allowance always revert (DoS of the batch path on non-default fields).",
+      "proof_of_concept": "Group: pod transfer (delegated allowance consumption)\n  - transferPlot(sender, recipient, fieldId, index, start, end)  -> decrementAllowancePods(sender, _user(), fieldId, transferAmount)   [CORRECT order]\n  - transferPlots(sender, recipient, fieldId, ids, starts, ends) -> decrementAllowancePods(sender, _user(), totalAmount, fieldId)    [fieldId/amount SWAPPED]\n\nAttack (active Field, fieldId = 0):\n  1. Victim owner grants attacker a finite pod allowance: approvePods(attacker, 0, X)  where X < victim's total pods.\n  2. Attacker calls transferPlots(victim, attacker, 0, ids, starts, ends) selecting pod ranges whose totalAmount >> X.\n  3. _transferPlots moves all selected plots from victim to attacker (line 156), no per-call allowance check inside.\n  4. Guard branch runs (attacker != victim, allowance != max): decrementAllowancePods(victim, attacker, totalAmount, 0).\n     - allowancePods(victim, attacker, totalAmount) = fields[totalAmount].podAllowances[attacker] = 0.\n     - require(0 < 0) => false, NO revert.\n     - setAllowancePods(victim, attacker, totalAmount, 0 - 0): writes a junk slot; fields[0].podAllowances[attacker] still == X.\n  5. Attacker repeats step 2 indefinitely; the real allowance X is never reduced. Attacker steals every plot the victim owns.\n\nAssertable state flip (Foundry): before, fields[0].podAllowances[attacker] == X and victim owns plots P. After transferPlots, victim owns 0 plots, attacker owns P, and fields[0].podAllowances[attacker] is STILL X (proves the allowance was not consumed).",
+      "recommendation": "Fix the argument order in transferPlots to match the helper signature decrementAllowancePods(owner, spender, fieldId, amount):\n\n    decrementAllowancePods(sender, LibTractor._user(), fieldId, totalAmount);\n\nAdditionally, move the allowance check to BEFORE _transferPlots so an insufficient/invalid allowance reverts before any plot is moved, matching the intent of transferPlot. Consider adding a compile-time guard by giving allowance helpers named-struct parameters or asserting the decrement actually reduced a non-zero allowance.",
+      "confidence": "High",
+      "attack_surface_rank": 4,
+      "ite": {
+        "intent": "An approved spender drains ALL of a victim owner's pods in the active Field despite holding only a small finite pod allowance, because the batch transfer path never consumes that allowance.",
+        "technique": "Owner grants approvePods(attacker, 0, X). Attacker calls transferPlots(victim, attacker, 0, ids, starts, ends) (MarketplaceFacet.sol#140); _transferPlots moves the plots at L156, then the allowance guard at L159-164 calls decrementAllowancePods(victim, attacker, totalAmount, fieldId) with fieldId/amount swapped (L163). For fieldId 0 the rewritten check require(0 < 0) is false so it does not revert and the real allowance fields[0].podAllowances[attacker] (=X) is left untouched. Attacker repeats until all victim pods are taken.",
+        "evasion": "The developer intended the same allowance authorization used by transferPlot (MarketplaceFacet.sol#128, correct order). The exact gap is the transposed arguments in the batch sibling at L163: the helper reads/writes fields[totalAmount] instead of fields[fieldId] and compares against fieldId instead of the amount, turning a finite approval into an effectively unlimited one on the active field."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[owner].fields[0].podAllowances[spender] (pod allowance never decremented; wrong slot fields[totalAmount] written instead)",
+        "consumer_found": true,
+        "consumer_function": "transferPlots() / _transferPlots() -> _transferPlot()",
+        "consumer_action": "moves the owner's plots (pods) to an attacker-chosen recipient with the spender's finite allowance left intact, enabling repeated transfers that drain all of the owner's pods",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "cross_agent_refs": [
+        "DS-001",
+        "RE-002"
+      ],
+      "assumption_count": 1,
+      "critical_assumptions": [
+        "Victim has granted the attacker a finite (non-max, non-zero) pod allowance via approvePods on the active Field; theft is bounded to owners who delegated approval."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "research_only": true,
+  "is_gate": false,
+  "emits_findings": false,
+  "severity": null,
+  "auto_submitted": false,
+  "reportable": false,
+  "submission_ready": false,
+  "routes_in_production": false,
+  "label": "P302_REACH_REPORT",
+  "target": "pooltogether-2024-03-holdout",
+  "scored_at": "2026-06-10T14:53:27.775002+00:00",
+  "totals": {
+    "awarded": 9,
+    "surfaced_findings_total": 13,
+    "strong": 4,
+    "same_area": 1,
+    "subsystem": 1,
+    "missed": 3
+  },
+  "recall_of_surfaced": 0.667,
+  "recall_strong_only": 0.444,
+  "recall_strong_or_area": 0.556,
+  "missed_ids": [
+    "M-03",
+    "M-07",
+    "M-08"
+  ],
+  "per_locus": [
+    {
+      "id": "H-01",
+      "severity": "High",
+      "title": "Any fee claim lesser than the total `yieldFeeBalance` as unit of shares is lost and locked in the `PrizeVault` contract",
+      "match_level": "STRONG_MECHANISM_MATCH",
+      "surfaced_id": "DT-01/LG-01",
+      "evidence": "Surfaced: claimYieldFeeShares zeroes the FULL yieldFeeBalance on a partial claim (PrizeVault.sol:617 `yieldFeeBalance -= _yieldFeeBalance` vs `-= _shares`). Identical root cause, locus and fix as the awarded High."
+    },
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "The winner can steal claimer fees, and force him to pay for the gas",
+      "match_level": "STRONG_MECHANISM_MATCH",
+      "surfaced_id": "DOS-01/DT-02",
+      "evidence": "Surfaced: a winner-controlled hook (permissionless setHooks) invoked in claimPrize griefs the claimer, forcing the claimer to pay gas / denying the reward. Same locus + attacker + primary harm. Nuance: framed as DoS/griefing rather than explicit fee-theft."
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "`_maxYieldVaultWithdraw()` uses `yieldVault.convertToAssets()`",
+      "match_level": "STRONG_MECHANISM_MATCH",
+      "surfaced_id": "E46-02",
+      "evidence": "Surfaced: _maxYieldVaultWithdraw() = convertToAssets(maxRedeem) makes maxWithdraw/maxRedeem over-report vs the underlying vault's actual withdraw limit (PrizeVault.sol:921-923). Same function the awarded finding names."
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "`maxDeposit()` uses `yieldVault.maxDeposit()` but `_depositAndMint()` uses `yieldVault.mint()`",
+      "match_level": "MISSED",
+      "surfaced_id": null,
+      "evidence": "Did not surface the maxDeposit() (yieldVault.maxDeposit) vs _depositAndMint (yieldVault.mint) limit-path mismatch."
+    },
+    {
+      "id": "M-04",
+      "severity": "Medium",
+      "title": "Lack of Slippage Protection in `withdraw`/`redeem` Functions of the Vault",
+      "match_level": "SAME_AREA_WRONG_MECHANISM",
+      "surfaced_id": "E46-01",
+      "evidence": "Surfaced withdraw/redeem value-loss in the lossy state as ROUNDING dust (E46-01). Awarded mechanism is missing slippage protection (exchange-rate front-run) on withdraw/redeem \u2014 same area, different mechanism."
+    },
+    {
+      "id": "M-05",
+      "severity": "Medium",
+      "title": "`yieldFeeBalance` wouldn't be claimed after calling `transferTokensOut()`",
+      "match_level": "SUBSYSTEM_ONLY_RECALL",
+      "surfaced_id": "AR-01",
+      "evidence": "Covered the yield-fee subsystem (claimYieldFeeShares bug + liquidation fee rounding AR-01) but not the specific 'yieldFeeBalance becomes unclaimable after transferTokensOut' defect."
+    },
+    {
+      "id": "M-06",
+      "severity": "Medium",
+      "title": "Funds locked due to missing transfer check",
+      "match_level": "STRONG_MECHANISM_MATCH",
+      "surfaced_id": "TI-01",
+      "evidence": "Surfaced: _withdraw uses raw _asset.transfer without checking the return value (PrizeVault.sol:939) -> silent failure / funds locked. Same root cause as the awarded 'missing transfer check'."
+    },
+    {
+      "id": "M-07",
+      "severity": "Medium",
+      "title": "`PrizeVault.maxDeposit()` doesn't take into account produced fees",
+      "match_level": "MISSED",
+      "surfaced_id": null,
+      "evidence": "Did not surface that maxDeposit() ignores produced (yieldFee) shares in the supply/debt limit."
+    },
+    {
+      "id": "M-08",
+      "severity": "Medium",
+      "title": "Permit doesn't work with DAI",
+      "match_level": "MISSED",
+      "surfaced_id": null,
+      "evidence": "Did not surface the DAI non-standard (allowed-based) permit incompatibility in depositWithPermit."
+    }
+  ]
+}

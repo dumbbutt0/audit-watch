@@ -1,0 +1,111 @@
+{
+  "agent": "economic_attack",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-28T00:00:00+00:00",
+  "findings": [
+    {
+      "id": "EA-001",
+      "title": "Convert-capacity sandwich front-runs shared per-block cap, burns victim stalk",
+      "severity": "High",
+      "vuln_type": "front-running",
+      "description": "Beanstalk meters how much deltaB may be converted toward peg per block via a single shared accumulator, s.sys.convertCapacity[block.number].overallConvertCapacityUsed, capped at abs(LibDeltaB.overallCappedDeltaB()). Every Bean<->Well convert in the block adds the amount it moves toward peg into this accumulator (LibConvert.applyStalkPenalty L211-220, writing pdCapacity.overall computed in calculateConvertCapacityPenalty L309-311). Once the accumulator reaches the block's capped deltaB, calculateConvertCapacityPenalty (L297-306) returns a non-zero convertCapacityPenalty for any further toward-peg conversion, which feeds calculateStalkPenalty (L262-265) -> a positive stalkPenaltyBdv.\n\nTwo permissionless entry points consume the SAME accumulator and react to the penalty differently:\n1. ConvertFacet.convert() (in-protocol Bean<->LP): LibPipelineConvert.checkForValidConvertAndUpdateConvertCapacity (L186-214) REQUIRES stalkPenaltyBdv == 0 and reverts otherwise.\n2. PipelineConvertFacet.pipelineConvert(): LibPipelineConvert.executePipelineConvert does NOT revert on penalty; instead it BURNS grown stalk: newGrownStalk = initialGrownStalk * (fromBdv - stalkPenaltyBdv) / fromBdv (LibPipelineConvert.sol L72).\n\nBecause the accumulator is shared, an attacker can front-run a victim's convert with a cheap, penalty-free toward-peg convert sized to exhaust the block's overall (and/or per-well) convert capacity. The victim's transaction then lands with overallConvertCapacityUsed >= overallCappedDeltaB, so calculateConvertCapacityPenalty returns the victim's full towards-peg amount as a penalty. For a pipelineConvert victim this directly burns a pro-rata slice of the grown stalk attached to the deposits they are converting; the burned stalk is permanently lost yield (and roots/earned-bean entitlement). For an in-protocol convert victim it simply reverts, a per-block griefing/DoS on the convert function. The attacker's own toward-peg convert is by construction penalty-free (it runs while capacity is still available), so the attack is nearly costless to mount and can be repeated every block in which a victim convert is pending.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Convert/LibConvert.sol",
+        "function": "calculateConvertCapacityPenalty",
+        "line_start": 284,
+        "line_end": 334,
+        "code_snippet": "ConvertCapacity storage convertCap = s.sys.convertCapacity[block.number];\nif (convertCap.overallConvertCapacityUsed >= overallCappedDeltaB) {\n    cumulativePenalty = overallAmountInDirectionOfPeg;\n} else if (overallAmountInDirectionOfPeg > overallCappedDeltaB.sub(convertCap.overallConvertCapacityUsed)) {\n    cumulativePenalty = overallAmountInDirectionOfPeg - overallCappedDeltaB.sub(convertCap.overallConvertCapacityUsed);\n}"
+      },
+      "impact": "A victim performing a legitimate toward-peg pipelineConvert has a pro-rata portion of the grown stalk on their converted deposits burned (direct loss of accrued yield and root/earned-bean share); a victim using ConvertFacet.convert() is denied service (revert) for the remainder of the block. The attacker forces this for near-zero cost by consuming the block's shared convert capacity first.",
+      "proof_of_concept": "1. Beanstalk is below peg (overallCappedDeltaB() = -X, so convert capacity for LP->Bean toward-peg = X). Victim broadcasts pipelineConvert moving V (V <= X) of toward-peg deltaB, carrying grown stalk G on the input deposits, expecting stalkPenaltyBdv = 0 and to keep all of G.\n2. Attacker observes the mempool and front-runs with their own toward-peg convert (in-protocol convert() or pipelineConvert) of amount >= X, so overallConvertCapacityUsed becomes >= overallCappedDeltaB. Attacker's convert is penalty-free because capacity was still open when it ran.\n3. Victim's tx executes: calculateConvertCapacityPenalty sees overallConvertCapacityUsed >= overallCappedDeltaB and returns cumulativePenalty = victim's full towards-peg amount; calculateStalkPenalty caps stalkPenaltyBdv at fromBdv.\n4. executePipelineConvert burns the victim's grown stalk: newGrownStalk = G * (fromBdv - stalkPenaltyBdv)/fromBdv, which can be 0 when the whole convert is penalized. Net: attacker spent gas + a free convert, victim lost up to 100% of grown stalk G on the converted deposits. (If victim used convert(), step 3 reverts instead: griefing.)",
+      "recommendation": "Do not derive a user-facing penalty from a globally shared, front-runnable per-block accumulator without per-user fairness. Options: (a) compute each convert's penalty against the capacity remaining at the START of the user's own transaction snapshot rather than the running global total mutated by earlier txs in the block; (b) allow users to pass a maxStalkPenaltyBdv / minGrownStalkKept slippage bound that reverts the convert if exceeded, so a sandwiched pipelineConvert fails safe instead of silently burning stalk; (c) meter convert capacity per-account or with commit/reveal so capacity cannot be exhausted by an adversary in the same block.",
+      "confidence": "Medium",
+      "attack_surface_rank": 3,
+      "cross_agent_refs": [],
+      "human_review_required": true,
+      "human_review_reason": "Multi-actor, same-block ordering (MEV) economics: confirming realistic capacity sizes and that a profitable/cheap exhausting convert exists for the attacker requires modelling live deltaB and capped-reserve values. Trace of the penalty path is complete in-scope, but exploit economics need human/PoC validation.",
+      "ite": {
+        "intent": "Force a victim's toward-peg pipelineConvert to burn its attached grown stalk (lost yield + root share), or revert their in-protocol convert(), by exhausting the block's shared convert capacity first.",
+        "technique": "Front-run with a penalty-free toward-peg convert sized to push s.sys.convertCapacity[block.number].overallConvertCapacityUsed >= overallCappedDeltaB (LibConvert.applyStalkPenalty L211-220). Victim's convert then gets a full convertCapacityPenalty (calculateConvertCapacityPenalty L297-306) -> stalkPenaltyBdv>0 -> executePipelineConvert burns grown stalk (LibPipelineConvert L72) or checkForValidConvert... reverts (L209-213).",
+        "evasion": "The penalty mechanism is meant to discourage repeated toward-peg converts that drain peg-restoring capacity in one block. The gap: capacity is one shared mutable accumulator with no per-user isolation and no user-supplied penalty/slippage bound, so an adversary can consume it before the victim's tx and the victim has no way to fail safe."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.convertCapacity[block.number].overallConvertCapacityUsed (and per-well wellConvertCapacityUsed)",
+        "consumer_found": true,
+        "consumer_function": "LibPipelineConvert.executePipelineConvert / ConvertFacet.convert",
+        "consumer_action": "burns a pro-rata slice of the victim's grown stalk (newGrownStalk = G*(fromBdv-stalkPenaltyBdv)/fromBdv) or reverts the victim's convert",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      }
+    },
+    {
+      "id": "EA-002",
+      "title": "Flood SOP swap uses minAmountOut=0 and max deadline, sandwichable by MEV bots",
+      "severity": "Medium",
+      "vuln_type": "price-manipulation",
+      "description": "During a Flood (Season of Plenty), sopWell() mints Beans and dumps them on the SOP Well via IWell.swapFrom(C.bean(), sopToken, sopBeans, 0, address(this), type(uint256).max) (LibFlood.sol L299-306). The minAmountOut is hard-coded to 0 and the deadline to type(uint256).max. The amount of non-Bean token (e.g. WETH) received from this forced sale is exactly what is distributed to Stalkholders as 'plenty' (rewardSop L320-332 increments plentyPerSopToken and the per-root accumulator). Because the swap accepts any output amount, an MEV searcher can sandwich the protocol's own flood swap: buy the non-Bean token / skew the Well right before sunrise()->stepSun()->handleRain()->sopWell(), let Beanstalk sell its freshly minted Beans into the worsened price (receiving fewer WETH), then unwind. The deficit comes straight out of the WETH distributed to Stalkholders. The flood swap is triggered inside the permissionless sunrise()/gm() season step, so the searcher knows precisely when it will fire (it is bundled in the same block as the sunrise transaction the searcher can themselves submit).",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+        "function": "sopWell",
+        "line_start": 289,
+        "line_end": 315,
+        "code_snippet": "uint256 amountOut = IWell(wellDeltaB.well).swapFrom(\n    C.bean(),\n    sopToken,\n    sopBeans,\n    0,\n    address(this),\n    type(uint256).max\n);\nrewardSop(wellDeltaB.well, amountOut, address(sopToken));"
+      },
+      "impact": "MEV extraction of Season-of-Plenty proceeds: Stalkholders receive less WETH 'plenty' than the fair-market value of the Beans sold, with the difference captured by a sandwicher. The size scales with the flood's deltaB (can be large during a strong over-peg Flood).",
+      "proof_of_concept": "1. Conditions ripen for a Flood (Oversaturated, P>1, pod rate <5% for >=1 season).\n2. Searcher constructs a bundle: (a) skew the SOP Well's reserves so Beans buy less WETH, (b) call sunrise()/gm() which runs handleRain->sopWell, dumping minted Beans with minAmountOut=0 into the worsened pool and receiving a reduced amountOut, (c) reverse the skew to recover their capital plus the extracted spread.\n3. rewardSop records the reduced amountOut as the plenty distributed; Stalkholders' claimable plenty is lower by the sandwiched spread, which the searcher pocketed.",
+      "recommendation": "Compute a minAmountOut for the flood swap from the Well's own pump/TWA reserves (the same manipulation-resistant source used for deltaB) and pass it to swapFrom so the protocol's forced sale cannot be executed at an attacker-skewed price; alternatively split the sale across blocks or use the Well's TWA price as a guard. A real deadline is unnecessary inside an atomic season step but the zero minAmountOut is the substantive risk.",
+      "confidence": "Medium",
+      "attack_surface_rank": 5,
+      "cross_agent_refs": [],
+      "human_review_required": false,
+      "ite": {
+        "intent": "Skim WETH from the Season-of-Plenty distribution that should go to Stalkholders, by sandwiching Beanstalk's own flood swap.",
+        "technique": "Bundle: pre-skew SOP Well, call sunrise()/gm() -> stepSun -> LibFlood.handleRain -> sopWell -> IWell.swapFrom(...,0,...,type(uint256).max) (L299-306) sells minted Beans at the worsened price; post-skew unwinds. The reduced amountOut is what rewardSop distributes (L320-332).",
+        "evasion": "Beanstalk resists single-block manipulation of the deltaB it MINTS against by using TWA/capped pump reserves, but the actual market sale in sopWell uses a live swap with zero slippage protection, so the proceeds (not the mint sizing) are exposed to spot manipulation."
+      },
+      "ice_chain": {
+        "corrupted_state": "amountOut returned by the flood swapFrom -> s.sys.sop.plentyPerSopToken / per-root plenty accumulator",
+        "consumer_found": true,
+        "consumer_function": "rewardSop -> ClaimFacet._claimPlenty",
+        "consumer_action": "pays out the (reduced) SOP token amount to Stalkholders; the sandwiched spread is lost to the MEV searcher",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      }
+    },
+    {
+      "id": "EA-003",
+      "title": "SOP per-account rainRoots snapshot may diverge from global rain.roots divisor",
+      "severity": "Low",
+      "vuln_type": "logic-error",
+      "description": "Season-of-Plenty rewards are distributed pro-rata using two snapshots that are taken at different times. The global divisor s.sys.rain.roots is set once, synchronously, when rain starts: handleRain() (LibFlood L72-74) does s.sys.rain.roots = s.sys.silo.roots inside calcCaseIdandUpdate (Weather L97), which runs BEFORE LibGerminate.endTotalGermination (SeasonFacet L57). The per-account numerator s.accts[account].sop.rainRoots is captured LAZILY, the first time each account mows during the rain: handleRainAndSops (LibFlood L124-127) sets rainRoots = s.accts[account].roots, and inside _mow this also runs before endAccountGermination (LibSilo L438 vs L444). rewardSop divides minted plenty by s.sys.rain.roots (L325) while balanceOfPlenty multiplies each account's claim by rainRoots (L169). The design relies on the invariant sum(account.rainRoots) == s.sys.rain.roots. Because rainRoots is a per-account snapshot that is NOT decremented on withdraw/transfer during the rain and is captured at a per-account time that differs from the global snapshot, there are plausible boundary cases (e.g. roots that finish germinating exactly at the rain boundary, or deposit/withdraw/transfer sequences across the rain start) where the sum of account rainRoots does not equal rain.roots. If the sum exceeds rain.roots, total claimable plenty exceeds the WETH actually received in rewardSop, leading to claim shortfall for the last claimers (DoS) or, combined with plentyPerSopToken accounting, protocol token imbalance. I traced the snapshot ordering and confirmed the two snapshots are taken at structurally different points, but could not construct a concrete sequence that makes sum(rainRoots) > rain.roots with the germination ordering as written; the residual risk is in multi-season germination/transfer boundary conditions.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+        "function": "handleRainAndSops",
+        "line_start": 103,
+        "line_end": 182,
+        "code_snippet": "if (s.sys.season.rainStart > lastUpdate) {\n    s.accts[account].lastRain = s.sys.season.rainStart;\n    s.accts[account].sop.rainRoots = s.accts[account].roots;\n}\n// ... rewardSop divides by s.sys.rain.roots (set = s.sys.silo.roots at rain start, before endTotalGermination)"
+      },
+      "impact": "If the sum of per-account rainRoots can exceed the global rain.roots divisor, SOP plenty is over-allocated: late claimers cannot withdraw their full plenty (claimPlenty reverts on the plentyPerSopToken subtraction / token transfer), a griefing/DoS on reward claims and a potential accounting mismatch. Severity is held at Low pending a concrete divergence sequence.",
+      "proof_of_concept": "Hypothesis (not fully constructed): At rain start in season N, rain.roots is snapshotted before endTotalGermination adds the season's germinated roots to silo.roots. An account whose germinating stalk completes at season N and which had not mowed since before N captures rainRoots = its roots at its later mow. Whether that capture happens before or after its own germinated roots are added (and whether other accounts' lazily captured rainRoots collectively overshoot rain.roots) determines exploitability. Requires a Foundry harness stepping multiple seasons with germination + rain to confirm.",
+      "recommendation": "Capture rain.roots and every account's rainRoots from the SAME post-germination snapshot, or recompute rainRoots from a fully-germinated roots value, and assert sum(account.rainRoots) <= rain.roots as an invariant. Add an explicit test that the total plenty distributed (sum over accounts of plentyPerRoot*rainRoots/SOP_PRECISION) never exceeds the WETH received in rewardSop.",
+      "confidence": "Low",
+      "attack_surface_rank": 4,
+      "cross_agent_refs": [],
+      "human_review_required": true,
+      "human_review_reason": "Multi-block / multi-season time-based accounting with germination boundary conditions (an explicit human-escalation category). The snapshot-timing divergence is real but a concrete sum(rainRoots) > rain.roots sequence was not confirmed; needs a multi-season Foundry PoC and human review.",
+      "ite": {
+        "intent": "Over-allocate SOP plenty so an account (or set of accounts) claims a larger WETH share than their true rain-start root ownership, starving other Stalkholders of their plenty.",
+        "technique": "Exploit the timing gap between the synchronous global snapshot rain.roots = silo.roots (handleRain L74, pre-endTotalGermination) and the lazy per-account snapshot rainRoots = roots (handleRainAndSops L126, pre-endAccountGermination), via deposit/withdraw/transfer/germination sequences spanning the rain start.",
+        "evasion": "Beanstalk intends rainRoots to freeze each holder's share at rain start and divide minted plenty by the total at rain start. The gap is that the two snapshots are taken at different program points and the per-account value is not reconciled against the global divisor."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[account].sop.rainRoots vs s.sys.rain.roots",
+        "consumer_found": true,
+        "consumer_function": "LibFlood.balanceOfPlenty -> ClaimFacet._claimPlenty",
+        "consumer_action": "pays SOP token to accounts proportional to rainRoots; over-allocation lets some claim more, leaving others unable to claim",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      }
+    }
+  ]
+}

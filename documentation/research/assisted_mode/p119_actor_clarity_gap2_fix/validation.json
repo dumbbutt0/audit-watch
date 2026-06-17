@@ -1,0 +1,62 @@
+{
+  "p119_actor_clarity_gap2_fix": true,
+  "research_only": true,
+  "is_gate": false,
+  "routes_in_production": false,
+  "gap": "caller-equality admin-role gates (operand-reversed / OR-clause / cast) the body regex _ROLE_GUARD_RE missed",
+  "source_case": "secondswap SecondSwap_Marketplace.unlistVesting: require(listing.seller == msg.sender || msg.sender == IMarketplaceSetting(marketplaceSetting).s2Admin())",
+  "rule": "_CALLER_ROLE_EQ_RE: msg.sender|_msgSender() ==/== with an admin-role identifier (word-boundary role names: owner|admin|s2admin|governor|governance|authority|manager|controller|guardian|operator|treasury|deployer|issuer); operand-order-agnostic; applied to the lowercased BODY in addition to _ROLE_GUARD_RE/_SIG_AUTH_RE",
+  "precision_design": "role-TARGETED, not any '== msg.sender'. \\bowner\\b matches owner() but NOT ownerOf( (no word boundary inside 'ownerof'), so resource-ownership checks (ownerOf(id)==msg.sender) are NOT demoted. Under-detection (e.g. msg.sender==address(entityForgingContract)) accepted as safer than false demotion of attack surface.",
+  "computed": "in-memory over the P105 benchmark corpus; p106/rank_signal_probe.json NOT regenerated (actor_clarity is the GATE, not a scored REC_FEAT, so the p106 lift report is unaffected)",
+  "p106_regenerated": false,
+  "target": "secondswap-2024-12::SecondSwap_Marketplace.unlistVesting 1.0 -> 0.0",
+  "flips_permissionless_to_privileged": [
+    "secondswap-2024-12::SecondSwap_Marketplace.unlistVesting",
+    "secondswap-2024-12::SecondSwap_StepVesting.transferVesting",
+    "secondswap-2024-12::SecondSwap_StepVesting.createVesting",
+    "secondswap-2024-12::SecondSwap_VestingManager.setSellable",
+    "iq-ai-2025-01::AgentFactory.setAgentStage"
+  ],
+  "awarded_flips": [
+    {
+      "fn": "secondswap-2024-12::SecondSwap_StepVesting.transferVesting",
+      "verdict": "correct demote",
+      "rationale": "genuinely role-gated: require(msg.sender == tokenIssuer || msg.sender == manager || msg.sender == vestingDeployer). The H-01 exploit entrypoint is the permissionless spotPurchase (which calls transferVesting), and spotPurchase stays permissionless (1.0)."
+    }
+  ],
+  "awarded_preserved": [
+    {
+      "fn": "traitforge-2024-07::EntityForging.forgeWithListed (M-18)",
+      "actor_clarity": "1.0 -> 1.0",
+      "rationale": "only caller-equality is require(nftContract.ownerOf(mergerTokenId) == msg.sender) = resource-ownership, not an admin role; \\bowner\\b does not match 'ownerof' so it is NOT demoted. Attacker-reachable surface preserved."
+    }
+  ],
+  "key_preservation": {
+    "ramses-2024-10::RamsesV3Pool.swap": [1.0, 1.0],
+    "phi-2024-08::CuratorRewardsDistributor.distribute": [1.0, 1.0],
+    "secondswap-2024-12::SecondSwap_Marketplace.spotPurchase": [1.0, 1.0],
+    "traitforge-2024-07::EntityForging.forgeWithListed": [1.0, 1.0],
+    "vultisig-2024-06::ILOPool.claim": [1.0, 1.0],
+    "phi-2024-08::PhiFactory.claim": [1.0, 1.0],
+    "secondswap-2024-12::SecondSwap_StepVesting.claimable": [1.0, 1.0],
+    "iq-ai-2025-01::LiquidityManager.moveLiquidity": [1.0, 1.0],
+    "munchables-2024-07::MigrationManager.burnNFTs": [1.0, 1.0]
+  },
+  "selection_unchanged": {
+    "assisted_fresh_run.select_candidate #1": "ramses swap (unchanged)",
+    "select_next_n(n=3, already_run=P116)": ["burnRemainingPurchasedNFTs", "distribute", "burnNFTs"],
+    "distribute_in_P116_next3": true,
+    "select_next_n(n=3, no exclusions)": ["repayAndProcessUnpaidWithdrawalBatches", "burnRemainingPurchasedNFTs", "distribute"],
+    "note": "the 5 demoted functions all sit below the top-3 cutoffs, so every existing selection assertion is identical to pre-fix; zero existing-test churn"
+  },
+  "integrity": {
+    "rank_signal_probe_hash_before": "46381e52",
+    "rank_signal_probe_hash_after": "bcc0db82",
+    "p106_rank_signal_probe_json": "untouched (original base_rate 0.9853 / lift -0.0451 retained)",
+    "map_invariant_defenses_PIPELINE4": "e9b6bc1d (byte-identical; role_auth_modifier primitive untouched)",
+    "terminal_distribution": "c4aaa9a4 (unchanged)",
+    "assisted_fresh_run": "129fc745 (unchanged)",
+    "secondswap_phi_src": "unmutated",
+    "tests": "tests/assisted 197 passed (P115/P116/terminal_distribution assertions all green; +1 new test_p119_caller_equality_role_gate_detected)"
+  }
+}

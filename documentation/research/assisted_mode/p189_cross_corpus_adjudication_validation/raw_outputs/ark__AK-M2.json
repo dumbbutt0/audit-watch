@@ -1,0 +1,72 @@
+{
+  "mechanism_inventory": [
+    "missing invariant enforcement — no uniqueness/replay check; _consumeMessageStarknet may not prevent double-consume -> re-mint/re-escrow-release",
+    "unauthorized minting — req.ownerL1 decoded from attacker-controlled payload; no L1-ownership verification",
+    "missing access-control on mintFromBridge — bridge mints when wasEscrowed==false with no verification id was deposited on L2",
+    "stale accounting snapshot — escrow-vs-mint bifurcation bypassed by attacker-supplied id",
+    "value exceeds a logical / economic bound — unbounded tokenIds array -> gas DoS",
+    "hook caller or hook-timing mismatch — whitelist update after deploy races"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "Message replay / missing consumed-message guard: withdrawTokens has no explicit already-processed check; replay defense fully delegated to _consumeMessageStarknet/Starknet core. If not atomically marked consumed, same request re-runs loop: escrowed tokens re-released (double-spend), non-escrowed re-minted.",
+      "attacker_model": "Permissionless — any caller with a valid/replayed Starknet message payload.",
+      "exploit_path": "observe consumed L2->L1 withdrawal -> call withdrawTokens(request) again -> _consumeMessageStarknet does not revert -> loop re-releases escrow / re-mints to ownerL1.",
+      "who_loses": "Protocol/escrow (double-released tokens; supply inflated); legitimate L1 owners.",
+      "who_gains": "req.ownerL1 receives duplicate NFTs / double-withdrawn escrow.",
+      "why_carried": "No explicit consumed-message check in this function; guard delegated to external Starknet core whose behavior not visible; affects escrow accounting + ERC-721 supply; cannot reject without proving atomic consume; potentially High/Critical."
+    },
+    {
+      "root_cause": "Attacker-controlled ownerL1/token id: req.ownerL1, req.tokenIds decoded via Protocol.requestDeserialize from caller calldata; if _consumeMessageStarknet validates only L2 sender/hash but not individual fields, a crafted/replayed message with modified ownerL1 redirects minted/escrowed tokens.",
+      "attacker_model": "Permissionless if attacker can forge/intercept L2 payload; conditional if only sender hash checked.",
+      "exploit_path": "monitor L2 bridge -> submit withdrawTokens with modified req.ownerL1 still passing _consumeMessageStarknet -> mintFromBridge/_withdrawFromEscrow to attacker.",
+      "who_loses": "Legitimate L2 depositor (NFTs redirected).",
+      "who_gains": "Attacker.",
+      "why_carried": "req.ownerL1 from requestDeserialize with no L1-side binding in this function; coverage of fields by _consumeMessageStarknet not proven; carried UNRESOLVED pending that function."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "message replay / double-withdrawal (whether _consumeMessageStarknet atomically marks consumed)",
+      "source_evidence": "withdrawTokens has no explicit already-processed guard; only defense is _consumeMessageStarknet internals (external dependency).",
+      "unresolved_question": "Does _consumeMessageStarknet / Starknet core atomically and permanently mark the (from,to,payload) tuple consumed?",
+      "who_loses": "Protocol escrow and legitimate holders if replay possible.",
+      "who_gains": "Replaying caller (duplicate tokens).",
+      "status": "NEEDS_HARNESS"
+    },
+    {
+      "mechanism": "attacker-controlled ownerL1 field — whether _consumeMessageStarknet binds all deserialized fields",
+      "source_evidence": "req.ownerL1 = requestDeserialize(request,0).ownerL1 from calldata; _consumeMessageStarknet field coverage not visible.",
+      "unresolved_question": "Does it hash a payload committing to ownerL1, or only verify origin?",
+      "who_loses": "Legitimate depositor whose recipient is replaced.",
+      "who_gains": "Attacker supplying modified ownerL1.",
+      "status": "NEEDS_HARNESS"
+    },
+    {
+      "mechanism": "unbounded tokenIds array -> gas DoS",
+      "source_evidence": "for(i<req.tokenIds.length) with no length cap before loop.",
+      "unresolved_question": "Is tokenIds.length capped at L2/message-consumption layer?",
+      "who_loses": "Users whose oversized withdrawal cannot be processed.",
+      "who_gains": "Griever (locks out a withdrawal).",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [
+    {
+      "mechanism": "whitelist-update race (window between _deployERC721Bridgeable and _whiteListCollection)",
+      "claimed_locus": "_whiteListCollection(collectionL1,true) after _deployERC721Bridgeable",
+      "rejecting_source_fact": "Both execute within the same atomic transaction/call frame; internal deploy; no untrusted external call between; one tx is atomic.",
+      "why_unexploitable": "No other tx can interleave within one transaction's sequential execution; race window does not exist.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    }
+  ],
+  "impact_direction": {
+    "attacker_receives": "Duplicate NFTs (replay) or NFTs of another depositor (ownerL1 substitution).",
+    "attacker_preserves": "No cost beyond gas if replay possible.",
+    "victim_loses": "Escrow double-released; legitimate depositors lose bridged tokens; ERC-721 supply broken.",
+    "invariant_violated": "Escrow released exactly once; mint only for legitimate deposits; message consumed at most once.",
+    "not_self_funded_or_dust_or_admin_or_timing": true
+  },
+  "stop_condition": "more_mechanisms_pending: replay, ownerL1 substitution, gas DoS unresolved pending _consumeMessageStarknet internals; different actors/state, at least one Critical/High.",
+  "verdict": "HIGH_THREAD"
+}

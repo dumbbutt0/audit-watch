@@ -1,0 +1,21 @@
+{
+  "surface": "InvestmentManager._calculateTrancheTokenAmount",
+  "mechanism_inventory": [
+    "precision/normalization edge — rounding Down on division systematically under-issues tranche tokens",
+    "precision/normalization edge — 3-step decimal conversion (_toPriceDecimals -> mulDiv -> _fromPriceDecimals) compounds truncation",
+    "value exceeds bound — price==0 -> div-by-zero revert blocks epoch fulfillment",
+    "stale accounting snapshot — caller-supplied price not validated inside function",
+    "missing invariant enforcement — no lower/upper bound on price -> 0 or astronomical trancheTokenAmount"
+  ],
+  "selected_mechanisms": [
+    {"root_cause":"systematic rounding-down across 3 decimal-conversion boundaries each favors protocol -> depositor receives fewer tranche tokens than entitled, no recovery","who_loses":"investor/depositor","who_gains":"protocol/pool","why_carried":"three sequential truncating ops round Down; per-order loss every investor; >=Medium aggregate"},
+    {"root_cause":"no price>0 validation; price==0 -> mulDiv div-by-zero revert -> epoch fulfillment DoS","who_loses":"all investors with pending orders in epoch (funds locked)","who_gains":"DoS attacker maintaining a position","why_carried":"no guard; epoch-level DoS; clears Medium (protocol unavailability)"}
+  ],
+  "unresolved_mechanisms": [
+    {"mechanism":"stale/unbounded caller-supplied price","source_evidence":"price is uint256 param, no bounds/staleness/oracle check in body","unresolved_question":"do upstream callers enforce price>0 + freshness?","who_loses":"investor (high price) or LPs (low price)","status":"NEEDS_HARNESS"}
+  ],
+  "rejected_mechanisms": [],
+  "impact_direction":"rounding: protocol retains fractional value, investor loses dust-per-order (material aggregate); DoS: full epoch of investors loses fund access; ERC4626 shares=assets/price invariant violated; not timing-only",
+  "stop_condition":"more_mechanisms_pending: rounding + price==0 DoS selected; stale price NEEDS_HARNESS",
+  "verdict":"MEDIUM_THREAD"
+}

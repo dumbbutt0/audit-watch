@@ -1,0 +1,469 @@
+{
+  "generated_at": "2026-06-13T04:25:00Z",
+  "kind": "real_world_hunt_log",
+  "disclaimer": "Real-world bounty-hunt activity. Candidate findings are PoC-proven but UNCONFIRMED and UNSUBMITTED (flagged for human verification). No FP/recall/paid scores are shown: those require human-confirmed ground truth, which does not exist for these hunts. Eval/synthetic corpora are excluded.",
+  "summary": {
+    "targets_engaged": 24,
+    "poc_proven_candidate_findings": 3,
+    "honest_negatives": 19,
+    "skipped": 2,
+    "submitted": 0,
+    "human_confirmed": 0,
+    "paid": 0
+  },
+  "candidate_findings": [
+    {
+      "target": "40acres (loan-contracts)",
+      "source": "Sherlock bug bounty (id 102)",
+      "severity": "High/Medium",
+      "title": "CommunityRewards.earned() is public + state-mutating \u2192 anyone permanently zeroes/bricks any depositor's reward claims",
+      "status": "PoC-proven candidate",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "self-contained PoC 3/3 + Base mainnet-fork PoC on real wired contracts (victim 0 / control 2 USDC)",
+      "poc_path": "forty/test/poc/CommunityRewardsEarnedGrief.t.sol",
+      "writeup": "forty/SUBMISSION_communityrewards_earned_grief.md",
+      "verifier": {
+        "target": "CommunityRewards.earned",
+        "surface_function": "earned(address _token, address _owner) public returns (uint256)",
+        "suspected_mechanism": "earned() is declared public and mutates state \u2014 it writes tokenClaimedPerEpoch as it walks epochs but never pays out or advances lastEarn, so any caller can mark a victim's epochs 'claimed' (zeroing a single-epoch reward, or underflow-reverting and permanently bricking claims once \u22652 epochs have elapsed).",
+        "mechanism_class": "view/mutating mismatch \u2014 the 'mark claimed' state write is decoupled from the payout (adapted from Velodrome's view earned())",
+        "impact": "Permissionless, zero-cost, repeatable freezing/zeroing of all claimable community rewards for any/all depositors; irrecoverable without a contract upgrade.",
+        "severity_recommendation": "High",
+        "claimed_severity": "High",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm CommunityRewards is deployed/in-scope; judge High-vs-Medium (rewards-griefing)",
+        "human_review_focus": "confirm CommunityRewards is live/in-scope; High-vs-Medium (rewards-griefing) is the residual human judgment",
+        "reachability_class": "UNPRIVILEGED_REACHABLE",
+        "privilege_required": "none",
+        "victim_action_required": "none (victim only needs accrued rewards)",
+        "self_remediation": "none \u2014 a bricked claim is irrecoverable without a contract upgrade",
+        "operator_or_keeper_dependency": "none",
+        "attacker_controls": [
+          "the (token, owner) arguments to earned()",
+          "call timing and repetition"
+        ],
+        "attacker_does_not_control": [
+          "the victim's accrued balance / reward amount"
+        ],
+        "function_map": [
+          {
+            "role": "user entrypoint (should be view)",
+            "function": "earned",
+            "permission": "public (any caller)",
+            "why_it_matters": "mutates tokenClaimedPerEpoch without paying out \u2014 the griefing primitive",
+            "source_location": "src/CommunityRewards/CommunityRewards.sol:481-529"
+          },
+          {
+            "role": "settlement / claim",
+            "function": "_getReward",
+            "permission": "internal (via getReward)",
+            "why_it_matters": "the only real payout path: calls earned() then transfers and advances lastEarn",
+            "source_location": "src/CommunityRewards/CommunityRewards.sol:611-629"
+          }
+        ],
+        "attacker_model": "Any unprivileged EOA with no setup calls earned(rewardToken, victim) directly.",
+        "exploit_steps": [
+          "Protocol runs \u22651 epoch so the victim has accrued rewards (tokenRewardsPerEpoch notified).",
+          "Attacker (any EOA) calls earned(rewardToken, victim).",
+          "earned() writes tokenClaimedPerEpoch[victim][token][ts] += reward but transfers nothing and does not advance lastEarn.",
+          "Single eligible epoch: the victim's later getReward() computes reward = share \u2212 claimed = 0 \u2192 victim receives nothing.",
+          "\u22652 elapsed epochs: the running-accumulator subtraction reward -= tokenClaimedPerEpoch[ts] underflows and reverts \u2192 the victim's getReward() reverts forever (permanently bricked)."
+        ],
+        "defense_map": [
+          {
+            "defense": "earned() should be a true view (Velodrome design)",
+            "location": "CommunityRewards.earned()",
+            "classification": "missing \u2014 never runs (earned is public + mutating)",
+            "reason": "the source it was adapted from is view; here it writes state with no payout coupling",
+            "manual_check": "Confirm earned() can be made view and the claim bookkeeping moved into _getReward after the transfer"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract CommunityRewardsEarnedGrief --via-ir",
+        "poc_status": "REPRODUCED",
+        "harness_path": "forty/test/poc/CommunityRewardsEarnedGrief.t.sol",
+        "vulnerable_output": "attack(1 epoch): victim received 0; attack(2 epochs): victim getReward reverted (bricked); Base fork: victim USDC received 0",
+        "corrected_output": "victim should receive the full reward R (100e18 self-contained / 2 USDC fork) just like the control",
+        "control_case": "test_control_victimGetsReward: victim received 100000000000000000000 (full R); Base-fork control depositor received 2000000 (2 USDC)",
+        "runtime_delta": "tokenClaimedPerEpoch[victim][token][ts] set with no transfer and no lastEarn advance \u2192 victim payout 0 / revert vs full R in the control",
+        "who_loses": "every CommunityRewards depositor (their claimable reward tokens)",
+        "who_gains": "no one \u2014 pure griefing (rewards are frozen/bricked, not stolen)",
+        "asset_or_value": "accrued reward tokens (e.g. USDC) \u2014 claimable user funds",
+        "loss_type": "permanent freezing / denial of claimable funds (griefing), not redistribution",
+        "permanence": "permanent \u2014 the \u22652-epoch brick is irrecoverable without a contract upgrade",
+        "repeatability": "unbounded \u2014 any caller, any victim, repeatable at zero cost",
+        "limitations": "affects reward claims only (principal/collateral unaffected); the \u22652-epoch brick is the steady state once the system has run more than one epoch"
+      }
+    },
+    {
+      "target": "Monolith (stablecoin factory)",
+      "source": "Sherlock bug bounty (id 287)",
+      "severity": "Medium",
+      "title": "Bad-debt write-off deletes debt without burning Coin \u2192 last/only borrower leaves the stablecoin unbacked (no deficit accounting)",
+      "status": "PoC-proven candidate",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "Foundry PoC 2/2 (last-borrower \u2192 50k unbacked; control: survivor absorbs via socialization) + invariant fuzzer flagged it",
+      "poc_path": "monolith/test/poc/WriteOffUnbackedCoin.t.sol",
+      "writeup": "monolith/SUBMISSION_writeoff_unbacked_coin.md",
+      "verifier": {
+        "target": "Lender.writeOff",
+        "surface_function": "writeOff(address borrower, address to) external returns (bool writtenOff)",
+        "suspected_mechanism": "writeOff() deletes an underwater borrower's debt and socializes it onto survivors, but never burns the Coin minted against that debt and skips socialization when there is no survivor (totalDebt is read AFTER removal) \u2014 so the last/only borrower's Coin stays permanently unbacked with no deficit accounting.",
+        "mechanism_class": "missing deficit accounting + post-removal socialization basis (no Coin burn, no systemDebt variable)",
+        "impact": "When the written-off position is the last/only debt, 100% of the Coin it minted remains in circulation unbacked \u2192 stablecoin insolvency / depeg; Coin holders and Vault stakers bear the loss.",
+        "severity_recommendation": "Medium",
+        "claimed_severity": "Medium",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm reachability against live markets (collateral volatility / borrower count); judge Medium-vs-High insolvency",
+        "human_review_focus": "confirm reachability against live markets (collateral volatility / borrower count); Medium-vs-High insolvency is the residual human judgment",
+        "reachability_class": "UNPRIVILEGED_REACHABLE",
+        "privilege_required": "none (writeOff is external; also auto-fires inside liquidate)",
+        "victim_action_required": "none (Coin holders / Vault stakers are passive victims)",
+        "self_remediation": "none \u2014 unbacked Coin cannot be re-collateralized; the market is silently insolvent",
+        "operator_or_keeper_dependency": "none for the trigger; liquidations must be enabled (allowLiquidations)",
+        "attacker_controls": [
+          "which underwater borrower to write off",
+          "call timing"
+        ],
+        "attacker_does_not_control": [
+          "the collateral price / bad-debt condition itself",
+          "whether a survivor borrower exists"
+        ],
+        "function_map": [
+          {
+            "role": "user entrypoint",
+            "function": "writeOff",
+            "permission": "external (any caller); also auto-fires in liquidate",
+            "why_it_matters": "clears debt and sends collateral to the caller but burns no Coin and drops the shortfall when there is no survivor",
+            "source_location": "src/Lender.sol:379-411"
+          },
+          {
+            "role": "critical accounting",
+            "function": "decreaseDebt",
+            "permission": "internal",
+            "why_it_matters": "removes the borrower's debt from totalFreeDebt/totalPaidDebt BEFORE the socialization basis is read",
+            "source_location": "src/Lender.sol"
+          },
+          {
+            "role": "critical accounting",
+            "function": "coin.totalSupply / getDebtOf",
+            "permission": "view",
+            "why_it_matters": "post-write-off the invariant coin.totalSupply <= totalFreeDebt + totalPaidDebt is violated",
+            "source_location": "src/Lender.sol"
+          }
+        ],
+        "attacker_model": "Permissionless trigger \u2014 any EOA can call writeOff once the bad-debt condition (debt > 100 \u00d7 collateralValue) holds, reached via a collateral crash or interest ballooning an unliquidated position.",
+        "exploit_steps": [
+          "A market reaches its last/only borrower (single-collateral markets naturally wind down; small/new markets may start with one).",
+          "That borrower becomes underwater: debt > 100 \u00d7 collateralValue (sharp collateral crash or interest on an unliquidated position).",
+          "Any EOA calls Lender.writeOff(borrower, to) (or it auto-fires inside liquidate).",
+          "decreaseDebt(borrower, max) removes the debt; totalDebt is then read as 0 \u2192 the socialization branch is skipped.",
+          "No Coin is burned and no systemDebt is recorded \u2192 the Coin minted on the original borrow stays in circulation, now 0% backed \u2192 depeg."
+        ],
+        "defense_map": [
+          {
+            "defense": "burn Coin / record systemDebt on write-off",
+            "location": "Lender.writeOff",
+            "classification": "missing \u2014 no Coin burn and no deficit variable anywhere in Lender",
+            "reason": "the shortfall is silently dropped",
+            "manual_check": "Is there any systemDebt/badDebt accounting or a Coin burn on the write-off path?"
+          },
+          {
+            "defense": "socialize against totalDebt + thisBorrowerDebt (pre-removal basis)",
+            "location": "Lender.writeOff",
+            "classification": "ineffective \u2014 basis read after removal",
+            "reason": "totalDebt == 0 for the last borrower so the if-branch never runs",
+            "manual_check": "Is the redistribution basis computed before decreaseDebt?"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract WriteOffUnbackedCoin",
+        "poc_status": "REPRODUCED",
+        "harness_path": "monolith/test/poc/WriteOffUnbackedCoin.t.sol",
+        "vulnerable_output": "test_lastBorrower_writeOff_leaves_coin_unbacked: getDebtOf(alice)==0, totalFreeDebt+totalPaidDebt==0, coin.totalSupply==50000e18 (UNBACKED coin wei: 50000000000000000000000)",
+        "corrected_output": "coin.totalSupply should equal backing (totalFreeDebt + totalPaidDebt) after any write-off",
+        "control_case": "test_control_otherBorrower_absorbs_via_socialization: with a solvent survivor, bob's debt rises 50k\u2192100k and coin.totalSupply==backing is preserved",
+        "runtime_delta": "coin.totalSupply 50,000e18 with backing 0 \u2192 invariant coin.totalSupply <= totalFreeDebt + totalPaidDebt violated (also caught by invariant_coinBacking)",
+        "who_loses": "Coin (MUSD) holders and Vault stakers \u2014 they bear the insolvency / depeg",
+        "who_gains": "the written-off borrower keeps the minted Coin debt-free (collateral goes to the write-off caller)",
+        "asset_or_value": "stablecoin backing / solvency (the outstanding Coin supply)",
+        "loss_type": "protocol insolvency \u2014 unbacked stablecoin supply (not user-to-user redistribution in the last-borrower case)",
+        "permanence": "permanent until governance intervention (no on-chain recovery path for unbacked Coin)",
+        "repeatability": "per market that reaches the last-borrower bad-debt state; cascading crashes converge there",
+        "limitations": "requires the written-off position to be the last/only debt; multi-borrower markets push the loss onto survivors instead, but cascading crashes converge to the same terminal unbacked state"
+      }
+    },
+    {
+      "target": "infiniFi",
+      "source": "Cantina bug bounty",
+      "severity": "Medium",
+      "title": "ChainlinkOracle.price() accepts non-positive answers (no answer>0 check) \u2192 protocol-wide mispricing",
+      "status": "PoC-proven candidate (live-bounty rubric may argue Low)",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "byte-identical ChainlinkOracle PoC 3/3 (answer==0\u21920; answer<0\u2192~1e69; control $1\u21921e18)",
+      "poc_path": "infinifi-oracle-poc/test/ChainlinkOracleAnswerValidation.t.sol",
+      "writeup": "audits/infinifi-2026-06-cantina/output/SUBMISSION_M_chainlink_answer_validation.md",
+      "verifier": {
+        "target": "ChainlinkOracle.price",
+        "surface_function": "price() external view override returns (uint256)",
+        "suspected_mechanism": "ChainlinkOracle.price() checks staleness but never validates answer > 0, so a 0 answer values the asset at $0 and a negative answer becomes ~2^256 via the unchecked int256\u2192uint256 cast \u2014 corrupting totalAssetsValue and driving phantom iUSD mint / unjust slash / redemption DoS.",
+        "mechanism_class": "missing Chainlink answer>0 validation (unchecked int256\u2192uint256 cast; assumption stated in a comment but never enforced)",
+        "impact": "A single non-positive feed reading either mints unbacked iUSD (depeg) or unjustly slashes lockers/stakers and blocks redemptions, because price() feeds the entire valuation core.",
+        "severity_recommendation": "Medium",
+        "claimed_severity": "Medium",
+        "mechanism_confirmed": true,
+        "attacker_reachable": false,
+        "severity_bearing": true,
+        "reportable": true,
+        "human_review_required": "confirm program severity rubric (Medium in C4/Sherlock; possibly Low under live bug-bounty); confirm a Chainlink-priced in-scope asset",
+        "primary_blocker_if_not_reportable": "Trigger is an external Chainlink feed fault, not an attacker action \u2014 severity rubric (Medium vs Low) is the human decision.",
+        "human_review_focus": "confirm the program severity rubric (Medium in C4/Sherlock; possibly Low under live bug-bounty) and that a Chainlink-priced asset is in scope",
+        "reachability_class": "EXTERNAL_FEED_FAULT_REACHABLE",
+        "privilege_required": "n/a (external feed fault, not an attacker action)",
+        "victim_action_required": "none (all iUSD holders / lockers / stakers are passive)",
+        "self_remediation": "none until the feed recovers or ORACLE_MANAGER replaces the oracle",
+        "operator_or_keeper_dependency": "ORACLE_MANAGER registers ChainlinkOracle per asset via Accounting.setOracle",
+        "attacker_controls": [
+          "n/a \u2014 no attacker action required (external feed fault)"
+        ],
+        "attacker_does_not_control": [
+          "the feed answer (set by the external Chainlink aggregator)"
+        ],
+        "function_map": [
+          {
+            "role": "critical accounting (price source)",
+            "function": "price",
+            "permission": "external view",
+            "why_it_matters": "consumed by totalAssetsValue \u2192 unaccruedYield \u2192 mint/slash; no answer>0 guard",
+            "source_location": "src/finance/oracles/ChainlinkOracle.sol:32-44"
+          },
+          {
+            "role": "critical accounting",
+            "function": "Accounting.totalAssetsValue",
+            "permission": "view",
+            "why_it_matters": "multiplies asset balances by price() \u2014 a $0 or ~2^256 price corrupts total value",
+            "source_location": "src/finance/Accounting.sol:51,62"
+          },
+          {
+            "role": "settlement / accrual",
+            "function": "YieldSharingV3._accrue / unaccruedYield",
+            "permission": "external / internal",
+            "why_it_matters": "yield>0 mints iUSD; yield<0 slashes lockers/stakers and blocks redeem",
+            "source_location": "src/finance/YieldSharingV3.sol:178-202"
+          }
+        ],
+        "attacker_model": "Not attacker-triggered \u2014 requires a Chainlink aggregator to return answer \u2264 0 (feed misconfiguration/deprecation, min-answer circuit breaker, or a faulty round); impact is protocol-wide once it occurs.",
+        "exploit_steps": [
+          "A Chainlink aggregator feeding a registered ChainlinkOracle returns a non-positive answer (deprecation, min-answer circuit breaker, or faulty round) within the heartbeat window.",
+          "price() skips any answer>0 check: answer==0 returns 0, answer<0 casts to ~2^256.",
+          "Accounting.totalAssetsValue() uses the corrupted price \u2192 total value understated ($0) or massively overstated (~2^256).",
+          "YieldSharingV3._accrue(): negative yield \u2192 _handleNegativeYield slashes lockers/stakers and gateway.redeem reverts (redemption DoS); positive yield \u2192 _handlePositiveYield mints unbacked iUSD (depeg)."
+        ],
+        "defense_map": [
+          {
+            "defense": "require(answer > 0) (and optional min/max bound)",
+            "location": "ChainlinkOracle.price()",
+            "classification": "missing \u2014 the assumption is stated in a comment at :38 but never enforced",
+            "reason": "no answer>0 check, no bound, no round-completeness check",
+            "manual_check": "Compare with the protocol's DataFeed/peer oracles that do validate; confirm the per-asset (decimalNormalization, divide) config"
+          }
+        ],
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract ChainlinkOracleAnswerValidation",
+        "poc_status": "REPRODUCED",
+        "harness_path": "infinifi-oracle-poc/test/ChainlinkOracleAnswerValidation.t.sol",
+        "vulnerable_output": "test_zeroAnswer_pricesAssetAtZero: price()==0; test_negativeAnswer_pricesAssetAstronomically: price() with answer==-1 (divide mode)==1157920892373161954235709850086879078532699846656405640394575840079131",
+        "corrected_output": "price() should revert on answer <= 0 (require(answer > 0, InvalidPrice(...)))",
+        "control_case": "test_positiveAnswer_ok: a $1 feed returns 1e18, confirming the only gap is the missing answer validation",
+        "runtime_delta": "answer 0 \u2192 price 0 ($0 asset); answer -1 \u2192 price ~1.16e69; control $1 \u2192 1e18",
+        "who_loses": "iUSD holders (depeg from phantom mint) and lockers/stakers (unjust slash + redemption DoS)",
+        "who_gains": "no one \u2014 value is destroyed/misallocated, not captured by an attacker",
+        "asset_or_value": "iUSD backing / asset valuation (protocol-wide)",
+        "loss_type": "protocol mispricing \u2192 unbacked mint or unjust loss / DoS (not attacker theft)",
+        "permanence": "lasts until the feed recovers or ORACLE_MANAGER replaces the oracle; minted/slashed amounts persist",
+        "repeatability": "recurs on every non-positive feed reading",
+        "limitations": "requires an external feed fault (not attacker-controllable) \u2192 likelihood Low; a live bug-bounty rubric may argue Low/QA"
+      }
+    }
+  ],
+  "targets": [
+    {
+      "target": "Morpho Midnight (morpho-org/midnight @ 7538c438)",
+      "source": "Cantina competition (live, $400k, ends 2026-06-12)",
+      "verdict": "honest_negative",
+      "notes": "GENUINELY UNAUDITED + our deepest class (selected per loop directive 'unaudited targets that match our system'). Novel P2P fixed-rate ORDERBOOK lending by Morpho Association: zero-coupon 'units' (1 unit = 1 loan token at maturity), tick-priced maker offers, permissionless markets, up to 128 collaterals/market (16 active/borrower), bad-debt socialization via lossFactor slashing, settlement + continuous fees, transient liquidation-lock, multicall via delegatecall, flashLoan. Public repo (forge-std only dep), 2495 LOC, solc 0.8.34, via_ir + evm_version=osaka (needs clz/mcopy/tload \u2014 forge 1.5.1). Sandbox CLEAN (26 files). READ in full: Midnight.sol (981, core), ConstantsLib, UtilsLib. Liquidation/badDebt/maxLif/LLTV math is copied VERBATIM from Morpho Blue (maxLif=WAD/(1-cursor*(1-lltv)), LLTV tiers 0.385..1.0) \u2014 lower EV (well-audited lineage); self-liquidation + badDebt-realize-with-0-seize are documented/intended, not a leak (mirror Morpho). HIGHEST-EV NOVEL SURFACE (least Morpho-derived) = the orderbook take() netting accounting (lines 337-479): buyer credit / seller debt / units / pendingFee / settlementFee netting, claimableSettlementFee += buyerAssets-sellerAssets, P2P direct payer->receiver transfer (contract escrows only fees+repayments+collateral). LEADS for next iterations: (1) build a conservation invariant \u2014 contract loanToken balance >= claimableSettlementFee + \u03a3 withdrawable; collateral balance >= \u03a3 positions.collateral; (2) take() fee/credit/debt rounding + the documented 'settlement fee has no defined rounding direction => fee manipulation on cheap-gas chains' + 'pendingFee rounded in favor of user => fee manipulation' self-flagged risks; (3) lossFactor/continuousFeeCredit slashing precision under repeated badDebt; (4) MidnightBundles periphery (399, UNREAD) + ratifiers/EcrecoverAuthorizer signature paths (UNREAD). CONSERVATION HARNESS BUILT + RUN (midnight-scan/test/invariant/MidnightConservation.t.sol, reuses repo BaseTest/dummyRatifier/Oracle; handler fuzzes open/repay/withdraw/withdrawColl/setPrice/liquidate/realizeBadDebt(0,0)/accrue/claimSettlement/claimContinuous/setContinuousFee/warp \u2014 all execute, 0 handler reverts): invariant_loanSolvency (loanBal >= claimableSettlementFee + withdrawable) PASS 256x250=64000 calls; invariant_collateralSolvency (collatBal >= \u03a3 positions.collateral) PASS 64000; invariant_unitsConsistency one-sided drain bound (totalUnits >= \u03a3 liveCredit + continuousFeeCredit) PASS 64000. The equality version initially diverged ~0.06% in the SAFE direction (totalUnits > backed credit) = the DOCUMENTED loss-accounting rounding against lenders (lossFactor rounded up; credit rounds down), not a drain. VERDICT this surface = honest negative: core take/repay/withdraw/liquidate/bad-debt-slashing accounting is conservation-sound under heavy fuzz. Remaining EV for later loop iterations: MidnightBundles periphery (UNREAD), ratifier/EcrecoverAuthorizer signature paths (UNREAD), multi-market shared-loanToken withdrawable isolation, settlement-fee dust + the no-op-take consumed-cap edge (testBugBuyMaxAssetsBypass). PERIPHERY + SIGNATURE SURFACE REVIEWED (iter2) ALSO CLEAN: MidnightBundles = stateless caller-funded router (no funds held, referral fee from caller's own assets, amounts reconcile exactly, auth = msg.sender+bundler both authorized-by-taker); EcrecoverAuthorizer = per-authorizer incrementing nonce + deadline + chainid/address domain (replay-safe); EcrecoverRatifier+HashLib = Seaport-style signed offer-merkle-tree HEIGHT-BOUND via offerTreeTypeHash(proof.length) (defeats leaf/internal-node 2nd-preimage) + maker bound into leaf + per-(maker,root) cancel; testBugBuyMaxAssetsBypass = documented no-op price<1 rounding (self-harm not victim attack). VERDICT: comprehensive honest negative across ~entire 2495 LOC (core+libs+bundler+ratifiers) + conservation harness PASS 64k calls/invariant; Morpho-Association-grade, no High. 14th consecutive reputable-target honest negative. Nothing submitted."
+    },
+    {
+      "target": "infiniFi",
+      "source": "Cantina",
+      "verdict": "candidate_finding",
+      "notes": "Core + gateway + CoWSwap + Pendle honest-negative; oracle answer>0 Medium candidate; P-01 ERC4626 inflation downgraded to Informational by live-state check (siUSD already seeded); _disableAsset value-blind = Low."
+    },
+    {
+      "target": "Rheo very-liquid-vaults",
+      "source": "Cantina",
+      "verdict": "honest_negative",
+      "notes": "yearn-v3 meta-ERC4626; dead-shares + defensive rounding; _decimalsOffset never overridden = Low/QA note only."
+    },
+    {
+      "target": "Makina (makina-core @ fe2d7e28)",
+      "source": "Cantina bug bounty (live; cross-chain investment-strategy vault)",
+      "verdict": "honest_negative",
+      "notes": "FULL-COVERAGE audit \u2014 all 35 non-interface src/+src-ir contracts examined. Hub Machine (vault: deposit/redeem/share-price) + spoke Calibers running governance-Merkle-allowlisted Weiroll strategies; spoke AUM aggregated via Wormhole CCQ; capital via Across/CCTP/LayerZero bridge adapters. NO permissionless fund-loss. Only permissionless entries are sound: updateSpokeCaliberAccountingData (CCQ verified vs CURRENT guardian set + response bound to registered caliberMailbox addr+selector via validateEthCallRecord + monotonic/non-stale timestamps) and PreDepositVault deposit/redeem (OZ virtual-offset, donation-unprofitable). Defense-in-depth confirmed: Weiroll sandbox (merkle leaf commits commands+FIXED state slots; loss-bounds/cooldown/staleness bound the operator), double-entry cross-chain bridge accounting (credit<=counterpart-attested-out), inbound bridge = endpoint-auth (msg.sender==receiveSource / Circle attestation) + operator-preauth-hash one-shot, all registries/factories restricted (DAO), Create3 salt governance-chosen. Only LOW (info-level, NOT submittable): OracleRegistry._getFeedPrice rejects answer<0 but not answer==0 \u2014 a zero feed under-values its token (feed-trust hardening; recommend require(answer>0)). NOTE this is strictly LOWER severity than the infiniFi oracle Medium candidate: Makina already blocks the catastrophic negative\u2192~2^256 over-valuation path, leaving only zero-under-valuation. Nothing submitted (user does KYC + submission); confidential.",
+      "lows": [
+        "OracleRegistry accepts answer==0 (only rejects <0) \u2192 zero-feed under-valuation; defense-in-depth, feed-fault-reachable only (not attacker-reachable), strictly lower than infiniFi oracle Medium (negatives already blocked)"
+      ],
+      "coverage": "full (all 35 non-interface src/+src-ir contracts)"
+    },
+    {
+      "target": "Hyperbridge (Polytope Labs: solidity-merkle-trees @ 6106407e + hyperbridge ISMP @ f578b545)",
+      "source": "HackenProof bug bounty (live; Critical up to $30k-$50k; KYC + runnable PoC required)",
+      "verdict": "honest_negative",
+      "notes": "Trust-minimized cross-chain interoperability (ISMP) secured by on-chain consensus light-clients + Merkle state/inclusion proofs. Phase 1 FULL COVERAGE of solidity-merkle-trees (all 14 .sol): SOUND \u2014 every trie node keccak-bound to the committed root via TrieDB.get, so malformed RLP/SCALE is unreachable and the merkle libs need a keccak preimage to forge; the repo's own adversarial suite (21/21) + my independent AuditForgery.t.sol (5/5: fake-leaf-hash, leafCount-downgrade, internal-node-as-leaf, MMR fake-leaf ALL rejected) confirm it. Phase 2 (scoped) Rust ISMP: core message handling (request/response/timeout/messaging) sound (proof@height, exact-height get, reentrancy-safe replay guards, timeout needs non-membership proof); 6/7 consensus verifiers reviewed (BSC, BEEFY, GRANDPA, sync-committee, Tendermint, Pharos) all sound \u2014 BEEFY dup-signature inflation blocked by the rs-merkle fork's duplicate-index rejection, Pharos custom SkipEmpty hash-tree non-existence defended by sibling-nibble binding; ISMP state-machine non-membership (EVM/Substrate trie_db + Pharos) blocks timeout double-spend; fund pallets (hyper-fungible-token / bandwidth) + relayer fee accounting conservation-sound. Only LOW-01: BSC verifier supermajority uses floor (2N)/3 vs canonical Parlia CeilDiv \u2014 diverges only when N%3!=0 (N=21/45 unaffected) and needs ~2/3 malicious validators (already breaks BSC's <1/3 byzantine assumption) \u2192 NOT exploitable, spec-conformance only. SCOPE CAVEAT: the largest-$ criticals (ZK / BitVM / off-chain provers) are outside the audited Solidity+Rust-ISMP surface. Nothing submitted (user does KYC + submission); confidential.",
+      "lows": [
+        "L-01: bsc/verifier supermajority floor (2N)/3 vs canonical Parlia CeilDiv(2N,3) \u2014 spec-conformance, diverges only when N%3!=0 and needs ~2/3 malicious (above BSC byzantine bound) \u2192 NOT exploitable; recommend ceil (2N+2)/3"
+      ],
+      "coverage": "full on solidity-merkle-trees (14 .sol); scoped on hyperbridge Rust ISMP (6/7 consensus verifiers + core + state-machines + fund/relayer pallets)"
+    },
+    {
+      "target": "Arcadia lending-v2 (@ c261329f; accounts-v2 submodule @ 307cff66)",
+      "source": "HackenProof bug bounty (live; Arcadia Finance Smart Contracts, up to $25k; least-trodden HackenProof set at 51 submissions)",
+      "verdict": "honest_negative",
+      "notes": "FULL-COVERAGE audit of all 7 substantive lending-v2 contracts (margin-lending: ERC4626 Tranches over a LendingPool, ERC4626 DebtToken liabilities, Dutch-auction Liquidator L1/L2, bad-debt junior-tranche-first absorption). Heavily pre-audited (Arcadia's own arcadia-finance-audits repo) \u2192 clean as expected. NO permissionless fund-loss; no info notes. Verified: interest accounting balanced (interest minted as borrower debt == credited to LP/treasury liquidity, once-per-block sync); conservation invariant cash+realisedDebt==totalRealisedLiquidity (skim sweeps surplus, auction-blocked); DebtToken inverted protocol-favorable rounding + non-transferable; Tranche VAS inflation defense + notDuringAuction/notLocked anti-JIT/anti-baddebt-frontrun locks (donateToTranche weaponization mitigated by VAS); Liquidator bid nonReentrant + atomic collateral->bidCallback->auctionRepay ordering + decreasing power-curve price + sequencer-uptime (L2) + cutoff bought-in trusted fallback; LiquidatorL1==L2 minus sequencer (diff-verified); TrancheWrapper transparent 1:1; LendingPoolGuardian pause with anti-griefing permissionless unpause of repay/withdraw/liquidation. Account-binding (Factory ownerOfAccount/isAccount) + credit allowances + health checks on borrow/flashAction. SCOPE CAVEAT: accounts-v2 collateral/health-check/auctionBid logic is the dependency (read at interface+interaction level, separate in-scope repo, not full-audited here). Nothing submitted (user does KYC + submission); confidential. | RED-TEAM HARNESS: stateful Foundry invariant reusing the repo LendingPool_Fuzz_Test (real pool+tranches+Account+borrow/repay/interest) \u2014 4 invariants + 1 concrete path test, 0 failed (6,400 calls/inv, ~1050 borrows): conservation cash+debt==claims, solvency, debt-direction; non-vacuity proven via a concrete borrow/accrue/repay test (read\u2192fuzz-confirmed). Liquidation/auction static-only. + LIQUIDATION HARNESS: real oracle-price-drop liquidation (token1 collateral, drop mockOracles.token1ToUsd) driving the Dutch auction to settlement \u2014 happy flow (bidder repays debt, surplus to owner) AND bad-debt flow (price decays past cutoff, tranches absorb shortfall); 2/2 pass, conservation cash+debt==claims EXACT (0 wei) and solvency held through both, skim() blocked mid-auction.",
+      "coverage": "full (all 7 substantive lending-v2 contracts; accounts-v2 dependency at interface level)"
+    },
+    {
+      "target": "Stackup keystore (stackup-wallet/keystore @ 806fc6a)",
+      "source": "Cantina bug bounty (live; ERC-4337 v0.8 smart account + cross-chain keystore)",
+      "verdict": "honest_negative",
+      "notes": "FULL-COVERAGE audit of all 11 src files. ERC-4337 v0.8 smart account (KeystoreAccount, ERC-1167 clones) whose signer-set lives in a cross-chain Keystore: a per-(refHash,account) Merkle root of verifier(20)+config nodes; UserOp/ERC-1271 validation delegates to the referenced node's verifier; root rotated via signed handleUpdates. 4 verifiers (ECDSA, MultiSig, WebAuthn, WebAuthn+ECDSA-cosign) are thin wrappers over audited solady ECDSA/WebAuthn with config-bound signer/pubkey + onlyKeystore gating (can't be invoked with attacker config). NO permissionless fund-loss. Verified: nodes Merkle-bound to per-account root; updates authorized by current signer (signs transition incl nextHash) + optional new-key PoP; per-(refHash,key,account) nonce replay protection; useChainId=false = intended cross-chain sync (per-chain nonce, replay-safe); account-scoped mappings (isolation); MultiSig per-index seen[] dedup + threshold (no bypass); cosign 2FA both-bound-to-message; account binds sig to userOpHash (chainid+entrypoint+op fields, no cross-op replay); factory clone salt=keccak(refHash,salt) so counterfactual addr bound to refHash (no hijack/front-run) + senderCreator-gated. INFO/DX only (not submittable): (1) verifiers revert on structurally-invalid ECDSA sigs vs returning FAILED (documented simulation footgun); (2) ERC-1271 path treats validationData!=FAILED as valid \u2192 would ignore time-bounds for a future time-bounded verifier (current 4 return 0/1 only); (3) _validateSignature writes Keystore storage (registerNode) during AA validation \u2014 account-keyed (ERC-7562 associated storage) so likely bundler-compliant. Nothing submitted (user does KYC + submission); confidential.",
+      "lows": [],
+      "coverage": "full (all 11 src files: Keystore, 4 verifiers, KeystoreAccount, factory, libs)"
+    },
+    {
+      "target": "Symbiotic core (symbioticfi/core @ 7cb06639)",
+      "source": "Cantina bug bounty (live; permissionless restaking \u2014 Vaults/Delegators/Slashers)",
+      "verdict": "honest_negative",
+      "notes": "FULL COVERAGE (all 35 non-interface contracts; Symbiotic is the most heavily-audited target of the session: long-live mainnet, 319 findings, multiple formal audits). Deep-read the value-flow + slashing triangle: Vault (epoch-based stake; deposit/withdraw queue into withdrawals[epoch+1] slashable ~2 epochs; onSlash pro-rata across active+2 withdrawal epochs, conservation activeSlashed+withdrawalsSlashed+nextWithdrawalsSlashed==slashedAmount with provably-no-underflow overflow-cap, slasher-only, captureEpoch in {curr,curr-1}); VaultStorage (Checkpoints.Trace256 internal stake NOT balanceOf -> immune to donation/inflation); ERC4626Math (OZ +1 virtual offset, only covers rounding since totalAssets=internal activeStake); BaseSlasher (slashable=stakeAt(capture)-min(cumulativeSlash since capture, stake) anti-double-slash; capture bounded [now-epochDuration,now) + monotonic latestSlashedCaptureTimestamp; onlyNetworkMiddleware; gas-capped best-effort burner hook); Slasher (instant slash min(amount,slashable), cumulative+latest updated before delegator->vault->burner, nonReentrant); BaseDelegator (stakeAt=0 unless operator opted-in to BOTH vault AND network = slashability auth; setMaxNetworkLimit network-self-bound; onSlash slasher-only + gas-capped hook). All SOUND. DEFERRED (heavily-audited standard surface, not line-read this pass): VetoSlasher, 4 delegator variants, common/ upgradeable framework, registries/factories/VaultConfigurator, services (Metadata/NetworkMiddleware/OptIn), Checkpoints/Subnetwork, VaultTokenized, hints/*. Nothing submitted (user does KYC + submission); confidential. FOLLOW-UP completing full coverage (all SOUND): 4 delegator variants (each min(activeStake,limits)+opt-in+role-gated); VetoSlasher (request/veto/execute, completed-flag blocks double-execute+execute-after-veto, slashable re-checked, resolverSetEpochsDelay>=3); OptInService (checkpointed opt-in, historical lookup at captureTimestamp so opt-out can't escape past slashing, EIP-712 nonce+deadline); VaultTokenized (active shares as ERC20, slashing pool-level so transfers can't escape); Checkpoints (HINTS VALIDATED-OR-FALLBACK -> attacker hint can't return wrong value = linchpin of hint-safe accounting); common framework (owner-whitelisted impls, ERC1967 proxy migrate factory+owner-gated, staticDelegateCall always-reverts); registries self-register; NetworkMiddlewareService network-self-bound; Subnetwork bijective; hints view-only. | RED-TEAM HARNESS: stateful Foundry invariant on the full delegator\u00d7slasher matrix (8 configs: NetworkRestake/FullRestake/OperatorSpecific/OperatorNetworkSpecific \u00d7 instant/Veto/Veto+resolver/fee-on-transfer) \u2014 32 invariants, 0 failed, ~800-900 slashes/config; conservation+solvency+totalStake-identity fuzz-confirmed (read\u2192fuzz-hardened).",
+      "lows": [],
+      "coverage": "FULL (all 35 non-interface contracts) \u2014 core deep pass + follow-up completed the delegator variants, VetoSlasher, OptInService, VaultTokenized, common framework, registries/factories/services, Checkpoints/Subnetwork, hints"
+    },
+    {
+      "target": "Concrete Earn V2",
+      "source": "Cantina",
+      "verdict": "honest_negative"
+    },
+    {
+      "target": "Midas",
+      "source": "Cantina",
+      "verdict": "honest_negative",
+      "notes": "Mature multiply-audited RWA vault; robust DataFeed oracle; decimal-consistent."
+    },
+    {
+      "target": "Mezo mUSD",
+      "source": "Cantina",
+      "verdict": "honest_negative",
+      "notes": "Liquity fork; audited the modifications (EIP-712 BorrowerOperationsSignatures + InterestRateManager settle-before-change) \u2014 sound."
+    },
+    {
+      "target": "dreUSD",
+      "source": "Sherlock contest",
+      "verdict": "honest_negative",
+      "notes": "Full read + invariant fuzz harness (7 invariants incl. oracle-band arbitrage + multi-block swing); robust."
+    },
+    {
+      "target": "Mellow flexible-vaults",
+      "source": "Sherlock bug bounty",
+      "verdict": "honest_negative",
+      "notes": "Report-driven async queue vault; invariant fuzz + manual logic read of Oracle/RedeemQueue/DepositQueue \u2014 sound."
+    },
+    {
+      "target": "Monolith",
+      "source": "Sherlock bug bounty",
+      "verdict": "candidate_finding",
+      "notes": "See candidate_findings. Invariant harness: collateral + debt-share conservation pass 128k calls; coinBacking flagged the write-off bug."
+    },
+    {
+      "target": "40acres",
+      "source": "Sherlock bug bounty",
+      "verdict": "candidate_finding",
+      "notes": "See candidate_findings. Fork conservation harness (outstanding-capital + no-USDC-retention) passes 1,800 calls; secondary items ruled out."
+    },
+    {
+      "target": "Napier V2",
+      "source": "Code4rena (public repo)",
+      "verdict": "honest_negative",
+      "notes": "Pendle-style PT/YT; ran their mature invariant suite + added the missing reward-token-solvency invariant \u2014 all 11 pass @80\u00d79,600 calls. TwoCryptoZap left unread."
+    },
+    {
+      "target": "Alphix",
+      "source": "Sherlock bug bounty",
+      "verdict": "skipped",
+      "notes": "Pinned scope commit force-pushed off the public repo \u2192 unscoreable, not audited."
+    },
+    {
+      "target": "K2 (Kinetic)",
+      "source": "Code4rena",
+      "verdict": "skipped",
+      "notes": "Rust project (out of EVM-Solidity scope)."
+    },
+    {
+      "target": "STBL (Stablecoin 2.0, USST/YLD over Ondo USDY/OUSG)",
+      "source": "HackenProof (live, KYC+PoC-mandatory)",
+      "verdict": "honest_negative",
+      "notes": "FULLY REVIEWED \u2014 all in-scope contracts (Core/Issuer-PT1+LT1/Vault/YieldDistributor/USST/YLD/Register/STBL_Token + BSC mirrors) + the Ondo oracle dependency + fee/decimal math. Mainnet-fork harness (stbl-fork/) confirms live solvency + deposit/withdraw invariant-fuzz (solvency+backing, 25x750 calls, 0 reverts). mint/burn role-gated everywhere (no public mint); YieldDistributor clean (no 40acres bug); withdraw solvency-guarded + over-backed; oracle Ondo-sourced+staleness-checked (not manipulable). No permissionless Critical/High. Notes (not submittable): empty 2-arg withdraw no-op; permissionless fee-sweep->treasury; LT1 withdrawExpired reclaims RWA to treasury without burning USST/NFT (treasury-trust design). PoC-mandatory program -> nothing to submit."
+    },
+    {
+      "target": "SuperEarn (superearn-core-public)",
+      "source": "HackenProof (live, KYC+PoC-mandatory)",
+      "verdict": "honest_negative",
+      "notes": "Crosschain stablecoin yield (Kaia OriginVault <-> Ethereum RemoteVault via BridgeAccountant/CrosschainAdapter/Runespear+CCIP). DEEP-READ entire Category-1 crosschain accounting (BridgeAccountant/BridgeQueue/CrosschainAdapter/OriginVault+Base/RemoteVault/SuperEarnMessageAgent/messaging) + Cat-2 CooldownVault/StrategyOriginVault/USDOKycedCA (~9k LOC, commit 09b2774). Mature (3x Certik) with idempotent bridge accounting, dedup+causality-timestamp overlap prevention, FIFO cumulative reservation, _managedAssets+_assertSufficientBacking solvency, OZ virtual-shares offset. Exhaustive pre-filed OOS catalogue (SE-P1..32 / SUA/SSA/SA2 / AI-FP table) and code matches it. No eligible permissionless break found. Unread: Custom* + plumbing (lower EV)."
+    },
+    {
+      "target": "3F Grunt (3FLabs/grunt)",
+      "source": "Cantina (live, KYC-at-payout)",
+      "verdict": "honest_negative",
+      "notes": "Freshest screened bounty (live 2026-06-02, $250k, only 34 findings); novel non-fork RWA-leverage protocol (LP equity + Bridge Facilitator loans -> on-chain fund -> Morpho refinance). Commit 89cbfa0, solc 0.8.34. DEEP-READ the permissionless attacker surface (almost everything else is Facilitator/Owner/Operator/Minter-gated): request/Request.sol (minting fully gated via authorizeMinting owner/consumer-only; mint needs one-time auth, PT backed 1:1 by deposited asset, YT=unbacked yield claim by design; setRepaid has anti-drain minBalance + anti-over-repay maxBalance + mint->repaid delay), VaultController/Vault PT/YT redemption (standard OZ pAssets=min(balance,ptSupply)/yAssets=excess, mulDivUp shares / mulDiv assets; carries fixes for prior CS-GRUNT audit findings => already Cantina-reviewed), FacilityLP deposit/withdraw 1:1 + pro-rata mulDiv-rounddown claim (dust stays, no over-claim). Ran THEIR existing invariant suite (FOUNDRY_PROFILE=full): comprehensive + ALL PASS (Facility claimProportionality/depositCapNotExceeded/swapZeroSum/tokenBalanceSolvency/totalSupplyConsistency; funds TotalAssetsConsistent/oneToOneBacking/WrappedShareSupplyMatchesUnderlying; USCC; TransferGuard; 256 runs x 16384 calls each). request/ + borrow/ have massive unit/fuzz/PoC tests (Request.t 2246, ControlledVault 1260, MorphoBorrowPosition.t 3525 + their own slippage/timelock/reentrancy PoCs) but NO stateful invariant. BUILT the gap: grunt-scan/test/invariant/RequestVaultConservation.t.sol (reuses their MockVaultController; multi-actor deposit/yield-donate/repay/toggle/redeem). Invariants no-over-redemption(solvency) + no-value-creation + PT-priority-exact: PASS @200x80 (16k calls each, 0 reverts). No permissionless break found. Mature + heavily-tested + pre-reviewed (3rd such Cantina protocol in a row). Unread (lower EV, heavy existing tests): manager PositionManager share/fee/rebalancer, borrow MorphoBorrowPosition, facility intent lifecycle, funds aggregation. KYC at payout only; nothing submitted."
+    },
+    {
+      "target": "Dexalot (contracts @ cd/removeAuction)",
+      "source": "HackenProof (live, KYC+PoC-mandatory)",
+      "verdict": "honest_negative",
+      "notes": "On-chain CLOB DEX. Hunted the FRESH auction-removal delta (commit f7acdba): TradePairs matching refactor (addExecution return->in-place memory mutation, Execution struct, dust-cancel+status-guarded removeClosedOrder, OPEN-auction gating), PortfolioSub.addExecution settlement, UtilsLibrary.getFee (protocol-favorable), auctionPrice repurposed->OmniVault address (clean: no stale numeric read survives), ExchangeSub auction-admin (role-gated). All sound. BUILT Foundry conservation harness (dexalot-scan/test/invariant/DexalotConservation.t.sol): deploys real PortfolioSub+TradePairs+OrderBooks+GasStation+PortfolioMinter+SubHelper (virtual tokens, deposits via processXFerPayload, MockBridge for addToken callback, autoGas neutralized by vm.deal). Invariants Sum(holdings.total)==tokenTotals + no-inflation PASS @150x120 (18k calls each, 0 reverts); deterministic crossing-match test proves real settle+fee path exercised+conserved. SECOND harness (DexalotBridgeInventory.t.sol) for the cross-chain PortfolioBridgeSub + InventoryManager: deploys real PortfolioSub + PortfolioBridgeSub/InventoryManager/DelayedTransfers (0.8.25 bridge stack deployed via vm.deployCode + local interfaces since they can't share a 0.8.17 compilation unit with PortfolioSub; MockBridge no-op IBridgeProvider; USDT listed from 2 source chains => multi-chain inventory; actors admin-for-rates => fee-free; deposits injected via processPayload, withdraws via withdrawToken). Invariants Sum(inventory across chains)==tokenTotals + per-chain inventory<=totals + withdrawal-fee<=quantity over fuzzed multi-chain states: PASS @150x120 (18k calls each, 0 reverts; deposit/withdraw/feeProbe ~6k each). Did NOT find a break. 572 submissions/$0 paid + Ottersec-audited corroborated."
+    },
+    {
+      "target": "Fira Protocol (Steady Labs / usual-dao)",
+      "source": "Sherlock bug bounty (id 'fira', $500k, Ethereum)",
+      "verdict": "honest_negative",
+      "review_type": "thorough manual review of the Fira-specific novel surface (no full mainnet-fork invariant harness built)",
+      "notes": "Fira = Morpho-Blue (lending + SisuVault ERC-4626 curation) + Pendle V2 (FiraMarket AMM + BT/CT/FW yield-separation + Action* router facets) fork PLUS Fira glue. Repos usual-dao/fira* are private/404; reconstructed from 41 verified on-chain addresses via Sourcify (keyless) + Etherscan v2 fallback into fira-scan/src/ (630 .sol, solc 0.8.30; sandbox clean, 5 benign NatSpec flags). DEEP-READ the Fira-specific additions (the only place a bug could live; the Morpho/Pendle base is heavily pre-audited): (1) LendingMarket (Morpho fork) Fira additions = dual-tier health check (_isHealthyLTV uses marketParams.ltv for origination + _isHealthy uses lltv for liquidation, BOTH enforced on borrow/withdrawCollateral; sound two-tier) + uslLiquidator role + marketConstants(liquidationIncentive,maturityGracePeriod) + _liquidatePostMaturity bad-debt socialization (writeDown = repaidAssetsPaid + badDebtAssets == fullDebtAssets; repaidAssetsPaid uses wDivUp => conservative for LPs; totalSupplyAssets -= badDebtAssets; all shares burned; math consistent) + standard liquidate() bad-debt path (collateral==0 socialize; faithful Morpho). (2) FiraLendingMarket.liquidateExpiredBt = permissionless post-maturity liquidation gated by block.timestamp >= IBondToken(loanToken).expiry() + maturityGracePeriod (correct gate). (3) USDCFW/FWBase = Fira-Wrapped StandardizedYield over USDC + SisuVault shares with TRACKED accounting (idleAssets/vaultShares, NOT balanceOf) => closes donation/first-depositor inflation vector; pro-rata mint/redeem; rehypothecation idle/vault ratio (phiMin/Max/Target) defensive. (4) FiraSolvencyOracle = base-oracle wrapper applying solvency discount when FW.exchangeRate < bcIndex (price *= bcIndex/fwIndex to seize less collateral), with circuit-breaker revert on FW full wipeout (fwIndex==0 && supply>0) and post-expiry firstBCIndex matching to mintBC pricing (prevents post-expiry liquidation arbitrage). (5) BondToken/CouponToken/InterestManagerCT = faithful Pendle PT/YT yield separation (non-decreasing BC index = max(FW.exchangeRate, stored); reserve-tracked floating FW via _getFloatingFwAmount = balance - fwReserve; mintBC/redeemBC conserve). All examined surface is professionally constructed with deliberate defensive measures (tracked accounting, conservative rounding, circuit breakers, two-tier LTV). No eligible permissionless break found. NOT machine-checked: a full mainnet-fork invariant harness over this 630-file Morpho+Pendle fork was not built (major effort, low EV given the careful manual-review result). Unread (lower EV, audited-base or privileged): SisuVault.sol internals, FiraMarket AMM pricing core, FiraRouterV4 facet dispatch, BCLpOracle/LpOracleLib. 13th consecutive reputable-bounty honest negative on manual review. Nothing submitted (user does KYC + Sherlock submission); confidential."
+    },
+    {
+      "target": "Citrea System Contracts (chainwayxyz/citrea @ v2.5.0)",
+      "source": "HackenProof bug bounty (live mainnet; Critical up to $250k; KYC + runnable PoC required)",
+      "verdict": "honest_negative",
+      "notes": "FULL-COVERAGE Solidity audit (the eval-proven discipline) of the System Contracts: Bridge.sol, BitcoinLightClient.sol, FeeVault+4 empty subclasses, FailedDepositVault, WCBTC9, IBitcoinLightClient, and the Bridge dependency lib/WitnessUtils.sol \u2014 every substantive file examined (coverage ledger in audits/citrea-systemcontracts/output/merged_findings.json). NO qualifying permissionless High/Critical. deposit/replaceDeposit are operator/system-gated (operator+owner-key attacks OOS; no role-escalation path); permissionless withdraw/batchWithdraw/safeWithdraw lock the caller's OWN depositAmount cBTC and are replay-guarded (processedTxIds / usedWithdrawalUTXO); txId-nullifier defeats witness malleability; isBytesEqual correct for all lengths; Bitcoin validation delegated to audited bitcoin-spv + a careful WitnessUtils port; Schnorr to node precompile 0x200. Only INFO-1: documented zero-wtxid verifyInclusion footgun, UNREACHABLE via Bridge. SCOPE CAVEAT: the biggest-$ criticals (invalid state transition / batch-proof / ZK soundness / Clementine BitVM) live in the Rust node + circuits \u2014 OUT of our Solidity tooling, not audited. Nothing submitted (user does KYC + submission); confidential.",
+      "mechanism_classes_applied": [
+        "cross-chain-inbound-source-unauthenticated",
+        "init-once-guard-missing",
+        "replay/nullifier",
+        "default-zero-state-accept",
+        "arithmetic-sat-wei",
+        "access_control role-gating"
+      ],
+      "coverage": "full (all in-scope substantive .sol + Bridge dependency)"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "mechanism_inventory": [
+    "stale accounting snapshot — getAdjustedPrice() stale/manipulable oracle price",
+    "missing invariant enforcement — no bounds on value before UD60x18 mul",
+    "external-call failure / DoS — getAdjustedPrice()/creditDeposits.at(i) reverts halts loop",
+    "victim accounting direction — inflated price masks undercollateralization",
+    "precision / packing / normalization edge — ud60x18(value) without decimal normalization"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "getAdjustedPrice() may return manipulated/stale price, multiplied with no sanity bound; creditDepositsValueUsdX18 gates solvency/withdrawal.",
+      "attacker_model": "Unprivileged actor influencing a collateral oracle (spot/low-liq feed) or triggering during stale feed.",
+      "exploit_path": "manipulate price -> getCreditDepositsValueUsd overstates -> caller allows undercollateralized withdrawal/borrow.",
+      "who_loses": "Protocol/LPs (coverage lower than reported).",
+      "who_gains": "Attacker (extracts value vs phantom collateral).",
+      "why_carried": "External price call with no circuit-breaker in this function; flows into return consumed by gates; rejection needs unproven downstream guard."
+    },
+    {
+      "root_cause": "ud60x18(value) wraps raw map value with no decimal normalization for non-18-decimal tokens (USDC 6, WBTC 8) -> off by up to 1e12.",
+      "attacker_model": "Systemic miscalc; sophisticated actor exploits known mispricing.",
+      "exploit_path": "non-18-decimal asset registered -> ud60x18(native units) -> wrong USD value for every such asset.",
+      "who_loses": "Protocol (solvency miscalculated).",
+      "who_gains": "Actors benefiting from direction of error.",
+      "why_carried": "Different state path (value side, not price); storage of value not visible -> NEEDS_HARNESS."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "precision/normalization edge — ud60x18(value) on raw non-18-decimal amount",
+      "source_evidence": "value = creditDeposits.at(i) raw uint256; ud60x18(value) direct; no decimal scaling; Collateral loaded but only price used.",
+      "unresolved_question": "Is value stored in native decimals or WAD? Needs write-path.",
+      "who_loses": "Protocol/LPs or borrowers depending on direction.",
+      "who_gains": "Actors exploiting mispricing direction.",
+      "status": "NEEDS_HARNESS"
+    },
+    {
+      "mechanism": "external-call DoS — reverting price feed halts all callers",
+      "source_evidence": "Collateral.load + getAdjustedPrice in loop, no try/catch.",
+      "unresolved_question": "Does getAdjustedPrice have internal try/catch or dead-asset removal?",
+      "who_loses": "Protocol (solvency/liquidation/withdrawal bricked).",
+      "who_gains": "No direct attacker gain; Medium DoS.",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [
+    {
+      "mechanism": "missing invariant enforcement — integer overflow in UD60x18 add",
+      "claimed_locus": "creditDepositsValueUsdX18.add(...) accumulator",
+      "rejecting_source_fact": "UD60x18 uses checked arithmetic; overflow reverts not wraps; realistic values << UD60x18 max.",
+      "why_unexploitable": "Overflow -> revert, not silent miscalc; cannot manufacture false high value.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    }
+  ],
+  "impact_direction": {
+    "attacker_receives": "Real assets vs overstated collateral (oracle manipulation).",
+    "attacker_preserves": "Positions that should have been liquidated.",
+    "victim_loses": "Protocol LPs/depositors lose real value.",
+    "invariant_violated": "creditDepositsValueUsdX18 must reflect true USD value.",
+    "not_self_funded_or_dust_or_admin_or_timing": "Permissionless, scales with deposits, not dust."
+  },
+  "stop_condition": "more_mechanisms_pending: decimal normalization + DoS carried NEEDS_HARNESS; different state paths/victims.",
+  "verdict": "HIGH_THREAD"
+}

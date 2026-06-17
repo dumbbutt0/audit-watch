@@ -1,0 +1,44 @@
+{
+  "phase": "P149",
+  "title": "Human-intent / severity judgment for H1-centrifuge-userescrow",
+  "type": "judgment_record_only",
+  "subject": {"bug_id": "H1-centrifuge-userescrow", "target": "UserEscrow.transferOut",
+              "audit": "centrifuge-2023-09-holdout"},
+  "decision": "GRIEFING_OR_DESIGN_AMBIGUOUS",
+  "runtime_status": "runtime_confirmed",
+  "runtime_fact_established": true,
+  "reportability_established": false,
+  "severity_assigned": false,
+  "duplicate_status": "duplicate_unknown",
+  "intent_findings": {
+    "only_owner_initiates_withdraw_redeem": "LiquidityPool.sol:97-98,176-178,200-202 (withApproval = msg.sender==owner; no operator delegation)",
+    "owner_chooses_receiver": "InvestmentManager.sol:545 (transferOut(asset, user, receiver))",
+    "transferOut_ward_only": "UserEscrow.sol:36 (external auth)",
+    "allowance_check_is_defense_in_depth": "UserEscrow.sol:39-42 (NatSpec: additional protection in case of compromized auth)",
+    "allowance_never_consumed": "UserEscrow.sol:41 (NatSpec) + :43 (== type(uint256).max)"
+  },
+  "external_attacker_path_under_intended_operation": false,
+  "residual_concerns": [
+    "functional ERC4626: receiver!=owner withdrawal reverts unless owner pre-granted infinite currency allowance (UserEscrow.sol:43)",
+    "weak compromised-auth proxy: unrelated infinite allowance suffices, never consumed, repeatable"
+  ],
+  "external_docs_used": false,
+  "files_touched": [
+    "output_research/value_provenance_eval/runtime_status.jsonl (H1 row enriched, data only)",
+    "tests/research/test_value_provenance_eval_harness.py (+2 tests)",
+    "documentation/research/assisted_mode/p149_centrifuge_intent_review/ (deliverables)"
+  ],
+  "harness_py_changed": false,
+  "production_source_changed": false,
+  "prompt_baseline_byte_for_byte_unchanged": true,
+  "tests": {"research_tests_passed": 29, "full_passed": 1666, "prior_passed": 1664,
+            "pre_existing_fails": 2, "skipped": 4},
+  "integrity": {
+    "routing_allowed_all_false": true,
+    "submission_ready_all_false": true,
+    "h1_status_unchanged_runtime_confirmed": true,
+    "active_audit_unchanged": "quantamm-2024-12-eval",
+    "harness_un_wired": true
+  },
+  "submission_ready": false
+}

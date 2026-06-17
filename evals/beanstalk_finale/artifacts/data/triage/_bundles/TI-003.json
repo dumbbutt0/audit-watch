@@ -1,0 +1,99 @@
+{
+  "finding_id": "TI-003",
+  "title": "Fertilizer1155 pays out Beans (payFertilizer) inside _beforeTokenTransfer using pre-transfer balances and before the ERC1155 acceptance check",
+  "agent": "",
+  "claimed_severity": "Info",
+  "claimed_confidence": "Medium",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/tokens/Fertilizer/Fertilizer.sol",
+    "function": "_beforeTokenTransfer",
+    "line_start": 62,
+    "line_end": 78
+  },
+  "description": "Fertilizer1155.safeTransferFrom calls _beforeTokenTransfer -> Fertilizer._update(from)/_update(to) -> IBS(owner()).payFertilizer(account, amount), an external Bean-paying call into Beanstalk, BEFORE _transfer updates the ERC1155 balances and before __doSafeTransferAcceptanceCheck. __update reads _balances[id][account].amount, which for both from and to reflects PRE-transfer balances; that is the intended settle-before-move behavior for the sender but means recipient (to) is settled on its old (often zero) balance, and the Bean payout external call occurs while the 1155 transfer is mid-flight. This is an ERC1155-callback ordering / CEI concern more than an ERC20 non-standard-token issue, and overlaps the reentrancy specialist's lane (Fertilizer is owner-gated to Beanstalk, which has nonReentrant on its facets). No fund-loss path was traced end-to-end from the token-integration angle; flagged for the reentrancy/logic agents to confirm whether a malicious to-contract callback during __doSafeTransferAcceptanceCheck can reenter while fertilizer payout state is mid-update.",
+  "impact": "Potential reentrancy/ordering surface during Fertilizer transfers; no isolated token-integration fund-loss path confirmed. Cross-listed to reentrancy specialist.",
+  "ite": {
+    "intent": "Settle accrued Bean rewards exactly once per Fertilizer holder on transfer",
+    "technique": "External Bean payout in _beforeTokenTransfer prior to balance finalization and acceptance check",
+    "evasion": "Recipient contract callback after payout"
+  },
+  "ice_chain": {
+    "corrupted_state": "Fertilizer accrual lastBpf / Bean payout timing relative to 1155 balance update",
+    "impact": "Reentrancy/ordering risk if a recipient callback can reenter payout; unproven",
+    "consumer_found": true,
+    "consumer_function": "FertilizerFacet.payFertilizer / Sun bpf payout",
+    "exploit_path": "safeTransferFrom -> _beforeTokenTransfer payFertilizer -> _transfer -> onERC1155Received callback"
+  },
+  "source_slice": "32:      * @dev In a future update, the metadata will be fully on chain,\n33:      * and thus the uri will not need to be updated.\n34:      */\n35:     function init() external initializer {\n36:         __Internallize_init(\"\");\n37:     }\n38: \n39:     function beanstalkUpdate(\n40:         address account,\n41:         uint256[] memory ids,\n42:         uint128 bpf\n43:     ) external onlyOwner returns (uint256) {\n44:         return __update(account, ids, uint256(bpf));\n45:     }\n46: \n47:     function beanstalkMint(\n48:         address account,\n49:         uint256 id,\n50:         uint128 amount,\n51:         uint128 bpf\n52:     ) external onlyOwner {\n53:         if (_balances[id][account].amount > 0) {\n54:             uint256[] memory ids = new uint256[](1);\n55:             ids[0] = id;\n56:             _update(account, ids, bpf);\n57:         }\n58:         _balances[id][account].lastBpf = bpf;\n59:         _safeMint(account, id, amount, bytes(\"0\"));\n60:     }\n61: \n62:     function _beforeTokenTransfer(\n63:         address, // operator,\n64:         address from,\n65:         address to,\n66:         uint256[] memory ids,\n67:         uint256[] memory, // amounts\n68:         bytes memory // data\n69:     ) internal virtual override {\n70:         uint256 bpf = uint256(IBS(owner()).beansPerFertilizer());\n71:         if (from != address(0)) _update(from, ids, bpf);\n72:         _update(to, ids, bpf);\n73:     }\n74: \n75:     function _update(address account, uint256[] memory ids, uint256 bpf) internal {\n76:         uint256 amount = __update(account, ids, bpf);\n77:         if (amount > 0) IBS(owner()).payFertilizer(account, amount);\n78:     }\n79: \n80:     function __update(\n81:         address account,\n82:         uint256[] memory ids,\n83:         uint256 bpf\n84:     ) internal returns (uint256 beans) {\n85:         for (uint256 i; i < ids.length; ++i) {\n86:             uint256 stopBpf = bpf < ids[i] ? bpf : ids[i];\n87:             uint256 deltaBpf = stopBpf - _balances[ids[i]][account].lastBpf;\n88:             if (deltaBpf > 0) {\n89:                 beans = beans.add(deltaBpf.mul(_balances[ids[i]][account].amount));\n90:                 _balances[ids[i]][account].lastBpf = uint128(stopBpf);\n91:             }\n92:         }\n93:         emit ClaimFertilizer(ids, beans);\n94:     }\n95: \n96:     function balanceOfFertilized(\n97:         address account,\n98:         uint256[] memory ids\n99:     ) external view returns (uint256 beans) {\n100:         uint256 bpf = uint256(IBS(owner()).beansPerFertilizer());\n101:         for (uint256 i; i < ids.length; ++i) {\n102:             uint256 stopBpf = bpf < ids[i] ? bpf : ids[i];\n103:             uint256 deltaBpf = stopBpf - _balances[ids[i]][account].lastBpf;\n104:             beans = beans.add(deltaBpf.mul(_balances[ids[i]][account].amount));\n105:         }\n106:     }\n107: \n108:     function balanceOfUnfertilized(",
+  "gate_verdict": {
+    "finding_id": "TI-003",
+    "severity": "Info",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.546955+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": false
+}

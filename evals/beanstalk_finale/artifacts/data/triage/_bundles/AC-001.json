@@ -1,0 +1,99 @@
+{
+  "finding_id": "AC-001",
+  "title": "Migration redeem has no nonce/spent-marker; proof+signature replayable",
+  "agent": "",
+  "claimed_severity": "High",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+    "function": "redeemDepositsAndInternalBalances",
+    "line_start": 88,
+    "line_end": 114
+  },
+  "description": "L2ContractMigrationFacet.redeemDepositsAndInternalBalances is an external, permissionless function (only nonReentrant). It authenticates a migration by (1) MerkleProof.verify over leaf=keccak256(account,deposits,internalBalances,ownerRoots) against a hardcoded MERKLE_ROOT, and (2) an EIP-712 signature over (owner,reciever,deadline) recovered with ECDSA.recover and required to equal owner. Neither check consumes any state: there is no nonce, no per-leaf/per-signature redeemed-marker, and no per-account migration flag. All inputs (proof and signature) are plain calldata, visible on-chain the moment the first legitimate redemption is broadcast. setStalk uses `s.accts[account].stalk += accountStalk` and `s.accts[account].roots += accountRoots` (line 205-211), and addMigratedDepositsToAccount re-writes the same deposit slots each call. Because both the proof and the signature re-validate identically on every call, anyone can resubmit the exact observed calldata repeatedly until `deadline`, accumulating stalk and roots to `reciever` on each replay while no L1 backing is consumed (the L1 deposits are not burned per-redemption by this function). The result is unbounded inflation of governance/yield weight (stalk drives Stalk-weighted governance and Silo earnings; roots drive earned-bean distribution) and per-account deposit credit, against the protocol invariant that migrated credit is issued exactly once per L1 owner. This is the access-control failure mode of signature reuse: a one-time authorization is treated as a reusable capability.",
+  "impact": "Repeated replay of a single legitimate migration's public calldata inflates s.accts[reciever].stalk and s.accts[reciever].roots without bound (and re-credits deposits), corrupting Stalk-weighted governance, Silo earnings, and earned-bean accounting protocol-wide. Conservative reading: unbacked minting of governance weight and yield -> protocol insolvency / governance capture. Immunefi v2.2: protocol insolvency / unbacked value creation = High to Critical; scored High pending PoC of the economic magnitude.",
+  "ite": {
+    "intent": "Mint unbacked stalk, roots, and deposit credit to a receiver by reusing a single authorized migration authorization",
+    "technique": "Replay the publicly visible proof+signature calldata of redeemDepositsAndInternalBalances multiple times before deadline; setStalk uses += and there is no nonce or redeemed-marker, so each replay re-credits the receiver",
+    "evasion": "Intended protection was the merkle proof + EIP-712 owner signature as a one-time authorization, but neither is consumed; the deadline is the only bound, leaving an open replay window"
+  },
+  "ice_chain": {
+    "corrupted_state": "s.accts[reciever].stalk, s.accts[reciever].roots, s.accts[reciever].deposits[depositId]",
+    "impact": "Inflated governance weight and earned-bean/Silo yield entitlement with no backing; protocol-wide accounting (total stalk vs sum) desynced",
+    "consumer_found": true,
+    "consumer_function": "Stalk-weighted governance voting and Silo earnings/plenty distribution that read s.accts[account].stalk and .roots (LibSilo / Season sunrise mow + earned bean math)",
+    "exploit_path": "EOA replays captured calldata -> setStalk += -> inflated stalk/roots -> consumed by governance vote weighting and earned-bean distribution"
+  },
+  "source_slice": "58:         address indexed account,\n59:         address indexed token,\n60:         int96 stem,\n61:         uint256 amount,\n62:         uint256 bdv\n63:     );\n64: \n65:     /**\n66:      * @notice TransferSingle event is emitted when a transfer is made. See {IERC1155.TransferSingle}\n67:      */\n68:     event TransferSingle(\n69:         address indexed operator,\n70:         address indexed sender,\n71:         address indexed recipient,\n72:         uint256 depositId,\n73:         uint256 amount\n74:     );\n75: \n76:     /**\n77:      * @notice allows an contract that owns deposits and bean-asset internal balances to redeem onto an address on L2.\n78:      * @param owner address of the contract on L1.\n79:      * @param reciever address of the contract on L2.\n80:      * @param deposits deposits to redeem.\n81:      * @param internalBalances internal balances to redeem.\n82:      * @param ownerRoots underlying roots of the owner.\n83:      * @param proof proof of ownership.\n84:      * @param deadline deadline for the signature.\n85:      * @param signature signature of the owner.\n86:      * @dev the signature is signed on the L1 blockchain.\n87:      */\n88:     function redeemDepositsAndInternalBalances(\n89:         address owner,\n90:         address reciever,\n91:         AccountDepositData[] calldata deposits,\n92:         AccountInternalBalance[] calldata internalBalances,\n93:         uint256 ownerRoots,\n94:         bytes32[] calldata proof,\n95:         uint256 deadline,\n96:         bytes calldata signature\n97:     ) external payable fundsSafu noSupplyChange nonReentrant {\n98:         // verify deposits are valid.\n99:         // note: if the number of contracts that own deposits is small,\n100:         // deposits can be stored in bytecode rather than relying on a merkle tree.\n101:         verifyDepositsAndInternalBalances(owner, deposits, internalBalances, ownerRoots, proof);\n102: \n103:         // signature verification.\n104:         verifySignature(owner, reciever, deadline, signature);\n105: \n106:         // set deposits for `reciever`.\n107:         uint256 accountStalk;\n108:         for (uint256 i; i < deposits.length; i++) {\n109:             accountStalk += addMigratedDepositsToAccount(reciever, deposits[i]);\n110:         }\n111: \n112:         // set stalk for account.\n113:         setStalk(reciever, accountStalk, ownerRoots);\n114:     }\n115: \n116:     /**\n117:      * @notice verfies that the input parameters for deposits\n118:      * are correct.\n119:      */\n120:     function verifyDepositsAndInternalBalances(\n121:         address account,\n122:         AccountDepositData[] calldata deposits,\n123:         AccountInternalBalance[] calldata internalBalances,\n124:         uint256 ownerRoots,\n125:         bytes32[] calldata proof\n126:     ) internal pure {\n127:         bytes32 leaf = keccak256(abi.encode(account, deposits, internalBalances, ownerRoots));\n128:         require(MerkleProof.verify(proof, MERKLE_ROOT, leaf), \"Migration: invalid proof\");\n129:     }\n130: \n131:     /**\n132:      * @notice verifies that the signature came from the owner.\n133:      * @dev the signature is signed on the L1 blockchain.\n134:      * the deposit data itself is not needed, as the signature\n135:      */\n136:     function verifySignature(\n137:         address owner,\n138:         address reciever,\n139:         uint256 deadline,\n140:         bytes calldata signature\n141:     ) internal view {\n142:         require(block.timestamp <= deadline, \"Migration: permit expired deadline\");\n143:         bytes32 structHash = keccak256(\n144:             abi.encode(REDEEM_DEPOSIT_TYPE_HASH, owner, reciever, deadline)",
+  "gate_verdict": {
+    "finding_id": "AC-001",
+    "severity": "High",
+    "vuln_type": "signature-replay",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.535373+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

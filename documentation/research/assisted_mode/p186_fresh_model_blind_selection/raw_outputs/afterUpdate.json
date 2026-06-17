@@ -1,0 +1,13 @@
+{
+  "model": "sonnet", "verdict": "HIGH_THREAD",
+  "mechanism_inventory": ["stale accounting snapshot — lpTokenDepositValue reset to current value on transfer (fee basis erased)","wrong lifecycle ordering / type mismatch — blockTimestampDeposit = uint32(block.number) not block.timestamp","missing invariant enforcement (cap) — recipient FeeData array can exceed 100-entry cap via transfer push","victim accounting direction — fee evasion by transferring before withdrawal","precision/packing edge — uint32(block.number) into uint40 timestamp field"],
+  "selected_mechanisms": [
+    {"root_cause":"afterUpdate overwrites lpTokenDepositValue=lpTokenDepositValueNow on transfer without collecting accrued uplift fee","who_loses":"protocol/LPs (uplift fee revenue)","who_gains":"transferring holder (fee-free appreciation)","why_carried":"direct fee-revenue loss, permissionless"},
+    {"root_cause":"blockTimestampDeposit = uint32(block.number) (line 242) vs deposit-path uint40(block.timestamp); corrupts time-based fee","who_loses":"protocol (time-based fee) or DoS via overflow","who_gains":"holder bypassing time constraints","why_carried":"different state variable + downstream path"}],
+  "unresolved_mechanisms": [
+    {"mechanism":"missing invariant enforcement (cap) — recipient array > 100 via transfer push (no >100 check unlike addLiquidity)","source_evidence":"afterUpdate poolsFeeData[_to].push no length check; addLiquidity reverts if >100","unresolved_question":"is downstream iteration unbounded (gas DoS)","who_loses":"victim recipient (positions bricked, can't withdraw)","who_gains":"attacker griefs victim by sending many NFTs to them"}],
+  "rejected_mechanisms": [
+    {"mechanism":"reentrancy via external call in afterUpdate","rejecting_source_fact":"only external calls = getData (read) + getPoolLPTokenValue; _updateWeightRunner immutable; no user callback","why_unexploitable":"no attacker-controlled callback","who_loses":"n/a","who_gains":"n/a","leans_on_unproven_guard":false}],
+  "impact_direction": {"attacker_receives":"avoided uplift fee on appreciation","attacker_preserves":"full appreciated value fee-free","victim_loses":"protocol uplift fee revenue; time accounting corrupted","invariant_violated":"holders pay uplift on appreciation; blockTimestampDeposit stores a timestamp","not_self_funded_or_dust_or_admin_or_timing":"real unbounded fee loss, permissionless"},
+  "stop_condition": "more_mechanisms_pending: blockTimestampDeposit mismatch + cap bypass DoS"
+}

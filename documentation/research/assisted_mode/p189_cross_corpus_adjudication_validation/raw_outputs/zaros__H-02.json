@@ -1,0 +1,57 @@
+{
+  "mechanism_inventory": [
+    "wrong lifecycle ordering — shares credited before token transfer",
+    "stale accounting snapshot — recalculateVaultsCreditCapacity called before accumulate/setActorShares",
+    "missing invariant enforcement — no upper bound on shares parameter (UD60x18 overflow)",
+    "victim accounting direction — setActorShares increases actor.shares before safeTransferFrom completes",
+    "hook caller or hook-timing mismatch — accumulateActor reads actor.shares before setActorShares updates total",
+    "reward / index update ordering — accumulateActor before setActorShares; stale index settle",
+    "external-call failure / DoS — safeTransferFrom after all state mutations; malicious token can reenter"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "CEI violation: reward state mutations (accumulateActor + setActorShares) occur BEFORE safeTransferFrom takes custody. An ERC-777/callback token can observe the elevated actor.shares in-flight.",
+      "attacker_model": "Attacker controls a malicious indexToken with a callback hook, or a reentrancy path during safeTransferFrom. Unprivileged.",
+      "exploit_path": "stake -> accumulateActor -> setActorShares (state mutated) -> safeTransferFrom hook -> reenter claim/unstake against inflated shares.",
+      "who_loses": "Protocol / other stakers — rewards pool drained or accounting corrupted.",
+      "who_gains": "Attacker — rewards/withdraw rights not yet backed by deposit.",
+      "why_carried": "State mutated before external call; CEI violated; reentrancy via token hook; fund loss from rewards pool."
+    },
+    {
+      "root_cause": "Reward index ordering: recalculateVaultsCreditCapacity may update the index first; accumulateActor settles at updated index but old shares.",
+      "attacker_model": "Any staker, permissionless; times stake to a favorable index shift.",
+      "exploit_path": "wait for accrual -> stake -> index updates -> settle at new index against old shares -> capture rewards not earned.",
+      "who_loses": "Existing stakers (diluted reward share).",
+      "who_gains": "Attacker/new staker.",
+      "why_carried": "Different accounting variable + different victims than the CEI mechanism; reward theft, >=Medium."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "missing invariant enforcement — no upper bound on shares; UD60x18 overflow",
+      "source_evidence": "shares uint128 passed into ud60x18 with only MIN_OF_SHARES_TO_STAKE check.",
+      "unresolved_question": "Does UD60x18 revert/wrap on overflow; is uint128 max within range? Needs library.",
+      "who_loses": "Protocol if silent overflow corrupts accounting.",
+      "who_gains": "Attacker (inflated share record).",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [
+    {
+      "mechanism": "stale accounting snapshot — recalculateVaultsCreditCapacity with stale data",
+      "claimed_locus": "Vault.recalculateVaultsCreditCapacity(vaultsIds)",
+      "rejecting_source_fact": "Called at top of stake() before any actor-share mutation; operates on pre-stake state by design.",
+      "why_unexploitable": "Staleness is intentional design; credit capacity feeds vault-level accounting not per-actor accrual.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    }
+  ],
+  "impact_direction": {
+    "attacker_receives": "Accumulated WETH rewards not backed by a prior staking period, or pool funds via reentrancy.",
+    "attacker_preserves": "Own tokens (transfer may not complete before exploit captures value).",
+    "victim_loses": "Existing stakers lose reward entitlements; protocol loses pool assets.",
+    "invariant_violated": "CEI ordering; rewards accrue only to actors who held shares during accrual.",
+    "not_self_funded_or_dust_or_admin_or_timing": "CEI reentrancy extracts pool value without deposit completing; index path captures rewards across an unparticipated window."
+  },
+  "stop_condition": "more_mechanisms_pending: reward/index ordering affects different actors+variable; UD60x18 overflow NEEDS_HARNESS.",
+  "verdict": "HIGH_THREAD"
+}

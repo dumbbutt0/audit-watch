@@ -1,0 +1,14 @@
+{
+  "model": "sonnet", "verdict": "CRITICAL_THREAD",
+  "mechanism_inventory": ["unauthorized state deletion via wrong-identity userAddress (userData injection)","uint256 loop counter underflow causing DoS/OOB revert","missing fee cap invariant (feePercentage may exceed 1e18 -> underflow on amountsOut subtraction)","lpNFT.burn external call before state cleanup (potential reentrancy hook)","stale accounting snapshot (feePerLP precision via lpTokenDepositValueChange)","victim accounting direction (attacker withdrawal charged against victim FeeData history)"],
+  "selected_mechanisms": [
+    {"root_cause":"userAddress = address(bytes20(userData)) caller-controlled; deposit keys on msg.sender; onlySelfRouter only checks router==self","who_loses":"victim LP (NFT burned, FeeData deleted)","who_gains":"attacker (destroys victim position; fee on victim basis)","why_carried":"permissionless cross-actor state destruction, CRITICAL"},
+    {"root_cause":"for(uint256 i=feeDataArrayLength-1;i>=0;--i) unsigned underflow when length==0 or amountLeft>0 after index 0","who_loses":"withdrawing user (revert/DoS)","who_gains":"griefer (selective withdrawal block)","why_carried":"different mechanism/outcome (DoS) than identity deletion"}],
+  "unresolved_mechanisms": [
+    {"mechanism":"missing fee cap — feePercentage not bounded <=1e18 (fee can exceed 100%)","source_evidence":"feePercentage=feeAmount/bptAmountIn; hookAdjustedAmountsOutRaw[i]-=exitFee no cap","who_loses":"withdrawing LP (underflow revert)","who_gains":"none (DoS)"},
+    {"mechanism":"lpNFT.burn external call before delete/pop — potential reentrancy","source_evidence":"burn before delete feeDataArray[i]/pop","who_loses":"pool accounting mid-loop","who_gains":"attacker reduced fees"}],
+  "rejected_mechanisms": [
+    {"mechanism":"stale accounting snapshot (feePerLP precision)","rejecting_source_fact":"feePerLP 1e18 units, feeAmount 1e18 units, mulDown cancels scale; floors favour LP (documented)","why_unexploitable":"dimensionally consistent, no attacker precision gap","who_loses":"withdrawing user dust","who_gains":"LPs dust","leans_on_unproven_guard":false}],
+  "impact_direction": {"attacker_receives":"tokens with fees computed on victim history","attacker_preserves":"own position","victim_loses":"NFTs burned + FeeData deleted (irreversible)","invariant_violated":"poolsFeeData[pool][user] must only be mutated by that user's own withdrawal; userAddress binding broken","not_self_funded_or_dust_or_admin_or_timing":"not self-funded/dust/admin-only/timing — permanent cross-actor loss"},
+  "stop_condition": "more_mechanisms_pending: loop underflow DoS + reentrancy + fee cap"
+}

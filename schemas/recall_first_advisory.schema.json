@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "recall_first_advisory.schema.json",
+  "title": "Recall-First Harness — Shadow Advisory Output (P264)",
+  "description": "ADVISORY-ONLY shadow output. NOT a canonical finding schema. Recall candidates can never be reportable/severity/concluded; promotion to a finding requires the separate downstream ranking/completion/refutation stages.",
+  "type": "object",
+  "required": ["module", "mode", "is_gate", "research_only", "routes_in_production", "emits_findings",
+               "concludes_vulnerability", "advisory_candidates", "guard_violations"],
+  "properties": {
+    "module": {"const": "recall_first_harness"},
+    "mode": {"enum": ["shadow", "research_eval"]},
+    "is_gate": {"const": false},
+    "research_only": {"const": true},
+    "routes_in_production": {"const": false},
+    "emits_findings": {"const": false},
+    "concludes_vulnerability": {"const": false},
+    "guard_violations": {"const": 0},
+    "advisory_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["candidate_id", "locus", "contract", "function", "prioritizer_score",
+                     "sweep_inclusion_reason", "templates_applied", "generated_mechanisms",
+                     "bc_ranking_handoff", "completion_status", "refutation_status", "evidence_pointers",
+                     "status", "promotion_label", "severity", "reportable", "submission_ready",
+                     "concluded", "emits_finding", "production_routing"],
+        "properties": {
+          "candidate_id": {"type": "string"},
+          "locus": {"type": "string"},
+          "contract": {"type": "string"},
+          "function": {"type": "string"},
+          "source_span": {"type": ["object", "null"]},
+          "prioritizer_score": {"type": ["number", "null"]},
+          "sweep_inclusion_reason": {"type": "array"},
+          "templates_applied": {"type": "array"},
+          "generated_mechanisms": {"type": "array"},
+          "bc_ranking_handoff": {"type": "object"},
+          "completion_status": {"type": ["string", "null"]},
+          "refutation_status": {"type": ["string", "null"]},
+          "evidence_pointers": {"type": "array"},
+          "status": {"const": "ADVISORY_RECALL_CANDIDATE"},
+          "promotion_label": {"enum": ["NEEDS_RANKING", "NEEDS_COMPLETION", "NEEDS_REFUTATION",
+                                        "READY_FOR_HUMAN_REVIEW_SHADOW"]},
+          "severity": {"type": "null"},
+          "reportable": {"const": false},
+          "submission_ready": {"const": false},
+          "concluded": {"const": false},
+          "emits_finding": {"const": false},
+          "production_routing": {"const": false}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "audit_id": "fluid-dex-v2-2026-02-blind",
+  "set": "holdout",
+  "language": "solidity",
+  "generated_at": "2026-06-12",
+  "awarded_source": "_sealed_answer_key/report.md (Sherlock 2026-01-fluid-dex-v2)",
+  "auto_heuristic": false,
+  "scope_note": "BOUNDED SUB-SCOPE eval: moneyMarket operate/supply core (12 files). Awarded findings span the FULL contest; only H-1 falls inside this sub-scope. H-1 is EXCLUDED from scoring (title glimpsed via API during a prior setup, per meta). M-1/M-2/M-3 are OUT of the operate/supply sub-scope (liquidate module + DexV2 base layer).",
+  "awarded": [
+    {"id": "H-1", "severity": "High", "title": "User can steal funds using _processNormalSupplyAction uncapped withdrawal", "label": "STRONG", "read_file": true, "in_subscope": true, "excluded_from_scoring": true, "exclude_reason": "title glimpsed via API during prior setup (frozen 2026-06-11)", "mechanism_class": "accounting-withdraw-amount-uncapped", "source": "human", "matched_candidate": "F-01", "note": "Caught BLIND at STRONG: my F-01 named the identical root cause (partial-withdraw branch caps withdrawAmountRaw_ to tokenRawSupply_ but transfers the UNCAPPED supplyAmount_ via LIQUIDITY.operate; the withdraw-all branch recomputes supplyAmount_, the partial branch does not), the exact line (helpers.sol:459), and the exact fix (recompute supplyAmount_ from the capped raw). Independent derivation, but honoring the pre-committed exclusion."}
+  ],
+  "out_of_subscope": [
+    {"id": "M-1", "severity": "Medium", "title": "DexV2.settle() liquidity-failure fallback stores payouts under to_ (unclaimable for EOAs)", "root_cause_file": "protocols/dexV2/base/core/main.sol", "note": "root cause in DexV2 base layer (not in the 12-file moneyMarket operate/supply sub-scope); triggered via MM settle helpers."},
+    {"id": "M-2", "severity": "Medium", "title": "Liquidation uses DexV2 spot price for D3 collateral composition/penalty -> MEV over-seizure", "root_cause_file": "protocols/moneyMarket/core/liquidateModule/main.sol + other/helpers.sol (_getD3SupplyAmounts AT_POOL_PRICE)", "note": "liquidate module (out of operate/supply sub-scope)."},
+    {"id": "M-3", "severity": "Medium", "title": "Liquidation reverts repaying final debt (HF=type(uint256).max vs hfLimitForLiquidation)", "root_cause_file": "protocols/moneyMarket/core/liquidateModule/main.sol:622-627 + other/helpers.sol:1051-1055", "note": "liquidate module (out of operate/supply sub-scope)."}
+  ],
+  "candidates": [
+    {"id": "F-01", "title": "normal-supply partial withdraw transfers uncapped amount", "matched": "H-1 (STRONG, excluded from scoring)"},
+    {"id": "F-02", "title": "normal-borrow partial payback not capped to debt", "matched": null, "note": "not awarded (lower impact)."}
+  ],
+  "summary": {
+    "awarded_total": 0,
+    "awarded_total_in_subscope": 1, "adjudicated": 1, "pending": 0,
+    "scoreable_in_subscope": 0,
+    "recall_of_surfaced": null, "strong_only": null,
+    "in_scope_bug_caught": true, "in_scope_bug_caught_label": "STRONG",
+    "by_label": {"STRONG": 1, "SAME_AREA": 0, "SUBSYSTEM_ONLY": 0, "MISSED": 0, "UNADJUDICATED": 0},
+    "out_of_subscope_awarded": 3,
+    "complete": true,
+    "blind": true,
+    "note": "GENUINE-BLIND full-coverage cold pass over the 12-file operate/supply sub-scope. The sole IN-SUBSCOPE awarded finding (H-1, a fund-theft Critical) was caught BLIND at STRONG (F-01) with exact root cause + fix -> 1.0 recall on the in-scope surface. H-1 is EXCLUDED from the official score (title glimpsed in a prior setup), so the headline can't bank it; the other 3 awarded findings are OUT of the operate/supply sub-scope (liquidate module + DexV2 base). Net: this target is formally UNSCOREABLE for blind recall (sole in-scope finding excluded), but the in-scope bug was demonstrably caught."
+  }
+}

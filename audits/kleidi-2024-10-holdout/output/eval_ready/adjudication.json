@@ -1,0 +1,104 @@
+{
+  "audit_id": "kleidi-2024-10-holdout",
+  "set": "training",
+  "generated_at": "2026-06-12T13:41:13Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": false,
+  "awarded": [
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Gas griefing/attack via creating the proposals",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "unbounded-array-griefing",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "Wrong handling of call data check indices, forcing it sometimes to revert",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": null,
+      "mechanism_class": "hand-rolled-index",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "`UpdateExpirattionPeriod()` cannot be executed when the `newExpirationPeriod` is less than `currentExpirationPeriod`",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "self-bricking-setter",
+      "read_file": true,
+      "source": "preserved"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "F-001",
+      "title": "RecoverySpellFactory.createRecoverySpell: transient-storage duplicate-owner check is never cleared (same-tx DoS)",
+      "severity": "Medium",
+      "file": "src/RecoverySpellFactory.sol",
+      "contract": "RecoverySpellFactory",
+      "function": "createRecoverySpell",
+      "description": "createRecoverySpell marks each owner in transient storage (tstore(owner,1)) to detect duplicates but never clears it after the loop. Transient storage persists for the whole transaction, so if createRecoverySpell is invoked more than once in a single tx (e.g. batching creation of recovery spells for several safes, or via a multicall), any owner address reused across calls is seen as already-marked and the later call reverts with 'RecoverySpell: Duplicate owner', blocking legitimate multi-spell creation. calculateAddress uses a separate O(n^2) check, so the two diverge."
+    },
+    {
+      "id": "F-002",
+      "title": "Timelock.initialize() has no access control",
+      "severity": "Low",
+      "file": "src/Timelock.sol",
+      "contract": "Timelock",
+      "function": "initialize",
+      "description": "initialize(...) is external with only an `initialized` flag guard and no onlySafe/onlyDeployer restriction. In the canonical flow InstanceDeployer creates the timelock and calls initialize atomically, so it cannot be front-run there. But a timelock deployed/obtained outside that flow (or any future flow that separates creation from initialization) can have its calldata whitelist set by an arbitrary caller. Defense-in-depth: restrict initialize to the deployer/safe."
+    },
+    {
+      "id": "F-003",
+      "title": "RecoverySpellFactory.calculateAddress lacks the safe.code check and uses a different dedup algorithm than createRecoverySpell",
+      "severity": "Low",
+      "file": "src/RecoverySpellFactory.sol",
+      "contract": "RecoverySpellFactory",
+      "function": "calculateAddress",
+      "description": "calculateAddress runs _paramChecks + an O(n^2) duplicate-owner check but does NOT require safe.code.length != 0 (createRecoverySpell does). So calculateAddress will happily predict an address for a non-existent safe, and the two functions can disagree on acceptance, creating a confusing/foot-gun surface for off-chain tooling."
+    },
+    {
+      "id": "F-004",
+      "title": "RecoverySpell allows recoveryThreshold == 0 (permissionless recovery after delay)",
+      "severity": "Low",
+      "file": "src/RecoverySpell.sol",
+      "contract": "RecoverySpell",
+      "function": "executeRecovery",
+      "description": "_paramChecks enforces threshold != 0 but NOT recoveryThreshold != 0. With recoveryThreshold == 0, executeRecovery's `recoveryThreshold <= v.length` passes for an empty signature set and the signature loop is skipped, so ANY address can execute the recovery (rotate all safe owners) once the delay elapses. NatSpec documents this as intentional ('If 0, no private keys are needed'), but it is a sharp foot-gun: a misconfigured spell hands the safe to whoever calls first after the delay."
+    },
+    {
+      "id": "F-005",
+      "title": "ConfigurablePause.paused() depends on block.timestamp >> pauseDuration when pauseStartTime == 0",
+      "severity": "Info",
+      "file": "src/ConfigurablePause.sol",
+      "contract": "ConfigurablePause",
+      "function": "paused",
+      "description": "paused() returns block.timestamp <= pauseStartTime + pauseDuration. In the unpaused state pauseStartTime == 0, so it evaluates block.timestamp <= pauseDuration; this only behaves correctly because block.timestamp (~1.7e9) is always far larger than pauseDuration (<= 30 days). The invariant is implicit/fragile rather than explicit (a `pauseStartTime == 0 => not paused` short-circuit would be clearer)."
+    }
+  ],
+  "summary": {
+    "awarded_total": 3,
+    "awarded_source": "report.md",
+    "adjudicated": 3,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 2,
+    "recall_of_surfaced": 0.333,
+    "strong_only": 0.0,
+    "by_label": {
+      "MISSED": 2,
+      "SAME_AREA": 0,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 1,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

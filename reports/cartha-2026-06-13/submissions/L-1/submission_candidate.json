@@ -1,0 +1,88 @@
+{
+  "finding_id": "L-1",
+  "title": "Parent withdraw/releaseFromParent burn full shares but can underpay on rounding",
+  "root_cause": "withdraw burns roundUp(assets) and releaseFromParent burns full lockedShares, but the payout is min(value,balance) after _withdrawFromChildren which does a single proportional, per-child-floored pass (no remainder loop), guarded only by a +10 wei tolerance -> bounded dust underpayment.",
+  "affected_contracts": [
+    "src/CarthaParentVault.sol"
+  ],
+  "affected_functions": [
+    "CarthaParentVault.withdraw",
+    "CarthaParentVault.releaseFromParent",
+    "CarthaParentVault._prepareSharePayout",
+    "CarthaParentVault._withdrawFromChildren"
+  ],
+  "attacker_entrypoint": "CarthaParentVault.withdraw / releaseFromParent (normal user exit)",
+  "attacker_capabilities": [
+    "exit when parent idle is short and children are pulled proportionally"
+  ],
+  "privilege_required": "none",
+  "scope_status": "in_scope",
+  "in_scope_asset": "CarthaParentVault (withdraw)",
+  "out_of_scope_risks": [],
+  "impact_category": "accounting_corruption",
+  "severity_claim": "Low",
+  "severity_justification": {
+    "worst_case": "Repeatable small underpayment to withdrawers.",
+    "realistic_case": "Dust-level; accounting wart.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "Cartha",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "Cartha contest (cartha-vaults-main @ 4c51f2a); official scope list not bundled with PoC package."
+  },
+  "call_trace": [
+    "user exits requiring a pull from children",
+    "_withdrawFromChildren floors each child's proportional pull (single pass)",
+    "full shares burned but payout = min(value, balance) -> caller receives slightly less"
+  ],
+  "state_transition": {
+    "before": "user holds shares worth `assets`",
+    "after": "shares for `assets` burned; payout < `assets` by rounding dust",
+    "slots_or_balances": []
+  },
+  "asset_delta": "Bounded dust loss to the withdrawer (retained by vault / remaining holders).",
+  "proof_type": "static_proof",
+  "poc_path": "",
+  "poc_status": "none",
+  "reproduction_steps": [
+    "code analysis \u2014 see report.md + vulnerable/ source"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [],
+  "false_positive_risks": [
+    "Dust-level; accounting wart."
+  ],
+  "invalidating_conditions": [],
+  "defense_analysis": [
+    {
+      "defense": "_availableFromChildren()+10 < needed revert",
+      "blocks_path": false,
+      "why_it_fails": "tolerates ~10 wei; per-child floors can still leave a small remainder"
+    }
+  ],
+  "assumptions": [
+    "perp deployment with 0xM pool wired (reader/oracle set)"
+  ],
+  "evidence_links": [
+    "src/CarthaParentVault.sol:withdraw (burn roundUp(assets), pay min(assets,balance))",
+    "src/CarthaParentVault.sol:_withdrawFromChildren (single proportional pass, per-child floor)",
+    "src/CarthaParentVault.sol:_prepareSharePayout",
+    "reports/cartha-2026-06-13/submissions/L-1/vulnerable/CarthaParentVault.sol"
+  ],
+  "triager_summary": "Parent withdraw/releaseFromParent burn full shares but can underpay on rounding \u2014 code analysis (dust magnitude; no runnable PoC)",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Business Logic Errors (rounding/dust underpayment in parent-vault withdraw/release)",
+  "cvss": [
+    {
+      "aspect": "Withdraw/release dust underpay",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N",
+      "score": 3.7,
+      "severity": "Low"
+    }
+  ]
+}

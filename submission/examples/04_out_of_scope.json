@@ -1,0 +1,50 @@
+{
+  "finding_id": "SUB-004",
+  "title": "Frontend dependency can be swapped to phish users into approving the router",
+  "root_cause": "The dapp frontend loads a third-party script over a mutable CDN; if that script is replaced, users can be tricked into signing a malicious approval to the router.",
+  "affected_contracts": ["frontend/index.html (off-chain)"],
+  "affected_functions": ["N/A — off-chain frontend"],
+  "attacker_entrypoint": "Attacker compromises the CDN and serves a malicious script; victim signs an approval via phishing UI.",
+  "attacker_capabilities": ["compromise the frontend CDN", "phishing of end users"],
+  "privilege_required": "none",
+  "scope_status": "out_of_scope",
+  "in_scope_asset": "",
+  "out_of_scope_risks": ["requires compromised frontend infrastructure", "depends on phishing the victim"],
+  "impact_category": "fund_loss",
+  "severity_claim": "High",
+  "severity_justification": {
+    "worst_case": "Victim approves attacker; funds drained.",
+    "realistic_case": "Requires both an infra compromise and a successful phish."
+  },
+  "bounty_program_mapping": {
+    "program": "ExampleProtocol",
+    "platform": "Immunefi",
+    "impact_in_scope": false,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "https://immunefi.com/bounty/exampleprotocol/#scope (smart contracts only; frontend & social engineering out of scope)"
+  },
+  "call_trace": ["off-chain: malicious script -> user signs ERC20.approve(router, max)"],
+  "state_transition": {
+    "before": "allowance[victim][router] = 0",
+    "after": "allowance[victim][router] = max",
+    "slots_or_balances": ["allowance[victim][router]"]
+  },
+  "asset_delta": "Up to the victim's full token balance, contingent on phishing success.",
+  "proof_type": "reasoning_only",
+  "poc_path": "",
+  "poc_status": "none",
+  "reproduction_steps": [],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "searched_clear",
+  "prior_audit_overlap": [],
+  "false_positive_risks": ["This is an off-chain/social-engineering risk, not a smart-contract vulnerability."],
+  "invalidating_conditions": ["Out of scope: frontend, infrastructure, and social engineering are excluded by the program."],
+  "defense_analysis": [
+    {"defense": "subresource integrity / pinned scripts", "blocks_path": false, "why_it_fails": "Mitigation is off-chain and out of the contract scope.", "uncertain": false}
+  ],
+  "assumptions": ["Attacker can compromise the CDN and phish a victim."],
+  "evidence_links": ["frontend/index.html:12 (off-chain)"],
+  "triager_summary": "Depends on compromised infrastructure and phishing, both explicitly out of scope. Must not be submitted.",
+  "recommended_status": "DO_NOT_SUBMIT",
+  "human_approval_required": true
+}

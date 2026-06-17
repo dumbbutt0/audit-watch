@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CrossSystemCallGraph",
+  "description": "Cross-system interaction map: call graph, interaction chains, trust boundary crossings",
+  "type": "object",
+  "required": ["call_graph", "interaction_chains", "trust_boundary_crossings"],
+  "properties": {
+    "call_graph": {
+      "type": "array",
+      "description": "Every external call edge in the protocol",
+      "items": {
+        "type": "object",
+        "required": [
+          "caller_contract",
+          "caller_function",
+          "callee_contract",
+          "callee_function",
+          "call_type",
+          "trust_level"
+        ],
+        "properties": {
+          "caller_contract": { "type": "string" },
+          "caller_function": { "type": "string" },
+          "callee_contract": { "type": "string" },
+          "callee_function": { "type": "string" },
+          "call_type": {
+            "type": "string",
+            "enum": ["direct", "delegatecall", "callback", "event"]
+          },
+          "state_read_before_call": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "state_written_after_call": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "trust_level": {
+            "type": "string",
+            "enum": ["trusted_internal", "trusted_external", "untrusted"]
+          }
+        }
+      }
+    },
+    "interaction_chains": {
+      "type": "array",
+      "description": "Multi-hop execution paths of length >= 3",
+      "items": {
+        "type": "object",
+        "required": ["chain_id", "path", "depth", "danger_score"],
+        "properties": {
+          "chain_id": {
+            "type": "string",
+            "description": "e.g. CHAIN-001"
+          },
+          "path": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Ordered list of ContractName.functionName hops"
+          },
+          "shared_state": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "State variables read or written by 2+ functions in the chain"
+          },
+          "invariant_exposure": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Invariant IDs touched by this chain via state variable overlap"
+          },
+          "reentrancy_surface": {
+            "type": "boolean",
+            "description": "Does any external call occur before shared_state is finalized?"
+          },
+          "stale_read_risk": {
+            "type": "boolean",
+            "description": "Does any hop read state written by an earlier hop without re-reading?"
+          },
+          "depth": {
+            "type": "integer",
+            "description": "Number of hops"
+          },
+          "danger_score": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "1=all internal, no shared mutable state; 5=untrusted callback + shared state + invariant exposure"
+          }
+        }
+      }
+    },
+    "trust_boundary_crossings": {
+      "type": "array",
+      "description": "Every point where execution crosses into an untrusted context",
+      "items": {
+        "type": "object",
+        "required": ["location"],
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "function + line estimate"
+          },
+          "caller_state_at_crossing": {
+            "type": "string",
+            "description": "State that is inconsistent or mid-mutation at this crossing"
+          },
+          "untrusted_observation": {
+            "type": "string",
+            "description": "What untrusted code could observe or call back into"
+          },
+          "invariants_false_at_crossing": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Invariant IDs that are temporarily false at this exact crossing"
+          }
+        }
+      }
+    }
+  }
+}

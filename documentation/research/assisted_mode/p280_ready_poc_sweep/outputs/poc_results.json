@@ -1,0 +1,46 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "POC_SWEEP",
+  "is_gate": false,
+  "emits_findings": false,
+  "severe_concluded_or_reportable_fp": 0,
+  "results": [
+    {
+      "candidate_id": "coverage_manifest:V3Vault:transform:9",
+      "class": "ACCESS_CONTROL_AUTHORIZATION",
+      "tier": "C",
+      "result": "PASS_REFUTED",
+      "poc": "pocs/p280/test/P280_Transform.t.sol",
+      "observed": "unauthorized caller reverts on inline owner/approval guard; owner can transform",
+      "expected_auto": "unauthorized EOA can change protected state",
+      "evidence_sufficient_to_build": true,
+      "human_invented_new_mechanism_facts": false,
+      "note": "auto ACCESS claim refuted by INLINE guard (manifest modifiers=[] missed it); real concern = arbitrary external call (SAME_AREA)"
+    },
+    {
+      "candidate_id": "coverage_manifest:IBeanstalk:cancelPodListing:0",
+      "class": "ORDER_VALIDATION",
+      "tier": "C",
+      "result": "PASS_REFUTED",
+      "poc": "pocs/p280/test/P280_CancelPodListing.t.sol",
+      "observed": "non-owner reverts on inline require(plots[lister][index]>0); maker can cancel own listing",
+      "expected_auto": "attacker cancels/redirects another party's listing",
+      "evidence_sufficient_to_build": true,
+      "human_invented_new_mechanism_facts": false,
+      "note": "auto ORDER claim refuted by INLINE ownership require in LibMarket._cancelPodListing"
+    },
+    {
+      "candidate_id": "coverage_manifest:L2Governor:execute:20",
+      "class": "ACCESS_CONTROL_AUTHORIZATION",
+      "tier": "C",
+      "result": "BENIGN_BY_DESIGN",
+      "secondary": "SAME_AREA_WRONG_MECHANISM",
+      "poc": "pocs/p280/test/P280_GovernorExecute.t.sol",
+      "observed": "execute permissionless by design (anyone executes SUCCEEDED); REAL anomaly = a DEFEATED proposal is also executable",
+      "expected_auto": "unauthorized EOA changes restricted state",
+      "evidence_sufficient_to_build": true,
+      "human_invented_new_mechanism_facts": true,
+      "note": "auto ACCESS framing benign (Governor.execute meant permissionless); real bug = state-machine (Defeated/Expired executable)"
+    }
+  ]
+}

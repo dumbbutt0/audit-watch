@@ -1,0 +1,28 @@
+{
+  "candidate_id": "multicall_invariant:Multicall:multicall:delegatecall_self_context:5d1136da",
+  "audit_id": "size-credit-2024-06",
+  "candidate_hash": "5d1136da",
+  "generated_at": "2026-06-01T18:30:11.605800+00:00",
+  "tool": "scripts/candidates/validate_candidate.py",
+  "source_root": "audits/size-credit-2024-06/contracts/2024-06-size",
+  "source_hash": "md5:cecf083ad025a572e8e8766a6e86c1c4",
+  "evidence_refs": [
+    "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol:26"
+  ],
+  "status": "RESOLVED_SOURCE",
+  "reasons": [
+    "resolved"
+  ],
+  "unresolved_assumptions": [],
+  "routing_allowed": false,
+  "research_only": true,
+  "resolved_abs_path": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol",
+  "function_signature": "function multicall(State storage state, bytes[] calldata data) internal returns (bytes[] memory results) {",
+  "line_range": [
+    26,
+    45
+  ],
+  "snippet_match": true,
+  "code_snippet": "    function multicall(State storage state, bytes[] calldata data) internal returns (bytes[] memory results) {\n        state.data.isMulticall = true;\n\n        uint256 borrowATokenSupplyBefore = state.data.borrowAToken.balanceOf(address(this));\n        uint256 debtTokenSupplyBefore = state.data.debtToken.totalSupply();\n\n        results = new bytes[](data.length);\n        for (uint256 i = 0; i < data.length; i++) {\n            results[i] = Address.functionDelegateCall(address(this), data[i]);\n        }\n\n        uint256 borrowATokenSupplyAfter = state.data.borrowAToken.balanceOf(address(this));\n        uint256 debtTokenSupplyAfter = state.data.debtToken.totalSupply();\n\n        state.validateBorrowATokenIncreaseLteDebtTokenDecrease(\n            borrowATokenSupplyBefore, debtTokenSupplyBefore, borrowATokenSupplyAfter, debtTokenSupplyAfter\n        );\n\n        state.data.isMulticall = false;\n    }",
+  "resolution_status": "resolved"
+}

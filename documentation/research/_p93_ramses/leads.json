@@ -1,0 +1,942 @@
+{
+  "research_only": true,
+  "review_only": true,
+  "is_gate": false,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "phase": "P93",
+  "subject": "ramses-exchange-2024-10",
+  "commit": "1ba89267cc7c010f13c4d405476090641d18b146",
+  "detector_family": "surface_recall_lens",
+  "lens_machinery_hash": "29a7b915d98a0257",
+  "lead_policy": "P91 top-16 \u222a per-contract top-2 floor (deduped) + 3 governance controls; NOT_RUN target 0; depth via deep_pass_depth_trace_v3 + localized_depth_trace",
+  "per_contract_floor_added": [
+    "ClGaugeFactory.createGauge",
+    "NonfungiblePositionManager.burn",
+    "NonfungiblePositionManager.collect",
+    "RamsesV3PoolDeployer.deploy"
+  ],
+  "severity_gate_under_test": "193abf9f03f138c8 (P88 frozen)",
+  "lead_count": 21,
+  "leads": [
+    {
+      "candidate_id": "RamsesV3Factory.setPoolFeeProtocolBatch",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RamsesV3Factory",
+      "trigger_function": "setPoolFeeProtocolBatch",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,admin_config_setter,fee_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setPoolFeeProtocolBatch(address[] calldata pools, uint8 _feeProtocol) external restricted",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "admin_config_setter",
+        "fee_path",
+        "auth_boundary"
+      ],
+      "surface_score": 8,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "FTL",
+          "IRamsesV3Pool",
+          "SetPoolFeeProtocol",
+          "poolFeeProtocol",
+          "setFeeProtocol"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Factory.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "FeeCollector.setTreasuryFees",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "FeeCollector",
+      "trigger_function": "setTreasuryFees",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,fee_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setTreasuryFees(\n        uint256 _treasuryFees\n    ) external override onlyTreasury",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "fee_path",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "FTL",
+          "TreasuryFeesChanged"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/gauge/FeeCollector.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "RamsesV3Factory.setFee",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RamsesV3Factory",
+      "trigger_function": "setFee",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,fee_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setFee(address _pool, uint24 _fee) external override restricted",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "fee_path",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "FeeAdjustment",
+          "IRamsesV3Pool",
+          "setFee"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Factory.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "RamsesV3Factory.setFeeCollector",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RamsesV3Factory",
+      "trigger_function": "setFeeCollector",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,fee_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setFeeCollector(address _feeCollector) external override restricted",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "fee_path",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "FeeCollectorChanged"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Factory.sol",
+      "visibility": "external",
+      "inclusion_source": "control",
+      "p93_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "RamsesV3Factory.setFeeProtocol",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RamsesV3Factory",
+      "trigger_function": "setFeeProtocol",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,fee_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setFeeProtocol(uint8 _feeProtocol) external override restricted",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "fee_path",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "FTL",
+          "SetFeeProtocol"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Factory.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "RamsesV3Factory.setPoolFeeProtocol",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RamsesV3Factory",
+      "trigger_function": "setPoolFeeProtocol",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,fee_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setPoolFeeProtocol(address pool, uint8 _feeProtocol) external restricted",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "fee_path",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "FTL",
+          "IRamsesV3Pool",
+          "SetPoolFeeProtocol",
+          "poolFeeProtocol",
+          "setFeeProtocol"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Factory.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "RamsesV3Pool.collect",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RamsesV3Pool",
+      "trigger_function": "collect",
+      "trigger_lines": null,
+      "suspicious_pattern": "fee_path,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function collect(\n        address recipient,\n        uint256 index,\n        int24 tickLower,\n        int24 tickUpper,\n        uint128 amount0Requested,\n        uint128 amount1Requested\n    ) external ",
+      "required_followup_questions": [
+        "is the fee_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "fee_path",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "Collect",
+          "get",
+          "getStorage",
+          "safeTransfer"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Pool.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "RamsesV3Pool.swap",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RamsesV3Pool",
+      "trigger_function": "swap",
+      "trigger_lines": null,
+      "suspicious_pattern": "refund_path,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function swap(\n        address recipient,\n        bool zeroForOne,\n        int256 amountSpecified,\n        uint160 sqrtPriceLimitX96,\n        bytes calldata data\n    ) external override returns (int25",
+      "required_followup_questions": [
+        "is the refund_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "refund_path",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": [
+          "AS",
+          "IIA",
+          "IUniswapV3SwapCallback",
+          "LOK",
+          "SPL",
+          "Swap",
+          "SwapCache",
+          "SwapState"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Pool.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "FeeCollector.collectProtocolFees",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "FeeCollector",
+      "trigger_function": "collectProtocolFees",
+      "trigger_lines": null,
+      "suspicious_pattern": "fee_path,value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function collectProtocolFees(IRamsesV3Pool pool) external override",
+      "required_followup_questions": [
+        "is the fee_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "fee_path",
+        "value_exit"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "FeesCollected",
+          "IERC20",
+          "IFeeDistributor",
+          "approve",
+          "balanceOf",
+          "collectProtocol",
+          "feeDistributorForGauge",
+          "gaugeForPool"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/gauge/FeeCollector.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "RamsesV3Pool.setFee",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RamsesV3Pool",
+      "trigger_function": "setFee",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,fee_path",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setFee(uint24 _fee) external override lock",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "fee_path"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "setFee"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Pool.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "RamsesV3Pool.setFeeProtocol",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RamsesV3Pool",
+      "trigger_function": "setFeeProtocol",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,fee_path",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setFeeProtocol() external override lock",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "fee_path"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "setFeeProtocol"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Pool.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "FeeCollector.setIsLive",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "FeeCollector",
+      "trigger_function": "setIsLive",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setIsLive(bool status) external onlyTreasury",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": []
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/gauge/FeeCollector.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "FeeCollector.setTreasury",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "FeeCollector",
+      "trigger_function": "setTreasury",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setTreasury(address _treasury) external override onlyTreasury",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "TreasuryChanged"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/gauge/FeeCollector.sol",
+      "visibility": "external",
+      "inclusion_source": "control",
+      "p93_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "GaugeV3.addRewards",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "GaugeV3",
+      "trigger_function": "addRewards",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function addRewards(address reward) external",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "RewardAdded",
+          "push"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/gauge/GaugeV3.sol",
+      "visibility": "external",
+      "inclusion_source": "top16+per_contract_floor",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "GaugeV3.cachePeriodEarned",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "GaugeV3",
+      "trigger_function": "cachePeriodEarned",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function cachePeriodEarned(\n        uint256 period,\n        address token,\n        address owner,\n        uint256 index,\n        int24 tickLower,\n        int24 tickUpper,\n        bool caching\n    ) pu",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "_blockTimestamp",
+          "decode",
+          "encodeCall",
+          "mulDiv",
+          "positionHash",
+          "staticcall"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/gauge/GaugeV3.sol",
+      "visibility": "public",
+      "inclusion_source": "top16+per_contract_floor",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "GaugeV3.notifyRewardAmount",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "GaugeV3",
+      "trigger_function": "notifyRewardAmount",
+      "trigger_lines": null,
+      "suspicious_pattern": "value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function notifyRewardAmount(\n        address token,\n        uint256 amount\n    ) external override pushFees lock",
+      "required_followup_questions": [
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "IERC20",
+          "IRamsesV3Pool",
+          "NotifyReward",
+          "_advancePeriod",
+          "_blockTimestamp",
+          "balanceOf",
+          "safeTransferFrom"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/gauge/GaugeV3.sol",
+      "visibility": "external",
+      "inclusion_source": "top16",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "RamsesV3Factory.enableTickSpacing",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RamsesV3Factory",
+      "trigger_function": "enableTickSpacing",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function enableTickSpacing(int24 tickSpacing, uint24 initialFee) external override restricted",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "FTL",
+          "TickSpacingEnabled"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Factory.sol",
+      "visibility": "external",
+      "inclusion_source": "control",
+      "p93_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "NonfungiblePositionManager.burn",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "NonfungiblePositionManager",
+      "trigger_function": "burn",
+      "trigger_lines": null,
+      "suspicious_pattern": "value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function burn(uint256 tokenId) external payable override isAuthorizedForToken(tokenId)",
+      "required_followup_questions": [
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "value_exit"
+      ],
+      "surface_score": 2,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "NotCleared",
+          "_burn"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/periphery/NonfungiblePositionManager.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "NonfungiblePositionManager.collect",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "NonfungiblePositionManager",
+      "trigger_function": "collect",
+      "trigger_lines": null,
+      "suspicious_pattern": "fee_path",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function collect(\n        CollectParams calldata params\n    ) external payable override isAuthorizedForToken(params.tokenId) returns (uint256 amount0, uint256 amount1)",
+      "required_followup_questions": [
+        "is the fee_path surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "fee_path"
+      ],
+      "surface_score": 2,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "Collect",
+          "IRamsesV3Pool",
+          "burn",
+          "collect",
+          "compute",
+          "computeAddress",
+          "mulDiv",
+          "positions"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/periphery/NonfungiblePositionManager.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "ClGaugeFactory.createGauge",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "ClGaugeFactory",
+      "trigger_function": "createGauge",
+      "trigger_lines": null,
+      "suspicious_pattern": "auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function createGauge(\n        address pool\n    ) external override returns (address gauge)",
+      "required_followup_questions": [
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "auth_boundary"
+      ],
+      "surface_score": 1,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "GaugeCreated",
+          "GaugeV3"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/gauge/ClGaugeFactory.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p93_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "RamsesV3PoolDeployer.deploy",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "RamsesV3PoolDeployer",
+      "trigger_function": "deploy",
+      "trigger_lines": null,
+      "suspicious_pattern": "auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function deploy(address token0, address token1, int24 tickSpacing) external returns (address pool)",
+      "required_followup_questions": [
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "auth_boundary"
+      ],
+      "surface_score": 1,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "encodePacked",
+          "keccak256"
+        ]
+      },
+      "file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3PoolDeployer.sol",
+      "visibility": "external",
+      "inclusion_source": "per_contract_floor",
+      "p93_role_expectation": "conversion"
+    }
+  ]
+}

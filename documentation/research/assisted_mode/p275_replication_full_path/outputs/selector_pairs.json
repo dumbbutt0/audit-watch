@@ -1,0 +1,89 @@
+{
+  "_doc": "P275 Phase 3 — B/C top-2 mechanism pairs from BLIND ronin/Katana-V3 source reading (no answer key). Dimensions are source-derived, not award labels.",
+  "pairs": [
+    {
+      "M1": {
+        "id": "pool_swap_txorigin_auth",
+        "label": "KatanaV3Pool.swap skips router-authorization via `if (tx.origin != address(0))` (tx.origin-based access gate)",
+        "impact_class": "accounting_corruption",
+        "value_at_risk": "multi_user",
+        "persistence": "repeatable",
+        "attacker_control": "conditional",
+        "refutation_resistance": "conditional",
+        "intent_violation": "documented_intent",
+        "victim_gainer_clarity": "partial",
+        "poc_feasibility": "moderate",
+        "falsifier": "Can a non-router caller reach pool.swap with the auth check skipped (tx.origin==0), and does that have any state-changing consequence?"
+      },
+      "M2": {
+        "id": "beacon_constructor",
+        "label": "KatanaV3PoolBeacon.constructor (thin pass-through to OZ UpgradeableBeacon)",
+        "impact_class": "dust_rounding",
+        "value_at_risk": "dust",
+        "persistence": "one_off",
+        "attacker_control": "none",
+        "refutation_resistance": "conditional",
+        "intent_violation": "none",
+        "victim_gainer_clarity": "weak",
+        "poc_feasibility": "easy",
+        "falsifier": "Does the beacon constructor add any logic beyond OZ UpgradeableBeacon?"
+      }
+    },
+    {
+      "M1": {
+        "id": "pool_mint_burn_conservation",
+        "label": "KatanaV3Pool.mint/burn concentrated-liquidity amount/fee accounting",
+        "impact_class": "accounting_corruption",
+        "value_at_risk": "multi_user",
+        "persistence": "repeatable",
+        "attacker_control": "conditional",
+        "refutation_resistance": "conditional",
+        "intent_violation": "invariant_or_comparand",
+        "victim_gainer_clarity": "partial",
+        "poc_feasibility": "hard",
+        "falsifier": "Does mint/burn deviate from vanilla Uniswap V3 conservation in a way that mis-accounts liquidity/fees?"
+      },
+      "M2": {
+        "id": "migrate_dust",
+        "label": "V3Migrator.migrate dust/refund handling on V2->V3 migration",
+        "impact_class": "dust_rounding",
+        "value_at_risk": "single_op",
+        "persistence": "one_off",
+        "attacker_control": "permissionless",
+        "refutation_resistance": "conditional",
+        "intent_violation": "none",
+        "victim_gainer_clarity": "weak",
+        "poc_feasibility": "easy",
+        "falsifier": "Is migration dust refunded correctly to msg.sender in all branches?"
+      }
+    },
+    {
+      "M1": {
+        "id": "router_swap_auth",
+        "label": "AggregateRouter/V3SwapRouter swap authorization (governance.isAuthorized) + callback validation",
+        "impact_class": "accounting_corruption",
+        "value_at_risk": "multi_user",
+        "persistence": "repeatable",
+        "attacker_control": "conditional",
+        "refutation_resistance": "conditional",
+        "intent_violation": "invariant_or_comparand",
+        "victim_gainer_clarity": "partial",
+        "poc_feasibility": "moderate",
+        "falsifier": "Can a user bypass governance.isAuthorized() token-whitelist via the router, or spoof the swap callback?"
+      },
+      "M2": {
+        "id": "npm_mint_auth",
+        "label": "NonfungiblePositionManager.mint AuthorizationLib.checkPair gate",
+        "impact_class": "blocked_liquidation_redemption",
+        "value_at_risk": "multi_user",
+        "persistence": "repeatable",
+        "attacker_control": "conditional",
+        "refutation_resistance": "conditional",
+        "intent_violation": "documented_intent",
+        "victim_gainer_clarity": "partial",
+        "poc_feasibility": "moderate",
+        "falsifier": "Does checkPair correctly gate position minting against the governance whitelist window?"
+      }
+    }
+  ]
+}

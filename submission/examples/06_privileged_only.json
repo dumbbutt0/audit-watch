@@ -1,0 +1,59 @@
+{
+  "finding_id": "SUB-006",
+  "title": "Owner can set fee to 100% and capture all swap proceeds",
+  "root_cause": "Treasury.setFeeBps() lets the owner set the fee up to 10000 bps; at 100% the owner captures all swap output.",
+  "affected_contracts": ["contracts/Treasury.sol"],
+  "affected_functions": ["Treasury.setFeeBps(uint256)", "Treasury.swap()"],
+  "attacker_entrypoint": "Treasury.setFeeBps(10000) — but this is onlyOwner; only the trusted owner can call it.",
+  "attacker_capabilities": ["hold the owner role"],
+  "privilege_required": "admin",
+  "scope_status": "in_scope",
+  "in_scope_asset": "Treasury.sol (listed in program scope)",
+  "out_of_scope_risks": [],
+  "impact_category": "fund_loss",
+  "severity_claim": "High",
+  "severity_justification": {
+    "worst_case": "Owner sets fee to 100% and captures all swap proceeds.",
+    "realistic_case": "Requires the trusted owner to act maliciously; this is a privileged/admin action, not an external attack.",
+    "program_table_mapping": "Would be High if privileged actions were in scope — they are not for this program."
+  },
+  "bounty_program_mapping": {
+    "program": "ExampleProtocol",
+    "platform": "Immunefi",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "https://immunefi.com/bounty/exampleprotocol/#scope (privileged/admin actions are out of scope)"
+  },
+  "call_trace": [
+    "owner -> Treasury.setFeeBps(10000)",
+    "user -> Treasury.swap(): feeBps applied, owner receives 100% of output"
+  ],
+  "state_transition": {
+    "before": "feeBps = 30",
+    "after": "feeBps = 10000",
+    "slots_or_balances": ["feeBps"]
+  },
+  "asset_delta": "Up to 100% of swap output redirected to the owner.",
+  "proof_type": "runnable_poc",
+  "poc_path": "submission/examples/poc/TreasuryFee.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "forge test --match-test test_owner_sets_max_fee -vvv",
+    "As owner, call setFeeBps(10000)",
+    "Assert a user swap routes 100% of output to the owner"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "searched_clear",
+  "prior_audit_overlap": [],
+  "false_positive_risks": ["This is privileged owner behaviour, typically considered an accepted trust assumption."],
+  "invalidating_conditions": ["Requires the owner key; not reachable by an unprivileged attacker."],
+  "defense_analysis": [
+    {"defense": "onlyOwner modifier", "blocks_path": true, "why_it_fails": "It does not fail — onlyOwner correctly restricts the call to the trusted owner, which is exactly why this is privileged-only.", "uncertain": false},
+    {"defense": "timelock / max-fee cap", "blocks_path": false, "why_it_fails": "No max-fee cap exists, but the action still requires the owner role.", "uncertain": false}
+  ],
+  "assumptions": ["Requires the owner to be malicious or compromised."],
+  "evidence_links": ["contracts/Treasury.sol:54-61", "submission/examples/poc/TreasuryFee.t.sol:1-70"],
+  "triager_summary": "Exploit requires the admin/owner role, which the program does not accept as in scope. Privileged-only; must not be submitted.",
+  "recommended_status": "DO_NOT_SUBMIT",
+  "human_approval_required": true
+}

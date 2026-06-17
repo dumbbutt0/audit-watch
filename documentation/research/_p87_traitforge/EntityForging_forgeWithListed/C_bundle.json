@@ -1,0 +1,87 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "EntityForging.forgeWithListed",
+  "detector_family": "surface_recall_lens",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "EntityForging",
+    "function": "forgeWithListed",
+    "lines": null,
+    "suspicious_pattern": "external_executor,auth_boundary",
+    "detector_claim": "security-relevant surface; mechanism uncertain"
+  },
+  "context_summary": {
+    "source_available": true,
+    "source_resolved": true,
+    "reachability": "external"
+  },
+  "attacker_reachability": "external",
+  "defense_ledger": {
+    "fee_floor_check": {
+      "classification": "irrelevant",
+      "evidence": "L126 msg.value>=forgingFee"
+    },
+    "refund_path": {
+      "classification": "does_not_cover",
+      "evidence": "only forgingFee is split (devFee+forgerShare); msg.value-forgingFee excess is NOT refunded"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "a caller should only pay the forging fee; any excess must be refunded",
+    "why_defenses_do_not_block": "there is simply no refund of the excess"
+  },
+  "exploit_path": {
+    "attacker_profile": "the merger-token owner (self)",
+    "entrypoint": "forgeWithListed",
+    "preconditions": "caller sends msg.value strictly greater than the listing fee",
+    "transaction_sequence": "forgeWithListed splits only forgingFee (devFee=forgingFee/taxCut to nukeFund, forgerShare to forger owner, L146-159); the excess msg.value-forgingFee is never refunded and stays in EntityForging, which has no withdraw -> excess stuck",
+    "state_before": "caller balance B",
+    "state_after": "caller overpaid; excess stranded in contract",
+    "rejection_case": "Real (no refund path exists), but the loss is SELF-INFLICTED and fully avoidable by sending exactly forgingFee; no forced loss, no blocked claim/withdraw of a user's intended funds, no quantified involuntary loss.",
+    "source_evidence": "forgeWithListed L125-159 (only forgingFee distributed; no msg.value-forgingFee refund); cf. mintToken L195-199 which DOES refund excess"
+  },
+  "impact_analysis": {
+    "impact_category": "overpayment retained (no refund of excess)",
+    "minimum_profit_or_damage_condition": "only if a caller voluntarily overpays; exact-fee callers lose nothing; amount = msg.value-forgingFee, caller-controlled and avoidable"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED",
+  "_hygiene": {
+    "ok": true,
+    "violations": [],
+    "recommended": "POC_REQUIRED"
+  },
+  "_severity_gate": {
+    "kept": false,
+    "recommended": "NEEDS_CONTEXT",
+    "reason": "bounded/lazy-settlement accounting issue with no source-backed concrete material consequence (P86 calibration)"
+  }
+}

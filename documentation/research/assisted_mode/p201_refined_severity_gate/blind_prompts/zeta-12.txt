@@ -1,0 +1,450 @@
+You are the Deep Trace Agent.
+
+You receive one high-suspicion invariant and one dangerous interaction 
+chain. Your job is to determine whether the chain can violate the 
+invariant. Trace the execution path completely.
+
+A function reached by deep-trace often carries MORE THAN ONE bug. Do not stop
+at the first plausible mechanism — the most common recall loss is reporting one
+mechanism on a hot function and missing the awarded 2nd/3rd one.
+
+Work through this sequence explicitly:
+
+STEP 0 — MECHANISM INVENTORY (run before the verdict, on the function under trace)
+List at least 3 plausible mechanisms when the source supports them. Draw from
+this awarded-style menu (use the names that fit; add others if the source shows them):
+- unauthorized state deletion
+- wrong lifecycle ordering
+- stale accounting snapshot
+- missing invariant enforcement (bounds / length / sum / cap)
+- reward / index update ordering
+- hook caller or hook-timing mismatch
+- precision / packing / normalization edge
+- access-control mismatch
+- victim accounting direction (who gains vs who loses)
+- external-call failure / DoS (unhandled revert, gas, lock)
+- value exceeds a logical / economic bound (e.g. a fee or ratio > 100%, a count > a documented cap)
+
+CARRY-FORWARD RANKING RULE (apply before you reject anything)
+A mechanism MUST remain carried forward — in `selected_mechanisms` or, if not yet
+resolved, in `unresolved_mechanisms` (NEVER buried in `rejected_mechanisms`) — if ANY hold:
+1. it has source evidence,
+2. it has a plausible attacker or victim impact,
+3. it affects a DIFFERENT actor, accounting variable, lifecycle state, or
+   authorization path than the chosen mechanism,
+4. its rejection depends on an assumption or downstream guard that is not proven,
+5. it could be HIGHER severity than the current chosen mechanism.
+Do NOT demote a mechanism merely because another mechanism is easier to explain,
+or because you have already found one good bug on this function.
+
+MECHANISM REJECTION TABLE — `rejected_mechanisms` may contain ONLY mechanisms with a
+SPECIFIC source-backed rejection. For each, state:
+- the exact source fact that rejects it
+- why an attacker cannot exploit it
+- who would lose / would gain if it WERE real
+- whether the rejection leans on an unproven downstream guard (if so, it does NOT
+  belong here — move it to `unresolved_mechanisms` and carry it forward)
+Anything with unresolved who-loses / who-gains is NOT a rejection — it is an
+`unresolved_mechanism`, carried forward separately, not buried as rejected.
+
+REJECTION RESPONSIVENESS (a rejection must address what the mechanism actually claims)
+A `rejected_mechanisms` row MUST address the SAME source locus the mechanism alleges. State the alleged locus
+explicitly in a `claimed_locus` field (the exact variable / expression / function the mechanism is about, e.g.
+`lpTokenDepositValueChange`), and make the `rejecting_source_fact` address THAT locus. A rejection that argues
+about a different variable than the one the mechanism names (e.g. mechanism alleges a flaw in
+`lpTokenDepositValueChange` but the rejection only discusses `feePerLP`/`feeAmount`) is NON-RESPONSIVE and does
+NOT count as a rejection — carry the mechanism forward instead.
+
+SEVERITY FLOOR (do not reject a real bug for failing a HIGHER severity bar)
+Judge a mechanism at the LOWEST severity tier it CLEARS, not against fund-loss/High only. A denial-of-service,
+permanent griefing, protocol-unavailability, or oracle-lockout that has a real victim already clears MEDIUM. Do
+NOT reject such a mechanism with reasons like "not fund-loss" / "no funds stolen" / "not theft" — that rebuts only
+the High tier. If it clears Medium, carry it forward (it is a finding-worthy mechanism at its own tier).
+
+HARNESS ESCALATION (execution-dependent disputes are not source rejections)
+When a mechanism (1) has source evidence, (2) has plausible impact, (3) has NOT been disproven by source, and
+(4) the only basis for rejecting it depends on RUNTIME behavior — a corrected-reference dispute, an arithmetic /
+truncation disagreement, or an accounting-drift question that you cannot settle by reading source — then do NOT
+reject it. Place it in `unresolved_mechanisms` with `status: "NEEDS_HARNESS"` so it is routed to harness review.
+(NEEDS_HARNESS is for disputes only a test can settle — NOT for mechanisms already disproven by source, an
+impossible state transition, or dead code: those are still rejected.)
+
+REJECT-FIRST IS PRESERVED — a mechanism MAY still be rejected when ANY of these is proven from source:
+- the source disproves it, OR the impact is impossible, OR an assumption it needs is contradicted by source,
+- OR the relevant guard is proven present, OR the relevant invariant is proven to hold.
+This is NOT a "carry everything" rule. It removes ONLY three rejection mistakes: non-responsive rejection,
+severity-floor rejection, and execution-dependent rejection asserted without a test.
+
+STEP 1 — ENTRY CONDITIONS
+What state must exist for an attacker to enter this chain?
+Who can initiate the first call? Is it permissionless?
+
+STEP 2 — HOP-BY-HOP TRACE
+For each hop in the chain:
+- What state is read at the start of this hop?
+- What external calls occur during this hop?
+- What state is written at the end of this hop?
+- Is any invariant variable in an inconsistent state mid-hop?
+- Can execution be redirected (callback, user-supplied address)?
+
+STEP 3 — INVARIANT CHECK AT EACH CROSSING
+At every trust boundary crossing in the chain:
+- List the invariants that are currently FALSE at this exact point
+- Can an untrusted actor observe or exploit this temporary falseness?
+- Can a reentrant call lock in the false state permanently?
+
+STEP 4 — VIOLATION PATH
+If a violation path exists:
+- State it as a numbered sequence of exact function calls
+- Identify the exact line where the invariant breaks
+- Classify the attacker: unprivileged / needs allowance / needs role
+- Estimate profit or damage
+
+STEP 5 — CHOSEN MECHANISM + IMPACT DIRECTION
+For the mechanism you carry forward:
+- root cause · attacker model · exploit path · who loses · who gains
+- why this mechanism beats the alternatives you inventoried
+IMPACT-DIRECTION CHECK (state each explicitly):
+- attacker receives value? attacker preserves value? victim loses value?
+- protocol invariant violated?
+- the result is NOT merely self-funded / dust / admin-only / timing-only
+
+STEP 6 — STOP CONDITION (do not finish the verdict if any holds)
+You may NOT stop after one plausible issue if:
+- the function is in a high-risk routed surface, OR
+- another inventoried mechanism has unresolved who-loses / who-gains, OR
+- an alternative mechanism affects a DIFFERENT actor or state variable, OR
+- the first issue is low severity but another mechanism could be higher.
+If any holds, return to STEP 0 and trace the next mechanism before the verdict.
+
+STEP 7 — VERDICT
+One of:
+CRITICAL_THREAD: direct fund loss path exists, no privileged precondition
+HIGH_THREAD:     fund loss or invariant violation possible with precondition
+MEDIUM_THREAD:   degraded behavior, bounded impact
+DEAD_END:        traced fully, no violation possible — explain why
+NEEDS_MORE_CONTEXT: blocked by missing contract code or external dependency
+
+Be rigorous. Do not guess. If you cannot fully trace a hop, say so.
+Return valid JSON matching the thread schema, additionally including:
+  "mechanism_inventory": [ "<mechanism>", ... ],          // >=3 when source supports
+  "selected_mechanisms": [ {"root_cause","attacker_model","exploit_path",
+                            "who_loses","who_gains","why_carried"} ],   // LIST — every mechanism you carry forward
+  "unresolved_mechanisms": [ {"mechanism","source_evidence","unresolved_question",
+                              "who_loses","who_gains",
+                              "status"} ],   // carried, not yet resolved — NOT rejected;
+                                             // status = "NEEDS_HARNESS" when only a runtime test can settle it
+  "rejected_mechanisms": [ {"mechanism","claimed_locus","rejecting_source_fact","why_unexploitable",
+                            "who_loses","who_gains","leans_on_unproven_guard"} ], // ONLY source-backed rejections;
+                            // claimed_locus = the exact variable/expression the rejection MUST address (responsiveness)
+  "impact_direction": {"attacker_receives","attacker_preserves","victim_loses",
+                       "invariant_violated","not_self_funded_or_dust_or_admin_or_timing"},
+        // (a structured-prose impact_direction string is also accepted if it states
+        //  who gains, who loses, the impacted state/value, and why it is not self-funded/admin-only/dust/timing)
+  "stop_condition": "satisfied | more_mechanisms_pending: <reason>"
+// (legacy aliases still accepted: chosen_mechanism for selected_mechanisms, rejection_table for rejected_mechanisms)
+
+
+=== INPUT: ONE FUNCTION UNDER TRACE ===
+high_suspicion_invariant: cross-chain value / supply / authorization correctness of `burn / transferFrom / approve`
+dangerous_interaction: external/permissionless entry into `burn / transferFrom / approve` in `zevm/ZRC20.sol`
+
+Trace the function(s) `burn / transferFrom / approve` in the verbatim source below. Run STEP 0 mechanism inventory,
+carry forward every supported mechanism, then return ONLY the JSON verdict per the schema above.
+
+=== VERBATIM SOURCE: zevm/ZRC20.sol ===
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.7;
+import "./Interfaces.sol";
+
+/**
+ * @dev Custom errors for ZRC20
+ */
+interface ZRC20Errors {
+    // @dev: Error thrown when caller is not the fungible module
+    error CallerIsNotFungibleModule();
+    error InvalidSender();
+    error GasFeeTransferFailed();
+    error ZeroGasCoin();
+    error ZeroGasPrice();
+    error LowAllowance();
+    error LowBalance();
+    error ZeroAddress();
+}
+
+contract ZRC20 is IZRC20, IZRC20Metadata, ZRC20Errors {
+    /// @notice Fungible address is always the same, maintained at the protocol level
+    address public constant FUNGIBLE_MODULE_ADDRESS = 0x735b14BB79463307AAcBED86DAf3322B1e6226aB;
+    /// @notice Chain id.abi
+    uint256 public immutable CHAIN_ID;
+    /// @notice Coin type, checkout Interfaces.sol.
+    CoinType public immutable COIN_TYPE;
+    /// @notice System contract address.
+    address public SYSTEM_CONTRACT_ADDRESS;
+    /// @notice Gas limit.
+    uint256 public GAS_LIMIT;
+    /// @notice Protocol flat fee.
+    uint256 public PROTOCOL_FLAT_FEE;
+
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
+    uint256 private _totalSupply;
+    string private _name;
+    string private _symbol;
+    uint8 private _decimals;
+
+    function _msgSender() internal view virtual returns (address) {
+        return msg.sender;
+    }
+
+    function _msgData() internal view virtual returns (bytes calldata) {
+        return msg.data;
+    }
+
+    /**
+     * @dev Only fungible module modifier.
+     */
+    modifier onlyFungible() {
+        if (msg.sender != FUNGIBLE_MODULE_ADDRESS) revert CallerIsNotFungibleModule();
+        _;
+    }
+
+    /**
+     * @dev The only one allowed to deploy new ZRC20 is fungible address.
+     */
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        uint8 decimals_,
+        uint256 chainid_,
+        CoinType coinType_,
+        uint256 gasLimit_,
+        address systemContractAddress_
+    ) {
+        if (msg.sender != FUNGIBLE_MODULE_ADDRESS) revert CallerIsNotFungibleModule();
+        _name = name_;
+        _symbol = symbol_;
+        _decimals = decimals_;
+        CHAIN_ID = chainid_;
+        COIN_TYPE = coinType_;
+        GAS_LIMIT = gasLimit_;
+        SYSTEM_CONTRACT_ADDRESS = systemContractAddress_;
+    }
+
+    /**
+     * @dev ZRC20 name
+     * @return name as string
+     */
+    function name() public view virtual override returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @dev ZRC20 symbol.
+     * @return symbol as string.
+     */
+    function symbol() public view virtual override returns (string memory) {
+        return _symbol;
+    }
+
+    /**
+     * @dev ZRC20 decimals.
+     * @return returns uint8 decimals.
+     */
+    function decimals() public view virtual override returns (uint8) {
+        return _decimals;
+    }
+
+    /**
+     * @dev ZRC20 total supply.
+     * @return returns uint256 total supply.
+     */
+    function totalSupply() public view virtual override returns (uint256) {
+        return _totalSupply;
+    }
+
+    /**
+     * @dev Returns ZRC20 balance of an account.
+     * @param account, account address for which balance is requested.
+     * @return uint256 account balance.
+     */
+    function balanceOf(address account) public view virtual override returns (uint256) {
+        return _balances[account];
+    }
+
+    /**
+     * @dev Returns ZRC20 balance of an account.
+     * @param recipient, recipiuent address to which transfer is done.
+     * @return true/false if transfer succeeded/failed.
+     */
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        _transfer(_msgSender(), recipient, amount);
+        return true;
+    }
+
+    /**
+     * @dev Returns token allowance from owner to spender.
+     * @param owner, owner address.
+     * @return uint256 allowance.
+     */
+    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    /**
+     * @dev Approves amount transferFrom for spender.
+     * @param spender, spender address.
+     * @param amount, amount to approve.
+     * @return true/false if succeeded/failed.
+     */
+    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+        _approve(_msgSender(), spender, amount);
+        return true;
+    }
+
+    /**
+     * @dev Transfers tokens from sender to recipient.
+     * @param sender, sender address.
+     * @param recipient, recipient address.
+     * @param amount, amount to transfer.
+     * @return true/false if succeeded/failed.
+     */
+    function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
+        _transfer(sender, recipient, amount);
+
+        uint256 currentAllowance = _allowances[sender][_msgSender()];
+        if (currentAllowance < amount) revert LowAllowance();
+
+        _approve(sender, _msgSender(), currentAllowance - amount);
+
+        return true;
+    }
+
+    /**
+     * @dev Burns an amount of tokens.
+     * @param amount, amount to burn.
+     * @return true/false if succeeded/failed.
+     */
+    function burn(uint256 amount) external returns (bool) {
+        _burn(msg.sender, amount);
+        return true;
+    }
+
+    function _transfer(address sender, address recipient, uint256 amount) internal virtual {
+        if (sender == address(0)) revert ZeroAddress();
+        if (recipient == address(0)) revert ZeroAddress();
+
+        uint256 senderBalance = _balances[sender];
+        if (senderBalance < amount) revert LowBalance();
+
+        _balances[sender] = senderBalance - amount;
+        _balances[recipient] += amount;
+
+        emit Transfer(sender, recipient, amount);
+    }
+
+    function _mint(address account, uint256 amount) internal virtual {
+        if (account == address(0)) revert ZeroAddress();
+
+        _totalSupply += amount;
+        _balances[account] += amount;
+        emit Transfer(address(0), account, amount);
+    }
+
+    function _burn(address account, uint256 amount) internal virtual {
+        if (account == address(0)) revert ZeroAddress();
+
+        uint256 accountBalance = _balances[account];
+        if (accountBalance < amount) revert LowBalance();
+
+        _balances[account] = accountBalance - amount;
+        _totalSupply -= amount;
+
+        emit Transfer(account, address(0), amount);
+    }
+
+    function _approve(address owner, address spender, uint256 amount) internal virtual {
+        if (owner == address(0)) revert ZeroAddress();
+        if (spender == address(0)) revert ZeroAddress();
+
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
+    /**
+     * @dev Deposits corresponding tokens from external chain, only callable by Fungible module.
+     * @param to, recipient address.
+     * @param amount, amount to deposit.
+     * @return true/false if succeeded/failed.
+     */
+    function deposit(address to, uint256 amount) external override returns (bool) {
+        if (msg.sender != FUNGIBLE_MODULE_ADDRESS && msg.sender != SYSTEM_CONTRACT_ADDRESS) revert InvalidSender();
+        _mint(to, amount);
+        emit Deposit(abi.encodePacked(FUNGIBLE_MODULE_ADDRESS), to, amount);
+        return true;
+    }
+
+    /**
+     * @dev Withdraws gas fees.
+     * @return returns the ZRC20 address for gas on the same chain of this ZRC20, and calculates the gas fee for withdraw()
+     */
+    function withdrawGasFee() public view override returns (address, uint256) {
+        address gasZRC20 = ISystem(SYSTEM_CONTRACT_ADDRESS).gasCoinZRC20ByChainId(CHAIN_ID);
+        if (gasZRC20 == address(0)) {
+            revert ZeroGasCoin();
+        }
+        uint256 gasPrice = ISystem(SYSTEM_CONTRACT_ADDRESS).gasPriceByChainId(CHAIN_ID);
+        if (gasPrice == 0) {
+            revert ZeroGasPrice();
+        }
+        uint256 gasFee = gasPrice * GAS_LIMIT + PROTOCOL_FLAT_FEE;
+        return (gasZRC20, gasFee);
+    }
+
+    /**
+     * @dev Withraws ZRC20 tokens to external chains, this function causes cctx module to send out outbound tx to the outbound chain
+     * this contract should be given enough allowance of the gas ZRC20 to pay for outbound tx gas fee.
+     * @param to, recipient address.
+     * @param amount, amount to deposit.
+     * @return true/false if succeeded/failed.
+     */
+    function withdraw(bytes memory to, uint256 amount) external override returns (bool) {
+        (address gasZRC20, uint256 gasFee) = withdrawGasFee();
+        if (!IZRC20(gasZRC20).transferFrom(msg.sender, FUNGIBLE_MODULE_ADDRESS, gasFee)) {
+            revert GasFeeTransferFailed();
+        }
+        _burn(msg.sender, amount);
+        emit Withdrawal(msg.sender, to, amount, gasFee, PROTOCOL_FLAT_FEE);
+        return true;
+    }
+
+    /**
+     * @dev Updates system contract address. Can only be updated by the fungible module.
+     * @param addr, new system contract address.
+     */
+    function updateSystemContractAddress(address addr) external onlyFungible {
+        SYSTEM_CONTRACT_ADDRESS = addr;
+        emit UpdatedSystemContract(addr);
+    }
+
+    /**
+     * @dev Updates gas limit. Can only be updated by the fungible module.
+     * @param gasLimit, new gas limit.
+     */
+    function updateGasLimit(uint256 gasLimit) external onlyFungible {
+        GAS_LIMIT = gasLimit;
+        emit UpdatedGasLimit(gasLimit);
+    }
+
+    /**
+     * @dev Updates protocol flat fee. Can only be updated by the fungible module.
+     * @param protocolFlatFee, new protocol flat fee.
+     */
+    function updateProtocolFlatFee(uint256 protocolFlatFee) external onlyFungible {
+        PROTOCOL_FLAT_FEE = protocolFlatFee;
+        emit UpdatedProtocolFlatFee(protocolFlatFee);
+    }
+}
+
+```

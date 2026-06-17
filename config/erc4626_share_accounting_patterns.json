@@ -1,0 +1,22 @@
+{
+  "lens": "erc4626_share_accounting",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Narrow EIP-4626 share-accounting defect detector. In an ERC-4626 vault context, flags the mechanism-clear sub-shape where a max/limit/preview function uses an APPROXIMATE convertToAssets/convertToShares (or wraps an external maxRedeem/maxDeposit in convertTo*) instead of the EIP-4626-mandated exact preview* — causing max*/preview* to over- or under-report (4626 non-compliance / integration breakage / value mis-report). Two-signal gate: S1 is-4626 context + S2 convertTo*-in-max/limit/preview misuse. Anchor: PoolTogether M-02 (PrizeVault._maxYieldVaultWithdraw = yieldVault.convertToAssets(maxRedeem())). Kept NARROW (precision over recall): does NOT flag benign rounding, caller-only loss, documented behavior, or non-4626 contracts.",
+
+  "is4626_markers": ["ierc4626", "is ierc4626", "converttoshares", "converttoassets", "previewredeem", "previewdeposit", "previewwithdraw", "previewmint"],
+  "is4626_pair_a": ["converttoshares", "converttoassets"],
+  "is4626_pair_b": ["previewredeem", "previewdeposit"],
+
+  "max_limit_preview_fn": ["max", "limit", "preview"],
+
+  "approx_convert_calls": ["converttoassets(", "converttoshares("],
+  "external_max_calls": ["maxredeem(", "maxdeposit(", "maxwithdraw(", "maxmint("],
+
+  "suppress_documented": ["@dev returns the same value as", "1:1 on", "shares represent how many assets"],
+
+  "fp_controls": {
+    "two_signal_required": "S1 is-4626 vault context AND S2 a max/limit/preview function body using approximate convertToAssets/convertToShares (EIP-4626 requires exact preview* in these). Non-4626 contracts and 4626 vaults that correctly use preview* are suppressed.",
+    "narrow_scope": "only the convert-in-max/limit/preview sub-shape is HIGH; preview/action rounding-direction divergence is MEDIUM (precision risk). Generic vault rounding is NOT flagged.",
+    "documented_suppression": "explicit '1:1'/'same value as'/documented preview behavior near the function -> suppressed."
+  }
+}

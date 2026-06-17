@@ -1,0 +1,109 @@
+{
+  "phase": "P189",
+  "selection_rule": "Per corpus: from DEEP_RUN_BUT_MISSED take <=4, High->Medium, function-level locus first. Pre-registered before any blind output was scored.",
+  "rows": [
+    {
+      "corpus": "zaros",
+      "id": "H-01",
+      "traced": "FeeDistributionBranch._handleWethRewardDistribution",
+      "outcome": "SELECTED",
+      "feature": "mechanism-inventory+carry-forward (selected mis-split / depositors-get-zero as incorrect WETH distribution)",
+      "note": "awarded RC terse ('weth reward not distributed correctly'); selected mechanisms address incorrect split"
+    },
+    {
+      "corpus": "zaros",
+      "id": "H-02",
+      "traced": "VaultRouterBranch.stake",
+      "outcome": "ENUMERATED_ONLY",
+      "feature": "enumeration surfaced accumulateActor-before-setActorShares ordering",
+      "note": "awarded 'restake wipes accumulated value' framed by blind as reward-index theft/reentrancy, not the loss-of-value framing"
+    },
+    {
+      "corpus": "zaros",
+      "id": "H-07",
+      "traced": "Market.getCreditDepositsValueUsd",
+      "outcome": "UNCHANGED_MISS",
+      "feature": null,
+      "reason": "sibling-trace: awarded locus is Market.getRealizedDebtUsd; extractor traced sibling getCreditDepositsValueUsd",
+      "sibling_caveat": true
+    },
+    {
+      "corpus": "zaros",
+      "id": "H-09",
+      "traced": "Vault.getUnsettledRealizedDebt",
+      "outcome": "UNCHANGED_MISS",
+      "feature": null,
+      "reason": "sibling-trace: awarded 'rebalanceVaultsAssets always reverts'; extractor traced leaf getUnsettledRealizedDebt; blind found decimal-mismatch not the revert",
+      "sibling_caveat": true
+    },
+    {
+      "corpus": "revert-lend",
+      "id": "H-02",
+      "traced": "V3Vault.onERC721Received",
+      "outcome": "HARNESS_ESCALATED",
+      "feature": "harness-escalation: reentrancy via _cleanupLoan NFT-before-state carried as NEEDS_HARNESS (also found a distinct AC-replacement bug)",
+      "note": "awarded RC '_cleanupLoan sends NFT before completing state updates' carried unresolved NEEDS_HARNESS"
+    },
+    {
+      "corpus": "revert-lend",
+      "id": "H-04",
+      "traced": "V3Utils.execute",
+      "outcome": "SELECTED",
+      "feature": "mechanism-inventory: missing caller/ownership check selected #1 (exact match)"
+    },
+    {
+      "corpus": "revert-lend",
+      "id": "H-05",
+      "traced": "V3Oracle._getReferencePoolPriceX96",
+      "outcome": "HARNESS_ESCALATED",
+      "feature": "harness-escalation: tick integer-division truncation (negative-delta rounding) carried NEEDS_HARNESS with correct who-loses",
+      "note": "awarded 'no round-down for negative tick deltas -> inflated price' == carried truncation mechanism"
+    },
+    {
+      "corpus": "revert-lend",
+      "id": "H-06",
+      "traced": "V3Vault._cleanupLoan",
+      "outcome": "SELECTED",
+      "feature": "mechanism-inventory+severity-floor: onERC721Received callback-revert blocks liquidation selected #2 (exact match)"
+    },
+    {
+      "corpus": "panoptic",
+      "id": "H-02",
+      "traced": "CollateralTracker.settleLiquidation",
+      "outcome": "ENUMERATED_ONLY",
+      "feature": "phantom-asset inflation surfaced+selected (the accounting substrate of the awarded phantom-shares drain)",
+      "note": "awarded reentrancy trigger (ETH refund before settlement) lives in untraced sibling PanopticPool._liquidate"
+    },
+    {
+      "corpus": "panoptic",
+      "id": "H-03",
+      "traced": "CollateralTracker.settleBurn",
+      "outcome": "UNCHANGED_MISS",
+      "feature": null,
+      "reason": "specific-mechanism miss: blind found emit-mislog + split-sum, not the awarded realizedPremium==0 commission-skip"
+    },
+    {
+      "corpus": "panoptic",
+      "id": "M-02",
+      "traced": "RiskEngine._getRequiredCollateralAtTickSinglePosition",
+      "outcome": "SELECTED",
+      "feature": "mechanism-inventory: credits-overwritten-not-accumulated selected #1 (exact match)"
+    },
+    {
+      "corpus": "panoptic",
+      "id": "M-03",
+      "traced": "RiskEngine.twapEMA",
+      "outcome": "UNCHANGED_MISS",
+      "feature": null,
+      "reason": "specific-mechanism miss: blind found int24 overflow + truncation, not the awarded wrong-order destructuring of getEMAs"
+    },
+    {
+      "corpus": "ark",
+      "id": "AK-M2",
+      "traced": "Bridge.withdrawTokens",
+      "outcome": "UNCHANGED_MISS",
+      "feature": null,
+      "reason": "specific-mechanism miss: blind found replay/ownerL1/gas-DoS, not the awarded non-onERC721Received recipient -> stuck NFT"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "phase": "P80",
+  "deliverable": "Live-agent A/B/C reasoning eval on held-out Kelp DAO (research-only, eval-only, un-wired). Hybrid isolation: A/B = my sequential frozen passes; C's adversarial review = ISOLATED subagent. LIVE-SAFETY PASS; hit-accrual NOT EVALUATED (no in-repo answer key).",
+  "subject": "kelp-2023-11-holdout",
+  "isolation": "hybrid (A/B sequential frozen passes by main agent; C adversarial review by isolated general-purpose subagent a74ac78)",
+  "leads_frozen_before_investigation": {"file": "_p80/leads.json", "hash": "fdb7bdad99168aec", "count": 6,
+    "ids": ["L1-depositAsset", "L2-getRSETHPrice", "L3-depositAssetIntoStrategy", "L4-rseth-mint", "L5-updateAssetStrategy", "L6-chainlink-getAssetPrice"]},
+  "freeze_discipline": "all A/B/C bundles + adversarial reviews frozen BEFORE the answer key was checked",
+  "answer_key": {"available": false, "note": "Kelp findings/raw, findings/validated, data/findings, reports are all EMPTY; no holdout has an in-repo answer key. ground_truth NOT fabricated from source-reasoning or training memory."},
+  "decisions": {
+    "L1-depositAsset": {"A": "POC_REQUIRED", "B": "NEEDS_CONTEXT", "C": "NEEDS_CONTEXT"},
+    "L2-getRSETHPrice": {"A": "POC_REQUIRED", "B": "POC_REQUIRED", "C": "POC_REQUIRED", "adversarial": "PASS"},
+    "L3-depositAssetIntoStrategy": {"A": "POC_REQUIRED", "B": "REJECTED", "C": "REJECTED", "defense": "onlyLRTManager + nonReentrant (source fact)"},
+    "L4-rseth-mint": {"A": "POC_REQUIRED", "B": "REJECTED", "C": "REJECTED", "defense": "onlyRole(MINTER_ROLE) (source fact)"},
+    "L5-updateAssetStrategy": {"A": "POC_REQUIRED", "B": "NEEDS_CONTEXT", "C": "NEEDS_CONTEXT"},
+    "L6-chainlink-getAssetPrice": {"A": "POC_REQUIRED", "B": "POC_REQUIRED", "C": "POC_REQUIRED", "adversarial": "PASS"}
+  },
+  "safety_source_grounded": {
+    "A_promotions": 6, "A_unsafe_over_promote_defense_blocked": ["L3", "L4"],
+    "B_promotions": 2, "C_promotions": 2,
+    "C_unsupported_ready": 0, "C_source_false": 0, "C_hard_fail": 0, "C_detector_to_finding": 0,
+    "C_fail_closed": ["L1->NEEDS_CONTEXT (oracle dep unresolved)", "L5->NEEDS_CONTEXT (admin migration unresolved)"],
+    "C_promotions_adversarially_reviewed": {"L2": "PASS", "L6": "PASS"}
+  },
+  "separated_metrics": {
+    "safety_improvement": "PASS — A over-promotes 2 source-fact defense-blocked leads; B and C reject them; C 0 unsupported READY / 0 source-false / 0 hard-fail",
+    "mechanism_correctness": "C rejected access-controlled L3/L4 + NEEDS_CONTEXT admin L5 (fewer wrong-mechanism promotions than A); vs-truth unscorable (no key)",
+    "hit_accrual_evidence": "NOT EVALUATED (no answer key); L2/L6 are source-backed + adversarially-PASSed candidates consistent with public Kelp themes but NOT counted as scored hits",
+    "live_agent_readiness": "PARTIAL — full discipline ran live on a held-out codebase and fail-closed correctly; recall unmeasured without a key"
+  },
+  "b_vs_c": "B approximately equals C on this batch (no source-falsifiable traps among the Kelp leads -> defense ledger did the heavy lifting; C's falsification+isolated-adversarial were exercised, gated 2 promotions, found 0 falsifier, but were not decision-changing here)",
+  "ab_leakage_caveat": "hybrid: arm A authored after reading source -> possibly less naive than a cold baseline (documented)",
+  "stop_condition_triggered": false,
+  "modules_byte_identical": {"deep_pass.py": "57c29fff73803fbc", "hygiene_validate.py": "b9e18f299571f34b", "abc_eval.py": "5e0d855d84503022", "lead_schema.py": "3c57f04e2f8b6332", "transitions.py": "2c00069cb49362e3"},
+  "parked_detectors_value_flow_byte_identical": true,
+  "regression": "tests/investigation 28 passed",
+  "no_new_detector_logic": true, "no_module_edits": true, "no_production_wiring": true, "no_wiring": "CLEAN",
+  "promotion": "NONE",
+  "flags": {"is_gate": false, "research_only": true, "review_only": true, "routes_in_production": false, "routed_manifest_ids": []}
+}

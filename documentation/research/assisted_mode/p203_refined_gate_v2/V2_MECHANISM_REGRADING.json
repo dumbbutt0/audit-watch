@@ -1,0 +1,444 @@
+{
+  "_meta": {
+    "phase": "P203",
+    "corpus": "decent-2024-01-holdout",
+    "regraded_by": "fresh_keyblind_firewall_subagent",
+    "rule": "v2_independent_source_substantiation",
+    "note": "All claims re-derived from Solidity source only; v1 label is reference only; no answer key consulted"
+  },
+  "regrading": [
+    {
+      "id": "decent-01",
+      "mechanisms": [
+        {
+          "desc": "receiveFromBridge public with no access-control — permissionless arbitrary execution via UTB",
+          "v1_label": "HIGH_CONFIRMED",
+          "v2_label": "HIGH_CONFIRMED",
+          "value_precondition_status": "SOURCE_PROVEN",
+          "magnitude_status": "MATERIAL_PROVEN",
+          "custody_value_flow_proof": "ACCOUNTING_BALANCE_PROVEN",
+          "source_citation": "UTB.sol:311-319 receiveFromBridge() public; UTB.sol:134-162 _swapAndExecute; UTB.sol:141-161 executor.execute called with attacker-controlled target/paymentOperator/payload",
+          "downgrade_reason": "",
+          "retained_high_reason": "UTB.sol:311 confirms public with zero modifier. Attacker controls postBridge (swap instructions), target, paymentOperator, payload, refund. _swapAndExecute at line 134 routes attacker inputs to executor.execute (line 143/153) passing attacker-supplied target and payload. UTB can hold ETH (receive() fallback at line 339) and tokens from prior approvals. Arbitrary external call capability from UTB identity is permissionless, direct, and the magnitude scales with any token or ETH UTB holds or that transits it. No trusted-key prerequisite. End-to-end trace confirmed from source alone."
+        },
+        {
+          "desc": "Fee bypass via feeCollector == address(0) — swapAndExecute executes with zero fees",
+          "v1_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "UTB.sol:228-251 retrieveAndCollectFees modifier; line 233 if(address(feeCollector) != address(0))",
+          "downgrade_reason": "When feeCollector is address(0) the entire fee block is skipped; no user fund drain occurs, only protocol revenue foregone. Magnitude bounded to fee revenue. No user asset theft. Admin-reversible by setting feeCollector.",
+          "retained_high_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "decent-02",
+      "mechanisms": [
+        {
+          "desc": "receiveFromBridge public with no access-control — permissionless arbitrary execution via UTB (second surface)",
+          "v1_label": "HIGH_CONFIRMED",
+          "v2_label": "HIGH_CONFIRMED",
+          "value_precondition_status": "SOURCE_PROVEN",
+          "magnitude_status": "MATERIAL_PROVEN",
+          "custody_value_flow_proof": "ACCOUNTING_BALANCE_PROVEN",
+          "source_citation": "UTB.sol:311-319 receiveFromBridge() public, no modifier — identical to decent-01 M1; same code path",
+          "downgrade_reason": "",
+          "retained_high_reason": "Same root cause as decent-01 M1. UTB.sol:311 is public with no access modifier. Attacker fully controls postBridge, target, paymentOperator, payload, refund. Arbitrary execution using UTB identity, permissionless, magnitude scales with UTB-held or in-flight tokens and ETH. Source confirms no guard whatsoever."
+        },
+        {
+          "desc": "Zero-fee bypass via feeAmount=0, feeToken=address(0) with valid zero-fee signature",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "UTBFeeCollector.sol:44-62 collectFees onlyUtb; line 49-53 signature verification; no minimum fee enforcement in source",
+          "downgrade_reason": "Magnitude bounded to fee revenue regardless. Exploitability of zero-fee-amount path depends on whether feeCollector's off-chain signing authority issues a valid zero-fee signature — that signing logic is not in scope. Source confirms no minimum enforcement, but the off-chain signer policy determines exploitability.",
+          "retained_high_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "decent-03",
+      "mechanisms": [
+        {
+          "desc": "receiveFromBridge public with no access-control — permissionless arbitrary execution via UTB (third surface)",
+          "v1_label": "HIGH_CONFIRMED",
+          "v2_label": "HIGH_CONFIRMED",
+          "value_precondition_status": "SOURCE_PROVEN",
+          "magnitude_status": "MATERIAL_PROVEN",
+          "custody_value_flow_proof": "ACCOUNTING_BALANCE_PROVEN",
+          "source_citation": "UTB.sol:311-319 receiveFromBridge() public, no modifier",
+          "downgrade_reason": "",
+          "retained_high_reason": "Third surface analyzing the same confirmed UTB.sol:311 unguarded public function. Access-control gap proven from source. Permissionless, direct fund-drain capability for any tokens/ETH transiting or held by UTB."
+        },
+        {
+          "desc": "Arbitrary execution using UTB as msg.sender — impersonates UTB in external protocols via attacker-controlled target/payload",
+          "v1_label": "HIGH_CONFIRMED",
+          "v2_label": "HIGH_CONFIRMED",
+          "value_precondition_status": "SOURCE_PROVEN",
+          "magnitude_status": "MATERIAL_PROVEN",
+          "custody_value_flow_proof": "ACCOUNTING_BALANCE_PROVEN",
+          "source_citation": "UTB.sol:134-162 _swapAndExecute: executor.execute(target, paymentOperator, payload, ...) at lines 143/153; target and payload fully attacker-controlled via receiveFromBridge",
+          "downgrade_reason": "",
+          "retained_high_reason": "Confirmed from source: attacker supplies arbitrary target and payload through unguarded receiveFromBridge. executor.execute is called with UTB as the initiating contract context. Any external protocol that grants permissions to UTB is exploitable. Magnitude unbounded — scales with external protocol permissions granted to UTB. Permissionless via receiveFromBridge entry. Note: the executor call itself uses onlyOwner (UTBExecutor.sol:26), but UTB IS the owner of UTBExecutor, so the call chain is valid: attacker -> UTB.receiveFromBridge -> UTB._swapAndExecute -> executor.execute (UTB is owner). Full arbitrary execution chain confirmed from source."
+        }
+      ]
+    },
+    {
+      "id": "decent-04",
+      "mechanisms": [
+        {
+          "desc": "Native ETH permanently stuck when refund.call result discarded and refund address is a reverting contract",
+          "v1_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "USER_BALANCE_PROVEN",
+          "source_citation": "UTBExecutor.sol:53-56: (refund.call{value:amount}('')) with result discarded in a tuple assignment; if target.call fails, ETH sent to refund but failure silently ignored",
+          "downgrade_reason": "No attacker profit; ETH is locked not stolen. DoS/griefing class. User controls refund address indirectly but cannot profitably exploit this — they would be the victim. Not attacker-profitable fund drain.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "ERC20 drain via unvalidated paymentOperator approval — approve never reset, paymentOperator drains tokens",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "UNKNOWN",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "UTBExecutor.sol:62: IERC20(token).approve(paymentOperator, amount) — no reset; execute() is onlyOwner (line 26)",
+          "downgrade_reason": "UTBExecutor.execute() is onlyOwner gated (line 26/49). The owner is UTB. For attacker-controlled paymentOperator to reach this, attacker must exploit UTB.receiveFromBridge first (which is separately a HIGH). Standalone UTBExecutor cannot be exploited by EOA directly. This mechanism's severity depends on whether UTB forwards attacker-controlled paymentOperator — confirmed possible via UTB.sol:311/134 chain, but this mechanism is a compound of the UTB access-control gap.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "Persistent ERC20 approval not reset — residual allowance exploitable in subsequent transactions",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "UNKNOWN",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "UTBExecutor.sol:62: approve(paymentOperator, amount) — no subsequent approve(paymentOperator, 0) found anywhere in contract",
+          "downgrade_reason": "Approval persistence confirmed from source. However cross-tx exploitation requires: (1) UTBExecutor holds residual token balance between calls, (2) same paymentOperator is attacker-controlled. Source does not show UTBExecutor accumulating residual balances — it transfers remaining balance back at line 80. Whether residual accrues depends on runtime token behavior. Harness needed.",
+          "retained_high_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "decent-05",
+      "mechanisms": [
+        {
+          "desc": "fees/packedInfo decoupled — signature authenticates packedInfo but fees.feeAmount read independently, enabling zero-fee bypass",
+          "v1_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "UTBFeeCollector.sol:44-62 collectFees onlyUtb; UTB.sol:228-248 retrieveAndCollectFees modifier passes fees.feeAmount separately from packedInfo",
+          "downgrade_reason": "collectFees has onlyUtb modifier (line 48). Not directly EOA-callable. Magnitude bounded to fee revenue even if exploit path exists. No direct user fund theft.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "Uninitialized signer (address(0)) allows trivial signature forgery before setSigner called",
+          "v1_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "UTBFeeCollector.sol:9: address signer (uninitialized = address(0)); line 53-54: ecrecover(...) recovered == signer; collectFees is onlyUtb",
+          "downgrade_reason": "Confirmed: signer defaults to address(0), ecrecover returns address(0) for invalid signature, check passes. However collectFees is onlyUtb — requires UTB to be the caller. Window limited to pre-setSigner state. Impact bounded to fee authentication bypass during initialization window. No direct user fund theft. onlyUtb prerequisite limits exploitability.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "Signature replay — valid signature reusable indefinitely, no nonce or used-bitmap",
+          "v1_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "UTBFeeCollector.sol:44-62: no nonce, no bitmap, no mapping(bytes32=>bool) to track used signatures; collectFees is onlyUtb",
+          "downgrade_reason": "No nonce confirmed from source. But collectFees is onlyUtb — only UTB can invoke this. Replay by a UTB caller allows fee over-collection but no direct theft of user assets. Magnitude bounded to excess fee accounting. onlyUtb prerequisite.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "redeemFees uses transfer(2300 gas) — permanently locks native ETH if owner is a contract",
+          "v1_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "UTBFeeCollector.sol:71: payable(owner).transfer(amount) — 2300 gas stipend; redeemFees is onlyOwner",
+          "downgrade_reason": "Confirmed: .transfer() with 2300 gas. Only triggered when owner calls redeemFees and owner is a contract wallet. No permissionless attacker path; requires owner to be a contract. DoS on fee withdrawal; no user fund theft. Admin-conditional.",
+          "retained_high_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "decent-06",
+      "mechanisms": [
+        {
+          "desc": "swapExactIn/swapExactOut public with no onlyUtb — permissionless bypass of UTB authorization for swaps",
+          "v1_label": "HIGH_CONFIRMED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "UniSwapper.sol:123 swapExactIn public payable routerIsSet (no onlyUtb); line 143 swapExactOut public payable routerIsSet (no onlyUtb); line 127 _receiveAndWrapIfNeeded pulls tokenIn from msg.sender",
+          "downgrade_reason": "Confirmed: swapExactIn and swapExactOut lack onlyUtb. However, _receiveAndWrapIfNeeded (line 79-93) transfers tokenIn FROM msg.sender into UniSwapper before any swap. Attacker funds their own swap — no drain of UniSwapper's held balance from these functions. The impact is UTB fee accounting bypass (attacker routes swaps without fee collection) rather than direct fund drain. UniSwapper does not demonstrably custody valuable funds at the vulnerable point for swapExactIn/swapExactOut specifically — the attacker brings their own tokens. This is a fee/accounting bypass, not asset theft. MEDIUM_OR_LOWER is the correct v2 label since the proven impact is unauthorized swap routing, not direct asset drain from the contract.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "swapNoPath drains contract's valuable token balance using worthless tokenIn input (junk-in, USDC-out)",
+          "v1_label": "HIGH_CONFIRMED",
+          "v2_label": "HIGH_CONFIRMED",
+          "value_precondition_status": "SOURCE_PROVEN",
+          "magnitude_status": "MATERIAL_PROVEN",
+          "custody_value_flow_proof": "CONTRACT_CUSTODY_PROVEN",
+          "source_citation": "UniSwapper.sol:100-121 swapNoPath public payable (no modifier); line 105 _receiveAndWrapIfNeeded (transfers tokenIn from msg.sender); line 119 _sendToRecipient(receiver, swapParams.tokenOut, amt2Recipient) — sends UniSwapper-held tokenOut to attacker receiver",
+          "downgrade_reason": "",
+          "retained_high_reason": "swapNoPath is public payable with no access modifier at all (line 100). Attacker sets swapParams.amountIn=0 (or minimal dust tokenIn), swapParams.tokenOut=USDC (or any valuable token UniSwapper holds as residual from swap settlement), receiver=attacker. _sendToRecipient at line 119 calls IERC20(tokenOut).transfer(receiver, amt2Recipient) transferring UniSwapper's own held tokenOut balance. UniSwapper holds residual tokenOut balances from legitimate swap settlements (tokens arrive via performSwap from UTB). Contract custody of tokenOut is proven: legitimate UTB flow brings tokens into UniSwapper then they are forwarded out, creating a residual window. Permissionless single EOA call. Magnitude scales with UniSwapper residual balance. Direct asset drain confirmed from source."
+        }
+      ]
+    },
+    {
+      "id": "decent-07",
+      "mechanisms": [
+        {
+          "desc": "sgReceive ignores _srcChainId and _srcAddress — no cross-chain source validation, arbitrary payload injection",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "UNKNOWN",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "StargateBridgeAdapter.sol:183-216 sgReceive: _srcChainId and _srcAddress are unnamed (discarded); guarded by onlyExecutor (BaseAdapter.sol:11-16); bridgeExecutor set by owner",
+          "downgrade_reason": "Source confirms _srcChainId and _srcAddress are unnamed and ignored (line 183-190). However onlyExecutor restricts the caller to bridgeExecutor (BaseAdapter.sol:14). Whether the Stargate executor is a trusted singleton or permissionless relay is not determinable from the in-scope source. If executor is a trusted single entity this requires its compromise; severity is conditional on executor permissioning model (unseen code).",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "sgReceive approves swapParams.amountIn (payload-supplied) instead of actual amountLD to utb — approval amount attacker-controlled",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "UNKNOWN",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "StargateBridgeAdapter.sol:207: IERC20(swapParams.tokenIn).approve(utb, swapParams.amountIn) — swapParams decoded from payload; amountLD is a named-but-unnamed param at line 188 (uint256, // amountLD discarded)",
+          "downgrade_reason": "Confirmed: approval uses payload-supplied swapParams.amountIn not on-chain amountLD. Wrong variable proven from source. But exploitability still gated by onlyExecutor. If attacker can influence payload through a legitimate cross-chain message, over-approval enables UTB to drain more tokens than bridged. Full severity requires harness to confirm executor permissioning and custody of adapter token balances.",
+          "retained_high_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "decent-08",
+      "mechanisms": [
+        {
+          "desc": "amt2Bridge vs swapParams.amountIn divergence — excess tokens permanently locked in DecentBridgeAdapter",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "UNKNOWN",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "DecentBridgeAdapter.sol:81-125 bridge() onlyUtb; line 117 router.bridgeWithPayload called with swapParams.amountIn (line 122) while amt2Bridge (line 81) may differ; no assertion they are equal",
+          "downgrade_reason": "Divergence between amt2Bridge and swapParams.amountIn confirmed possible from source. DecentBridgeAdapter.bridge() is onlyUtb — not EOA-callable. Whether UTB passes caller-supplied divergent amounts without validation requires checking UTB.swapAndModifyPostBridge (UTB.sol:168-200) which adjusts postBridge.swapPayload.amountIn via getBridgedAmount. This means UTB normalizes amounts — the divergence opportunity depends on whether a user can still craft divergent amounts through the UTB path. Harness needed to confirm.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "Cross-chain payload manipulation drains executor via attacker-controlled tokenIn/amountIn in receiveFromBridge",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "UNKNOWN",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "DecentBridgeAdapter.sol:127-154 receiveFromBridge onlyExecutor; line 139-143 transferFrom(msg.sender, address(this), swapParams.amountIn) — msg.sender is the executor; line 145 approve(utb, swapParams.amountIn)",
+          "downgrade_reason": "receiveFromBridge has onlyExecutor (line 133). Attacker must craft a cross-chain message that the executor delivers — requires source-chain access to submit a message through the legitimate DecentEth/LZ pathway. The executor's token approval model (whether executor holds significant standing balances) is not determinable from source alone. Cross-chain harness required.",
+          "retained_high_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "decent-09",
+      "mechanisms": [
+        {
+          "desc": "setRouter public with no access control — permissionless router hijack enables unlimited mint/burn",
+          "v1_label": "HIGH_CONFIRMED",
+          "v2_label": "HIGH_CONFIRMED",
+          "value_precondition_status": "SOURCE_PROVEN",
+          "magnitude_status": "MATERIAL_PROVEN",
+          "custody_value_flow_proof": "CONTRACT_CUSTODY_PROVEN",
+          "source_citation": "DcntEth.sol:20-22: function setRouter(address _router) public { router = _router; } — no modifier; DcntEth.sol:24-27: mint(address,uint256) public onlyRouter; DecentEthRouter.sol:25-26: mapping(address=>uint256) balanceOf; DecentEthRouter.sol holds WETH (weth.balanceOf(address(this)) checked at line 266)",
+          "downgrade_reason": "",
+          "retained_high_reason": "DcntEth.sol:20 is definitively confirmed as public with no modifier — any EOA can call setRouter(attacker_contract). Attacker then calls DcntEth.mint(attacker, huge_amount) via onlyRouter gate now satisfied. DcntEth is the bridge token; minted tokens are redeemable for WETH in DecentEthRouter via redeemEth/redeemWeth (line 285-299). DecentEthRouter.sol confirms WETH is held (weth.balanceOf(address(this)) at line 266 and weth.deposit at line 178). Bridge ETH TVL drained. Two-step EOA attack, permissionless, magnitude equals full bridge WETH reserve. Source-proven end-to-end."
+        },
+        {
+          "desc": "mintByOwner allows owner to mint unbacked DcntEth breaking bridge collateral invariant",
+          "v1_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "MATERIAL_PROVEN",
+          "custody_value_flow_proof": "CONTRACT_CUSTODY_PROVEN",
+          "source_citation": "DcntEth.sol:32-34: mintByOwner onlyOwner; no collateral check",
+          "downgrade_reason": "onlyOwner prerequisite confirmed from source. Requires owner key compromise or malicious owner. Admin-prereq cap applies. Privileged threat, not permissionless. Medium.",
+          "retained_high_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "decent-10",
+      "mechanisms": [
+        {
+          "desc": "Zero gasValue (msg.value == _amount) locks WETH in router — LZ message not delivered if zero fee accepted",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "UNKNOWN",
+          "custody_value_flow_proof": "PARTIAL",
+          "source_citation": "DecentEthRouter.sol:176-193 _bridgeWithPayload: line 178-179 gasValue = msg.value - _amount when gasCurrencyIsEth; line 185 dcntEth.sendAndCall{value: gasValue}; bridge() and bridgeWithPayload() are public payable (lines 197, 218)",
+          "downgrade_reason": "Permissionless entry confirmed (bridge() is public). Zero gasValue is arithmetically possible when msg.value == _amount. WETH deposit occurs at line 178 before sendAndCall. Whether LZ OFT silently accepts zero native fee or reverts is not determinable from the in-scope source (dcntEth.sendAndCall calls OFTV2 which is an external library). Permanent lock magnitude is real if LZ accepts; but the on-chain outcome depends on LZ implementation (unseen). Harness required.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "Unregistered destinationBridge sends funds to address(0) on destination — permanent loss",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "UNKNOWN",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "DecentEthRouter.sol:99: destBridge = bytes32(abi.encode(destinationBridges[_dstChainId])) — returns zero bytes if unregistered; line 185 dcntEth.sendAndCall sends to destBridge",
+          "downgrade_reason": "Plausible from source: destinationBridges[unregistered] == address(0) by default, resulting in zero bytes32 destBridge forwarded to LZ. Whether LZ OFT reverts on zero-address destination or delivers to a zero-address equivalent is unseen. If LZ reverts safely, no fund loss occurs. Harness needed to confirm LZ behavior.",
+          "retained_high_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "decent-11",
+      "mechanisms": [
+        {
+          "desc": "onOFTReceived payload fields (_from, _to, callPayload) attacker-controlled — arbitrary execution with router WETH approval",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "MATERIAL_PROVEN",
+          "custody_value_flow_proof": "CONTRACT_CUSTODY_PROVEN",
+          "source_citation": "DecentEthRouter.sol:237-282 onOFTReceived onlyLzApp (line 244); line 279-280: weth.approve(address(executor), _amount); executor.execute(_from, _to, deliverEth, _amount, callPayload); DecentEthRouter holds WETH (line 266, 178)",
+          "downgrade_reason": "Router holds WETH confirmed from source (weth.deposit and balanceOf checks). WETH approval and executor.execute call with attacker-controlled _to and callPayload are confirmed (line 279-280). However onlyLzApp requires msg.sender == address(dcntEth) (line 42-46). Attacker must submit a valid LZ OFT message through the dcntEth token contract on source chain. This requires source-chain transaction capability — not a trivial additional prerequisite but also not a trusted-key requirement. Cross-chain harness needed to confirm full exploit path.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "WETH fallback dcntEth transfer bypasses LP balanceOf accounting — insolvency divergence over time",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "UNKNOWN",
+          "custody_value_flow_proof": "PARTIAL",
+          "source_citation": "DecentEthRouter.sol:266-268: if(weth.balanceOf(address(this)) < _amount) { dcntEth.transfer(_to, _amount); return; } — balanceOf[sender] not adjusted in this branch",
+          "downgrade_reason": "Confirmed from source: fallback branch sends dcntEth without adjusting LP balanceOf accounting. However, this branch only triggers when WETH reserves are insufficient, which is a normal operational condition (not purely attacker-induced). Magnitude and frequency of insolvency divergence depends on reserve rebalancing mechanisms not visible in source. Systemic accounting class — harness needed to confirm magnitude.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "weth.approve(executor, _amount) not reset after execute — lingering approval exploitable",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "UNKNOWN",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "DecentEthRouter.sol:279: weth.approve(address(executor), _amount) — no subsequent approve(address(executor), 0) in onOFTReceived or elsewhere in router",
+          "downgrade_reason": "Lingering WETH approval confirmed from source (no reset). But exploitation requires executor to not fully consume the approved amount, then a subsequent call to drain residual. Requires malicious or partial-consuming executor. Executor implementation is in scope (DecentBridgeExecutor.sol) but whether it always consumes full approval depends on runtime behavior. Harness needed.",
+          "retained_high_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "decent-12",
+      "mechanisms": [
+        {
+          "desc": "redeemEth/redeemWeth do not decrement balanceOf — double withdrawal: redeemEth then removeLiquidityEth",
+          "v1_label": "HIGH_CONFIRMED",
+          "v2_label": "HIGH_CONFIRMED",
+          "value_precondition_status": "SOURCE_PROVEN",
+          "magnitude_status": "MATERIAL_PROVEN",
+          "custody_value_flow_proof": "CONTRACT_CUSTODY_PROVEN",
+          "source_citation": "DecentEthRouter.sol:285-298 redeemEth/redeemWeth: no balanceOf update; line 55-65 userIsWithdrawing modifier: checks and decrements balanceOf; line 312-319 removeLiquidityEth: uses userIsWithdrawing; line 302-310 addLiquidityEth: userDepositing increments balanceOf",
+          "downgrade_reason": "",
+          "retained_high_reason": "Double-withdrawal confirmed from source: addLiquidityEth (line 302) increments balanceOf[msg.sender] via userDepositing. redeemEth (line 285) transfers DCNTEth from caller and sends ETH, but does NOT decrement balanceOf (no userIsWithdrawing modifier). removeLiquidityEth (line 312) DOES use userIsWithdrawing which checks balanceOf — still positive after redeemEth. Result: attacker deposits X ETH, calls redeemEth (gets X ETH back, balanceOf still X), then removeLiquidityEth (gets X ETH again, balanceOf decrements to 0). 2X ETH out for X ETH in. DecentEthRouter holds WETH from addLiquidityEth deposits (confirmed weth.deposit at line 308). Magnitude: scales with attacker's deposit; repeatedly drains other LPs' reserves. Permissionless (only requires dcntEth balance from initial deposit). No trusted-key prerequisite. Source-proven end-to-end."
+        },
+        {
+          "desc": "onlyIfWeHaveEnoughReserves uses strict > instead of >= — off-by-one permanently locks last reserve unit",
+          "v1_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "SOURCE_PROVEN",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "DecentEthRouter.sol:50-53 onlyIfWeHaveEnoughReserves: require(weth.balanceOf(address(this)) > amount) — strict greater-than; redeemEth/redeemWeth use this modifier",
+          "downgrade_reason": "Confirmed: strict > used instead of >=. At boundary (balance == amount), last unit unwithdrawable. Magnitude: one unit locked. Reversible with any new deposit. Bounded. No attacker profit. Medium or lower.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "Wrong lifecycle ordering in removeLiquidityEth — dcntEth burned before ETH delivery; external call failure risk",
+          "v1_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "DecentEthRouter.sol:312-319 removeLiquidityEth: dcntEth.burn (line 316) before weth.withdraw (317) and payable(msg.sender).transfer (318)",
+          "downgrade_reason": "Wrong ordering confirmed from source: burn then withdraw then transfer. If transfer fails (contract recipient), tokens are burned with no ETH delivered. But Solidity atomicity should revert the entire transaction under normal conditions. Partial-state concern only if there is a way for transfer to fail without reverting the entire tx — not demonstrated from source. Conditional on msg.sender being a contract rejecting ETH. Medium.",
+          "retained_high_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "decent-13",
+      "mechanisms": [
+        {
+          "desc": "weth.approve(target, amount) persists after _executeWeth — attacker-controlled target drains subsequent deposits",
+          "v1_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "v2_label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "UNKNOWN",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "DecentBridgeExecutor.sol:31: weth.approve(target, amount) in _executeWeth; no subsequent approve(target, 0); execute() is onlyOwner (line 74)",
+          "downgrade_reason": "Approval persistence confirmed from source (no reset after call). execute() is onlyOwner — owner is DecentEthRouter. For attacker-controlled target to reach _executeWeth, attacker must control the target parameter forwarded through onOFTReceived → executor.execute (DecentEthRouter.sol:280). That path itself has onlyLzApp guard. Whether the bridge relay accepts attacker-crafted target without validation requires cross-chain harness. Compound exploit. Standalone DecentBridgeExecutor not EOA-callable.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "ETH delivery uses 2300-gas transfer — contract from addresses cannot receive refunds; permanent bridge undeliverability",
+          "v1_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "DecentBridgeExecutor.sol:63: payable(from).transfer(amount) in _executeEth — 2300 gas stipend; execute() is onlyOwner",
+          "downgrade_reason": "2300-gas transfer confirmed from source. Reverts if from is a contract wallet without receive(). ETH stuck for that bridge message. No permissionless attacker path; user passively victimized if they use a contract wallet. LZ may allow message retry (unseen). Medium class — stuck funds for contract wallets.",
+          "retained_high_reason": ""
+        }
+      ]
+    },
+    {
+      "id": "decent-14",
+      "mechanisms": [
+        {
+          "desc": "No zero-address guard on setUtb/setBridgeExecutor/setOperator — admin error permanently DoSes bridge functions",
+          "v1_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "PARTIAL",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "UTBOwned.sol:16-18 setUtb onlyOwner, no zero-address check; BaseAdapter.sol:19-21 setBridgeExecutor onlyOwner, no zero-address check",
+          "downgrade_reason": "No zero-address validation confirmed from source. But all setters are onlyOwner or onlyAdmin. Requires privileged key error or compromise. Not permissionless. DoS class — bridge functions bricked if zero-address set. No direct user fund theft from the setter itself. Admin-prereq cap. Medium.",
+          "retained_high_reason": ""
+        },
+        {
+          "desc": "setOperator casts address to payable — type inconsistency, no independent exploitability",
+          "v1_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "v2_label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "value_precondition_status": "NOT_SOURCE_PROVEN",
+          "magnitude_status": "BOUNDED",
+          "custody_value_flow_proof": "NOT_PROVEN",
+          "source_citation": "BaseAdapter.sol reviewed; UTBOwned.sol reviewed — setOperator not found in reviewed source files; likely refers to a pattern in another adapter contract",
+          "downgrade_reason": "setOperator with payable cast not found in the reviewed in-scope source files (BaseAdapter.sol, UTBOwned.sol). Even if present, payable casting of address is a type annotation that has no EVM-level exploit independently — no value flow difference. Code quality / design issue at most. Info/Low.",
+          "retained_high_reason": ""
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "finding_id": "AR-003",
+  "title": "LibConvert.abs(int256) underflows on type(int256).min via unchecked negation",
+  "agent": "",
+  "claimed_severity": "Info",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Convert/LibConvert.sol",
+    "function": "abs",
+    "line_start": 555,
+    "line_end": 557
+  },
+  "description": "abs(int256 a) returns `a >= 0 ? uint256(a) : uint256(-a)`. For a == type(int256).min, `-a` is not representable and the unary negation reverts under 0.8 checked arithmetic. abs() is applied to deltaB values (LibDeltaB.cappedReservesDeltaB / overallCappedDeltaB / calculateAgainstPeg / calculateTowardsPeg) and to overallConvertCapacity in pipelineConvert. deltaB is computed as `calcReserveAtRatioSwap(reserves) - reserves[beanIndex]`, bounded by realistic well reserve sizes (far below 2^255). I could not construct a reachable path producing int256.min, so this is a defensive/Info note rather than an exploitable finding.",
+  "impact": "Theoretical revert (DoS) if a deltaB ever equalled type(int256).min; not reachable under realistic reserve magnitudes. No fund loss.",
+  "ite": {
+    "intent": "Revert convert penalty math via an abs() overflow",
+    "technique": "Supply deltaB == type(int256).min so uint256(-a) reverts",
+    "evasion": "Bounded by physical reserve sizes; not attacker-reachable"
+  },
+  "ice_chain": {
+    "corrupted_state": "abs() return (would revert)",
+    "consumer_found": true,
+    "consumer_function": "LibConvert.applyStalkPenalty / calculatePerWellCapacity / LibPipelineConvert.executePipelineConvert",
+    "impact": "Revert of convert penalty calculation if int256.min ever reached",
+    "exploit_path": "not reachable under realistic reserve magnitudes"
+  },
+  "source_slice": "525:         // increment totals based on germination state,\n526:         // as well as issue stalk to the user.\n527:         // if the deposit is germinating, only the initial stalk of the deposit is germinating.\n528:         // the rest is active stalk.\n529:         if (side == GerminationSide.NOT_GERMINATING) {\n530:             LibTokenSilo.incrementTotalDeposited(token, amount, bdv);\n531:             LibSilo.mintActiveStalk(\n532:                 LibTractor._user(),\n533:                 bdv.mul(LibTokenSilo.stalkIssuedPerBdv(token)).add(grownStalk)\n534:             );\n535:         } else {\n536:             LibTokenSilo.incrementTotalGerminating(token, amount, bdv, side);\n537:             // safeCast not needed as stalk is <= max(uint128)\n538:             LibSilo.mintGerminatingStalk(\n539:                 LibTractor._user(),\n540:                 uint128(bdv.mul(LibTokenSilo.stalkIssuedPerBdv(token))),\n541:                 side\n542:             );\n543:             LibSilo.mintActiveStalk(LibTractor._user(), grownStalk);\n544:         }\n545:         LibTokenSilo.addDepositToAccount(\n546:             LibTractor._user(),\n547:             token,\n548:             stem,\n549:             amount,\n550:             bdv,\n551:             LibTokenSilo.Transfer.emitTransferSingle\n552:         );\n553:     }\n554: \n555:     function abs(int256 a) internal pure returns (uint256) {\n556:         return a >= 0 ? uint256(a) : uint256(-a);\n557:     }\n558: \n559:     /**\n560:      * @dev Returns the largest of two numbers.\n561:      */\n562:     function max(uint256 a, uint256 b) internal pure returns (uint256) {\n563:         return a > b ? a : b;\n564:     }\n565: \n566:     /**\n567:      * @dev Returns the smallest of two numbers.\n568:      */\n569:     function min(uint256 a, uint256 b) internal pure returns (uint256) {\n570:         return a < b ? a : b;\n571:     }\n572: }",
+  "gate_verdict": {
+    "finding_id": "AR-003",
+    "severity": "Info",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.546124+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": false
+}

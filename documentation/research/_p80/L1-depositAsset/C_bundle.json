@@ -1,0 +1,82 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "L1-depositAsset",
+  "detector_family": "value_flow",
+  "status": "NEEDS_CONTEXT",
+  "status_reason": "critical defense unknown/source-unavailable: oracle_or_price_dependency",
+  "trigger_summary": {
+    "contract": "LRTDepositPool",
+    "function": "depositAsset",
+    "lines": "119",
+    "suspicious_pattern": "deposit->rsETH mint share accounting (getRsETHAmountToMint)",
+    "detector_claim": "share amount may misprice / mint mismatch"
+  },
+  "context_summary": {
+    "source_resolved": true,
+    "reachability": "external"
+  },
+  "attacker_reachability": "external",
+  "defense_ledger": {
+    "reentrancy_guard": {
+      "classification": "irrelevant"
+    },
+    "caps_or_limits": {
+      "classification": "partially_covers_candidate",
+      "evidence": "getAssetCurrentLimit cap"
+    },
+    "slippage_or_price_bound": {
+      "classification": "bypassed",
+      "evidence": "no minOut on depositAsset"
+    },
+    "oracle_or_price_dependency": {
+      "classification": "unknown",
+      "evidence": "depends on oracle staleness (L6) \u2014 unresolved here"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "fair share value",
+    "why_defenses_do_not_block": "see ledger"
+  },
+  "exploit_path": {
+    "attacker_profile": "EOA",
+    "entrypoint": "depositAsset",
+    "preconditions": "reachable",
+    "transaction_sequence": "user deposits when rsETH price stale/manipulated; no minOut",
+    "state_before": "s0",
+    "state_after": "s1",
+    "rejection_case": "considered defenses/falsifiers from source",
+    "source_evidence": "depositAsset"
+  },
+  "impact_analysis": {
+    "impact_category": "value_loss",
+    "minimum_profit_or_damage_condition": "sandwich/mispricing"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": "resolve the classification (with source) of: oracle_or_price_dependency",
+  "poc_needed": null,
+  "human_review_notes": null,
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "NEEDS_CONTEXT"
+  ],
+  "final_decision": "NEEDS_CONTEXT",
+  "arm": "C_full",
+  "claimed_mechanism": null
+}

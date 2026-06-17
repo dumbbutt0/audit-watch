@@ -1,0 +1,98 @@
+{
+  "finding_id": "SG-004",
+  "title": "Reseed L2 init functions are external with no access modifier",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "Medium",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+    "function": "init",
+    "line_start": 77,
+    "line_end": 84
+  },
+  "description": "Every live Beanstalk facet is guarded (Invariable + nonReentrant + role/owner where applicable). By contrast all L2 reseed initializers \u2014 ReseedSilo.init, ReseedField.init, ReseedBarn.init, ReseedBean.init, ReseedInternalBalances.init, ReseedSun.init, ReseedWhitelist.init \u2014 are declared `external` with NO access modifier (no onlyOwner, no LibDiamond.enforceIsContractOwner, no initializer). They perform privileged bulk global-state writes (per-account stalk/roots/deposits, global silo balances, field pods, fertilizer linked list). This is the maximal guard asymmetry in the codebase: the most state-powerful functions are the least guarded. In the standard EIP-2535 pattern these run once via diamondCut's _init delegatecall and their selectors are not added as facets, so they are not attacker-callable post-upgrade. The risk is contingent: if any init selector is mistakenly registered on the diamond, or diamondCut is itself reachable, an attacker re-runs init to re-write global accounting.",
+  "impact": "If reachable as a live selector: permissionless re-execution of migration accounting (re-mint stalk/roots via the DT-001/DT-003 paths, re-zero global silo balances via DT-002), i.e. unbacked governance weight, stolen earned-Bean share, and accounting desync \u2014 Critical class. If correctly one-shot via diamondCut _init (expected), not externally reachable and the guard asymmetry is by-design for diamond initializers. Severity recorded as Medium pending the deployment/diamondCut wiring proof; cannot be cleared from source alone.",
+  "ite": {
+    "intent": "Restrict privileged one-shot migration accounting writes to the diamond owner / diamondCut init path",
+    "technique": "init functions ship with no access modifier, relying entirely on diamondCut wiring (one-shot delegatecall, selectors not registered) to be unreachable",
+    "evasion": "If an init selector is registered as a facet, or diamondCut is reachable by a non-owner, replay init to rewrite global stalk/roots/deposits"
+  },
+  "ice_chain": {
+    "corrupted_state": "s.accts[*].stalk/roots/deposits, s.sys.silo.balances[*], s.sys.fields[*].pods, s.sys.fert.* (all bulk-rewritable if init is callable)",
+    "impact": "Unbacked stalk/roots + accounting desync if init is reachable post-deploy",
+    "consumer_found": false,
+    "exploit_path": "ATTACKER -> reseedX.init(crafted args) [ONLY IF selector registered or diamondCut reachable] -> overwrites global accounting -> downstream silo/governance consumers read corrupted state. Reachability cannot be proven from source; routed for human verification of the diamondCut/deploy wiring (overlaps ACCESS-001)."
+  },
+  "source_slice": "47:      * @notice AddDeposit event is emitted when a deposit is added to the silo. See {TokenSilo.AddDeposit}\n48:      */\n49:     event AddDeposit(\n50:         address indexed account,\n51:         address indexed token,\n52:         int96 stem,\n53:         uint256 amount,\n54:         uint256 bdv\n55:     );\n56: \n57:     /**\n58:      * @notice TransferSingle event is emitted when a transfer is made. See {IERC1155.TransferSingle}\n59:      */\n60:     event TransferSingle(\n61:         address indexed operator,\n62:         address indexed sender,\n63:         address indexed recipient,\n64:         uint256 depositId,\n65:         uint256 amount\n66:     );\n67: \n68:     AppStorage internal s;\n69: \n70:     /**\n71:      * @notice Initialize the silo with the given deposits.\n72:      * @dev performs the following:\n73:      * - re-deposits all deposits to the silo.\n74:      * - re-issues all stalk to holders.\n75:      * note: token addresses will differ from L1.\n76:      */\n77:     function init(\n78:         SiloDeposits calldata beanDeposits,\n79:         SiloDeposits calldata beanEthDeposits,\n80:         SiloDeposits calldata beanWstEthDeposits,\n81:         SiloDeposits calldata bean3CrvDeposits,\n82:         SiloDeposits calldata urBeanDeposits,\n83:         SiloDeposits calldata urBeanLpDeposits\n84:     ) external {\n85:         // initialize beanDeposits.\n86:         reseedSiloDeposit(beanDeposits);\n87: \n88:         // initialize beanEthDeposits.\n89:         reseedSiloDeposit(beanEthDeposits);\n90: \n91:         // initialize beanWstEthDeposits.\n92:         reseedSiloDeposit(beanWstEthDeposits);\n93: \n94:         // initialize beanStableDeposits.\n95:         reseedSiloDeposit(bean3CrvDeposits);\n96: \n97:         // initialize urBeanDeposits.\n98:         reseedSiloDeposit(urBeanDeposits);\n99: \n100:         // initialize urBeanLpDeposits.\n101:         reseedSiloDeposit(urBeanLpDeposits);\n102:     }\n103: \n104:     /**\n105:      * @notice reseed the silo deposit for a given token.\n106:      * @param siloDeposit The silo deposit data\n107:      * @dev all deposits and accounts are mown to the current season.\n108:      */\n109:     function reseedSiloDeposit(SiloDeposits calldata siloDeposit) internal {\n110:         uint256 totalCalcDeposited;\n111:         uint256 totalCalcDepositedBdv;\n112:         uint256 stalkIssuedPerBdv = s.sys.silo.assetSettings[siloDeposit.token].stalkIssuedPerBdv;\n113:         for (uint256 i; i < siloDeposit.siloDepositsAccount.length; i++) {\n114:             AccountSiloDeposits memory deposits = siloDeposit.siloDepositsAccount[i];",
+  "gate_verdict": {
+    "finding_id": "SG-004",
+    "severity": "Medium",
+    "vuln_type": "access-control",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.544227+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

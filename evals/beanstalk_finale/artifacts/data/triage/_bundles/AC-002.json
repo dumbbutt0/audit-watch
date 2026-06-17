@@ -1,0 +1,99 @@
+{
+  "finding_id": "AC-002",
+  "title": "Migration merkle leaf omits reciever; destination bound only by signature",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+    "function": "verifyDepositsAndInternalBalances",
+    "line_start": 120,
+    "line_end": 129
+  },
+  "description": "verifyDepositsAndInternalBalances computes the merkle leaf as keccak256(abi.encode(account, deposits, internalBalances, ownerRoots)) (line 127). The destination `reciever` is NOT part of the leaf and therefore not committed to by the immutable MERKLE_ROOT. The only thing binding the credit to a specific L2 destination is the owner's EIP-712 signature over (owner,reciever,deadline) in verifySignature. This splits authorization across two artifacts (a root that fixes WHAT migrates, and a signature that fixes WHERE it goes) without binding them together. Because the signature is plain calldata and AC-001 allows unlimited replay, the receiver binding provides no protection against reuse, and the absence of `reciever` from the proof means the proof can never constrain the destination. If a publisher ever signs more than one (owner,reciever) pair for the same owner-leaf, or the signature is otherwise obtainable, credit destination is governed solely by an unprotected, replayable signature rather than by the committed root. This weakens the authorization model and compounds AC-001.",
+  "impact": "Authorization of the migration destination is decoupled from the merkle commitment and rests entirely on a single unprotected signature. Combined with AC-001 (no nonce/spent-marker) the destination binding is ineffective against replay. Standalone: incorrect/weak access binding of migrated credit. Immunefi v2.2: incorrect access binding without standalone direct loss = Medium.",
+  "ite": {
+    "intent": "Determine the destination of migrated credit independent of the on-chain merkle commitment",
+    "technique": "reciever is excluded from the merkle leaf; only the replayable EIP-712 signature binds it, so the committed root never constrains where credit lands",
+    "evasion": "Intended protection (a fixed merkle root committing the migration) does not cover the destination field; binding is delegated to a signature that AC-001 shows is reusable"
+  },
+  "ice_chain": {
+    "corrupted_state": "destination binding of migrated stalk/roots/deposits (s.accts[reciever].*)",
+    "impact": "Migrated credit can be directed by signature alone rather than the committed root; amplifies replay reach of AC-001",
+    "consumer_found": true,
+    "consumer_function": "addMigratedDepositsToAccount / setStalk write to s.accts[reciever] which feeds Silo and governance",
+    "exploit_path": "Proof accepts any reciever -> reciever bound only by replayable signature (AC-001) -> credit lands at attacker-influenced/repeated destination"
+  },
+  "source_slice": "90:         address reciever,\n91:         AccountDepositData[] calldata deposits,\n92:         AccountInternalBalance[] calldata internalBalances,\n93:         uint256 ownerRoots,\n94:         bytes32[] calldata proof,\n95:         uint256 deadline,\n96:         bytes calldata signature\n97:     ) external payable fundsSafu noSupplyChange nonReentrant {\n98:         // verify deposits are valid.\n99:         // note: if the number of contracts that own deposits is small,\n100:         // deposits can be stored in bytecode rather than relying on a merkle tree.\n101:         verifyDepositsAndInternalBalances(owner, deposits, internalBalances, ownerRoots, proof);\n102: \n103:         // signature verification.\n104:         verifySignature(owner, reciever, deadline, signature);\n105: \n106:         // set deposits for `reciever`.\n107:         uint256 accountStalk;\n108:         for (uint256 i; i < deposits.length; i++) {\n109:             accountStalk += addMigratedDepositsToAccount(reciever, deposits[i]);\n110:         }\n111: \n112:         // set stalk for account.\n113:         setStalk(reciever, accountStalk, ownerRoots);\n114:     }\n115: \n116:     /**\n117:      * @notice verfies that the input parameters for deposits\n118:      * are correct.\n119:      */\n120:     function verifyDepositsAndInternalBalances(\n121:         address account,\n122:         AccountDepositData[] calldata deposits,\n123:         AccountInternalBalance[] calldata internalBalances,\n124:         uint256 ownerRoots,\n125:         bytes32[] calldata proof\n126:     ) internal pure {\n127:         bytes32 leaf = keccak256(abi.encode(account, deposits, internalBalances, ownerRoots));\n128:         require(MerkleProof.verify(proof, MERKLE_ROOT, leaf), \"Migration: invalid proof\");\n129:     }\n130: \n131:     /**\n132:      * @notice verifies that the signature came from the owner.\n133:      * @dev the signature is signed on the L1 blockchain.\n134:      * the deposit data itself is not needed, as the signature\n135:      */\n136:     function verifySignature(\n137:         address owner,\n138:         address reciever,\n139:         uint256 deadline,\n140:         bytes calldata signature\n141:     ) internal view {\n142:         require(block.timestamp <= deadline, \"Migration: permit expired deadline\");\n143:         bytes32 structHash = keccak256(\n144:             abi.encode(REDEEM_DEPOSIT_TYPE_HASH, owner, reciever, deadline)\n145:         );\n146: \n147:         bytes32 hash = _hashTypedDataV4(structHash);\n148:         address signer = ECDSA.recover(hash, signature);\n149:         require(signer == owner, \"Migration: permit invalid signature\");\n150:     }\n151: \n152:     function addMigratedDepositsToAccount(\n153:         address account,\n154:         AccountDepositData calldata depositData\n155:     ) internal returns (uint256 accountStalk) {\n156:         int96 stemTip = LibTokenSilo.stemTipForToken(depositData.token);\n157:         uint256 stalkIssuedPerBdv = s.sys.silo.assetSettings[depositData.token].stalkIssuedPerBdv;\n158:         uint128 totalBdvForAccount;\n159:         uint128 totalDeposited;",
+  "gate_verdict": {
+    "finding_id": "AC-002",
+    "severity": "Medium",
+    "vuln_type": "access-control",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.539801+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

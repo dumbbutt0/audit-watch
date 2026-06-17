@@ -1,0 +1,1579 @@
+{
+  "module": "recall_first_harness",
+  "generated_at": "2026-06-09T17:39:13.885540+00:00",
+  "mode": "shadow",
+  "contest": "gondi",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "emits_findings": false,
+  "concludes_vulnerability": false,
+  "output_type": "advisory_recall_candidates",
+  "guard_violations": 0,
+  "caps": {
+    "max_swept_loci_json": 25,
+    "max_high_priority_md": 15,
+    "max_mechs_per_locus": 5,
+    "max_total_mechs_to_ranking": 30
+  },
+  "truncated": true,
+  "advisory_candidates": [
+    {
+      "candidate_id": "gondi:MultiSourceLoan:_processOffersFromExecutionData:0",
+      "locus": "MultiSourceLoan:_processOffersFromExecutionData",
+      "contract": "MultiSourceLoan",
+      "function": "_processOffersFromExecutionData",
+      "source_span": {
+        "start_line": 981,
+        "end_line": 1050,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 0.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T3_reentrancy_accounting_boundary",
+        "T7_liquidation_solvency_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T3_reentrancy_accounting_boundary",
+          "mechanism_summary": "[T3] MultiSourceLoan._processOffersFromExecutionData: An external call/transfer/callback may occur before accounting/index/share/debt state is finalized.",
+          "source_backed_trigger": "MultiSourceLoan._processOffersFromExecutionData function _processOffersFromExecutionData( address _borrower, address _principalReceiver, address _principalAddress, address _nftCollateralAddress, uint256 _tokenId, uint256 _duration, OfferExecution[] calldata _offerExecution ) private returns (uint256, uint256[] memory, Loan memory, uint256) {",
+          "matched_markers": [
+            "T3_reentrancy_accounting_boundary",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Is there a call/transfer to an arbitrary party before all relevant state is written?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T3_reentrancy_accounting_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T7_liquidation_solvency_boundary",
+          "mechanism_summary": "[T7] MultiSourceLoan._processOffersFromExecutionData: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+          "source_backed_trigger": "MultiSourceLoan._processOffersFromExecutionData function _processOffersFromExecutionData( address _borrower, address _principalReceiver, address _principalAddress, address _nftCollateralAddress, uint256 _tokenId, uint256 _duration, OfferExecution[] calldata _offerExecution ) private returns (uint256, uint256[] memory, Loan memory, uint256) {",
+          "matched_markers": [
+            "T3_reentrancy_accounting_boundary",
+            "T7_liquidation_solvency_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T7_liquidation_solvency_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T3_reentrancy_accounting_boundary",
+          "T7_liquidation_solvency_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/loans/MultiSourceLoan.sol",
+        "checkpoint:['A2_conservation', 'A5_index_arithmetic_exactness', 'S3_dual_state_inconsistency']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:Pool:withdraw:1",
+      "locus": "Pool:withdraw",
+      "contract": "Pool",
+      "function": "withdraw",
+      "source_span": {
+        "start_line": 274,
+        "end_line": 282,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 1.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling",
+        "T3_reentrancy_accounting_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] Pool.withdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "Pool.withdraw function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256 shares) {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T3_reentrancy_accounting_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T3_reentrancy_accounting_boundary",
+          "mechanism_summary": "[T3] Pool.withdraw: An external call/transfer/callback may occur before accounting/index/share/debt state is finalized.",
+          "source_backed_trigger": "Pool.withdraw function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256 shares) {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T3_reentrancy_accounting_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Is there a call/transfer to an arbitrary party before all relevant state is written?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T3_reentrancy_accounting_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling",
+          "T3_reentrancy_accounting_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/pools/Pool.sol",
+        "checkpoint:['A1_rounding_direction', 'A2_conservation', 'S3_dual_state_inconsistency']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:Pool:redeem:2",
+      "locus": "Pool:redeem",
+      "contract": "Pool",
+      "function": "redeem",
+      "source_span": {
+        "start_line": 285,
+        "end_line": 296,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 2.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T1_external_dependency_availability",
+        "T2_redemption_withdrawal_state_coupling",
+        "T3_reentrancy_accounting_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T1_external_dependency_availability",
+          "mechanism_summary": "[T1] Pool.redeem: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+          "source_backed_trigger": "Pool.redeem function redeem(uint256 shares, address receiver, address owner) public override returns (uint256 assets) {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T3_reentrancy_accounting_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T1_external_dependency_availability"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] Pool.redeem: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "Pool.redeem function redeem(uint256 shares, address receiver, address owner) public override returns (uint256 assets) {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T3_reentrancy_accounting_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T3_reentrancy_accounting_boundary",
+          "mechanism_summary": "[T3] Pool.redeem: An external call/transfer/callback may occur before accounting/index/share/debt state is finalized.",
+          "source_backed_trigger": "Pool.redeem function redeem(uint256 shares, address receiver, address owner) public override returns (uint256 assets) {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T3_reentrancy_accounting_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Is there a call/transfer to an arbitrary party before all relevant state is written?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T3_reentrancy_accounting_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T1_external_dependency_availability",
+          "T2_redemption_withdrawal_state_coupling"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/pools/Pool.sol",
+        "checkpoint:['A1_rounding_direction', 'A2_conservation', 'S3_dual_state_inconsistency']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:Pool:mint:3",
+      "locus": "Pool:mint",
+      "contract": "Pool",
+      "function": "mint",
+      "source_span": {
+        "start_line": 305,
+        "end_line": 308,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 3.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T3_reentrancy_accounting_boundary",
+        "T8_shareprice_donation_inflation"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T3_reentrancy_accounting_boundary",
+          "mechanism_summary": "[T3] Pool.mint: An external call/transfer/callback may occur before accounting/index/share/debt state is finalized.",
+          "source_backed_trigger": "Pool.mint function mint(uint256 shares, address receiver) public override returns (uint256) {",
+          "matched_markers": [
+            "T3_reentrancy_accounting_boundary",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Is there a call/transfer to an arbitrary party before all relevant state is written?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T3_reentrancy_accounting_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T8_shareprice_donation_inflation",
+          "mechanism_summary": "[T8] Pool.mint: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+          "source_backed_trigger": "Pool.mint function mint(uint256 shares, address receiver) public override returns (uint256) {",
+          "matched_markers": [
+            "T3_reentrancy_accounting_boundary",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T8_shareprice_donation_inflation"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T3_reentrancy_accounting_boundary",
+          "T8_shareprice_donation_inflation"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/pools/Pool.sol",
+        "checkpoint:['A2_conservation', 'A4_shared_balance_depletion', 'S4_branch_consequence_not_traced']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:WithdrawalQueue:mint:4",
+      "locus": "WithdrawalQueue:mint",
+      "contract": "WithdrawalQueue",
+      "function": "mint",
+      "source_span": {
+        "start_line": 61,
+        "end_line": 72,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 4.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T8_shareprice_donation_inflation"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T8_shareprice_donation_inflation",
+          "mechanism_summary": "[T8] WithdrawalQueue.mint: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+          "source_backed_trigger": "WithdrawalQueue.mint function mint(address _to, uint256 _shares) external returns (uint256) {",
+          "matched_markers": [
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T8_shareprice_donation_inflation"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T8_shareprice_donation_inflation"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/pools/WithdrawalQueue.sol",
+        "checkpoint:['A2_conservation', 'A3_double_counting', 'A4_shared_balance_depletion']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:WithdrawalQueue:withdraw:5",
+      "locus": "WithdrawalQueue:withdraw",
+      "contract": "WithdrawalQueue",
+      "function": "withdraw",
+      "source_span": {
+        "start_line": 84,
+        "end_line": 106,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 5.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "checkpoint_hit_name_keyword"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] WithdrawalQueue.withdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "WithdrawalQueue.withdraw function withdraw(address _to, uint256 _tokenId) external returns (uint256) {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/pools/WithdrawalQueue.sol",
+        "checkpoint:['A3_double_counting', 'S1_reset_overwrite_user_state', 'S4_branch_consequence_not_traced']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:MultiSourceLoan:mergeTranches:6",
+      "locus": "MultiSourceLoan:mergeTranches",
+      "contract": "MultiSourceLoan",
+      "function": "mergeTranches",
+      "source_span": {
+        "start_line": 389,
+        "end_line": 402,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 6.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top"
+      ],
+      "templates_applied": [
+        "T4_migration_conversion_residue",
+        "T8_shareprice_donation_inflation"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T4_migration_conversion_residue",
+          "mechanism_summary": "[T4] MultiSourceLoan.mergeTranches: Value/rewards/shares/debt/indexes/permissions may be lost, duplicated, or mispriced across old/new domains.",
+          "source_backed_trigger": "MultiSourceLoan.mergeTranches function mergeTranches(uint256 _loanId, Loan memory _loan, uint256 _minTranche, uint256 _maxTranche) external returns (uint256, Loan memory) {",
+          "matched_markers": [
+            "T4_migration_conversion_residue",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Across this conversion/migration/split/merge, is every unit and right conserved exactly?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T4_migration_conversion_residue"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T8_shareprice_donation_inflation",
+          "mechanism_summary": "[T8] MultiSourceLoan.mergeTranches: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+          "source_backed_trigger": "MultiSourceLoan.mergeTranches function mergeTranches(uint256 _loanId, Loan memory _loan, uint256 _minTranche, uint256 _maxTranche) external returns (uint256, Loan memory) {",
+          "matched_markers": [
+            "T4_migration_conversion_residue",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T8_shareprice_donation_inflation"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T4_migration_conversion_residue",
+          "T8_shareprice_donation_inflation"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/loans/MultiSourceLoan.sol",
+        "checkpoint:['A1_rounding_direction', 'A3_double_counting', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:MultiSourceLoan:_mergeTranches:7",
+      "locus": "MultiSourceLoan:_mergeTranches",
+      "contract": "MultiSourceLoan",
+      "function": "_mergeTranches",
+      "source_span": {
+        "start_line": 1088,
+        "end_line": 1154,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 7.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "t7t8_within_top"
+      ],
+      "templates_applied": [
+        "T4_migration_conversion_residue",
+        "T8_shareprice_donation_inflation"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T4_migration_conversion_residue",
+          "mechanism_summary": "[T4] MultiSourceLoan._mergeTranches: Value/rewards/shares/debt/indexes/permissions may be lost, duplicated, or mispriced across old/new domains.",
+          "source_backed_trigger": "MultiSourceLoan._mergeTranches function _mergeTranches( uint256 _newLoanId, IMultiSourceLoan.Loan memory _loan, uint256 _minTranche, uint256 _maxTranche ) private pure returns (IMultiSourceLoan.Loan memory) {",
+          "matched_markers": [
+            "T4_migration_conversion_residue",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Across this conversion/migration/split/merge, is every unit and right conserved exactly?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T4_migration_conversion_residue"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T8_shareprice_donation_inflation",
+          "mechanism_summary": "[T8] MultiSourceLoan._mergeTranches: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+          "source_backed_trigger": "MultiSourceLoan._mergeTranches function _mergeTranches( uint256 _newLoanId, IMultiSourceLoan.Loan memory _loan, uint256 _minTranche, uint256 _maxTranche ) private pure returns (IMultiSourceLoan.Loan memory) {",
+          "matched_markers": [
+            "T4_migration_conversion_residue",
+            "T8_shareprice_donation_inflation"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T8_shareprice_donation_inflation"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T4_migration_conversion_residue",
+          "T8_shareprice_donation_inflation"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/loans/MultiSourceLoan.sol",
+        "checkpoint:['A1_rounding_direction', 'A3_double_counting', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:Pool:constructor:8",
+      "locus": "Pool:constructor",
+      "contract": "Pool",
+      "function": "constructor",
+      "source_span": {
+        "start_line": 137,
+        "end_line": 174,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 8.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling",
+        "T5_statemachine_liveness_terminality"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] Pool.constructor: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "Pool.constructor constructor( address _feeManager, address _offerHandler, uint256 _waitingTimeBetweenUpdates, OptimalIdleRange memory _optimalIdleRange, uint256 _maxTotalWithdrawalQueues, uint256 _reallocationBonus, ERC20 _asset, string memory _name, string memory _symbol ) ERC4626(_asset, _name, _symbol) LoanManage",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T5_statemachine_liveness_terminality"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T5_statemachine_liveness_terminality",
+          "mechanism_summary": "[T5] Pool.constructor: A state transition may make a required later operation impossible, stuck, delayed, or incorrectly successful.",
+          "source_backed_trigger": "Pool.constructor constructor( address _feeManager, address _offerHandler, uint256 _waitingTimeBetweenUpdates, OptimalIdleRange memory _optimalIdleRange, uint256 _maxTotalWithdrawalQueues, uint256 _reallocationBonus, ERC20 _asset, string memory _name, string memory _symbol ) ERC4626(_asset, _name, _symbol) LoanManage",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T5_statemachine_liveness_terminality"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "After this transition, can a needed later step (claim/finalize/withdraw) still complete correctly?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T5_statemachine_liveness_terminality"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling",
+          "T5_statemachine_liveness_terminality"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/pools/Pool.sol",
+        "checkpoint:['A1_rounding_direction', 'S3_dual_state_inconsistency']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:Pool:deployWithdrawalQueue:9",
+      "locus": "Pool:deployWithdrawalQueue",
+      "contract": "Pool",
+      "function": "deployWithdrawalQueue",
+      "source_span": {
+        "start_line": 317,
+        "end_line": 389,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 9.0,
+      "sweep_inclusion_reason": [
+        "top_n_overall",
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling",
+        "T5_statemachine_liveness_terminality"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] Pool.deployWithdrawalQueue: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "Pool.deployWithdrawalQueue function deployWithdrawalQueue() external nonReentrant {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T5_statemachine_liveness_terminality"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T5_statemachine_liveness_terminality",
+          "mechanism_summary": "[T5] Pool.deployWithdrawalQueue: A state transition may make a required later operation impossible, stuck, delayed, or incorrectly successful.",
+          "source_backed_trigger": "Pool.deployWithdrawalQueue function deployWithdrawalQueue() external nonReentrant {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T5_statemachine_liveness_terminality"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "After this transition, can a needed later step (claim/finalize/withdraw) still complete correctly?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T5_statemachine_liveness_terminality"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling",
+          "T5_statemachine_liveness_terminality"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/pools/Pool.sol",
+        "checkpoint:['A1_rounding_direction', 'A4_shared_balance_depletion', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:Pool:_queueClaimAll:10",
+      "locus": "Pool:_queueClaimAll",
+      "contract": "Pool",
+      "function": "_queueClaimAll",
+      "source_span": {
+        "start_line": 687,
+        "end_line": 717,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 10.0,
+      "sweep_inclusion_reason": [
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling",
+        "T5_statemachine_liveness_terminality",
+        "T6_cross_transaction_drift"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] Pool._queueClaimAll: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "Pool._queueClaimAll function _queueClaimAll(uint256 _totalToBeWithdrawn, uint256 _cachedPendingQueueIndex) private {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T5_statemachine_liveness_terminality",
+            "T6_cross_transaction_drift"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T5_statemachine_liveness_terminality",
+          "mechanism_summary": "[T5] Pool._queueClaimAll: A state transition may make a required later operation impossible, stuck, delayed, or incorrectly successful.",
+          "source_backed_trigger": "Pool._queueClaimAll function _queueClaimAll(uint256 _totalToBeWithdrawn, uint256 _cachedPendingQueueIndex) private {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T5_statemachine_liveness_terminality",
+            "T6_cross_transaction_drift"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "After this transition, can a needed later step (claim/finalize/withdraw) still complete correctly?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T5_statemachine_liveness_terminality"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T6_cross_transaction_drift",
+          "mechanism_summary": "[T6] Pool._queueClaimAll: Separate txs/epochs/delayed checkpoints may create a stale or double-counted accounting view.",
+          "source_backed_trigger": "Pool._queueClaimAll function _queueClaimAll(uint256 _totalToBeWithdrawn, uint256 _cachedPendingQueueIndex) private {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T5_statemachine_liveness_terminality",
+            "T6_cross_transaction_drift"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Across two transactions/epochs, can an index/accrual be applied twice or skipped?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T6_cross_transaction_drift"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling",
+          "T5_statemachine_liveness_terminality"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/pools/Pool.sol",
+        "checkpoint:['A1_rounding_direction', 'A4_shared_balance_depletion', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:LiquidationDistributor:distribute:11",
+      "locus": "LiquidationDistributor:distribute",
+      "contract": "LiquidationDistributor",
+      "function": "distribute",
+      "source_span": {
+        "start_line": 32,
+        "end_line": 73,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 11.0,
+      "sweep_inclusion_reason": [
+        "checkpoint_hit_name_keyword"
+      ],
+      "templates_applied": [
+        "T6_cross_transaction_drift"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T6_cross_transaction_drift",
+          "mechanism_summary": "[T6] LiquidationDistributor.distribute: Separate txs/epochs/delayed checkpoints may create a stale or double-counted accounting view.",
+          "source_backed_trigger": "LiquidationDistributor.distribute function distribute(uint256 _proceeds, IMultiSourceLoan.Loan calldata _loan) external {",
+          "matched_markers": [
+            "T6_cross_transaction_drift"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Across two transactions/epochs, can an index/accrual be applied twice or skipped?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T6_cross_transaction_drift"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T6_cross_transaction_drift"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/LiquidationDistributor.sol",
+        "checkpoint:['A3_double_counting', 'A5_index_arithmetic_exactness', 'S4_branch_consequence_not_traced']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:UserVault:burnAndWithdraw:12",
+      "locus": "UserVault:burnAndWithdraw",
+      "contract": "UserVault",
+      "function": "burnAndWithdraw",
+      "source_span": {
+        "start_line": 125,
+        "end_line": 145,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 12.0,
+      "sweep_inclusion_reason": [
+        "checkpoint_hit_name_keyword"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] UserVault.burnAndWithdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "UserVault.burnAndWithdraw function burnAndWithdraw( uint256 _vaultId, address[] calldata _collections, uint256[] calldata _tokenIds, address[] calldata _tokens ) external {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/UserVault.sol",
+        "checkpoint:['A2_conservation', 'S4_branch_consequence_not_traced']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:Pool:_withdraw:13",
+      "locus": "Pool:_withdraw",
+      "contract": "Pool",
+      "function": "_withdraw",
+      "source_span": {
+        "start_line": 757,
+        "end_line": 765,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 13.0,
+      "sweep_inclusion_reason": [
+        "checkpoint_hit_name_keyword",
+        "checkpoint_hit_evidence_marker"
+      ],
+      "templates_applied": [
+        "T2_redemption_withdrawal_state_coupling",
+        "T3_reentrancy_accounting_boundary"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] Pool._withdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "Pool._withdraw function _withdraw(address owner, address receiver, uint256 assets, uint256 shares) private {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T3_reentrancy_accounting_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T3_reentrancy_accounting_boundary",
+          "mechanism_summary": "[T3] Pool._withdraw: An external call/transfer/callback may occur before accounting/index/share/debt state is finalized.",
+          "source_backed_trigger": "Pool._withdraw function _withdraw(address owner, address receiver, uint256 assets, uint256 shares) private {",
+          "matched_markers": [
+            "T2_redemption_withdrawal_state_coupling",
+            "T3_reentrancy_accounting_boundary"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Is there a call/transfer to an arbitrary party before all relevant state is written?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T3_reentrancy_accounting_boundary"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T2_redemption_withdrawal_state_coupling",
+          "T3_reentrancy_accounting_boundary"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/pools/Pool.sol",
+        "checkpoint:['A2_conservation', 'A4_shared_balance_depletion']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "gondi:AuctionWithBuyoutLoanLiquidator:settleWithBuyout:14",
+      "locus": "AuctionWithBuyoutLoanLiquidator:settleWithBuyout",
+      "contract": "AuctionWithBuyoutLoanLiquidator",
+      "function": "settleWithBuyout",
+      "source_span": {
+        "start_line": 55,
+        "end_line": 104,
+        "method": "regex_brace_match"
+      },
+      "prioritizer_score": 14.0,
+      "sweep_inclusion_reason": [
+        "checkpoint_hit_name_keyword"
+      ],
+      "templates_applied": [
+        "T1_external_dependency_availability",
+        "T2_redemption_withdrawal_state_coupling",
+        "T4_migration_conversion_residue",
+        "T5_statemachine_liveness_terminality"
+      ],
+      "generated_mechanisms": [
+        {
+          "template_id": "T1_external_dependency_availability",
+          "mechanism_summary": "[T1] AuctionWithBuyoutLoanLiquidator.settleWithBuyout: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+          "source_backed_trigger": "AuctionWithBuyoutLoanLiquidator.settleWithBuyout function settleWithBuyout( address _nftAddress, uint256 _tokenId, Auction calldata _auction, IMultiSourceLoan.Loan calldata _loan ) external nonReentrant {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T4_migration_conversion_residue",
+            "T5_statemachine_liveness_terminality"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T1_external_dependency_availability"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T2_redemption_withdrawal_state_coupling",
+          "mechanism_summary": "[T2] AuctionWithBuyoutLoanLiquidator.settleWithBuyout: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+          "source_backed_trigger": "AuctionWithBuyoutLoanLiquidator.settleWithBuyout function settleWithBuyout( address _nftAddress, uint256 _tokenId, Auction calldata _auction, IMultiSourceLoan.Loan calldata _loan ) external nonReentrant {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T4_migration_conversion_residue",
+            "T5_statemachine_liveness_terminality"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T2_redemption_withdrawal_state_coupling"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T4_migration_conversion_residue",
+          "mechanism_summary": "[T4] AuctionWithBuyoutLoanLiquidator.settleWithBuyout: Value/rewards/shares/debt/indexes/permissions may be lost, duplicated, or mispriced across old/new domains.",
+          "source_backed_trigger": "AuctionWithBuyoutLoanLiquidator.settleWithBuyout function settleWithBuyout( address _nftAddress, uint256 _tokenId, Auction calldata _auction, IMultiSourceLoan.Loan calldata _loan ) external nonReentrant {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T4_migration_conversion_residue",
+            "T5_statemachine_liveness_terminality"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "Across this conversion/migration/split/merge, is every unit and right conserved exactly?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": true,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T4_migration_conversion_residue"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        },
+        {
+          "template_id": "T5_statemachine_liveness_terminality",
+          "mechanism_summary": "[T5] AuctionWithBuyoutLoanLiquidator.settleWithBuyout: A state transition may make a required later operation impossible, stuck, delayed, or incorrectly successful.",
+          "source_backed_trigger": "AuctionWithBuyoutLoanLiquidator.settleWithBuyout function settleWithBuyout( address _nftAddress, uint256 _tokenId, Auction calldata _auction, IMultiSourceLoan.Loan calldata _loan ) external nonReentrant {",
+          "matched_markers": [
+            "T1_external_dependency_availability",
+            "T2_redemption_withdrawal_state_coupling",
+            "T4_migration_conversion_residue",
+            "T5_statemachine_liveness_terminality"
+          ],
+          "attacker_action": "operator-to-derive (who calls it, with what input/timing/state)",
+          "affected_state_assets_permissions": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+          "expected_value_delta": "operator-to-derive",
+          "victim_gainer_hypothesis": "operator-to-derive",
+          "terminality_hypothesis": "operator-to-derive (persists? strands? extractable?)",
+          "amplification_hypothesis": "operator-to-derive (repeat/lever/flash-loan/scale?)",
+          "protocol_comparand_hint": "operator-to-derive (sibling fn / invariant / comment / reference)",
+          "assumptions": "operator-to-derive",
+          "falsification_question": "After this transition, can a needed later step (claim/finalize/withdraw) still complete correctly?",
+          "ranking_features_for_profile_B": {
+            "reconciliation_or_solvency_or_convexity_or_drift": false,
+            "messy_not_tidy": true
+          },
+          "ranking_features_for_profile_C": {
+            "candidate_for_runner_up_overtake": true,
+            "terminal_delta_class": "T5_statemachine_liveness_terminality"
+          },
+          "output_type": "mechanism_hypothesis",
+          "concluded": false,
+          "severity": null,
+          "confidence": null
+        }
+      ],
+      "bc_ranking_handoff": {
+        "top_2_for_profile_B_C": [
+          "T1_external_dependency_availability",
+          "T2_redemption_withdrawal_state_coupling"
+        ],
+        "note": "feeds Profile B/C ranking + five-op completion (downstream, not here)"
+      },
+      "completion_status": null,
+      "refutation_status": null,
+      "evidence_pointers": [
+        "/tmp/p274_fresh/gondi/src/lib/AuctionWithBuyoutLoanLiquidator.sol",
+        "checkpoint:['A3_double_counting', 'A5_index_arithmetic_exactness']"
+      ],
+      "status": "ADVISORY_RECALL_CANDIDATE",
+      "promotion_label": "NEEDS_RANKING",
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

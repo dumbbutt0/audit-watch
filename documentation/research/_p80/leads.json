@@ -1,0 +1,170 @@
+{
+  "research_only": true,
+  "review_only": true,
+  "phase": "P80",
+  "subject": "kelp-2023-11-holdout",
+  "note": "6 STATIC_LEADs selected from SOURCE-FACING surfaces and FROZEN before any investigation and before opening data/findings.",
+  "leads": [
+    {
+      "candidate_id": "L1-depositAsset",
+      "detector_family": "value_flow",
+      "trigger_contract": "LRTDepositPool",
+      "trigger_function": "depositAsset",
+      "trigger_lines": "119",
+      "suspicious_pattern": "deposit->rsETH mint share accounting (getRsETHAmountToMint)",
+      "detector_claim": "share amount may misprice / mint mismatch",
+      "source_snippets": null,
+      "required_followup_questions": [
+        "how is mint amount computed?",
+        "is price manipulable?",
+        "slippage bound?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "share formula",
+        "price source",
+        "reachability"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD"
+    },
+    {
+      "candidate_id": "L2-getRSETHPrice",
+      "detector_family": "oracle",
+      "trigger_contract": "LRTOracle",
+      "trigger_function": "getRSETHPrice",
+      "trigger_lines": "oracle",
+      "suspicious_pattern": "rsETH price from sum(asset balances * assetPrice)/supply feeding mint",
+      "detector_claim": "price computation manipulable / division/rounding",
+      "source_snippets": null,
+      "required_followup_questions": [
+        "price inputs attacker-controlled?",
+        "first-deposit / supply=0?",
+        "balance manipulable?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "price formula",
+        "supply guard",
+        "balance source"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD"
+    },
+    {
+      "candidate_id": "L3-depositAssetIntoStrategy",
+      "detector_family": "access_control",
+      "trigger_contract": "NodeDelegator",
+      "trigger_function": "depositAssetIntoStrategy",
+      "trigger_lines": "51",
+      "suspicious_pattern": "moves pooled assets into an EigenLayer strategy",
+      "detector_claim": "unauthorized asset movement / wrong strategy",
+      "source_snippets": null,
+      "required_followup_questions": [
+        "who can call?",
+        "strategy from config trusted?",
+        "reentrancy?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "caller modifier",
+        "strategy source",
+        "asset accounting"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD"
+    },
+    {
+      "candidate_id": "L4-rseth-mint",
+      "detector_family": "access_control",
+      "trigger_contract": "RSETH",
+      "trigger_function": "mint",
+      "trigger_lines": "47",
+      "suspicious_pattern": "MINTER_ROLE mint of rsETH shares",
+      "detector_claim": "missing/over-broad mint auth",
+      "source_snippets": null,
+      "required_followup_questions": [
+        "who holds MINTER_ROLE?",
+        "reachable by attacker?",
+        "cap?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "role grant",
+        "caller path"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD"
+    },
+    {
+      "candidate_id": "L5-updateAssetStrategy",
+      "detector_family": "wrong_actor",
+      "trigger_contract": "LRTConfig",
+      "trigger_function": "updateAssetStrategy",
+      "trigger_lines": "109",
+      "suspicious_pattern": "manager updates an asset's strategy mid-flight",
+      "detector_claim": "strategy change orphans/strands deposited funds",
+      "source_snippets": null,
+      "required_followup_questions": [
+        "can strategy change after deposits?",
+        "funds migration?",
+        "actor scope?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "update guard",
+        "migration logic",
+        "invariant"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD"
+    },
+    {
+      "candidate_id": "L6-chainlink-getAssetPrice",
+      "detector_family": "oracle",
+      "trigger_contract": "ChainlinkPriceOracle",
+      "trigger_function": "getAssetPrice",
+      "trigger_lines": "latestRoundData",
+      "suspicious_pattern": "Chainlink latestRoundData consumed without staleness/round checks",
+      "detector_claim": "stale price accepted",
+      "source_snippets": null,
+      "required_followup_questions": [
+        "staleness check?",
+        "round completeness?",
+        "downstream use?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "latestRoundData usage",
+        "staleness guard",
+        "price consumer"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD"
+    }
+  ]
+}

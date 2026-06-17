@@ -1,0 +1,111 @@
+{
+  "finding_id": "F-1",
+  "merged_findings": [
+    "F-1",
+    "M-1"
+  ],
+  "title": "Broken health-transition guard in Risk.checkValidTransition (F-1 Critical collateral-withdraw bypass + M-1 Medium de-risk DoS \u2014 one inverted comparison, two symptoms)",
+  "root_cause": "Single defect in Risk.checkValidTransition: the value/risk ratio guard at Risk.sol:133 is inverted (it reverts when health IMPROVES and passes when health WORSENS) and its value-decrease backstop is gated on initTotalRisk==0 (dead whenever a position exists). Manifestation A (F-1, Critical): a risk-constant collateral withdrawal reduces the guard to initValue<updatedValue, so any account holding a position can remove all collateral without the margin check reverting => bad debt. Manifestation B (M-1, Medium): an under-margin account that partially de-risks (health improves) is reverted by the same inverted guard => cannot recover incrementally. One fix resolves both.",
+  "affected_contracts": [
+    "src/.../Risk.sol"
+  ],
+  "affected_functions": [
+    "Risk.checkValidTransition",
+    "PositionManager.updatePosition",
+    "WithdrawalTransLib.process"
+  ],
+  "attacker_entrypoint": "MultiTransactionProcessor.processMultiTransactions (a user-signed Withdrawal for full collateral)",
+  "attacker_capabilities": [
+    "open a leveraged position",
+    "sign a withdrawal of own full collateral (ALLOW_WITHDRAW on own account)"
+  ],
+  "privilege_required": "none",
+  "scope_status": "in_scope",
+  "in_scope_asset": "Risk (checkValidTransition)",
+  "out_of_scope_risks": [],
+  "impact_category": "fund_loss",
+  "severity_claim": "Critical",
+  "severity_justification": {
+    "worst_case": "Attacker extracts full margin and walks from a losing position => unrecoverable protocol bad debt.",
+    "realistic_case": "Any leveraged user can under-collateralize at will; systemic insolvency / other users cannot withdraw.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "TipRun",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
+  },
+  "call_trace": [
+    "deposit 10000 collateral",
+    "open long 5000 (healthy: risk 10000*FXP^2 <= value 15000*FXP^2)",
+    "submit signed Withdrawal for full 10000 via MultiTransactionProcessor",
+    "withdrawal succeeds; collateral 0, position still long 5000, risk > value*FXP (under margin)"
+  ],
+  "state_transition": {
+    "before": "collateral=10000, long synthetic=5000, healthy (risk<=value*FXP)",
+    "after": "collateral=0, long synthetic=5000, risk>value*FXP (liquidatable), 10000 tokens extracted",
+    "slots_or_balances": []
+  },
+  "asset_delta": "10,000 collateral tokens leave LoadingZone; position of 5,000 left unbacked => protocol bad debt on adverse move.",
+  "proof_type": "runnable_poc",
+  "poc_path": "reports/tiprun-2026-06-13/submissions/F-1/poc/PoC_MarginBypassWithdraw.t.sol",
+  "poc_paths": [
+    "reports/tiprun-2026-06-13/submissions/F-1/poc/PoC_MarginBypassWithdraw.t.sol",
+    "reports/tiprun-2026-06-13/submissions/F-1/poc/PoC_DeriskDoS.t.sol"
+  ],
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "cd reports/tiprun-2026-06-13/harness",
+    "forge test --match-contract PoC_MarginBypassWithdraw -vv   # Manifestation A (F-1, Critical)",
+    "forge test --match-contract PoC_DeriskDoS -vv              # Manifestation B (M-1, Medium)"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [],
+  "false_positive_risks": [],
+  "invalidating_conditions": [],
+  "defense_analysis": [
+    {
+      "defense": "Risk.validateWithdrawal balance check",
+      "blocks_path": false,
+      "why_it_fails": "only requires bucket-0 collateral >= amount; ignores open-position margin"
+    },
+    {
+      "defense": "checkValidTransition maintenance-margin check",
+      "blocks_path": false,
+      "why_it_fails": "value-decrease guard skipped when initRisk>0; ratio guard does not fire for risk-constant withdrawal"
+    }
+  ],
+  "assumptions": [
+    "perp profile (RiskPlugin wired as CAP_MARGIN_CHECK)"
+  ],
+  "evidence_links": [
+    "src/core/risk/Risk.sol:checkValidTransition (inverted ratio guard line 133 + dead initRisk==0 backstop line 136-140)",
+    "src/core/balance/transactions/WithdrawalTransLib.sol:process (validateWithdrawal = bucket-0 collateral only)",
+    "harness/test/PoC_MarginBypassWithdraw.t.sol (Manifestation A)",
+    "harness/test/PoC_DeriskDoS.t.sol (Manifestation B)",
+    "submissions/F-1/poc_output.log (combined run, both passing)",
+    "corroborating A: test/PositionManager.Risk.t.sol::test_ArithmeticEdgeCase_NegativeCollateral",
+    "corroborating B: test/PositionManager.Risk.t.sol::test_RiskRatioComparisonLogic (ratioImproved == the contract's revert condition)"
+  ],
+  "triager_summary": "Broken health-transition guard in Risk.checkValidTransition (one inverted comparison, two symptoms). A (Critical): withdraw 100% collateral while holding a position => 10000 tokens extracted, account left under maintenance margin (PoC_MarginBypassWithdraw passing). B (Medium): an under-margin account's fair partial de-risk reverts 'PM: val/risk dec' (PoC_DeriskDoS passing). One fix resolves both.",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Business Logic Errors (broken maintenance-margin validation in `Risk.checkValidTransition` \u2192 protocol insolvency / fund loss)  \u00b7  Blockchain \u2192 DoS with (Unexpected) revert (Manifestation B / M-1: inverted ratio guard reverts legitimate de-risking)",
+  "cvss": [
+    {
+      "aspect": "Manifestation A (F-1, collateral-withdraw bypass)",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:H",
+      "score": 9.1,
+      "severity": "Critical"
+    },
+    {
+      "aspect": "Manifestation B (M-1, de-risk DoS / unexpected revert)",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+      "score": 5.3,
+      "severity": "Medium"
+    }
+  ]
+}

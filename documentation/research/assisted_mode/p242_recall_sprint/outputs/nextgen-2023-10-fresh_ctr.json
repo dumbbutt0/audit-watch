@@ -1,0 +1,109 @@
+{
+  "lens": "create_time_reentrancy",
+  "generated_at": "2026-06-08T22:59:35.388031+00:00",
+  "manifest": "audits/nextgen-2023-10-fresh/output/coverage_manifest.json",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "raw_candidates": 3,
+  "by_confidence": {
+    "high": 3
+  },
+  "high": 3,
+  "medium": 0,
+  "low": 0,
+  "candidates": [
+    {
+      "finding_shape": "create_time_reentrancy",
+      "confidence": "high",
+      "create_verb": "airdrop",
+      "callback": "_mintprocessing",
+      "post_callback_commit": [
+        "+ 1"
+      ],
+      "explanation": "NextGenCore.airDropTokens is a 'airdrop' create/registration flow that performs a callback-yielding interaction (_mintprocessing) BEFORE committing state (+ 1) and has no reentrancy guard. A reentrant call via the callback observes partially-initialized state (e.g. a stale per-address limit counter) and can bypass the invariant (nextgen H-01 class).",
+      "signals": {
+        "S1_create_verb": [
+          "airdrop"
+        ],
+        "S2_callback": "_mintprocessing",
+        "S3_post_commit": [
+          "+ 1"
+        ],
+        "S4_no_guard": true
+      },
+      "contract": "NextGenCore",
+      "function": "airDropTokens",
+      "file": "audits/nextgen-2023-10-fresh/_src/smart-contracts/NextGenCore.sol",
+      "lens_id": "NextGenCore:airDropTokens:create_time_reentrancy",
+      "in_scope": true,
+      "manifest_id": "function:NextGenCore:airDropTokens#86165ed2",
+      "file_line_refs": "audits/nextgen-2023-10-fresh/_src/smart-contracts/NextGenCore.sol:178",
+      "false_positive_controls": "four-signal (create-verb fn + callback-yielding interaction + state-commit AFTER callback (ordering) + no nonReentrant guard); guarded/CEI-correct suppressed; cross-contract stale-check + Seaport-mediated are blind spots"
+    },
+    {
+      "finding_shape": "create_time_reentrancy",
+      "confidence": "high",
+      "create_verb": "mint",
+      "callback": "_mintprocessing",
+      "post_callback_commit": [
+        "+ 1",
+        "mintedperaddress",
+        "mintedallowlist",
+        "tokensminted"
+      ],
+      "explanation": "NextGenCore.mint is a 'mint' create/registration flow that performs a callback-yielding interaction (_mintprocessing) BEFORE committing state (+ 1, mintedperaddress, mintedallowlist) and has no reentrancy guard. A reentrant call via the callback observes partially-initialized state (e.g. a stale per-address limit counter) and can bypass the invariant (nextgen H-01 class).",
+      "signals": {
+        "S1_create_verb": [
+          "mint"
+        ],
+        "S2_callback": "_mintprocessing",
+        "S3_post_commit": [
+          "+ 1",
+          "mintedperaddress",
+          "mintedallowlist",
+          "tokensminted"
+        ],
+        "S4_no_guard": true
+      },
+      "contract": "NextGenCore",
+      "function": "mint",
+      "file": "audits/nextgen-2023-10-fresh/_src/smart-contracts/NextGenCore.sol",
+      "lens_id": "NextGenCore:mint:create_time_reentrancy",
+      "in_scope": true,
+      "manifest_id": "function:NextGenCore:mint#6b9c5eba",
+      "file_line_refs": "audits/nextgen-2023-10-fresh/_src/smart-contracts/NextGenCore.sol:189",
+      "false_positive_controls": "four-signal (create-verb fn + callback-yielding interaction + state-commit AFTER callback (ordering) + no nonReentrant guard); guarded/CEI-correct suppressed; cross-contract stale-check + Seaport-mediated are blind spots"
+    },
+    {
+      "finding_shape": "create_time_reentrancy",
+      "confidence": "high",
+      "create_verb": "mint",
+      "callback": "_mintprocessing",
+      "post_callback_commit": [
+        "+ 1"
+      ],
+      "explanation": "NextGenCore.burnToMint is a 'mint' create/registration flow that performs a callback-yielding interaction (_mintprocessing) BEFORE committing state (+ 1) and has no reentrancy guard. A reentrant call via the callback observes partially-initialized state (e.g. a stale per-address limit counter) and can bypass the invariant (nextgen H-01 class).",
+      "signals": {
+        "S1_create_verb": [
+          "mint",
+          "burntomint"
+        ],
+        "S2_callback": "_mintprocessing",
+        "S3_post_commit": [
+          "+ 1"
+        ],
+        "S4_no_guard": true
+      },
+      "contract": "NextGenCore",
+      "function": "burnToMint",
+      "file": "audits/nextgen-2023-10-fresh/_src/smart-contracts/NextGenCore.sol",
+      "lens_id": "NextGenCore:burnToMint:create_time_reentrancy",
+      "in_scope": true,
+      "manifest_id": "function:NextGenCore:burnToMint#4c4bbbc2",
+      "file_line_refs": "audits/nextgen-2023-10-fresh/_src/smart-contracts/NextGenCore.sol:213",
+      "false_positive_controls": "four-signal (create-verb fn + callback-yielding interaction + state-commit AFTER callback (ordering) + no nonReentrant guard); guarded/CEI-correct suppressed; cross-contract stale-check + Seaport-mediated are blind spots"
+    }
+  ]
+}

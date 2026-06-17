@@ -1,0 +1,32 @@
+{
+  "bug_class": "access_control_index_integrity",
+  "description": "A public/external function (often an underscore-prefixed 'internal-style' helper accidentally left public) lets any caller mutate per-user/global index/array bookkeeping for an ARBITRARY address with no access control, corrupting enumeration or desyncing index<->array invariants so a later legitimate operation reverts or mis-accounts. Anchored on Phi 2024-08 H-05 (public `_addCredIdPerAddress`/`_removeCredIdPerAddress` corrupt any holder's cred-list -> sell-DoS / bookkeeping corruption).",
+  "required_for_medium": [
+    "public_unguarded_index_mutator_proven",
+    "arbitrary_address_state_corruption_proven"
+  ],
+  "required_for_high": [
+    "public_unguarded_index_mutator_proven",
+    "arbitrary_address_state_corruption_proven",
+    "downstream_revert_or_misaccounting_proven",
+    "many_or_all_holders_affected_proven"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "show the index/array mutator is public/external with no auth and takes an arbitrary target address",
+    "L3B": "as an unrelated attacker, call it for a victim address; assert the index<->array bookkeeping is desynced / array bloated (read the storage)",
+    "L3C": "assert a later legitimate op for the victim reverts (IndexOutofBounds/WrongCredId-style) or mis-accounts, and that it scales to many/all holders (permanent without privileged repair)"
+  },
+  "poc_level_requirements": {
+    "L3A": ["public_unguarded_index_mutator_proven"],
+    "L3B": ["public_unguarded_index_mutator_proven", "arbitrary_address_state_corruption_proven"],
+    "L3C": ["public_unguarded_index_mutator_proven", "arbitrary_address_state_corruption_proven", "downstream_revert_or_misaccounting_proven", "many_or_all_holders_affected_proven"]
+  },
+  "proof_signatures": {
+    "public_unguarded_index_mutator_proven": ["public", "external", "no onlyOwner", "underscore-prefixed but public", "arbitrary address param"],
+    "arbitrary_address_state_corruption_proven": ["index desync", "array bloat", "push for victim", "_credIdsPerAddress", "wrong index"],
+    "downstream_revert_or_misaccounting_proven": ["IndexOutofBounds", "WrongCredId", "revert on later op", "enumeration breaks", "sell reverts"],
+    "many_or_all_holders_affected_proven": ["all holders", "every holder", "current and upcoming", "block gas limit"]
+  },
+  "high_severity_rationale": "High requires proving the corruption causes a downstream revert/mis-accounting for legitimate users AND affects many/all holders (current and upcoming) without self-recovery. Medium is proven by the public unguarded mutator + arbitrary-address corruption alone. This is access-control / unauthorized state mutation (P88 keeps it via concrete unauthorized_execution); per the P90 maximal-consequence check, the all-holders + permanent-corruption angle should be tested before settling on Medium (cf. H-05 under-rated Medium vs awarded High).",
+  "negative_control_template": "Restrict the mutator: make it internal (remove `public`/`external`) or add a guard so only the contract's own buy/sell path can call it. Assert an external attacker call reverts and the victim's index<->array bookkeeping + later operations are unaffected."
+}

@@ -1,0 +1,100 @@
+{
+  "finding_id": "FL-001",
+  "title": "Convert stalk-penalty before/after deltaB uses uncapped spot reserves while the convert-capacity ceiling uses the capped pump, letting a flash-loan-skewed well under-report against-peg movement and avoid the stalk penalty",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "Medium",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Convert/LibPipelineConvert.sol",
+    "function": "populatePipelineConvertData / prepareStalkPenaltyCalculation",
+    "line_start": 80,
+    "line_end": 153,
+    "code_snippet": "pipeData.deltaB.beforeOverallDeltaB = LibDeltaB.overallCurrentDeltaB(); // uncapped spot\n...\ndbs.afterOverallDeltaB = LibDeltaB.scaledOverallCurrentDeltaB(initialLpSupply); // uncapped spot\n// while: pipeData.overallConvertCapacity = LibConvert.abs(LibDeltaB.overallCappedDeltaB()); // capped"
+  },
+  "description": "The convert stalk-penalty machinery measures how far a convert moves a well's deltaB against the peg using INSTANTANEOUS, UNCAPPED spot reserves, but the capacity ceiling it is compared against is derived from the CAPPED (rate-limited) pump. In LibPipelineConvert.populatePipelineConvertData the 'before' deltaB values (beforeOverallDeltaB, beforeInputTokenDeltaB, beforeOutputTokenDeltaB) are read via LibDeltaB.overallCurrentDeltaB() / getCurrentDeltaB(), and prepareStalkPenaltyCalculation reads the 'after' values via LibDeltaB.scaledOverallCurrentDeltaB() / getCurrentDeltaB(). Both ultimately call LibDeltaB.currentDeltaB(well) -> IWell(well).getReserves() -> calculateDeltaBFromReserves(..., ZERO_LOOKBACK), i.e. the raw spot reserves with no pump cap and no lookback. In contrast, the overall convert capacity (LibPipelineConvert: pipeData.overallConvertCapacity = abs(LibDeltaB.overallCappedDeltaB())) and the per-well capacity (LibConvert.calculatePerWellCapacity: abs(LibDeltaB.cappedReservesDeltaB(well))) are read from ICappedReservesPump.readCappedReserves, which the Multi-Flow Pump rate-limits per block. Because a pipelineConvert executes attacker-supplied advancedFarmCalls (arbitrary Pipeline external calls, incl. flash-loaned swaps) between the 'before' snapshot and the 'after' snapshot, the attacker controls the uncapped spot reserves at both read points. LibConvert.calculateAgainstPeg / calculateConvertedTowardsPeg derive the penalty purely from these before/after spot deltaB pairs. By skewing the uncapped spot deltaB so that the measured 'against-peg' amount (or the towards-peg amount that consumes capacity) is understated relative to the true economic movement, an attacker can reduce or zero the stalkPenaltyBdv that should have applied, and in ConvertFacet.convert specifically force checkForValidConvertAndUpdateConvertCapacity's require(stalkPenaltyBdv == 0) to pass for a convert that, measured on capped reserves, should have been penalized or rejected. The result is the convert keeps more grownStalk (newGrownStalk = initialGrownStalk * (fromBdv - stalkPenaltyBdv) / fromBdv) than the capped-capacity design intends.",
+  "impact": "Stalk-penalty avoidance / convert-capacity-ceiling bypass: a convert that should incur a stalk penalty (or be rejected in the non-pipeline ConvertFacet.convert path) measures zero/under-stated against-peg movement on flash-loan-skewed spot reserves, so the user retains more grown stalk than the capped capacity intends. This is a relative governance/yield-weight gain and capacity-cap dilution, not a direct unbacked Bean mint (the minted output BDV is bounded by the capped pump per FL via LibWellBdv). Medium: economic/accounting integrity of the convert penalty, conditioned on the attacker being able to move the uncapped spot deltaB enough within the pipeline relative to the capped reading.",
+  "ite": {
+    "intent": "Avoid the stalk penalty (or pass the require(stalkPenaltyBdv==0) gate) on a convert that, under the capped-reserve accounting the protocol uses for capacity, should be penalized or rejected.",
+    "technique": "Skew the well's uncapped spot reserves with flash-loaned swaps inside the pipeline's advancedFarmCalls between the before and after deltaB reads, since the penalty math (calculateAgainstPeg/calculateConvertedTowardsPeg) consumes spot deltaB while the capacity ceiling consumes capped deltaB.",
+    "evasion": "The capacity ceiling LOOKS like a robust per-block cap (capped pump), masking that the penalty's before/after deltaB it is compared against is read from the uncapped spot pump and is fully attacker-controllable within the same transaction."
+  },
+  "ice_chain": {
+    "corrupted_state": "before/after deltaB pairs (LibDeltaB.currentDeltaB / overallCurrentDeltaB, uncapped spot) used to compute stalkPenaltyBdv",
+    "impact": "Under-stated stalk penalty -> excess grown stalk retained on the converted deposit and convert-capacity ceiling effectively bypassed (relative governance weight / yield gain)",
+    "consumer_found": true,
+    "consumer_function": "LibConvert.applyStalkPenalty -> LibPipelineConvert.executePipelineConvert (newGrownStalk) and ConvertFacet.convert checkForValidConvertAndUpdateConvertCapacity require(stalkPenaltyBdv==0)",
+    "exploit_path": "pipelineConvert -> populatePipelineConvertData reads uncapped before deltaB -> executeAdvancedFarmCalls (attacker flash-loan skews spot reserves) -> prepareStalkPenaltyCalculation reads uncapped after deltaB -> calculateAgainstPeg under-reports -> stalkPenaltyBdv reduced -> more grown stalk kept"
+  },
+  "source_slice": "50:         // Store the capped overall deltaB, this limits the overall convert power for the block\n51:         pipeData.overallConvertCapacity = LibConvert.abs(LibDeltaB.overallCappedDeltaB());\n52: \n53:         IERC20(inputToken).transfer(C.PIPELINE, fromAmount);\n54:         executeAdvancedFarmCalls(advancedFarmCalls);\n55: \n56:         // user MUST leave final assets in pipeline, allowing us to verify that the farm has been called successfully.\n57:         // this also let's us know how many assets to attempt to pull out of the final type\n58:         toAmount = transferTokensFromPipeline(outputToken);\n59: \n60:         // Calculate stalk penalty using start/finish deltaB of pools, and the capped deltaB is\n61:         // passed in to setup max convert power.\n62:         pipeData.stalkPenaltyBdv = prepareStalkPenaltyCalculation(\n63:             inputToken,\n64:             outputToken,\n65:             pipeData.deltaB,\n66:             pipeData.overallConvertCapacity,\n67:             fromBdv,\n68:             pipeData.initialLpSupply\n69:         );\n70: \n71:         // Update grownStalk amount with penalty applied\n72:         newGrownStalk = (initialGrownStalk * (fromBdv - pipeData.stalkPenaltyBdv)) / fromBdv;\n73: \n74:         newBdv = LibTokenSilo.beanDenominatedValue(outputToken, toAmount);\n75:     }\n76: \n77:     /**\n78:      * @notice Calculates the stalk penalty for a convert. Updates convert capacity used.\n79:      */\n80:     function prepareStalkPenaltyCalculation(\n81:         address inputToken,\n82:         address outputToken,\n83:         LibConvert.DeltaBStorage memory dbs,\n84:         uint256 overallConvertCapacity,\n85:         uint256 fromBdv,\n86:         uint256[] memory initialLpSupply\n87:     ) public returns (uint256) {\n88:         dbs.afterOverallDeltaB = LibDeltaB.scaledOverallCurrentDeltaB(initialLpSupply);\n89: \n90:         // modify afterInputTokenDeltaB and afterOutputTokenDeltaB to scale using before/after LP amounts\n91:         if (LibWell.isWell(inputToken)) {\n92:             uint256 i = LibWhitelistedTokens.getIndexFromWhitelistedWellLpTokens(inputToken);\n93:             dbs.afterInputTokenDeltaB = LibDeltaB.scaledDeltaB(\n94:                 initialLpSupply[i],\n95:                 IERC20(inputToken).totalSupply(),\n96:                 LibDeltaB.getCurrentDeltaB(inputToken)\n97:             );\n98:         }\n99: \n100:         if (LibWell.isWell(outputToken)) {\n101:             uint256 i = LibWhitelistedTokens.getIndexFromWhitelistedWellLpTokens(outputToken);\n102:             dbs.afterOutputTokenDeltaB = LibDeltaB.scaledDeltaB(\n103:                 initialLpSupply[i],\n104:                 IERC20(outputToken).totalSupply(),\n105:                 LibDeltaB.getCurrentDeltaB(outputToken)\n106:             );\n107:         }\n108: \n109:         return\n110:             LibConvert.applyStalkPenalty(\n111:                 dbs,\n112:                 fromBdv,\n113:                 overallConvertCapacity,\n114:                 inputToken,\n115:                 outputToken\n116:             );\n117:     }\n118: \n119:     /**\n120:      * @param calls The advanced farm calls to execute.\n121:      */\n122:     function executeAdvancedFarmCalls(AdvancedFarmCall[] calldata calls) internal {\n123:         bytes[] memory results;\n124:         results = new bytes[](calls.length);\n125:         for (uint256 i = 0; i < calls.length; ++i) {\n126:             require(calls[i].callData.length != 0, \"Convert: empty AdvancedFarmCall\");\n127:             results[i] = LibFarm._advancedFarm(calls[i], results);\n128:         }\n129:     }\n130: \n131:     /**\n132:      * @notice Determines input token amount left in pipeline and returns to Beanstalk\n133:      * @param tokenOut The token to pull out of pipeline\n134:      */\n135:     function transferTokensFromPipeline(address tokenOut) internal returns (uint256 amountOut) {\n136:         amountOut = IERC20(tokenOut).balanceOf(C.PIPELINE);\n137:         require(amountOut > 0, \"Convert: No output tokens left in pipeline\");\n138: \n139:         PipeCall memory p;\n140:         p.target = address(tokenOut);\n141:         p.data = abi.encodeWithSelector(IERC20.transfer.selector, address(this), amountOut);\n142:         IPipeline(C.PIPELINE).pipe(p);\n143:     }\n144: \n145:     function populatePipelineConvertData(\n146:         address fromToken,\n147:         address toToken\n148:     ) internal view returns (PipelineConvertData memory pipeData) {\n149:         pipeData.deltaB.beforeOverallDeltaB = LibDeltaB.overallCurrentDeltaB();\n150:         pipeData.deltaB.beforeInputTokenDeltaB = LibDeltaB.getCurrentDeltaB(fromToken);\n151:         pipeData.deltaB.beforeOutputTokenDeltaB = LibDeltaB.getCurrentDeltaB(toToken);\n152:         pipeData.initialLpSupply = LibDeltaB.getLpSupply();\n153:     }\n154: \n155:     /**\n156:      * @notice Determines the convert state and populates pipeline data if necessary\n157:      */\n158:     function getConvertState(\n159:         bytes calldata convertData\n160:     ) public view returns (PipelineConvertData memory pipeData) {\n161:         LibConvertData.ConvertKind kind = convertData.convertKind();\n162:         address toToken;\n163:         address fromToken;\n164:         if (\n165:             kind == LibConvertData.ConvertKind.BEANS_TO_WELL_LP ||\n166:             kind == LibConvertData.ConvertKind.WELL_LP_TO_BEANS\n167:         ) {\n168:             if (kind == LibConvertData.ConvertKind.BEANS_TO_WELL_LP) {\n169:                 (, , toToken) = convertData.convertWithAddress();\n170:                 fromToken = C.BEAN;\n171:                 require(LibWell.isWell(toToken), \"Convert: Invalid Well\");\n172:             } else {\n173:                 (, , fromToken) = convertData.convertWithAddress();\n174:                 toToken = C.BEAN;\n175:                 require(LibWell.isWell(fromToken), \"Convert: Invalid Well\");\n176:             }\n177: \n178:             pipeData = populatePipelineConvertData(fromToken, toToken);\n179:         }\n180:     }\n181: \n182:     /**\n183:      * @notice reverts if the convert would be penalized.",
+  "gate_verdict": {
+    "finding_id": "FL-001",
+    "severity": "Medium",
+    "vuln_type": "flash-loan",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.543016+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": false
+}

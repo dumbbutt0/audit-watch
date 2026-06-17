@@ -1,0 +1,103 @@
+{
+  "candidate_id": "multicall_invariant:Multicall:multicall:pre_post_supply_invariant:5100f196",
+  "audit_id": "size-credit-2024-06",
+  "contract_path": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol",
+  "source_hash": "md5:cecf083ad025a572e8e8766a6e86c1c4",
+  "git_commit": null,
+  "generated_at": "2026-06-01T00:00:00+00:00",
+  "_illustrative": true,
+  "routing_allowed": false,
+  "research_only": true,
+  "tool": "scripts/candidates/gates/sequence_candidates.py",
+  "sequences": [
+    {
+      "id": 1,
+      "title": "Deferred cap validation bypass",
+      "preconditions": [
+        "attacker EOA with deposit funds",
+        "a market exists"
+      ],
+      "steps": [
+        {
+          "step": 0,
+          "desc": "attacker preconditions",
+          "detail": "hold deposit funds; market open"
+        },
+        {
+          "step": 1,
+          "function": "Size.multicall(bytes[])",
+          "file": "Size.sol:142",
+          "rw": "write",
+          "effect": "enter batch",
+          "confidence": "high"
+        },
+        {
+          "step": 2,
+          "function": "Multicall.multicall",
+          "file": "Multicall.sol:27",
+          "rw": "write",
+          "effect": "isMulticall=true",
+          "confidence": "high"
+        },
+        {
+          "step": 3,
+          "function": "deposit (subcall A)",
+          "file": "Deposit.sol",
+          "rw": "write",
+          "effect": "increase borrowAToken",
+          "confidence": "medium"
+        },
+        {
+          "step": 4,
+          "function": "validateBorrowATokenCap SKIPPED",
+          "file": "Deposit.sol:80",
+          "rw": "read",
+          "effect": "per-call cap not enforced",
+          "confidence": "high"
+        },
+        {
+          "step": 5,
+          "function": "accounting subcall B",
+          "file": "Size.sol",
+          "rw": "write",
+          "effect": "shift debt/borrow accounting",
+          "confidence": "medium"
+        },
+        {
+          "step": 6,
+          "function": "validateBorrowATokenIncreaseLteDebtTokenDecrease",
+          "file": "Multicall.sol:40",
+          "rw": "read",
+          "effect": "final aggregate check runs",
+          "confidence": "high"
+        },
+        {
+          "step": 7,
+          "desc": "resulting state",
+          "detail": "if final invariant passes despite cap breach \u2192 invalid state persists",
+          "confidence": "medium"
+        },
+        {
+          "step": 8,
+          "desc": "impact",
+          "detail": "HYPOTHESIS: cap/accounting bypass (over-cap borrow position)",
+          "confidence": "medium"
+        },
+        {
+          "step": 9,
+          "desc": "defenses",
+          "detail": "final invariant may or may not catch this interleaving",
+          "confidence": "medium"
+        }
+      ],
+      "expected_violated_invariant": "per-call borrowAToken cap",
+      "expected_impact": "over-cap position / accounting harm (HYPOTHESIS)",
+      "defenses_considered": [
+        "final invariant",
+        "pause"
+      ],
+      "status": "SURVIVED_NEGATIVE_CHECKS"
+    }
+  ],
+  "status": "PARTIAL"
+}

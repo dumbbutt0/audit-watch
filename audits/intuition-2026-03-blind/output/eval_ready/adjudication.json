@@ -1,0 +1,85 @@
+{
+  "audit_id": "intuition-2026-03-blind",
+  "set": "holdout",
+  "generated_at": "2026-06-12T14:13:52Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": false,
+  "awarded": [
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Unsigned validity window metadata",
+      "label": "STRONG",
+      "matched_candidate_id": "F-001",
+      "mechanism_class": "signed-validity-window",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "Epoch-boundary checkpoints retroactively qualify for the previous epoch's rewards",
+      "label": "SAME_AREA",
+      "matched_candidate_id": null,
+      "mechanism_class": "inclusive-boundary-snapshot",
+      "read_file": true,
+      "source": "preserved"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "F-001",
+      "title": "AtomWallet._validateSignature: validUntil/validAfter are appended to the signature but not part of the signed hash (time-bound malleability)",
+      "severity": "Medium",
+      "file": "intuition-contracts-v2-periphery/.. src/protocol/wallet/AtomWallet.sol",
+      "contract": "AtomWallet",
+      "function": "_validateSignature/_extractValidUntilAndValidAfterFromSignature",
+      "description": "The 77-byte signature format appends uint48 validUntil + uint48 validAfter as a suffix, parsed by _extractValidUntilAndValidAfterFromSignature and returned in validationData. But the signed message is keccak256(\\x19Ethereum Signed Message:\\n32, userOpHash) \u2014 userOpHash excludes the signature field, so the validUntil/validAfter bytes are NOT covered by the ECDSA signature. A bundler/relayer can alter the appended time bounds of an owner-signed userOp (extend or shrink its validity window) without invalidating the signature, since only (r,s,v) over userOpHash is checked."
+    },
+    {
+      "id": "F-002",
+      "title": "TrustSwapAndBridgeRouter: bridge fee quoted on minTrustOut but bridges the actual (larger) amountOut; deadline=block.timestamp",
+      "severity": "Medium",
+      "file": "intuition-contracts-v2-periphery/contracts/TrustSwapAndBridgeRouter.sol",
+      "contract": "TrustSwapAndBridgeRouter",
+      "function": "swapAndBridgeWithETH/swapAndBridgeWithERC20",
+      "description": "swapAndBridgeWithETH/ERC20 compute bridgeFee = metaERC20Hub.quoteTransferRemote(domain, recipient, minTrustOut) but then _bridgeTrust(amountOut, ...) bridges the actual swap output amountOut (>= minTrustOut) with value=bridgeFee. If the Metalayer transfer fee scales with the bridged amount, the fee is under-quoted whenever amountOut > minTrustOut, causing transferRemote to revert (griefing/failed bridge) or under-payment. Separately, exactInput uses deadline=block.timestamp (no real deadline protection; slippage relies solely on amountOutMinimum)."
+    },
+    {
+      "id": "F-003",
+      "title": "TrustBonding.getUnclaimedRewardsForEpoch mixes max emissions with utilization-adjusted claims",
+      "severity": "Low",
+      "file": "src/protocol/emissions/TrustBonding.sol",
+      "contract": "TrustBonding",
+      "function": "getUnclaimedRewardsForEpoch",
+      "description": "getUnclaimedRewardsForEpoch returns getEmissionsAtEpoch(epoch) (MAX, unadjusted) minus totalClaimedRewardsForEpoch[epoch] (which is incremented by personal-utilization-ADJUSTED userRewards). Since epoch emissions are first scaled by systemUtilizationRatio (_emissionsForEpoch) and user shares again by personalUtilizationRatio, the 'unclaimed' figure conflates max vs doubly-adjusted claimed amounts \u2014 over-reporting unclaimed (the utilization-reduced portion is counted as reclaimable), which can over-recycle emissions if that value drives a reclaim/mint path."
+    },
+    {
+      "id": "F-004",
+      "title": "AtomWallet transferOwnership/pendingOwner use hardcoded storage slots (mismatch would brick 2-step transfer)",
+      "severity": "Low",
+      "file": "src/protocol/wallet/AtomWallet.sol",
+      "contract": "AtomWallet",
+      "function": "transferOwnership/acceptOwnership",
+      "description": "transferOwnership writes _pendingOwner via a hardcoded AtomWalletPendingOwnerStorageLocation slot; acceptOwnership reads pendingOwner() (inherited). If the hardcoded constant does not exactly equal OZ Ownable2Step's ERC-7201 slot, the written pending owner and the read pending owner diverge and ownership claiming breaks. Low-confidence (the comment asserts the constant equals the OZ slot)."
+    }
+  ],
+  "summary": {
+    "awarded_total": 2,
+    "awarded_source": "report.md",
+    "adjudicated": 2,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 0,
+    "recall_of_surfaced": 1.0,
+    "strong_only": 0.5,
+    "by_label": {
+      "MISSED": 0,
+      "SAME_AREA": 1,
+      "STRONG": 1,
+      "SUBSYSTEM_ONLY": 0,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

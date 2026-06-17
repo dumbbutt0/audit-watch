@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Findings at a glance — all research tracks</title>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a; --txt:#dfe3ea; --muted:#8b93a3;
+    --accent:#5b9dff; --good:#36b37e; --warn:#e2b341; --bad:#e5707e; --info:#9a7dff;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.55 system-ui,Segoe UI,Roboto,sans-serif; }
+  header { padding:12px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  a { color:var(--accent); }
+  .badge { font-size:11px; padding:2px 8px; border-radius:10px; border:1px solid var(--line); color:var(--muted); }
+  .badge.ok { color:var(--good); border-color:var(--good); }
+  main { padding:16px 22px; }
+  h2.sec { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); margin:18px 0 8px; border-bottom:1px solid var(--line); padding-bottom:4px; }
+  .legend { font-size:11px; color:var(--muted); margin:6px 0; }
+  .metrics { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; }
+  .metric { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .metric .l { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .metric .v { font-size:22px; font-weight:700; }
+  .metric.hi .v { color:var(--good); }
+  .controls { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; align-items:center; }
+  .controls select, .controls input { background:var(--panel2); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:12px; }
+  table.fn { width:100%; border-collapse:collapse; font-size:12px; margin:6px 0; }
+  table.fn th, table.fn td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.fn th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; position:sticky; top:0; background:var(--bg); cursor:pointer; }
+  table.fn tr:hover td { background:var(--panel); }
+  tr.hot td { background:rgba(91,157,255,.07); }
+  .state { font-size:10px; padding:1px 8px; border-radius:9px; border:1px solid var(--line); color:var(--muted); white-space:nowrap; display:inline-block; font-weight:600; }
+  .st-REPORTABLE_CANDIDATE { color:#fff; background:var(--accent); border-color:var(--accent); }
+  .st-READY_FOR_HUMAN_REVIEW { color:var(--warn); border-color:var(--warn); }
+  .st-REPRODUCED, .st-RUNTIME_CONFIRMED { color:var(--good); border-color:var(--good); }
+  .st-PRIVILEGED_ONLY, .st-NEEDS_CONTEXT, .st-SEVERITY_GATED { color:var(--warn); border-color:var(--warn); }
+  .st-RUNTIME_REFUTED, .st-REJECTED_OR_ABSTAINED { color:var(--bad); border-color:var(--bad); }
+  .st-STATIC_FALSE_POSITIVE, .st-NOT_RUN_TOO_HEAVY, .st-NOT_RUN { color:var(--muted); border-color:var(--line); }
+  .rbadge { font-size:10px; padding:1px 7px; border-radius:9px; border:1px solid var(--line); color:var(--muted); }
+  .rbadge.st-ready_for_submission_package { color:var(--good); border-color:var(--good); }
+  .rbadge[class*="blocked"] { color:var(--bad); border-color:var(--bad); }
+  .st-LEAD, .st-NOT_RUN, .st-INVESTIGATED { color:var(--muted); }
+  .trk { font-size:10px; padding:1px 7px; border-radius:9px; border:1px solid var(--line); color:var(--muted); }
+  .trk.runtime { color:var(--info); border-color:var(--info); }
+  .trk.funnel { color:var(--accent); border-color:var(--accent); }
+  .trk.detector { color:var(--muted); }
+  .trk.option_a_campaign { color:#c9a227; border-color:#c9a227; }
+  .src { font-family:var(--mono); font-size:11px; color:var(--muted); word-break:break-all; }
+  .muted { color:var(--muted); }
+  .nss { font-size:10px; color:var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Findings at a glance</h1>
+  <span class="badge">research_only:true</span>
+  <span class="badge">routing_allowed:false</span>
+  <span class="badge ok">read-only</span>
+  <span style="flex:1"></span>
+  <a href="/funnel">/funnel →</a>
+  <a href="/validation">validation console →</a>
+  <a href="/candidates">candidate detail →</a>
+  <a href="/p212">P212 hunt →</a>
+  <a href="/">← dashboard</a>
+</header>
+<main>
+  <p class="legend">
+    One board across all three research tracks — <b>runtime</b> (value-provenance runtime findings, incl.
+    Abracadabra H5), <b>funnel</b> (blind/assisted PoC arc), and <b>detector</b> (detector leads). Strongest
+    signals sort to the top. <b>This is a visibility board only</b>: states mirror labels already recorded by
+    each track — nothing here routes, sets severity, or marks anything submittable.
+    <code>REPORTABLE_CANDIDATE</code> ≠ submitted.
+  </p>
+
+  <h2 class="sec">Summary</h2>
+  <div class="metrics" id="metrics"></div>
+
+  <h2 class="sec">Option-A campaign scorecard</h2>
+  <p class="legend">Read-only campaign metrics (P164) — precision/efficiency over raw finding count. Nothing
+    here routes, sets severity, or marks anything submittable.</p>
+  <div class="metrics" id="scorecard"></div>
+  <p class="legend" id="scfoot"></p>
+
+  <div class="controls">
+    <label>track <select id="fTrack"><option value="">all</option><option>runtime</option><option>funnel</option><option>detector</option><option value="option_a_campaign">option_a_campaign</option></select></label>
+    <label>state <select id="fState"><option value="">all</option></select></label>
+    <input id="fText" placeholder="filter subject / workspace…" size="28" />
+    <span class="muted" id="count"></span>
+  </div>
+
+  <h2 class="sec">Findings</h2>
+  <table class="fn" id="tbl">
+    <thead><tr>
+      <th data-k="state">State</th>
+      <th data-k="subject">Subject</th>
+      <th data-k="location">Location</th>
+      <th data-k="track">Track</th>
+      <th data-k="workspace">Workspace</th>
+      <th data-k="severity_or_conversion">Severity / Conversion</th>
+      <th data-k="duplicate_status">Duplicate</th>
+      <th data-k="readiness_state">Readiness</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <p class="legend" id="foot"></p>
+</main>
+
+<script>
+let DATA = {rows:[], summary:{}};
+const esc = s => (s==null?"":String(s)).replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+function renderMetrics(s){
+  const m = document.getElementById('metrics'); m.innerHTML='';
+  const tiles = [
+    ['total', s.total, false],
+    ['reportable candidate', s.reportable_candidates, true],
+    ['submission ready', s.submission_ready, false],
+    ['runtime', (s.by_track||{}).runtime||0, false],
+    ['funnel', (s.by_track||{}).funnel||0, false],
+    ['detector', (s.by_track||{}).detector||0, false],
+  ];
+  for(const [l,v,hi] of tiles){
+    const d=document.createElement('div'); d.className='metric'+(hi?' hi':'');
+    d.innerHTML=`<div class="l">${l}</div><div class="v">${v}</div>`; m.appendChild(d);
+  }
+}
+
+function passes(r){
+  const t=document.getElementById('fTrack').value, st=document.getElementById('fState').value;
+  const q=document.getElementById('fText').value.toLowerCase();
+  if(t && r.track!==t) return false;
+  if(st && r.state!==st) return false;
+  if(q && !((r.subject||"")+" "+(r.workspace||"")).toLowerCase().includes(q)) return false;
+  return true;
+}
+
+function renderRows(){
+  const tb=document.getElementById('rows'); tb.innerHTML='';
+  const rows=DATA.rows.filter(passes);
+  for(const r of rows){
+    const tr=document.createElement('tr');
+    if(r.state==='REPORTABLE_CANDIDATE'||r.state==='READY_FOR_HUMAN_REVIEW') tr.className='hot';
+    const nss = r.state==='REPORTABLE_CANDIDATE' ? `<div class="nss">⚠ not submitted — human review</div>`:'';
+    const href = r.detail_href || ('/candidates?candidate_id='+encodeURIComponent(r.key||''));
+    tr.innerHTML =
+      `<td><span class="state st-${esc(r.state)}">${esc(r.state)}</span>${nss}</td>`+
+      `<td><a href="${esc(href)}" title="open candidate detail">${esc(r.subject)}</a> <a href="${esc(href)}" class="muted" title="open candidate detail">detail →</a></td>`+
+      `<td class="src">${esc(r.location)||'<span class=muted>—</span>'}</td>`+
+      `<td><span class="trk ${esc(r.track)}">${esc(r.track)}</span></td>`+
+      `<td>${esc(r.workspace)}</td>`+
+      `<td>${esc(r.severity_or_conversion)||'<span class=muted>—</span>'}</td>`+
+      `<td class="muted">${esc(r.duplicate_status)||'—'}</td>`+
+      `<td>${(r.readiness_state && r.readiness_state!=='not_reviewed') ? '<span class="rbadge st-'+esc(r.readiness_state)+'">'+esc(r.readiness_state)+'</span>' : '<span class=muted>—</span>'}</td>`;
+    tb.appendChild(tr);
+  }
+  document.getElementById('count').textContent = `${rows.length} / ${DATA.rows.length} shown`;
+}
+
+function fillStates(){
+  const sel=document.getElementById('fState');
+  const states=Object.keys(DATA.summary.by_state||{}).sort();
+  for(const s of states){ const o=document.createElement('option'); o.value=s; o.textContent=`${s} (${DATA.summary.by_state[s]})`; sel.appendChild(o); }
+}
+
+function renderScorecard(s){
+  const m=document.getElementById('scorecard'); if(!m) return; m.innerHTML='';
+  const tiles=[
+    ['candidates', s.candidates, false],
+    ['reportable', s.reportable, true],
+    ['runtime confirmed', s.runtime_confirmed, false],
+    ['harnesses avoided', s.harnesses_avoided, true],
+    ['reportables / harness', s.reportables_per_harness, true],
+    ['prediction accuracy', s.prediction_accuracy, false],
+    ['source refutations', s.source_refutations, false],
+    ['gate refutations', s.gate_refutations, false],
+    ['fabrication rate', s.fabrication_rate, false],
+    ['conversion rate', s.conversion_rate, false],
+    ['reportable rate', s.reportable_rate, false],
+  ];
+  for(const [l,v,hi] of tiles){
+    const d=document.createElement('div'); d.className='metric'+(hi?' hi':'');
+    d.innerHTML=`<div class="l">${l}</div><div class="v">${esc(v)}</div>`; m.appendChild(d);
+  }
+  const foot=document.getElementById('scfoot');
+  if(foot) foot.textContent=(s.caveat||'')+(s.open_reportables&&s.open_reportables.length?(' · open reportables: '+s.open_reportables.join(', ')):'');
+}
+async function loadScorecard(){
+  try{ const r=await fetch('/api/campaign-scorecard'); if(r.ok) renderScorecard(await r.json()); }
+  catch(e){ /* read-only panel; ignore */ }
+}
+async function load(){
+  const res=await fetch('/api/findings'); DATA=await res.json();
+  renderMetrics(DATA.summary); fillStates(); renderRows();
+  document.getElementById('foot').textContent = DATA.note||'';
+  loadScorecard();
+}
+['fTrack','fState','fText'].forEach(id=>document.getElementById(id).addEventListener('input',renderRows));
+load();
+</script>
+</body>
+</html>

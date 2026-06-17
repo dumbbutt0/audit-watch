@@ -1,0 +1,1198 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "SUPERVISED_EVAL_DERIVED_EVIDENCE",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "packages": [
+    {
+      "candidate_id": "coverage_manifest:V3Vault:liquidate:0",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "V3Vault.liquidate",
+      "source_refs": "V3Vault.liquidate function liquidate(LiquidateParams calldata params) external override returns (uint256 amount0, uint256 amount1) {",
+      "mechanism_hypothesis": "[T1] V3Vault.liquidate: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "V3Vault.liquidate function liquidate(LiquidateParams calldata params) external override returns (uint256 amount0, uint256 amount1) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls V3Vault.liquidate with chosen inputs (function liquidate(LiquidateParams calldata params) external)",
+      "attacker_controlled_inputs": "msg.sender + args of function liquidate(LiquidateParams calldata params) external override returns (u",
+      "victim_gainer": "victim = users/LPs of V3Vault (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in V3Vault via liquidate (value-moving op)",
+      "invariant_expected": "post-V3Vault.liquidate accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "V3Vault.liquidate leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls V3Vault.liquidate with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-V3Vault.liquidate accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=[]"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "-=",
+          "assets",
+          "collateral",
+          "debt",
+          "exchangerate",
+          "reserve",
+          "rounding",
+          "safetransfer",
+          "shares",
+          "transfer"
+        ],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/V3Vault.sol",
+        "source_span": [
+          685,
+          757
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:V3Vault:_withdraw:1",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "V3Vault._withdraw",
+      "source_refs": "V3Vault._withdraw function _withdraw(address receiver, address owner, uint256 amount, bool isShare) internal returns (uint256 assets, uint256 shares) {",
+      "mechanism_hypothesis": "[T2] V3Vault._withdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "V3Vault._withdraw function _withdraw(address receiver, address owner, uint256 amount, bool isShare) internal returns (uint256 assets, uint256 shares) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "V3Vault._withdraw is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _withdraw(address receiver, address owner, uint256 amount, bool isShare",
+      "victim_gainer": "victim = users/LPs of V3Vault (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in V3Vault via _withdraw (value-moving op)",
+      "invariant_expected": "V3Vault._withdraw preserves the relevant protocol invariant",
+      "invariant_broken": "V3Vault._withdraw violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls V3Vault._withdraw with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert V3Vault._withdraw produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "if (msg.sender !="
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "+=",
+          "_burn",
+          "assets",
+          "debt",
+          "exchangerate",
+          "rounding",
+          "safetransfer",
+          "shares",
+          "transfer"
+        ],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/V3Vault.sol",
+        "source_span": [
+          920,
+          952
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:V3Vault:withdrawReserves:4",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "V3Vault.withdrawReserves",
+      "source_refs": "V3Vault.withdrawReserves function withdrawReserves(uint256 amount, address receiver) external onlyOwner {",
+      "mechanism_hypothesis": "[T2] V3Vault.withdrawReserves: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "V3Vault.withdrawReserves function withdrawReserves(uint256 amount, address receiver) external onlyOwner {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "V3Vault.withdrawReserves is guarded by modifier(s) ['onlyOwner']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function withdrawReserves(uint256 amount, address receiver) external onlyOwner {",
+      "victim_gainer": "victim = users/LPs of V3Vault (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in V3Vault via withdrawReserves (value-moving op)",
+      "invariant_expected": "post-V3Vault.withdrawReserves accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "V3Vault.withdrawReserves leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls V3Vault.withdrawReserves with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-V3Vault.withdrawReserves accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyOwner'] would be the CORE exploitability claim - needs source review",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyOwner'], external_calls=False, has_loop=False, tags=['accounting', 'config', 'oracle', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyOwner'], external_calls=False, has_loop=False, tags=['accounting', 'config', 'oracle', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "assets",
+          "debt",
+          "exchangerate",
+          "reserve",
+          "rounding",
+          "safetransfer",
+          "transfer"
+        ],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/V3Vault.sol",
+        "source_span": [
+          765,
+          783
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:Automator:withdrawBalances:5",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "Automator.withdrawBalances",
+      "source_refs": "Automator.withdrawBalances function withdrawBalances(address[] calldata tokens, address to) external virtual {",
+      "mechanism_hypothesis": "[T1] Automator.withdrawBalances: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "Automator.withdrawBalances function withdrawBalances(address[] calldata tokens, address to) external virtual {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls Automator.withdrawBalances with chosen inputs (function withdrawBalances(address[] calldata tokens, address)",
+      "attacker_controlled_inputs": "msg.sender + args of function withdrawBalances(address[] calldata tokens, address to) external virtua",
+      "victim_gainer": "victim = users/LPs of Automator (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in Automator via withdrawBalances (external value movement)",
+      "invariant_expected": "Automator.withdrawBalances preserves the relevant protocol invariant",
+      "invariant_broken": "Automator.withdrawBalances violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls Automator.withdrawBalances with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "partial_runtime",
+      "poc_assertion": "assert Automator.withdrawBalances produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=True, has_loop=False, tags=['accounting', 'config', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=True, has_loop=False, tags=['accounting', 'config', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "if (msg.sender !=",
+          "revert unauthorized",
+          "unauthorized()"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "balanceof",
+          "transfer"
+        ],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/automators/Automator.sol",
+        "source_span": [
+          104,
+          117
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:V3Vault:mint:7",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "V3Vault.mint",
+      "source_refs": "V3Vault.mint function mint(uint256 shares, address receiver, bytes calldata permitData) external override returns (uint256) {",
+      "mechanism_hypothesis": "[T3] V3Vault.mint: An external call/transfer/callback may occur before accounting/index/share/debt state is finalized.",
+      "root_cause": "V3Vault.mint function mint(uint256 shares, address receiver, bytes calldata permitData) external override returns (uint256) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls V3Vault.mint with chosen inputs (function mint(uint256 shares, address receiver, bytes callda)",
+      "attacker_controlled_inputs": "msg.sender + args of function mint(uint256 shares, address receiver, bytes calldata permitData) exter",
+      "victim_gainer": "victim = users/LPs of V3Vault (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in V3Vault via mint (value-moving op)",
+      "invariant_expected": "share<->asset conversion in V3Vault.mint conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "V3Vault.mint rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls V3Vault.mint with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Is there a call/transfer to an arbitrary party before all relevant state is written?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through V3Vault.mint nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "assets",
+          "shares"
+        ],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/V3Vault.sol",
+        "source_span": [
+          390,
+          393
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:V3Utils:swapAndMint:8",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "V3Utils.swapAndMint",
+      "source_refs": "V3Utils.swapAndMint function swapAndMint(SwapAndMintParams calldata params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) {",
+      "mechanism_hypothesis": "[T8] V3Utils.swapAndMint: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "V3Utils.swapAndMint function swapAndMint(SwapAndMintParams calldata params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls V3Utils.swapAndMint with chosen inputs (function swapAndMint(SwapAndMintParams calldata params) exte)",
+      "attacker_controlled_inputs": "msg.sender + args of function swapAndMint(SwapAndMintParams calldata params) external payable returns",
+      "victim_gainer": "victim = users/LPs of V3Utils (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in V3Utils via swapAndMint (value-moving op)",
+      "invariant_expected": "share<->asset conversion in V3Utils.swapAndMint conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "V3Utils.swapAndMint rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls V3Utils.swapAndMint with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through V3Utils.swapAndMint nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=payable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=payable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "transfer"
+        ],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/transformers/V3Utils.sol",
+        "source_span": [
+          467,
+          501
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:V3Vault:transform:9",
+      "award_class": "ACCESS_CONTROL_AUTHORIZATION",
+      "contract_function": "V3Vault.transform",
+      "source_refs": "V3Vault.transform function transform(uint256 tokenId, address transformer, bytes calldata data) external override returns (uint256 newTokenId) {",
+      "mechanism_hypothesis": "[T1] V3Vault.transform: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "V3Vault.transform function transform(uint256 tokenId, address transformer, bytes calldata data) external override returns (uint256 newTokenId) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "unauthorized EOA calls V3Vault.transform: external state-changing config/param mutator with NO authority modifier",
+      "attacker_controlled_inputs": "msg.sender + args of function transform(uint256 tokenId, address transformer, bytes calldata data) ex",
+      "victim_gainer": "victim = users/LPs of V3Vault (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in V3Vault via transform (external value movement)",
+      "invariant_expected": "only an authorized principal may execute the state-changing path in V3Vault.transform",
+      "invariant_broken": "an unauthorized caller mutates protected state via V3Vault.transform",
+      "tx_sequence": [
+        "attacker calls V3Vault.transform with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: Is there an internal/inherited guard not captured as a modifier? Is the mutated state actually sensitive?",
+      "poc_feasibility_tier": "partial_runtime",
+      "poc_assertion": "assert an unauthorized EOA can call V3Vault.transform and change protected state that should be restricted",
+      "unresolved_assumptions": [],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=True, has_loop=False, tags=['config', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=True, has_loop=False, tags=['config', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "loanowner",
+          "ownerof(",
+          "transformapprovals",
+          "revert unauthorized",
+          "unauthorized()"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "assets",
+          "debt",
+          "exchangerate",
+          "rounding",
+          "shares"
+        ],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/V3Vault.sol",
+        "source_span": [
+          497,
+          545
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:Swapper:_routerSwap:11",
+      "award_class": "ACCESS_CONTROL_AUTHORIZATION",
+      "contract_function": "Swapper._routerSwap",
+      "source_refs": "Swapper._routerSwap function _routerSwap(RouterSwapParams memory params) internal returns (uint256 amountInDelta, uint256 amountOutDelta) {",
+      "mechanism_hypothesis": "[T1] Swapper._routerSwap: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "Swapper._routerSwap function _routerSwap(RouterSwapParams memory params) internal returns (uint256 amountInDelta, uint256 amountOutDelta) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "Swapper._routerSwap is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _routerSwap(RouterSwapParams memory params) internal returns (uint256 a",
+      "victim_gainer": "victim = users/LPs of Swapper (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in Swapper via _routerSwap (external value movement)",
+      "invariant_expected": "only an authorized principal may execute the state-changing path in Swapper._routerSwap",
+      "invariant_broken": "an unauthorized caller mutates protected state via Swapper._routerSwap",
+      "tx_sequence": [
+        "attacker calls Swapper._routerSwap with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: Is there an internal/inherited guard not captured as a modifier? Is the mutated state actually sensitive?",
+      "poc_feasibility_tier": "partial_runtime",
+      "poc_assertion": "assert an unauthorized EOA can call Swapper._routerSwap and change protected state that should be restricted",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=True, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=True, has_loop=False, tags=[]"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "balanceof",
+          "safetransfer",
+          "transfer"
+        ],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/utils/Swapper.sol",
+        "source_span": [
+          73,
+          118
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:AutoCompound:withdrawBalances:12",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "AutoCompound.withdrawBalances",
+      "source_refs": "AutoCompound.withdrawBalances function withdrawBalances(address[] calldata tokens, address to) external override nonReentrant {",
+      "mechanism_hypothesis": "[T1] AutoCompound.withdrawBalances: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "AutoCompound.withdrawBalances function withdrawBalances(address[] calldata tokens, address to) external override nonReentrant {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls AutoCompound.withdrawBalances with chosen inputs (function withdrawBalances(address[] calldata tokens, address)",
+      "attacker_controlled_inputs": "msg.sender + args of function withdrawBalances(address[] calldata tokens, address to) external overri",
+      "victim_gainer": "victim = users/LPs of AutoCompound (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in AutoCompound via withdrawBalances (external value movement)",
+      "invariant_expected": "rewards via AutoCompound.withdrawBalances go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "AutoCompound.withdrawBalances mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls AutoCompound.withdrawBalances with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "partial_runtime",
+      "poc_assertion": "assert AutoCompound.withdrawBalances pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=True, has_loop=False, tags=['accounting', 'config', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=True, has_loop=False, tags=['accounting', 'config', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "if (msg.sender !=",
+          "revert unauthorized",
+          "unauthorized()"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/transformers/AutoCompound.sol",
+        "source_span": [
+          227,
+          237
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:Automator:_transferToken:14",
+      "award_class": "EXTERNAL_INTEGRATION",
+      "contract_function": "Automator._transferToken",
+      "source_refs": "Automator._transferToken function _transferToken(address to, IERC20 token, uint256 amount, bool unwrap) internal {",
+      "mechanism_hypothesis": "[T1] Automator._transferToken: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "Automator._transferToken function _transferToken(address to, IERC20 token, uint256 amount, bool unwrap) internal {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "Automator._transferToken is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _transferToken(address to, IERC20 token, uint256 amount, bool unwrap) i",
+      "victim_gainer": "victim = users/LPs of Automator (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in Automator via _transferToken (external value movement)",
+      "invariant_expected": "the external call/callback reached from Automator._transferToken cannot break Automator internal accounting",
+      "invariant_broken": "a malicious external return/callback desyncs Automator state or redirects value",
+      "tx_sequence": [
+        "attacker calls Automator._transferToken with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: Is the external target trusted/whitelisted? Is there reentrancy/return-value validation?",
+      "poc_feasibility_tier": "partial_runtime",
+      "poc_assertion": "assert a crafted external/callback response leaves Automator state inconsistent or value misrouted",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=True, has_loop=False, tags=['config', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=True, has_loop=False, tags=['config', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "safetransfer",
+          "transfer"
+        ],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/automators/Automator.sol",
+        "source_span": [
+          218,
+          228
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

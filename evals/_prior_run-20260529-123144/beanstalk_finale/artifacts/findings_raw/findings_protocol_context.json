@@ -1,0 +1,50 @@
+{
+  "agent": "protocol_context",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T14:33:30Z",
+  "findings": [
+    {
+      "id": "PC-001",
+      "title": "totalDeltaB() getter sums only BEAN_ETH_WELL, not all minting wells",
+      "severity": "Low",
+      "vuln_type": "logic-error",
+      "description": "SeasonGettersFacet.totalDeltaB() is documented as 'Returns the total Delta B across all whitelisted minting liquidity Wells' but its body computes deltaB = LibWellMinting.check(C.BEAN_ETH_WELL) — a single hardcoded well. The protocol's actual season-minting path, Oracle.stepOracle() (Oracle.sol#21-27), instead iterates LibWhitelistedTokens.getWhitelistedWellLpTokens() and accumulates LibWellMinting.capture() over EVERY whitelisted well: `for (i) deltaB = deltaB.add(LibWellMinting.capture(tokens[i]))`. LibDeltaB.overallCurrentDeltaB() (LibDeltaB.sol#54-60) likewise sums all wells. The protocol is explicitly multi-well: both C.BEAN_ETH_WELL and C.BEAN_WSTETH_WELL are migrated/whitelisted (ReseedL2Migration.sol#35-40, mock inits set isWhitelistedWell + stalkEarnedPerSeason for BEAN_WSTETH). Therefore once BEAN_WSTETH (or any second well) holds liquidity, the value returned by totalDeltaB() is NOT the protocol's aggregate peg deviation — it omits every well except BEAN_ETH. The function name and NatSpec assert an aggregate ('total ... across all') that the implementation does not deliver. This is a behavioral/semantic divergence between the documented protocol-level invariant (this getter reports the figure that drives mint/burn) and the actual code.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/sun/SeasonFacet/SeasonGettersFacet.sol",
+        "function": "totalDeltaB",
+        "line_start": 93,
+        "line_end": 98,
+        "code_snippet": "function totalDeltaB() external view returns (int256 deltaB) {\n    deltaB = LibWellMinting.check(C.BEAN_ETH_WELL);\n}"
+      },
+      "impact": "Off-chain consumers, dashboards, keeper/MEV bots, and any integrating contract that reads totalDeltaB() to gauge whether Beanstalk is above or below peg receive a value that ignores all non-BEAN_ETH wells. In a multi-well deployment this can report the protocol at peg (or above) when the true aggregate deltaB (the quantity that stepSun mints/burns on) is materially different, leading to mispriced soil/pod decisions by integrators and misreporting of protocol solvency state. No on-chain Beanstalk consumer of totalDeltaB() was found (stepOracle recomputes the correct sum independently for minting), so there is no direct fund loss inside Beanstalk; the impact is incorrect public protocol state reporting and downstream integrator/keeper miscalculation. Severity is capped at Low because the minting math itself is unaffected and no trusted on-chain consumer reads this getter.",
+      "proof_of_concept": "1. Two wells whitelisted as minting wells: BEAN_ETH (deltaB = +1000) and BEAN_WSTETH (deltaB = -3000). 2. Oracle.stepOracle() (used by sunrise) returns -2000 and the protocol acts below peg (sets soil = 2000). 3. A caller reads SeasonGettersFacet.totalDeltaB() and gets +1000 (BEAN_ETH only), concluding the protocol is above peg. 4. The on-chain mint/soil action (-2000, below peg) contradicts the value the getter reported (+1000). Assertion: totalDeltaB() != sum over getWhitelistedWellLpTokens() of LibWellMinting.check(well) whenever any whitelisted minting well other than BEAN_ETH has nonzero twaDeltaB.",
+      "recommendation": "Compute totalDeltaB the same way the protocol mints: iterate LibWhitelistedTokens.getWhitelistedWellLpTokens() and accumulate LibWellMinting.check(tokens[i]) (the view-safe twin of stepOracle's capture), e.g.\n\nfunction totalDeltaB() external view returns (int256 deltaB) {\n    address[] memory tokens = LibWhitelistedTokens.getWhitelistedWellLpTokens();\n    for (uint256 i; i < tokens.length; i++) {\n        deltaB = deltaB + LibWellMinting.check(tokens[i]);\n    }\n}\n\nAlternatively rename/redocument the getter to make clear it reports a single well (e.g. beanEthDeltaB()).",
+      "confidence": "High",
+      "invariant_violated": "totalDeltaB == sum of twaDeltaB over all whitelisted minting wells (the quantity stepSun acts on)",
+      "ite": {
+        "intent": "An integrator or keeper relying on Beanstalk's public peg-deviation getter mis-reads the protocol's aggregate deltaB, causing them to act on a single-well figure while the protocol mints/burns on the multi-well sum.",
+        "technique": "Call SeasonGettersFacet.totalDeltaB() (SeasonGettersFacet.sol#96-98); it returns LibWellMinting.check(C.BEAN_ETH_WELL) only. Compare against Oracle.stepOracle() (Oracle.sol#21-27) which sums LibWellMinting.capture() over getWhitelistedWellLpTokens(); the two diverge whenever a second minting well (BEAN_WSTETH per ReseedL2Migration.sol#40) carries nonzero deltaB.",
+        "evasion": "The developer intended totalDeltaB() to mirror the protocol's aggregate minting input (NatSpec: 'total Delta B across all whitelisted minting liquidity Wells'); the gap is a hardcoded single well constant where a loop over getWhitelistedWellLpTokens() was required."
+      },
+      "ice_chain": {
+        "corrupted_state": "return value of SeasonGettersFacet.totalDeltaB()",
+        "consumer_found": false,
+        "consumer_function": "(no on-chain Beanstalk consumer; off-chain integrators / keepers / dashboards)",
+        "consumer_action": "reads protocol-wide peg deviation to make soil/pod/peg decisions off-chain",
+        "severity_ceiling": "Low",
+        "search_method": "static_search"
+      },
+      "attack_surface_rank": 5,
+      "bsa_metadata": {
+        "stated_intent": "Returns the total Delta B across all whitelisted minting liquidity Wells.",
+        "actual_behavior": "Returns the twaDeltaB of only C.BEAN_ETH_WELL; ignores every other whitelisted minting well (e.g. BEAN_WSTETH).",
+        "divergence_type": "doc_lie"
+      },
+      "assumption_count": 1,
+      "critical_assumptions": [
+        "At least one whitelisted minting well other than BEAN_ETH (e.g. BEAN_WSTETH) holds liquidity and carries nonzero twaDeltaB."
+      ],
+      "confidence_note": "Source-traced end to end: getter body, stepOracle loop, LibDeltaB.overallCurrentDeltaB loop, and the multi-well whitelist/migration all confirmed in source."
+    }
+  ]
+}

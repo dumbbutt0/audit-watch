@@ -1,0 +1,107 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "schema": "p112_assisted_dry_run_v1",
+  "candidate": {
+    "subject": "iq-ai-2025-01",
+    "contract": "LiquidityManager",
+    "function": "moveLiquidity",
+    "candidate_id": "iq-ai-2025-01__LiquidityManager_moveLiquidity"
+  },
+  "stages": {
+    "A_intake": {
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "subject": "iq-ai-2025-01",
+      "repo": "iq-ai",
+      "commit": "db0d369b",
+      "contract": "LiquidityManager",
+      "function": "moveLiquidity",
+      "entrypoint": "moveLiquidity",
+      "candidate_invariant": "moveLiquidity migrates the bootstrap liquidity into a protocol-created pool at the protocol's intended trading fee; it must not adopt an externally pre-created pool whose fee/price an attacker chose",
+      "suspected_break": "addLiquidityToFraxswap uses getPair(currency,agent) and adopts any pre-existing pair, setting the intended fee only in the create-branch; createPair is permissionless",
+      "affected_actor": "the agent and its LPs (lost ongoing swap-fee revenue)",
+      "attacker_or_trigger_actor": "any EOA that pre-creates the pair before the permissionless migration",
+      "source_refs": [
+        "src/LiquidityManager.sol:moveLiquidity",
+        "src/LiquidityManager.sol:addLiquidityToFraxswap"
+      ],
+      "expected_impact": "migrated pool charges the attacker's fee (1 bps) instead of the intended 100 bps",
+      "confidence": "high",
+      "supplied_by": "p112_dry_run (workflow coherence test)",
+      "requested_check": "POC_HANDOFF"
+    },
+    "B_validation": {
+      "decision": "VALIDATED_FOR_POC_HANDOFF",
+      "reason": "PASS_CANDIDATE survived depth trace + adversarial ordering + maximal consequence + severity gate + hygiene \u2014 recommend PoC handoff (human-gated)"
+    },
+    "C0_harness_prep": {
+      "classification": "HARNESS_COMPLEX",
+      "scaffold_inert": true,
+      "required_components": [
+        "deploy AgentFactory",
+        "deploy BootstrapPool",
+        "deploy LiquidityManager",
+        "fork (external state) \u2014 2 hardcoded mainnet address(es); external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol, dev-fraxswap/src/contracts/core/libraries/Math.sol",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: victim_user",
+        "actor: liquidity_provider",
+        "actor: protocol"
+      ]
+    },
+    "C_poc_handoff": {
+      "poc_status": "REPRODUCED",
+      "test_file": "p104/M01PreCreatePairPoC.t.sol",
+      "test_command": "forge test --match-test test_M01_attacker_precreate_low_fee_is_adopted --evm-version cancun",
+      "vulnerable_result": "exploit reproduced (intended feeBps 100, attacker-adopted feeBps 1)",
+      "patched_result": "PASS (guard reverts on the attacker pair; clean migration still succeeds)",
+      "unrelated_tests_result": "PASS",
+      "minimal_patch_validated": true,
+      "source_chain_complete": true,
+      "unsupported_claims_present": false,
+      "runtime_evidence_path": "documentation/research/assisted_mode/p104/reproduction_output.txt",
+      "runtime_evidence_sha": "240185a1b96a",
+      "runtime_evidence_provenance": "executed P104; re-executed live in P109"
+    },
+    "D_submission_package": [
+      "evidence_bundle.md",
+      "optional_platform_fields.md",
+      "pre_submission_gate.md",
+      "reviewer_notes.md",
+      "submission_draft.md"
+    ],
+    "E_human_gate": {
+      "final_human_gate": "PENDING",
+      "completed": false
+    },
+    "F_outcome": {
+      "pipeline_status": "SUBMISSION_READY_HUMAN_REVIEW",
+      "recorder_ready": "RECORD_OK",
+      "recorder_submit_probe": "BLOCKED_INVALID_GATE",
+      "submitted": false
+    }
+  },
+  "criteria": {
+    "1_intake_present": true,
+    "2_validation_present_and_validated": true,
+    "3_harness_prep_present": true,
+    "4_poc_handoff_present_runtime_attached": true,
+    "5_submission_package_generated": true,
+    "6_human_gate_reached_not_completed": true,
+    "8_outcome_ready_for_human_review_only": true,
+    "7_no_auto_submit": true
+  },
+  "safety": {
+    "no_status_leakage": true,
+    "no_auto_submit": true,
+    "platform_neutral_report": true
+  },
+  "overall_pass": true
+}

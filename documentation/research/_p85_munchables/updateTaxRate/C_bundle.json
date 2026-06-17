@@ -1,0 +1,94 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "LandManager.updateTaxRate",
+  "detector_family": "surface_recall_lens",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "LandManager",
+    "function": "updateTaxRate",
+    "lines": null,
+    "suspicious_pattern": "admin_config_setter,auth_boundary",
+    "detector_claim": "security-relevant surface; mechanism uncertain"
+  },
+  "context_summary": {
+    "source_available": true,
+    "source_resolved": true,
+    "reachability": "external"
+  },
+  "attacker_reachability": "external",
+  "defense_ledger": {
+    "tax_range_check_MIN_MAX": {
+      "classification": "irrelevant",
+      "evidence": "L94 bounds R between MIN/MAX; does not settle accrued schnibbles"
+    },
+    "notPaused_modifier": {
+      "classification": "irrelevant",
+      "evidence": "L92 notPaused; orthogonal to settlement"
+    },
+    "registered_check": {
+      "classification": "irrelevant",
+      "evidence": "L93 _getMainAccountRequireRegistered; orthogonal"
+    },
+    "plotMetadata_initialized_check": {
+      "classification": "irrelevant",
+      "evidence": "L96-97 requires lastUpdated!=0; orthogonal"
+    },
+    "forceFarmPlots_settlement": {
+      "classification": "bypassed",
+      "evidence": "updateTaxRate L92 header has NO forceFarmPlots modifier (cf. stake/unstake/transfer); the settlement that would make the rate apply correctly is absent"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "schnibbles split for an interval must reflect the tax rate in effect during it; updateTaxRate(R1) at t should take effect from t",
+    "why_defenses_do_not_block": "MIN/MAX range check + registered + notPaused do not settle accrued schnibbles"
+  },
+  "exploit_path": {
+    "attacker_profile": "EOA (any registered landlord) \u2014 permissionless",
+    "entrypoint": "updateTaxRate",
+    "preconditions": "landlord registered + plotMetadata initialized; >=1 renter staked to landlord",
+    "transaction_sequence": "L sets currentTaxRate=R0; renter stakes token t0 -> toiler.latestTaxRate=R0; time passes to t; L calls updateTaxRate(R1) (NO forceFarmPlots); renter farms at t1 -> _farmPlots taxes whole [t0,t1] at stale R0 then sets latestTaxRate=R1. Interval [t,t1] never taxed at R1.",
+    "state_before": "toilerState[t0].latestTaxRate=R0; plotMetadata[L].currentTaxRate=R0",
+    "state_after": "plotMetadata[L].currentTaxRate=R1 but pending interval taxed at R0",
+    "rejection_case": "Maybe rate is intended to apply prospectively only. But there is no settlement at change time (updateTaxRate lacks forceFarmPlots) AND _farmPlots applies _toiler.latestTaxRate (captured at last farm/stake, L288) to the ENTIRE un-farmed interval, refreshing it only AFTER (L292-293). So neither the old-rate-until-t nor new-rate-from-t semantics hold. Not falsified by any in-scope guard.",
+    "source_evidence": "updateTaxRate L92-101 (no forceFarmPlots); _farmPlots L287-293 (latestTaxRate used then refreshed)"
+  },
+  "impact_analysis": {
+    "impact_category": "misrouted_schnibbles (incorrect tax accounting between landlord and renter)",
+    "minimum_profit_or_damage_condition": "any updateTaxRate between a renter's farms mis-taxes the pending interval; magnitude=|R1-R0|*schnibbles over [t,t1]"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED",
+  "_hygiene": {
+    "ok": true,
+    "violations": [],
+    "recommended": "POC_REQUIRED"
+  }
+}

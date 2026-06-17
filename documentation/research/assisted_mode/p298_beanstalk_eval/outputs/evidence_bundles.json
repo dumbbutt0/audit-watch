@@ -1,0 +1,97 @@
+{
+  "research_only": true,
+  "is_gate": false,
+  "emits_findings": false,
+  "severity": null,
+  "reportable": false,
+  "submission_ready": false,
+  "concluded": false,
+  "production_routing": false,
+  "auto_submitted": false,
+  "bundles": [
+    {
+      "awarded_id": "US-001",
+      "locus": "ReseedSilo.reseedSiloDeposit",
+      "status": "needs_execution",
+      "call_path_entry": "reseedSiloDeposit",
+      "source_file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+      "lines": null,
+      "mechanism": "reseed re-issues deposits but never initializes the global Stalk/Roots aggregates + per-account Roots -> the entire Stalk/Roots accounting starts from zero/unset (Silo bricked). Too entangled with the full reseed/Silo system to mock faithfully.",
+      "invariant_or_expected": "Beanstalk's Silo is the protocol's governance + yield core. With s.sys.silo.stalk == 0 and s.sys.silo.roots == 0 after reseed: (1) the first call into LibSilo.mintActiveStalk (LibSilo.sol#181) takes the roots==0 branch and re-bases roots from scratch (roots = stalk * C.getRootsBase()), so the new de",
+      "expected_assertion": "The L2 reseed init facets re-issue every Farmer's deposits, plots, fertilizer and internal balances, but they NEVER initialize three core Silo aggregates that the entire Stalk/Roots accounting system depends on: the protocol-wide total Stalk (s.sys.silo.stalk, System.sol#94), the protocol-wide total Roots (s.sys.silo.roots, System.sol#95), and each account's Root balance (s.accts[account].roots, A",
+      "why_bundle_not_poc": "too entangled with the full reseed/migration/AMM system to mock faithfully (Tier-C would not be source-faithful); recorded as needs_execution, NOT confirmed"
+    },
+    {
+      "awarded_id": "BSA-001",
+      "locus": "ReseedSilo (init order)",
+      "status": "needs_execution",
+      "call_path_entry": "reseedSiloDeposit",
+      "source_file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+      "lines": null,
+      "mechanism": "reseed facet ordering: ReseedSilo reads stalkIssuedPerBdv before ReseedWhitelist sets it -> stale/zero read. Needs the multi-facet reseed sequence.",
+      "invariant_or_expected": "Every migrated Silo depositor is initialized on L2 with effectively zero base Stalk (instead of bdv * stalkIssuedPerBdv, normally >= 1 Stalk per BDV). Stalk is Beanstalk's core governance weight and the basis for Earned-Bean (root) accrual; reseeding it to ~0 silently strips all migrated holders of ",
+      "expected_assertion": "Pipeline order (reseed/reseed.js -> reseed5..reseed7):\n  reseed5: ReseedSilo.init  -> reseedSiloDeposit reads assetSettings[token].stalkIssuedPerBdv == 0\n  reseed7: ReseedWhitelist.init -> LibWhitelist.whitelistToken sets assetSettings[token].stalkIssuedPerBdv = X\nFor a holder with totalBdvForAccount = B and all deposits at stemTip:\n  accountStalk = 0 (grown) + 0 (= 0 * B) = 0\n  s.accts[holder].st",
+      "why_bundle_not_poc": "too entangled with the full reseed/migration/AMM system to mock faithfully (Tier-C would not be source-faithful); recorded as needs_execution, NOT confirmed"
+    },
+    {
+      "awarded_id": "BSA-003",
+      "locus": "L2ContractMigrationFacet.addMigratedDepositsToAccount",
+      "status": "needs_execution",
+      "call_path_entry": "addMigratedDepositsToAccount",
+      "source_file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+      "lines": null,
+      "mechanism": "redeem ignores verified internalBalances and zeroes them -> migrated internal balances lost. Entangled with the migration/merkle redemption accounting.",
+      "invariant_or_expected": "Migrating L1 contracts permanently forfeit any internal (farm) balances they prove ownership of \u2014 those tokens are accounted nowhere on L2. Separately, the global s.sys.silo.balances[token].deposited / depositedBdv are reset to 0 by any contract redemption, desynchronizing global silo totals from th",
+      "expected_assertion": "Internal balances dropped:\n  redeemDepositsAndInternalBalances(owner, reciever, deposits, [ {token, 100} ], ...) with valid proof.\n  After call: s.accts[reciever].internalTokenBalance[token] == 0 (never written). 100 lost.\nGlobal totals zeroed:\n  Before: s.sys.silo.balances[BEAN].deposited == T (from ReseedSilo).\n  Any contract redemption for BEAN executes `s.sys.silo.balances[BEAN].deposited = 0;",
+      "why_bundle_not_poc": "too entangled with the full reseed/migration/AMM system to mock faithfully (Tier-C would not be source-faithful); recorded as needs_execution, NOT confirmed"
+    },
+    {
+      "awarded_id": "EA-001",
+      "locus": "LibConvert.calculateConvertCapacityPenalty",
+      "status": "needs_execution",
+      "call_path_entry": "calculateConvertCapacityPenalty",
+      "source_file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Convert/LibConvert.sol",
+      "lines": null,
+      "mechanism": "shared per-block convert-capacity accumulator front-runnable -> sandwich exhausts the shared cap. Needs AMM + multi-tx ordering.",
+      "invariant_or_expected": "A victim performing a legitimate toward-peg pipelineConvert has a pro-rata portion of the grown stalk on their converted deposits burned (direct loss of accrued yield and root/earned-bean share); a victim using ConvertFacet.convert() is denied service (revert) for the remainder of the block. The att",
+      "expected_assertion": "1. Beanstalk is below peg (overallCappedDeltaB() = -X, so convert capacity for LP->Bean toward-peg = X). Victim broadcasts pipelineConvert moving V (V <= X) of toward-peg deltaB, carrying grown stalk G on the input deposits, expecting stalkPenaltyBdv = 0 and to keep all of G.\n2. Attacker observes the mempool and front-runs with their own toward-peg convert (in-protocol convert() or pipelineConvert",
+      "why_bundle_not_poc": "too entangled with the full reseed/migration/AMM system to mock faithfully (Tier-C would not be source-faithful); recorded as needs_execution, NOT confirmed"
+    },
+    {
+      "awarded_id": "FL-001",
+      "locus": "LibDeltaB.currentDeltaB",
+      "status": "needs_execution",
+      "call_path_entry": "currentDeltaB / getCurrentDeltaB",
+      "source_file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibDeltaB.sol",
+      "lines": null,
+      "mechanism": "convert max + anti-peg stalk penalty use spot getReserves() -> flash-manipulable. Needs Well/AMM + flash loan.",
+      "invariant_or_expected": "An attacker holding Silo deposits can, in a single flash-loaned transaction, (a) convert a larger amount than the true peg distance permits and (b) dodge the grown-stalk convert penalty (`stalkPenaltyBdv` forced to 0). This lets them retain grown stalk / governance and yield weight they should have ",
+      "expected_assertion": "1. EOA holds a Bean deposit with large grown stalk. True state: deltaB < 0 (below peg), so a Bean->LP convert should be disallowed (P must be >= 1) and an LP->Bean against-peg convert should incur a full stalk penalty.\n2. Flash-borrow WETH; swap WETH->? in the BEAN:WETH Well to drive spot reserves so calcReserveAtRatio shows deltaB >= 0 (above peg). vm.load the Well reserves before/after to assert",
+      "why_bundle_not_poc": "too entangled with the full reseed/migration/AMM system to mock faithfully (Tier-C would not be source-faithful); recorded as needs_execution, NOT confirmed"
+    },
+    {
+      "awarded_id": "CC-002",
+      "locus": "BeanL1RecieverFacet.recieveL1Beans",
+      "status": "needs_execution",
+      "call_path_entry": "recieveL1Beans",
+      "source_file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/migration/BeanL1RecieverFacet.sol",
+      "lines": null,
+      "mechanism": "L1 burns Beans but the L2 receiver always reverts -> burned Beans unrecoverable. Two-sided cross-chain flow.",
+      "invariant_or_expected": "Any user who migrates external Beans loses them: Beans are burned on L1 (irreversible) while the corresponding mint on L2 reverts for every nonzero amount because the hardcoded supply cap is 0. The cross-chain message cannot succeed, so funds are stranded with no recovery path in scope.",
+      "expected_assertion": "1) User calls BeanL2MigrationFacet.migrateL2Beans(reciever, L2Beanstalk, amount>0, gasLimit) on L1 -> burnFrom destroys `amount` Beans, message dispatched. 2) Relayer delivers the message to L2 BeanL1RecieverFacet.recieveL1Beans; messenger auth passes; migratedL1Beans becomes `amount`; require(0 >= amount) is false -> revert. 3) Mint never occurs; the L1 burn is permanent. Repeat for every migrati",
+      "why_bundle_not_poc": "too entangled with the full reseed/migration/AMM system to mock faithfully (Tier-C would not be source-faithful); recorded as needs_execution, NOT confirmed"
+    },
+    {
+      "awarded_id": "DS-003",
+      "locus": "ReseedBarn.mintFertilizers",
+      "status": "needs_execution",
+      "call_path_entry": "mintFertilizers",
+      "source_file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedBarn.sol",
+      "lines": null,
+      "mechanism": "nested unbounded loops over fertilizerIds x accountData with external 1155 mints -> OOG on L2. Gas-exhaustion, no clean L3 state assert.",
+      "invariant_or_expected": "If the reseed operator passes too many fertilizer holders in one call, init() reverts out-of-gas and the migration step fails. No attacker leverage (operator-controlled, one-shot, chunkable). Worst case is operational friction during migration.",
+      "expected_assertion": "ReseedBarn.init -> mintFertilizers (ReseedBarn.sol#72) runs a nested loop over fertilizerIds[] and, for each, over f.accountData[], calling fertilizerProxy.beanstalkMint per holder (an external 1155 mint). The full holder set could exceed a single transaction's gas budget. This is an admin/owner one-shot migration routine (called via diamondCut init by the protocol deployer, not permissionless), a",
+      "why_bundle_not_poc": "too entangled with the full reseed/migration/AMM system to mock faithfully (Tier-C would not be source-faithful); recorded as needs_execution, NOT confirmed"
+    }
+  ]
+}

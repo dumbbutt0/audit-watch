@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>P212 — Pseudo-live hunt (read-only)</title>
+<style>
+  :root{ --bg:#0d1117; --panel:#161b22; --bd:#30363d; --fg:#e6edf3; --mut:#8b949e; --hi:#f85149; --med:#d29922; --ok:#3fb950; }
+  body{ margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+  .top{ padding:14px 20px; border-bottom:1px solid var(--bd); display:flex; gap:16px; align-items:baseline; flex-wrap:wrap; }
+  .top a{ color:var(--mut); text-decoration:none; } .top a:hover{ color:var(--fg); }
+  h1{ font-size:18px; margin:0; }
+  .wrap{ padding:18px 20px; }
+  .banner{ background:var(--panel); border:1px solid var(--bd); border-radius:8px; padding:12px 14px; margin-bottom:16px; }
+  .pill{ display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; border:1px solid var(--bd); margin-right:6px; }
+  .sealed{ color:var(--med); border-color:var(--med); }
+  table{ width:100%; border-collapse:collapse; }
+  th,td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--bd); vertical-align:top; font-size:13px; }
+  th{ color:var(--mut); font-weight:600; }
+  .tc-HIGH_THREAD,.tc-CRITICAL_THREAD{ color:var(--hi); } .tc-MEDIUM_THREAD{ color:var(--med); }
+  .blocked{ color:var(--hi); } .allowed{ color:var(--ok); }
+  .sev-medium{ color:var(--med); } .sev-invalid{ color:var(--mut); } .sev-needs_harness_for_severity{ color:var(--mut); }
+  code{ background:#0b0f14; padding:1px 5px; border-radius:4px; color:#a5d6ff; font-size:12px; }
+  a.lnk{ color:#58a6ff; text-decoration:none; } a.lnk:hover{ text-decoration:underline; }
+  .mut{ color:var(--mut); }
+  .chip{ display:inline-block; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:600; border:1px solid var(--bd); }
+  .chip-ok{ color:#0d1117; background:var(--ok); border-color:var(--ok); }
+  .chip-med{ color:#0d1117; background:var(--med); border-color:var(--med); }
+  .chip-mut{ color:var(--mut); }
+  .badge{ display:inline-block; padding:1px 6px; border-radius:8px; font-size:11px; border:1px solid var(--bd); margin-left:4px; }
+  .badge-ok{ color:var(--ok); border-color:var(--ok); }
+  .badge-mut{ color:var(--mut); }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>P212 — Pseudo-live hunt</h1>
+  <a href="/">← dashboard</a>
+  <a href="/findings">/findings →</a>
+  <span class="mut">read-only · research-only · answer key sealed</span>
+</div>
+<div class="wrap">
+  <div class="banner" id="banner">loading…</div>
+  <table>
+    <thead><tr>
+      <th>id</th><th>status</th><th>title</th><th>ceiling</th><th>attacker</th>
+      <th>L3</th><th>cal</th><th>High?</th><th>blocker</th><th>evidence</th>
+    </tr></thead>
+    <tbody id="rows"><tr><td colspan="10" class="mut">loading…</td></tr></tbody>
+  </table>
+  <p class="mut" id="foot"></p>
+</div>
+<script>
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function load(){
+  let d; try{ d=await (await fetch('/api/p212',{cache:'no-store'})).json(); }
+  catch(e){ document.getElementById('banner').textContent='failed to load /api/p212'; return; }
+  document.getElementById('banner').innerHTML =
+    `<b>Target:</b> <code>${esc(d.target)}</code> &nbsp;`+
+    `<span class="pill sealed">answer key: ${esc(d.answer_key)}</span>`+
+    `<span class="pill">active audit unchanged</span>`+
+    `<span class="pill">stage1: ${esc(d.stage1_decision||'-')}</span>`+
+    `<span class="pill">stage1B: ${esc(d.stage1b_decision||'-')}</span>`+
+    `<div class="mut" style="margin-top:8px">${esc(d.note||'')}</div>`;
+  const rows=(d.candidates||[]).map(r=>{
+    const allowed = r.high_promotion_allowed ? '<span class="allowed">yes</span>' : '<span class="blocked">no</span>';
+    // status chip (authoritative) + badges
+    const ds = String(r.display_status||'');
+    let chipCls = 'chip';
+    if(ds.startsWith('CONFIRMED')) chipCls += ' chip-ok';
+    else if(ds.startsWith('REFUTED')) chipCls += ' chip-mut';
+    else if(ds.startsWith('NEEDS_HARNESS')) chipCls += ' chip-med';
+    else if(ds.startsWith('PRIVILEGED')) chipCls += ' chip-med';
+    let badges = '';
+    if(r.dos_carveout_applied) badges += ' <span class="badge badge-ok">DoS carve-out → High (flag on)</span>';
+    if(r.human_reviewable) badges += ' <span class="badge badge-ok">human-reviewable</span>';
+    if(r.by_design) badges += ' <span class="badge badge-mut">likely by-design</span>';
+    if(!r.human_reviewable) badges += ' <span class="badge badge-mut">not submission-ready</span>';
+    // authoritative package link(s) + superseded note
+    const links=[]; (r.packages||[]).forEach(p=>links.push(`<a class="lnk" href="/view/p212/${esc(p)}">${esc(p.split('/').pop())}</a>`));
+    if(r.harness_results) links.push(`<a class="lnk" href="/view/p212/${esc(r.harness_results)}">harness</a>`);
+    const sup = (r.superseded&&r.superseded.length) ? `<div class="mut" style="font-size:11px">superseded: ${r.superseded.map(p=>esc(p.split('/').pop())).join(', ')}</div>` : '';
+    const poc = r.poc_command ? `<div class="mut"><code>${esc(r.poc_command)}</code></div>` : '';
+    return `<tr>
+      <td><b>${esc(r.id)}</b><div class="mut">${esc(r.surface||'')}</div></td>
+      <td><span class="${chipCls}">${esc(ds)}</span>${badges}</td>
+      <td>${esc(r.title)}<div class="mut">${esc(r.source_ref||'')}</div></td>
+      <td class="tc-${esc(r.threat_ceiling)}">${esc((r.threat_ceiling||'').replace('_THREAD',''))}</td>
+      <td>${esc(r.attacker)}</td>
+      <td>${esc(r.l3_status)}</td>
+      <td class="sev-${esc(r.calibrated_severity)}">${esc(r.calibrated_severity||'-')}</td>
+      <td>${allowed}</td>
+      <td class="mut">${esc(r.l3_blocker||'')}</td>
+      <td>${links.join(' · ')||'<span class="mut">—</span>'}${sup}${poc}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('rows').innerHTML = rows || '<tr><td colspan="10" class="mut">no candidates</td></tr>';
+  document.getElementById('foot').textContent =
+    'L3 verdicts computed read-only via submission_readiness_review.l3_evaluate(); nothing here is submitted, routed, or promoted.';
+}
+load();
+</script>
+</body>
+</html>

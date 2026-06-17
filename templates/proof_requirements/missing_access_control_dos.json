@@ -1,0 +1,32 @@
+{
+  "bug_class": "missing_access_control_dos",
+  "description": "Missing access control on a state-mutating function allows any caller to permanently corrupt state and DoS core operations",
+  "required_for_medium": [
+    "unprivileged_call_proven",
+    "state_corrupted"
+  ],
+  "required_for_high": [
+    "public_entrypoint_called",
+    "unprivileged_call_proven",
+    "dos_of_core_operation_proven",
+    "no_onchain_recovery_path"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "Public entry point called by an unprivileged address (no access control revert)",
+    "L3B": "Unprivileged call mutates state; downstream core operation subsequently reverts",
+    "L3C": "Full DoS chain: attacker locks state, all user-facing operations revert, no recovery path proven"
+  },
+  "poc_level_requirements": {
+    "L3A": ["public_entrypoint_called"],
+    "L3B": ["public_entrypoint_called", "dos_of_core_operation_proven"],
+    "L3C": ["public_entrypoint_called", "unprivileged_call_proven", "dos_of_core_operation_proven", "no_onchain_recovery_path"]
+  },
+  "proof_signatures": {
+    "public_entrypoint_called":       ["updateWOETHOraclePrice", "vm.prank"],
+    "unprivileged_call_proven":       ["vm.prank(attacker)", "address(0xDEAD)"],
+    "dos_of_core_operation_proven":   ["vm.expectRevert", "Negative wOETH yield"],
+    "no_onchain_recovery_path":       ["assertEq(strategy.lastOraclePrice()", "floor unchanged"]
+  },
+  "high_severity_rationale": "For DoS of core deposit/withdraw operations with no on-chain recovery path (requires governance upgrade), L3C through the full call chain is both achievable and required. Impact = all users blocked from the strategy until governance acts.",
+  "negative_control_template": "Call the same functions after price rises organically. Assert all operations succeed (no revert). Confirms the DoS is specifically caused by the spike-lock mechanism, not normal conditions."
+}

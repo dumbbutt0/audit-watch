@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MathEstimatorProof",
+  "description": "Proof object required to STRONG-CLEAR a math-estimator-sensitive coverage item (estimator/guard/formula/precision logic). A clear of such an item is INVALID on NatSpec/code consistency alone ('code matches comments', 'formula appears consistent', 'guard clamps the output', 'same pattern as sibling rule'). The clear must independently re-derive the intended formula/invariant and check edge cases. See documentation/math_estimator_proof_policy.md. Reference schema only (no runtime loader); validate_math_estimator_clears.py enforces these fields in Python.",
+  "type": "object",
+  "required": [
+    "math_domain",
+    "intended_formula",
+    "implemented_formula",
+    "formula_source",
+    "independent_rederivation",
+    "input_domain",
+    "output_domain",
+    "scaling_precision",
+    "rounding_behavior",
+    "signedness_assumptions",
+    "bounds_and_guards",
+    "edge_cases_checked",
+    "invariant_preserved",
+    "evidence_span",
+    "formula_diff",
+    "assumptions",
+    "monotonicity_and_economic_direction",
+    "attacker_favorable_search",
+    "economic_impact_if_wrong"
+  ],
+  "properties": {
+    "math_domain": {
+      "type": "string",
+      "enum": ["covariance", "variance", "gradient", "moving_average", "normalization", "guard_rail", "interpolation", "oracle_math", "fee_math", "price_math", "other"],
+      "description": "The math surface this estimator/guard belongs to."
+    },
+    "intended_formula": {
+      "type": "string",
+      "description": "The formula/invariant the code is SUPPOSED to implement, stated from the whitepaper / model / spec — not paraphrased from the code's own comments."
+    },
+    "implemented_formula": {
+      "type": "string",
+      "description": "The formula the code ACTUALLY computes, read off the implementation (operations, order, scaling)."
+    },
+    "formula_source": {
+      "type": "array",
+      "items": {"type": "string", "enum": ["whitepaper", "NatSpec", "code", "protocol_docs", "derived_in_review", "unknown"]},
+      "minItems": 1,
+      "description": "Where the intended_formula came from. If this is ONLY {NatSpec, code}, the clear is natspec_only and INVALID unless 'limitations' explains why an external source was unavailable AND an independent re-derivation was still performed."
+    },
+    "independent_rederivation": {
+      "type": "string",
+      "description": "The reviewer's own step-by-step re-derivation comparing intended vs implemented (e.g. expand the recurrence, check the (1-lambda) placement, the outer-product scaling, the sign). MUST be non-empty for a valid clear."
+    },
+    "input_domain": {"type": "string", "description": "Valid ranges/units of the inputs (e.g. lambda in (0,1), prices 18dp, n assets)."},
+    "output_domain": {"type": "string", "description": "Expected range/units of the output."},
+    "scaling_precision": {"type": "string", "description": "Fixed-point scaling and precision handling (1e9 pack / 1e18 / 1e36, mul-before-div)."},
+    "rounding_behavior": {"type": "string", "description": "Rounding direction and where truncation occurs; whether it favors the protocol."},
+    "signedness_assumptions": {"type": "string", "description": "Signed vs unsigned handling; can intermediate values go negative; sign-flip risks."},
+    "bounds_and_guards": {"type": "string", "description": "Bounds/guard rails relied on AND independently confirmed (not merely cited)."},
+    "edge_cases_checked": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1,
+      "description": "Concrete edge cases re-derived (zero/extreme inputs, n=1, division by ~0, overflow threshold, odd/even token counts). MUST be non-empty."
+    },
+    "invariant_preserved": {"type": "string", "description": "The protocol invariant that holds after the computation (e.g. weights sum to 1, variance >= 0)."},
+    "evidence_span": {
+      "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}],
+      "description": "file:line span(s) anchoring the implemented_formula. MUST be non-empty."
+    },
+    "limitations": {"type": "string", "description": "What the re-derivation could NOT confirm; required justification when formula_source is NatSpec/code-only."},
+    "formula_diff": {"type": "string", "description": "Explicit line-by-line difference between intended_formula and implemented_formula (operations, order, scaling, constants). State 'no divergence' ONLY if it was adversarially confirmed against an external/economic expectation, not merely because the code matches itself."},
+    "assumptions": {
+      "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}],
+      "description": "Assumptions the re-derivation relies on (input ranges, caller trust, upstream guarantees). Each must be independently justified, not assumed from the code."
+    },
+    "monotonicity_and_economic_direction": {"type": "string", "description": "Expected monotonic/economic direction of the output and how it must move with the relevant economic variable(s) (fee/stake/difficulty/price/reward/weight/time/supply/…), compared against what the code actually does. MUST name at least one economic variable."},
+    "attacker_favorable_search": {
+      "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "string"}}],
+      "description": "Adversarial parameter search: extreme/boundary/attacker-favorable inputs tried (max/min, 2**k boundaries, zero, overflow threshold) and the divergence/overflow/precision-loss/monotonicity-inversion found or ruled out. Required when the formula uses shift/scaling (<<, >>, **, 1e..)."
+    },
+    "economic_impact_if_wrong": {"type": "string", "description": "Concrete protocol/user/attacker consequence if the formula is wrong (over/under-charged fee, mispriced reward, drained pool, DoS) — the 'so what' that makes a divergence a finding."}
+  }
+}

@@ -1,0 +1,248 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://audit-watch/submission/schemas/submission_candidate.schema.json",
+  "title": "Submission Candidate",
+  "description": "Self-contained record describing a single candidate finding being considered for a bug-bounty / contest submission. Consumed by the submission-readiness gate. This artifact is deliberately decoupled from the detection pipeline's finding schema.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "finding_id",
+    "title",
+    "root_cause",
+    "affected_contracts",
+    "affected_functions",
+    "attacker_entrypoint",
+    "attacker_capabilities",
+    "privilege_required",
+    "scope_status",
+    "in_scope_asset",
+    "out_of_scope_risks",
+    "impact_category",
+    "severity_claim",
+    "severity_justification",
+    "bounty_program_mapping",
+    "call_trace",
+    "state_transition",
+    "asset_delta",
+    "proof_type",
+    "poc_path",
+    "poc_status",
+    "reproduction_steps",
+    "duplicate_check_status",
+    "known_issue_check_status",
+    "prior_audit_overlap",
+    "false_positive_risks",
+    "invalidating_conditions",
+    "defense_analysis",
+    "assumptions",
+    "evidence_links",
+    "triager_summary",
+    "recommended_status",
+    "human_approval_required"
+  ],
+  "properties": {
+    "finding_id": {
+      "type": "string",
+      "description": "Stable identifier for this candidate (free-form; e.g. 'SUB-001' or a finding ID copied by a human).",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "description": "One-line title naming the root cause and concrete impact.",
+      "minLength": 1
+    },
+    "root_cause": {
+      "type": "string",
+      "description": "The specific code/logic defect (which invariant is violated and why)."
+    },
+    "affected_contracts": {
+      "type": "array",
+      "description": "Contract file paths or names that contain the defect.",
+      "items": {"type": "string"}
+    },
+    "affected_functions": {
+      "type": "array",
+      "description": "Function signatures or names where the defect lives / is reached.",
+      "items": {"type": "string"}
+    },
+    "attacker_entrypoint": {
+      "type": "string",
+      "description": "The exact external/public function an unprivileged attacker calls to begin the exploit. Empty/absent if no external entrypoint exists (reachability gate will flag)."
+    },
+    "attacker_capabilities": {
+      "type": "array",
+      "description": "What the attacker must be able to do (e.g. 'call any public function from an EOA', 'supply a flash loan'). Used to detect out-of-scope assumptions (leaked keys, social engineering).",
+      "items": {"type": "string"}
+    },
+    "privilege_required": {
+      "type": "string",
+      "description": "Privilege level the exploit requires.",
+      "enum": ["none", "privileged", "admin", "governance"]
+    },
+    "scope_status": {
+      "type": "string",
+      "description": "Whether the affected asset is in scope for the target program.",
+      "enum": ["in_scope", "out_of_scope", "uncertain"]
+    },
+    "in_scope_asset": {
+      "type": "string",
+      "description": "The specific in-scope asset (contract/address/module) per the program's scope list. Empty if not mapped."
+    },
+    "out_of_scope_risks": {
+      "type": "array",
+      "description": "Known out-of-scope dependencies or assumptions the exploit relies on (e.g. 'requires compromised admin key', 'depends on third-party oracle outage'). Non-empty entries that the exploit DEPENDS on will trip the scope gate.",
+      "items": {"type": "string"}
+    },
+    "impact_category": {
+      "type": "string",
+      "description": "Primary impact class.",
+      "enum": [
+        "fund_loss",
+        "fund_freeze",
+        "dos",
+        "accounting_corruption",
+        "reward_extraction",
+        "liveness_failure",
+        "governance_takeover",
+        "info"
+      ]
+    },
+    "severity_claim": {
+      "type": "string",
+      "description": "Severity the submitter is claiming.",
+      "enum": ["Critical", "High", "Medium", "Low", "Informational"]
+    },
+    "severity_justification": {
+      "type": "object",
+      "description": "Worst-case and realistic-case impact MUST be separated.",
+      "properties": {
+        "worst_case": {"type": "string"},
+        "realistic_case": {"type": "string"},
+        "program_table_mapping": {"type": "string", "description": "Which row of the bounty program's impact table this maps to."}
+      }
+    },
+    "bounty_program_mapping": {
+      "type": "object",
+      "description": "How the candidate maps to the specific program's rules.",
+      "properties": {
+        "program": {"type": "string"},
+        "platform": {"type": "string", "description": "e.g. Immunefi, Code4rena, Sherlock"},
+        "impact_in_scope": {"type": "boolean", "description": "Whether impact_category is listed as in-scope by the program."},
+        "privileged_roles_in_scope": {"type": "boolean", "description": "Whether the program explicitly accepts attacks that require admin/governance privilege."},
+        "scope_reference": {"type": "string", "description": "URL or quote of the program's scope/impact table."}
+      }
+    },
+    "call_trace": {
+      "type": "array",
+      "description": "Ordered call path from attacker_entrypoint to the impact (each step a string). Empty if not traced (reachability/evidence gates flag).",
+      "items": {"type": "string"}
+    },
+    "state_transition": {
+      "type": "object",
+      "description": "Named storage slots / balances before and after the exploit.",
+      "properties": {
+        "before": {"type": "string"},
+        "after": {"type": "string"},
+        "slots_or_balances": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "asset_delta": {
+      "type": "string",
+      "description": "Concrete economic/security delta (amounts, percentages) proving the impact. Empty if not quantified."
+    },
+    "proof_type": {
+      "type": "string",
+      "description": "Strongest form of proof attached.",
+      "enum": ["runnable_poc", "static_proof", "trace_only", "reasoning_only"]
+    },
+    "poc_path": {
+      "type": "string",
+      "description": "Path to the PoC test/artifact. Empty if none."
+    },
+    "poc_status": {
+      "type": "string",
+      "description": "State of the PoC.",
+      "enum": ["passing", "compiling", "failing", "none"]
+    },
+    "reproduction_steps": {
+      "type": "array",
+      "description": "Deterministic, ordered steps to reproduce. Empty if absent.",
+      "items": {"type": "string"}
+    },
+    "duplicate_check_status": {
+      "type": "string",
+      "description": "Result of searching local prior audit reports / internal findings.",
+      "enum": ["searched_clear", "possible_duplicate", "confirmed_duplicate", "not_searched"]
+    },
+    "known_issue_check_status": {
+      "type": "string",
+      "description": "Result of searching the program's known-issues / prior disclosures / public docs.",
+      "enum": ["searched_clear", "possible_duplicate", "confirmed_duplicate", "not_searched"]
+    },
+    "prior_audit_overlap": {
+      "type": "array",
+      "description": "References to prior audits / reports that overlap (each a string: report id + note). Non-empty raises duplicate-risk to human review.",
+      "items": {"type": "string"}
+    },
+    "false_positive_risks": {
+      "type": "array",
+      "description": "Honest list of reasons this could be a false positive.",
+      "items": {"type": "string"}
+    },
+    "invalidating_conditions": {
+      "type": "array",
+      "description": "Conditions that would invalidate the finding OR mark a forbidden testing method (e.g. 'requires mainnet attack', 'tested on public testnet', 'assumes fabricated price'). Forbidden-method markers trip the PoC gate.",
+      "items": {"type": "string"}
+    },
+    "defense_analysis": {
+      "type": "array",
+      "description": "Each likely defense and why it fails or does not apply.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "defense": {"type": "string"},
+          "blocks_path": {"type": "boolean", "description": "True if this defense WOULD block the exploit path."},
+          "why_it_fails": {"type": "string", "description": "Why the defense does not actually block the path."},
+          "uncertain": {"type": "boolean", "description": "True if the submitter is unsure whether the defense applies."}
+        },
+        "required": ["defense"]
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "description": "Explicit assumptions the exploit relies on. 'fabricated'/'assumed' markers may trip the PoC gate.",
+      "items": {"type": "string"}
+    },
+    "evidence_links": {
+      "type": "array",
+      "description": "Evidence anchors: code lines (file:line), log excerpts, test-output paths, artifact paths.",
+      "items": {"type": "string"}
+    },
+    "triager_summary": {
+      "type": "string",
+      "description": "Human-readable summary written by the triager."
+    },
+    "recommended_status": {
+      "type": "string",
+      "description": "Status recommended by the candidate author. The gate recomputes this independently; mismatches are reported but the gate's computed status governs.",
+      "enum": [
+        "DO_NOT_SUBMIT",
+        "NEEDS_MORE_PROOF",
+        "READY_FOR_HUMAN_REVIEW",
+        "READY_TO_SUBMIT_AFTER_APPROVAL"
+      ]
+    },
+    "human_approval_required": {
+      "type": "boolean",
+      "description": "MUST be true. The layer never autonomously submits; a human must approve before any submission.",
+      "const": true
+    }
+  },
+  "x_gate_required_nonempty": [
+    "root_cause",
+    "affected_contracts",
+    "affected_functions",
+    "call_trace",
+    "evidence_links"
+  ]
+}

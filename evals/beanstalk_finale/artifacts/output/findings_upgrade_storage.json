@@ -1,0 +1,89 @@
+{
+  "agent": "upgrade_storage",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T20:40:00+00:00",
+  "methodology_note": "Blind audit of the Beanstalk Diamond (EIP-2535) and the L1->L2 reseed/migration that re-initializes AppStorage on L2. Storage layout, append-only buffers, diamondCut authorization, selector handling, and init re-entry were all examined. The Diamond proxy mechanics (LibDiamond.diamondCut owner-gating, ERC-1967-style slots not used; AppStorage pinned to slot 0 via LibAppStorage, LibDiamond storage at a distinct keccak position) are sound. The real upgrade risk is INITIALIZATION COMPLETENESS of global AppStorage on L2: the reseed writes per-account silo state but never sets the protocol-wide silo accumulators, leaving critical global storage uninitialized post-upgrade. L1 vs L2 AppStorage are independent diamonds on independent chains (fresh slot-0 layouts), so there is no cross-chain slot-overlap; layout drift is therefore not the vector \u2014 missing global state writes are. ICE re-derived from raw source; conservative interpretation taken where the full multi-init reseed sequence is not visible in scope.",
+  "findings": [
+    {
+      "id": "US-001",
+      "title": "L2 reseed leaves global silo.stalk/roots = 0 (div-by-zero DoS / desync)",
+      "severity": "High",
+      "vuln_type": "proxy-upgrade",
+      "confidence": "High",
+      "description": "On L2 the Beanstalk Diamond is freshly initialized and farmer state is re-issued by the reseed init facets. ReseedSilo.reseedSiloDeposit sets per-account stalk (s.accts[account].stalk = accountStalk) and per-token global balances (s.sys.silo.balances[token].deposited/.depositedBdv), but it NEVER writes the protocol-wide accumulators s.sys.silo.stalk or s.sys.silo.roots. ReseedSun.init sets season/temperature/seedGauge and re-runs LibCases.setCasesV2 but does not touch silo.stalk/roots. InitReseed.init sets paused/isFarm/earnedBeans=0/season but not silo.stalk/roots. A full-repo search confirms s.sys.silo.stalk and s.sys.silo.roots are assigned ONLY by incremental production paths (LibSilo.mintActiveStalk/burnActiveStalk, LibGerminate, LibReceiving) and by mocks (MockSiloFacet.setStalkAndRoots) \u2014 never by any init/reseed contract. Therefore immediately after the L2 upgrade completes, accounts collectively hold millions of stalk (s.accts[].stalk > 0) while the globals are s.sys.silo.stalk == 0 and s.sys.silo.roots == 0. This breaks the core Silo invariant total stalk == sum(account stalk) and bricks the standard burn/transfer accounting.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+        "function": "reseedSiloDeposit",
+        "line_start": 109,
+        "line_end": 180
+      },
+      "impact": "Two concrete consumer outcomes, both High: (1) DoS / division-by-zero. LibSilo.burnActiveStalk computes `roots = s.sys.silo.roots.mul(stalk).div(s.sys.silo.stalk)` and transferStalk computes `s.sys.silo.roots.sub(1).mul(stalk).div(s.sys.silo.stalk)`; with silo.stalk == 0 these revert (div by zero) the first time any migrated farmer withdraws, transfers stalk, plants, or converts \u2014 a broad post-migration freeze of withdrawals/transfers. (2) Accounting desync / mis-scaled rewards. mintActiveStalk takes its `roots==0` branch (roots = stalk * rootsBase) so the first depositor after migration mints roots against a global stalk that does not include the millions of already-issued account stalk; the global stalk/roots ratio is anchored to a single new deposit, so subsequent root issuance and burnActiveStalk proportions are computed against a total stalk far smaller than the true sum of account stalk. Earned-Bean distribution (LibSilo._balanceOfEarnedBeans uses silo.stalk*accountRoots/silo.roots) and LibGauge.getAverageGrownStalkPerBdv (silo.stalk/totalBdv) are mis-scaled. The migration upgrade thus either freezes core Silo operations or corrupts protocol-wide stalk/root accounting depending on which path executes first.",
+      "proof_of_concept": "Post-migration state (no attacker needed): assume ReseedSilo issued account A 1_000_000 stalk and there are no other deposits. State: s.accts[A].stalk = 1_000_000, s.accts[A].roots = 0, s.sys.silo.stalk = 0, s.sys.silo.roots = 0. (1) A calls a withdraw -> LibSilo.burnActiveStalk(A, 1_000_000) -> roots = silo.roots(0) * 1_000_000 / silo.stalk(0) -> division by zero -> revert. Withdrawal impossible. (2) Alternatively a fresh depositor B deposits, hits mintActiveStalk roots==0 branch, sets silo.stalk = B.stalk (small) and silo.roots = B.stalk*rootsBase; now total silo.stalk excludes A's 1_000_000 -> every downstream ratio (burn, transfer, earned beans) is computed against the wrong total, so A's stalk is unredeemable/mis-valued. A Foundry PoC would deploy the reseed init, vm.load s.sys.silo.stalk slot to assert == 0 while s.accts[A].stalk != 0, then expect revert on a withdraw call (L2 entry, EOA, no privileged setup beyond the migration itself).",
+      "recommendation": "In the L2 reseed sequence, after all per-account stalk/roots are issued, set the global accumulators to the exact sums: s.sys.silo.stalk = sum(all account stalk issued) and s.sys.silo.roots = sum(all account roots issued) (or seed roots = stalk * C.getRootsBase() consistently and set both account and global roots accordingly). Add an init-completion invariant check asserting s.sys.silo.stalk == sum(s.accts[].stalk) and that silo.roots > 0 before unpausing. Cross-check against ReseedSun/InitReseed so exactly one init step is responsible for the global totals.",
+      "confidence_note": "If a reseed step outside the provided scope (e.g. an aggregate ReseedGlobalSilo) sets these totals, severity drops; no such writer exists anywhere in the repository, so conservative (vulnerable) interpretation stands.",
+      "ite": {
+        "intent": "After the L1->L2 reseed, global silo.stalk/roots must equal the sum of all re-issued account stalk/roots so silo accounting stays consistent",
+        "technique": "Reseed writes per-account stalk and per-token deposited balances but omits the protocol-wide silo.stalk/silo.roots writes; globals remain at their zero default",
+        "evasion": "No attacker required \u2014 the defect is baked into the migration upgrade; it self-triggers on the first post-migration silo mutation by any honest farmer"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.silo.stalk == 0 and s.sys.silo.roots == 0 while s.accts[].stalk > 0 (global accumulators uninitialized post-reseed)",
+        "impact": "Division-by-zero DoS of withdraw/transfer/plant, or mis-scaled global stalk/root accounting and earned-Bean distribution",
+        "consumer_found": true,
+        "consumer_function": "LibSilo.burnActiveStalk / transferStalk / mintActiveStalk and LibSilo._balanceOfEarnedBeans, LibGauge.getAverageGrownStalkPerBdv",
+        "exploit_path": "Reseed completes with silo.stalk=silo.roots=0 -> migrated farmer calls withdraw -> burnActiveStalk divides by silo.stalk(0) -> revert; or new deposit anchors globals excluding issued account stalk -> all subsequent ratios corrupted"
+      },
+      "attack_surface_rank": 5,
+      "thread_refs": [
+        "T-001"
+      ],
+      "thread_note": "T-001: High (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-006",
+          "note": "score-3 invariant covers same state vars (s.accts[account].stalk); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "ReseedSilo sets account stalk but never account roots; migrants earn zero Beans",
+      "severity": "High",
+      "vuln_type": "proxy-upgrade",
+      "confidence": "High",
+      "description": "In the L2 Account storage struct (Account.sol), `roots` is the value used for earned-Bean and Season-of-Plenty distribution. ReseedSilo.reseedSiloDeposit assigns s.accts[account].stalk = accountStalk for each migrated EOA depositor but never assigns s.accts[account].roots. A full-repo search shows account roots are written in production only by L2ContractMigrationFacet.addMigratedDepositsToAccount (`s.accts[account].roots += accountRoots`) \u2014 the SEPARATE contract-migration path \u2014 and by LibSilo on live deposits. The bulk EOA reseed path (ReseedSilo) leaves s.accts[account].roots == 0 for every standard migrated farmer. Because earned-Bean and SOP entitlements are computed from account roots, not account stalk, these farmers retain stalk on paper but have zero root balance.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+        "function": "reseedSiloDeposit",
+        "line_start": 154,
+        "line_end": 165
+      },
+      "impact": "Every EOA farmer migrated via ReseedSilo has s.accts[].roots == 0 post-migration. LibSilo._balanceOfEarnedBeans returns earned beans proportional to accountRoots (stalk = silo.stalk * accountRoots / silo.roots); with accountRoots == 0 the farmer's expected stalk is 0, so earned-Bean accrual is permanently zero \u2014 the farmer never receives their pro-rata share of seigniorage despite holding stalk. SOP/rainRoots distribution (also root-weighted) is likewise zeroed. Combined with US-001 (silo.roots == 0), the entire root layer of the Silo is uninitialized after migration: even after a fix to globals, accounts cannot earn until roots are correctly back-filled. This is a permanent, protocol-wide loss of yield entitlement for the migrated user base \u2014 a broken core invariant under the migration condition (High).",
+      "proof_of_concept": "Post-reseed state for EOA farmer A: s.accts[A].stalk = 1_000_000 (set at ReseedSilo.sol:164), s.accts[A].roots = 0 (never written). After globals are (hypothetically) fixed and seasons advance minting earned beans, plant()/balanceOfEarnedBeans(A) -> _balanceOfEarnedBeans(accountStalk=1_000_000, accountRoots=0) -> stalk = silo.stalk * 0 / silo.roots = 0 -> 0 <= accountStalk -> returns 0 beans, forever. A Foundry PoC: run ReseedSilo.init with one EOA deposit, vm.load the account.roots slot and assert == 0 while account.stalk != 0, advance a season with earned beans, assert balanceOfEarnedBeans(A) == 0.",
+      "recommendation": "In ReseedSilo.reseedSiloDeposit, after computing each account's stalk, also issue roots consistently with the chosen global seeding (e.g. s.accts[account].roots = accountStalk * C.getRootsBase()) and accumulate these into the global s.sys.silo.roots set per US-001, so that account roots and global roots are issued together and total roots == sum(account roots). Ensure parity with the L2ContractMigrationFacet roots-issuance formula so EOA and contract migrants are treated identically.",
+      "ite": {
+        "intent": "Each migrated farmer must receive a roots balance proportional to their stalk so earned-Bean and SOP distribution works on L2",
+        "technique": "ReseedSilo sets account stalk but omits the matching account roots assignment; roots default to 0",
+        "evasion": "No attacker; defect is intrinsic to the EOA reseed path and affects every standard migrated depositor"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[account].roots == 0 for EOA-migrated farmers (account roots never written by ReseedSilo)",
+        "impact": "Permanent zero earned-Bean and zero root-weighted SOP entitlement for migrated farmers despite non-zero stalk",
+        "consumer_found": true,
+        "consumer_function": "LibSilo._balanceOfEarnedBeans (and SOP/rainRoots distribution) reads s.accts[account].roots",
+        "exploit_path": "ReseedSilo.init issues account stalk only -> account.roots stays 0 -> seasons mint earned beans -> _balanceOfEarnedBeans uses accountRoots=0 -> farmer accrues 0 beans permanently"
+      },
+      "attack_surface_rank": 4,
+      "thread_refs": [
+        "T-001"
+      ],
+      "thread_note": "T-001: High (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-006",
+          "note": "score-3 invariant covers same state vars (s.accts[account].stalk); not traced \u2014 consider manual review"
+        }
+      ]
+    }
+  ]
+}

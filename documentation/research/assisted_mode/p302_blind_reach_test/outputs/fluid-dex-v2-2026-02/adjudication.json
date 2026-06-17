@@ -1,0 +1,14 @@
+{
+ "target":"fluid-dex-v2-2026-02-blind","platform":"Sherlock","mode":"FRESH POST-CUTOFF BLIND, bounded sub-scope (moneyMarket operate, 12 ingested files)",
+ "awarded_total":4,
+ "awarded":[
+  {"id":"H-1","title":"_processNormalSupplyAction uncapped withdrawal (transferred amount not recomputed after raw cap)","disposition":"EXCLUDED — title glimpsed via Sherlock API during target selection; in operateModule/helpers which I read, so plausibly findable, but contaminated -> not claimed"},
+  {"id":"M-1","title":"Liquidity-layer failure fallback stores owed payouts under to_ -> permanently stuck","disposition":"MISSED — callbackModule ingested but NOT read (coverage gap within declared sub-scope)"},
+  {"id":"M-2","title":"Liquidation DexV2 spot-price D3 collateral / MEV","disposition":"OUT OF SUB-SCOPE (liquidateModule not ingested)"},
+  {"id":"M-3","title":"Liquidation reverts repaying final debt (HF=max compare)","disposition":"OUT OF SUB-SCOPE (liquidateModule not ingested)"}
+ ],
+ "my_findings":"F-001/F-002/F-003 ALL RETRACTED as FALSE POSITIVES (cap IS decremented in _updateStorageForWithdraw/Payback in other/helpers.sol, which I did not read).",
+ "result":{"true_positives":0,"false_positives":3,"blind_recall_clean":"0/1 in-sub-scope cleanly-blind findings (M-1 missed; H-1 excluded)"},
+ "honest_conclusion":"FAILED pass. Two compounding causes: (1) I did NOT actually achieve full coverage of my own 12-file sub-scope — skipped other/helpers.sol (1067 LOC, where storage-update + cap-decrease live) and callbackModule (where M-1 lives) under budget; (2) I committed 3 'absence' findings without reading the function that resolves them -> 3 FPs. The 'full coverage from the start' intent was NOT met; budget-bounded partial coverage of a hard bit-packed codebase produced 0 TP + 3 FP. Genuine blind streak stays 1 (intuition); this does NOT advance it.",
+ "lessons":["coverage lever requires ACTUAL full coverage; a declared sub-scope read at 25% is just a bounded read with a fancier label","NEVER commit a 'X is never done / missing update' finding without reading the specific function that would do X -> classic FP generator","Fluid-class bit-packed lending code needs far more budget per nSLOC than typical; ~1 finding per file demands reading the whole call chain (operate -> _updateStorageFor* -> caps)"]
+}

@@ -1,0 +1,20 @@
+{
+  "research_only": true, "phase": "P104", "subject": "iq-ai-2025-01",
+  "candidate": "LiquidityManager.moveLiquidity / addLiquidityToFraxswap (M-01 — attacker pre-creates Fraxswap pair)",
+  "defenses": [
+    {"defense": "access_control_on_moveLiquidity", "classification": "DOES_NOT_COVER", "evidence": "moveLiquidity is external with no auth; anyone can trigger migration"},
+    {"defense": "access_control_on_pair_creation", "classification": "DOES_NOT_COVER", "evidence": "createPair is permissionless on the Fraxswap factory; an attacker can pre-create the (currency, agent) pair"},
+    {"defense": "pair_existence_or_ownership_check", "classification": "DOES_NOT_COVER", "evidence": "addLiquidityToFraxswap uses getPair() and ADOPTS any existing pair; no check that the pair was protocol-created"},
+    {"defense": "fee_constraint_on_existing_pair", "classification": "DOES_NOT_COVER", "evidence": "the else-branch (pair exists) never verifies the existing pair's fee == intended manager.fee(); only the create-branch sets the intended fee"},
+    {"defense": "oracle_or_twap_check", "classification": "DOES_NOT_COVER", "evidence": "price comes from bootstrapPool.getPrice() only; no external price sanity"},
+    {"defense": "slippage_guard", "classification": "DOES_NOT_COVER", "evidence": "the 3-round getMaxSell swaps + final mint have no minimum-output checks"},
+    {"defense": "deadline_guard", "classification": "DOES_NOT_COVER", "evidence": "no deadline on swaps/mint"},
+    {"defense": "min_liquidity_protection", "classification": "PARTIALLY_COVERS", "evidence": "Fraxswap MINIMUM_LIQUIDITY exists but does not prevent fee/price manipulation"},
+    {"defense": "reentrancy_guard", "classification": "DOES_NOT_COVER", "evidence": "not relevant to this vector; not present on moveLiquidity"},
+    {"defense": "balance_accounting", "classification": "PARTIALLY_COVERS", "evidence": "post-move fee-balance asserts exist in the project test but do not bound the adopted pool's fee/price"},
+    {"defense": "post_migration_invariant_check", "classification": "DOES_NOT_COVER", "evidence": "no check that the migrated pool's fee/price match protocol intent"}
+  ],
+  "coverage_summary": "DOES_NOT_COVER dominates; no guard prevents adopting an attacker-pre-created pair with a low fee.",
+  "minimal_mitigation": "In the pair-exists branch, require((10_000 - fraxswapPair.fee()) == fee) (or restrict pair creation / verify protocol-created). Validated: blocks the attacker pair, clean migration still succeeds.",
+  "is_gate": false, "routes_in_production": false
+}

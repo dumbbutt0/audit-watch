@@ -1,0 +1,30 @@
+{
+  "audit_id": "nudgexyz-2025-03-blind",
+  "set": "holdout",
+  "language": "solidity",
+  "generated_at": "2026-06-12",
+  "awarded_source": "code4rena.com/reports/2025-03-nudgexyz (0H/4M)",
+  "auto_heuristic": false,
+  "_do_not_auto_overwrite": "Hand-adjudicated GENUINE-BLIND FULL-COVERAGE cold pass WITH THE CHECKLIST PASS ACTIVE (pattern_checklist generated before the read). Counts + scope peeked; titles SEALED on code4rena until reveal.",
+  "awarded": [
+    {"id": "M-01", "severity": "Medium", "title": "Unauthorized reallocation in handleReallocation and reward disruption", "label": "SAME_AREA", "read_file": true, "mechanism_class": "pull-full-balance-not-amount", "source": "human", "matched_candidate": "N-01", "note": "SAME_AREA: my N-01 flagged the handleReallocation balance/reward mis-handling (full-balance pull -> mis-attribution + reward over-allocation); M-01 is the unauthorized-reallocation/reward-disruption framing of the same function/mechanism."},
+    {"id": "M-02", "severity": "Medium", "title": "Anyone can DOS handleReallocation over and over", "label": "SUBSYSTEM_ONLY", "read_file": true, "mechanism_class": "handlereallocation-dos", "source": "human", "matched_candidate": "N-01", "note": "SUBSYSTEM_ONLY: I flagged handleReallocation balance-handling anomalies (N-01 full-balance pull, N-05 CEI) but did not pin the specific repeatable-DoS mechanism (balance-delta/donation grief)."},
+    {"id": "M-03", "severity": "Medium", "title": "All reallocate cross-chain token and rewards lost for users using account abstraction", "label": "MISSED", "read_file": true, "mechanism_class": "aa-wallet-cross-chain-address", "source": "human", "note": "MISS: novel — AA/smart-wallet users have different addresses cross-chain, so userAddress attribution loses their tokens/rewards. Not in the reincorporated pattern library; checklist could not flag it."},
+    {"id": "M-04", "severity": "Medium", "title": "Not verifying transaction initiator allows malicious user to allocate full reward as Uniswap V2 pool", "label": "MISSED", "read_file": true, "mechanism_class": "tx-initiator-not-verified", "source": "human", "note": "MISS: novel — handleReallocation doesn't verify the tx initiator vs userAddress, letting a malicious actor route the full reward to a Uniswap V2 pool. Adjacent to my N-01 (reward recipient) but a distinct unverified-initiator root; not in the library."}
+  ],
+  "candidates": [
+    {"id": "N-01", "matched": "M-01 (SAME_AREA) + M-02 (SUBSYSTEM_ONLY)"},
+    {"id": "N-02", "title": "create2 pre-deploy DoS", "matched": null, "note": "not awarded"},
+    {"id": "N-03", "title": "claimRewards break ordering DoS", "matched": null, "note": "not awarded"},
+    {"id": "N-04", "title": "blacklist push (checklist-flagged)", "matched": null, "note": "not awarded"},
+    {"id": "N-05", "title": "handleReallocation CEI/reentrancy", "matched": null, "note": "contributed to M-02 SUBSYSTEM"}
+  ],
+  "summary": {
+    "awarded_total": 4, "adjudicated": 4, "pending": 0,
+    "recall_of_surfaced": 0.5, "strong_only": 0.0,
+    "missed": 2, "missed_coverage_gap": 0, "missed_reasoning_gap": 2,
+    "by_label": {"STRONG": 0, "SAME_AREA": 1, "SUBSYSTEM_ONLY": 1, "MISSED": 2, "UNADJUDICATED": 0},
+    "complete": true, "blind": true, "full_coverage": true, "checklist_pass_active": true,
+    "note": "GENUINE-BLIND FULL-COVERAGE with the CHECKLIST PASS ACTIVE. recall 0.5 (2/4), strong 0 (0/4). All 4 awarded are in handleReallocation; my pass concentrated there (N-01 full-balance pull, N-05 CEI) -> SAME_AREA M-01 + SUBSYSTEM M-02. The 2 MISSES (M-03 AA-wallet cross-chain, M-04 tx-initiator-not-verified) are NOVEL mechanisms NOT in the reincorporated library, so the checklist (which surfaces KNOWN patterns) could not flag them. HONEST LIFT FINDING: the checklist helps APPLY known patterns (it flagged blacklist-push N-04, and focused attention on handleReallocation) but cannot catch findings outside the library; recall here (0.5) is bounded by library coverage of the contest's bug types, not by application."
+  }
+}

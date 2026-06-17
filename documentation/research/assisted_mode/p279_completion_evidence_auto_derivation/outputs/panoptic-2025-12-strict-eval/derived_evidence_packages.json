@@ -1,0 +1,397 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "SUPERVISED_EVAL_DERIVED_EVIDENCE",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "packages": [
+    {
+      "candidate_id": "coverage_manifest:CollateralTracker:withdraw:4",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "CollateralTracker.withdraw",
+      "source_refs": "CollateralTracker.withdraw function withdraw( uint256 assets, address receiver, address owner, TokenId[] calldata positionIdList, bool usePremiaAsCollateral ) external returns (uint256 shares) {",
+      "mechanism_hypothesis": "[T2] CollateralTracker.withdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "CollateralTracker.withdraw function withdraw( uint256 assets, address receiver, address owner, TokenId[] calldata positionIdList, bool usePremiaAsCollateral ) external returns (uint256 shares) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls CollateralTracker.withdraw with chosen inputs (function withdraw( uint256 assets, address receiver, address)",
+      "attacker_controlled_inputs": "msg.sender + args of function withdraw( uint256 assets, address receiver, address owner, TokenId[] ca",
+      "victim_gainer": "victim = users/LPs of CollateralTracker (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in CollateralTracker via withdraw (value-moving op)",
+      "invariant_expected": "post-CollateralTracker.withdraw accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "CollateralTracker.withdraw leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls CollateralTracker.withdraw with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-CollateralTracker.withdraw accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:CollateralTracker:redeem:5",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "CollateralTracker.redeem",
+      "source_refs": "CollateralTracker.redeem function redeem( uint256 shares, address receiver, address owner ) external returns (uint256 assets) {",
+      "mechanism_hypothesis": "[T1] CollateralTracker.redeem: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "CollateralTracker.redeem function redeem( uint256 shares, address receiver, address owner ) external returns (uint256 assets) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls CollateralTracker.redeem with chosen inputs (function redeem( uint256 shares, address receiver, address o)",
+      "attacker_controlled_inputs": "msg.sender + args of function redeem( uint256 shares, address receiver, address owner ) external retu",
+      "victim_gainer": "victim = users/LPs of CollateralTracker (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in CollateralTracker via redeem (value-moving op)",
+      "invariant_expected": "post-CollateralTracker.redeem accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "CollateralTracker.redeem leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls CollateralTracker.redeem with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-CollateralTracker.redeem accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['config', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['config', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:PanopticPool:_mintOptions:8",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "PanopticPool._mintOptions",
+      "source_refs": "PanopticPool._mintOptions function _mintOptions( TokenId tokenId, uint128 positionSize, uint24 effectiveLiquidityLimit, address owner, int24[2] memory tickLimits, RiskParameters riskParameters ) internal returns (LeftRightSigned paidAmounts, int24 finalTick) {",
+      "mechanism_hypothesis": "[T8] PanopticPool._mintOptions: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "PanopticPool._mintOptions function _mintOptions( TokenId tokenId, uint128 positionSize, uint24 effectiveLiquidityLimit, address owner, int24[2] memory tickLimits, RiskParameters riskParameters ) internal returns (LeftRightSigned paidAmounts, int24 finalTick) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "PanopticPool._mintOptions is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _mintOptions( TokenId tokenId, uint128 positionSize, uint24 effectiveLi",
+      "victim_gainer": "victim = users/LPs of PanopticPool (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in PanopticPool via _mintOptions (value-moving op)",
+      "invariant_expected": "share<->asset conversion in PanopticPool._mintOptions conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "PanopticPool._mintOptions rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls PanopticPool._mintOptions with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through PanopticPool._mintOptions nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:PanopticPool:_burnOptions:10",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "PanopticPool._burnOptions",
+      "source_refs": "PanopticPool._burnOptions function _burnOptions( TokenId tokenId, uint128 positionSize, int24[2] memory tickLimits, address owner, bool commitLongSettled, RiskParameters riskParameters ) internal returns ( LeftRightSigned paidAmounts, LeftRightSigned[4] memory premiaByLeg, int24 finalTick ) {",
+      "mechanism_hypothesis": "[T1] PanopticPool._burnOptions: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "PanopticPool._burnOptions function _burnOptions( TokenId tokenId, uint128 positionSize, int24[2] memory tickLimits, address owner, bool commitLongSettled, RiskParameters riskParameters ) internal returns ( LeftRightSigned paidAmounts, LeftRightSigned[4] memory premiaByLeg, int24 finalTick ) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "PanopticPool._burnOptions is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _burnOptions( TokenId tokenId, uint128 positionSize, int24[2] memory ti",
+      "victim_gainer": "victim = users/LPs of PanopticPool (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in PanopticPool via _burnOptions (value-moving op)",
+      "invariant_expected": "share<->asset conversion in PanopticPool._burnOptions conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "PanopticPool._burnOptions rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls PanopticPool._burnOptions with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through PanopticPool._burnOptions nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

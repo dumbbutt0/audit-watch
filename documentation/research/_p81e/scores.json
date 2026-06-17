@@ -1,0 +1,129 @@
+{
+  "research_only": true,
+  "phase": "P81e",
+  "subject": "vultisig-2024-06",
+  "commit": "befb1b1170",
+  "blindness": "repo-key-blind (findings opened only post-freeze) + web-blind; residual model-training contamination acknowledged but NOT studied for this subject in-project; far more blind than P81d",
+  "awarded_total": {
+    "High": 3,
+    "Medium": 3
+  },
+  "metrics": {
+    "blind_lead_recall": {
+      "selected_top12": "4/6 awarded surfaces in the frozen blind set",
+      "lens_full_surface": "5/6 surfaced by the lens (incl ILOPool.buy below cutoff)",
+      "unsurfaceable": "M-01 (missing burn function \u2014 missing-function class)"
+    },
+    "safety": {
+      "C_SOURCE_FALSE": 0,
+      "C_unsupported_READY": 0,
+      "C_HARD_FAIL": 0,
+      "C_detector_to_finding": 0,
+      "C_severity_FP": 0,
+      "all_C_promotions_adversarially_reviewed": true,
+      "A_over_promotions": "5 privileged setters + 2 = 7",
+      "B_C_controls_rejected": true
+    },
+    "mechanism_correctness": {
+      "correct_mechanism_promotions": 1,
+      "wrong_mechanism_promotions": 0,
+      "note": "claim=correct (H-01). launch wrong mechanism (sandwich) was FALSIFIED by adversarial -> demoted, not promoted (adversarial prevented a wrong-mechanism promotion)"
+    },
+    "conversion": {
+      "clean_or_strong": 1,
+      "hits": [
+        "H-01"
+      ],
+      "note": "H-01 CLEAN_HIT (genuinely repo-key-blind)"
+    },
+    "severity_gate_behavior": {
+      "severity_FP_prevented": [
+        "launch wrong-mechanism demoted via adversarial+low impact"
+      ],
+      "false_demotions": [
+        "H-03 launch: real DoS under-rated as low griefing by blind reviewer -> demoted (awarded High)"
+      ],
+      "D2_style_dust_demotions": "n/a (no dust control this subject)"
+    },
+    "controls": {
+      "privileged_setters_rejected": "5/5 (setPerformanceFee/setFeeTaker/setPlatformFee/setRefundDeadlineForProject/addBatchWhitelist)",
+      "A_made_5_FP_B_C_0": true,
+      "multicall_whitelist_receive": "NEEDS_CONTEXT (honest abstain)"
+    }
+  },
+  "rows": [
+    {
+      "id": "H-01",
+      "sev": "High",
+      "contract": "ILOPool",
+      "function": "claim",
+      "mech": "shared-position collect(max) breaks per-user fee claims",
+      "in_selected": true,
+      "in_full": true,
+      "converted": "CLEAN_HIT",
+      "note": "C promoted claim (high,user_loss), adversarial PASS; same fn+mechanism+High"
+    },
+    {
+      "id": "H-02",
+      "sev": "High",
+      "contract": "Whitelist",
+      "function": "receive/self-whitelist",
+      "mech": "self-whitelist bypass",
+      "in_selected": true,
+      "in_full": true,
+      "converted": "MISS_abstained",
+      "note": "led on Whitelist.receive but C=NEEDS_CONTEXT (abstained); surfaced not converted"
+    },
+    {
+      "id": "H-03",
+      "sev": "High",
+      "contract": "ILOPool",
+      "function": "launch",
+      "mech": "price-manip single-sided-liquidity DoS prevents launch",
+      "in_selected": true,
+      "in_full": true,
+      "converted": "MISS_under_severity",
+      "note": "led on launch; adversarial IDENTIFIED the price-manip DoS mechanism but rated low->severity-demoted (awarded High)"
+    },
+    {
+      "id": "M-01",
+      "sev": "Medium",
+      "contract": "Vultisig",
+      "function": "(missing burn)",
+      "mech": "token not burnable",
+      "in_selected": false,
+      "in_full": false,
+      "converted": "MISS_unsurfaceable",
+      "note": "missing-function class; lens cannot surface a non-existent function"
+    },
+    {
+      "id": "M-02",
+      "sev": "Medium",
+      "contract": "ILOPool",
+      "function": "claim",
+      "mech": "claim lacks slippage on pool.burn amounts",
+      "in_selected": true,
+      "in_full": true,
+      "converted": "PARTIAL_same_fn",
+      "note": "same claim fn promoted (for H-01 mechanism); M-02 slippage sub-mechanism not separately named"
+    },
+    {
+      "id": "M-03",
+      "sev": "Medium",
+      "contract": "ILOPool",
+      "function": "buy",
+      "mech": "NFT transfer bypasses maxCapPerUser",
+      "in_selected": false,
+      "in_full": true,
+      "converted": "MISS_below_cutoff",
+      "note": "ILOPool.buy surfaced by lens (rank 19) but below top-12 selection cutoff"
+    }
+  ],
+  "verdict": "PASS (genuinely repo-key-blind): C has 0 severity FP, 0 SOURCE_FALSE/unsupported-READY/HARD_FAIL, controls all rejected/abstained (A made 5 FP, B/C 0), and 1 CLEAN_HIT (H-01 ILOPool.claim, same fn+mechanism, confirmed by key-blind adversarial). Blind lead recall 4/6 selected (5/6 lens-surfaced; M-01 unsurfaceable). Honest misses: H-02 abstained, H-03 under-severity demote, M-03 below top-12 cutoff, M-01 missing-function.",
+  "caveats": [
+    "training-contamination residual (unquantifiable, but subject not studied in-project)",
+    "H-03 false-demote = severity under-calibration on a launch-DoS (blind reviewer rated transient griefing; judge=High) \u2014 refinement signal",
+    "M-01 missing-function class is a lens limitation",
+    "M-03 would be captured with a larger blind-N (it was lens-surfaced at rank 19)"
+  ]
+}

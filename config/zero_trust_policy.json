@@ -1,0 +1,100 @@
+{
+  "version": "1.0",
+  "description": "Permission containment rules for the zero-trust auditing pipeline. Defines trusted vs untrusted input sources, agent write boundaries, network access rules, and output safety constraints.",
+
+  "trusted_input_sources": [
+    "kb/",
+    "agents/",
+    "prompts/",
+    "schemas/",
+    "schema/",
+    "templates/",
+    "config/",
+    "scripts/",
+    "tools/"
+  ],
+
+  "untrusted_input_sources": [
+    "contracts/",
+    "audits/*/output/",
+    "audits/*/data/"
+  ],
+
+  "agent_write_paths": [
+    "audits/*/output/findings_*.json",
+    "audits/*/output/static.json",
+    "audits/*/data/triage/",
+    "audits/*/data/findings/",
+    "audits/*/data/threads/",
+    "audits/*/data/invariants/",
+    "audits/*/data/interactions/",
+    "audits/*/data/exploitability/",
+    "audits/*/data/duplicates/",
+    "audits/*/data/severity/",
+    "audits/*/data/runtime_poc/",
+    "audits/*/data/judge_simulation/",
+    "audits/*/data/quality_checklist/",
+    "audits/*/reports/",
+    "audits/*/pocs/"
+  ],
+
+  "agent_read_paths": [
+    "contracts/",
+    "audits/*/output/static.json",
+    "audits/*/output/findings_protocol_context.json",
+    "audits/*/output/coverage_gaps.json",
+    "audits/*/data/invariants/",
+    "audits/*/data/threads/",
+    "kb/",
+    "agents/",
+    "prompts/",
+    "schema/",
+    "schemas/"
+  ],
+
+  "forbidden_in_agent_output": [
+    "os.system(",
+    "subprocess.run(",
+    "subprocess.Popen(",
+    "__import__(",
+    "shutil.rmtree(",
+    "Path.unlink("
+  ],
+
+  "network_allowlist": [
+    "api.immunefi.com",
+    "reports.immunefi.com",
+    "api.dune.com",
+    "api.thegraph.com",
+    "gateway.thegraph.com",
+    "api.etherscan.io",
+    "api.arbiscan.io",
+    "api.basescan.org",
+    "api.polygonscan.com",
+    "api.llama.fi",
+    "api.github.com",
+    "raw.githubusercontent.com",
+    "api.glide.r.xyz"
+  ],
+
+  "prompt_injection_scan_required": true,
+  "agent_output_validation_required": true,
+  "max_agent_output_size_bytes": 524288,
+  "max_findings_per_agent": 100,
+
+  "sandbox_hardening": {
+    "description": "Guidance for running Claude Code in an isolated environment to contain risk from malicious contract source.",
+    "recommended_setup": [
+      "Run Claude Code inside a Docker container or GitHub Codespace with no outbound network except allowlist",
+      "Mount contracts/ as read-only volume inside the container",
+      "Set ANTHROPIC_API_KEY via environment injection, not a file in the repo",
+      "Disable Claude Code's file system write access outside audit workspace paths",
+      "Use a dedicated low-privilege OS user account for the audit process"
+    ],
+    "mcp_server_risks": [
+      "Verify all MCP server URLs against the network_allowlist before registering",
+      "Do not register MCP servers that accept arbitrary user-supplied GraphQL/SQL queries without sanitization",
+      "Treat MCP server responses as untrusted input — validate schema before passing to agents"
+    ]
+  }
+}

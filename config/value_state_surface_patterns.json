@@ -1,0 +1,41 @@
+{
+  "version": "value-state-recall-v1",
+  "description": "Phase-30 RESEARCH-ONLY value/state candidate-recall OVERLAY for vault/CDP/liquidation/accounting/post-op-invariant systems. Read ONLY by scripts/value_state_recall_sample.py (un-wired). Closes the P28 Badger gap where the awarded post-op comparison bug (LeverageMacroBase._doCheckValueType) was never queued. Inclusion requires TWO signals (value/state name + value/state context); NO external/public visibility gate (value/state bugs are frequently internal/library/view math). Generic verbs need >=2 strong context signals. is_gate:false research_only:true routes_in_production:false routed_manifest_ids:[].",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "must_include_for_scheduler": true,
+  "per_class_cap": 14,
+
+  "global_budget_pct": 0.35,
+  "global_budget_abs": 40,
+  "class_share_cap": 0.40,
+  "score_weights": {
+    "post_op_comparison_with_param": 6, "post_op_or_comparison_class": 3, "liquidation_class": 3,
+    "post_op_term_bonus": 2, "internal_with_caller": 2, "internal_isolated_penalty": -1,
+    "two_context_bonus": 1, "generic_name_penalty": -2, "attack_surface_weight": 0.5
+  },
+
+  "names_strong": "borrow|repay|liquidat|seize|redeem|opentrove|closetrove|adjusttrove|opencdp|closecdp|adjustcdp|_docheck|docheckvaluetype|checkvalue|_aftercall|_beforecall|postcheck|_requirevalid|_requirenewicr|_requireicr|converttoshares|converttoassets|claimyieldfee|settle|rebalance|withdrawcollateral|addcollateral",
+  "names_generic": "check|validate|require|update|compute|calc|preview|transfer|claim|_burn|mint|deposit|withdraw",
+
+  "context_terms": ["collateral", "debt", "icr", "nicr", "ltv", "cdp", "trove", "shares", "assets", "liquidat", "health", "margin", "oracle", "price", "sqrtprice", "rounding", "feegrowth", "valuetocheck", "cached", "exchangerate", "totaldebt", "totalassets", "hardcap", "softcap", "yieldfee", "premium", "checkvalueandtype", "post check", "before", "after"],
+  "value_param_regex": ">=|<=|(?<![a-z])>(?![=])|(?<![a-z=])<(?![=])|muldiv|valuetocheck|amountout|amount0|amount1|shares|sqrtprice|_icr|newicr",
+  "cdp_vault_contract_regex": "cdp|trove|borroweroperations|liquidation|leverage|vault|prizevault|activepool|managerstorage|pool|perp|position|scaledasset|interest",
+  "interface_contract_regex": "(^I[A-Z][a-zA-Z])|(Like$)|(Interface$)",
+  "erc20_wrapper_names": "^(transfer|transferfrom|approve|increaseallowance|decreaseallowance)$",
+
+  "class_map": {
+    "comparison_check": "docheck|checkvalue|_requireicr|_requirenewicr|valuetocheck|postcheck",
+    "post_op_check": "_aftercall|_beforecall|post check|_requirevalid|requireicr",
+    "liquidation": "liquidat|seize|health|margin|undercollateral",
+    "conversion_rounding": "converttoshares|converttoassets|exchangerate|rounding|muldiv|preview",
+    "oracle_price_state": "oracle|price|sqrtprice|twap|feed",
+    "fee_accrual": "fee|yieldfee|feegrowth|premium",
+    "lifecycle_state": "_aftercall|settle|rebalance|cached|opentrove|closetrove",
+    "accounting_delta": "collateral|debt|totaldebt|totalassets|shares|assets|balance"
+  },
+
+  "_notes": "name_signal: strong=names_strong; generic=names_generic (needs >=2 strong context sub-signals); structural=name unmatched but contract matches cdp_vault_contract_regex AND a value/comparison param present. context_signal sub-signals: value/comparison param (value_param_regex), context term (context_terms), cdp/vault contract. Noise: interface contracts refused; pure/view fn with no value-comparison evidence refused; plain ERC20 transfer/approve wrapper refused unless accounting/liquidation context. Internal/private fns require a caller_context hint."
+}

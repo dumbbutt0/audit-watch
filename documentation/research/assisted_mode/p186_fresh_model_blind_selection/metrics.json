@@ -1,0 +1,28 @@
+{
+  "phase": "P186", "corpus": "quantamm-2024-12-eval", "read_only": true, "blind_model": "sonnet (different from campaign Opus 4.8)",
+  "headline_metric": "awarded_mechanism_selected",
+  "awarded_mechanism_enumerated": "9/9",
+  "awarded_mechanism_selected": "7/9 (EXACT+LOOSE)",
+  "conservative_selected": "5/9 (EXACT only; excludes loose H-03 + loose M-10)",
+  "selected_findings": ["H-07", "M-17", "M-03", "M-10(loose)", "L-01", "H-03(loose)", "L-02"],
+  "enumerated_not_selected": ["M-02 (rejected: dimensionally-consistent)", "M-06 (rejected: liveness-only/view)"],
+  "missed_not_enumerated": [],
+  "demoted_unresolved_mechanism": 0,
+  "checker": "5/5 mechanism_complete (lists + prose accepted); 0 demoted flags (Sonnet rejections are source-backed clean rejections)",
+  "average_selected_mechanisms_per_surface": {"P186_sonnet": 1.80, "P184_opus": 2.80, "verdict": "no spam — Sonnet MORE conservative (more mechanisms in unresolved/rejected)"},
+  "comparison": {
+    "P184_opus_blind": {"selected": "7/9", "conservative": "6/9"},
+    "P185_opus_blind_updated_prompt": {"note": "re-ran only onAfterRemoveLiquidity+onAfterSwap; M-02 moved rejected->carried, M-17 carried"},
+    "P186_sonnet_blind": {"selected": "7/9", "conservative": "5/9"}
+  },
+  "stable_selections_model_independent": ["H-07", "M-03", "M-10", "L-01", "L-02", "H-03(loose)"],
+  "model_dependent_selections": [
+    {"finding": "M-02", "flip": "P185 selected -> P186 rejected", "cause": "Sonnet stronger reject-first judged it dimensionally-consistent / not-a-bug"},
+    {"finding": "M-06", "flip": "P184 selected -> P186 rejected", "cause": "Sonnet judged oracle-revert DoS liveness-only (view fn), not fund-loss"}
+  ],
+  "decision": "PROMOTE CONFIDENCE in P183 enumeration (aggregate 7/9 holds on a different model -> not same-model contamination); QUALIFIED confidence in the P185 M-02 ranking fix (model-dependent: a stricter model rejects M-02).",
+  "decision_basis": "Per the rule 'selected ~= P184/P185 -> promote confidence': 7/9 selected on Sonnet matches 7/9 on Opus. Enumeration + carry-forward is real and model-robust in COUNT; 6 selections are fully stable across both models. But the COMPOSITION shifted (M-02 and M-06 are model-dependent reject-first judgments, M-17 improved), so the specific P185 M-02 fix does not robustly generalize to a more-skeptical model.",
+  "residual_caveat": "Sonnet is still Claude / same vendor -> vendor-level training priors not fully excludable; a genuinely different-vendor model would be the ultimate test. n=9, single run per model.",
+  "checker_limitation_surfaced": "Sonnet's rejections of M-02 and M-06 carry confident source-backed reasons + leans_on_unproven_guard=false, so the demoted_unresolved_mechanism detector does NOT flag them. The checker prevents UNRESOLVED demotion, not a CONFIDENT mis-rejection of a real bug. (Flag for a future ranking/severity-calibration phase; not fixed here.)",
+  "no_recall_claim": "No new recall claimed; this is a blind cross-model selection measurement."
+}

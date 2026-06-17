@@ -1,0 +1,193 @@
+{
+  "agent": "cross_chain",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T21:40:00+00:00",
+  "findings": [
+    {
+      "id": "CC-001",
+      "title": "L1->L2 migration redemption has no spent-marker and uses += accounting, allowing unbounded replay of a single proof/signature to mint unbacked deposits, stalk and roots",
+      "severity": "Critical",
+      "confidence": "High",
+      "description": "redeemDepositsAndInternalBalances() is the permissionless L2 endpoint that re-issues an L1 contract's silo deposits, stalk and roots onto L2. It verifies a Merkle proof against a static MERKLE_ROOT and an EIP-712 signature (signed on L1) but never records that a given (owner, leaf, signature) has been redeemed. After verification it writes per-account deposits, then calls setStalk(reciever, accountStalk, ownerRoots) which does `s.accts[reciever].stalk += accountStalk` and `s.accts[reciever].roots += accountRoots`. Because there is no nonce/spent mapping and stalk/roots accumulate with +=, the exact same calldata (owner, reciever, deposits, internalBalances, ownerRoots, proof, deadline, signature) can be resubmitted any number of times until `deadline`. Each replay re-adds accountStalk and ownerRoots, and re-writes the deposit entries. The proof and signature are fully public (visible in the original L2 transaction calldata / mempool), so no privileged material is required to replay. This is a cross-chain bug because the authorization artifact (the L1-signed permit + L1 Merkle leaf) is intended to be consumed exactly once on L2 but the L2 contract enforces no consume-once semantics.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "redeemDepositsAndInternalBalances",
+        "line_start": 88,
+        "line_end": 114
+      },
+      "impact": "An attacker observes any legitimate migration redemption (or front-runs one), then replays the identical calldata repeatedly. stalk and roots are inflated without backing on each replay; stalk and roots are the governance vote weight and the divisor/numerator for earned-Bean (mint) distribution. Unbounded inflation of stalk/roots dilutes all honest holders' yield and grants the replayer effectively unlimited governance weight and an outsized claim on every future sunrise mint \u2014 protocol insolvency / unbacked share issuance. Critical under Immunefi v2.2 (direct theft of protocol value / unbacked minting of value-bearing shares).",
+      "proof_of_concept": "Foundry steps (fork L2 after migration facet wired):\n1. L1 owner signs the EIP-712 permit and a valid Merkle leaf exists; a first call to redeemDepositsAndInternalBalances(owner, reciever, deposits, internalBalances, ownerRoots, proof, deadline, sig) succeeds. Record s.accts[reciever].stalk (S0) and .roots (R0) via vm.load on the account slots.\n2. From a different EOA, resubmit the identical calldata. Assert it does NOT revert (no spent marker).\n3. After N replays assert s.accts[reciever].stalk == S0 + N*delta and .roots == R0 + N*deltaRoots (vm.load before/after).\n4. Call the earned-Bean distribution / governance weight getter for `reciever` and assert the inflated value is consumed (outcome layer).\nAll three layers (EOA entry, storage flip on stalk/roots, economic outcome of inflated share) are assertable.",
+      "ite": {
+        "intent": "Mint unbacked stalk/roots and re-credit deposits to a chosen L2 address by reusing a single L1 migration authorization",
+        "technique": "Replay public proof+signature calldata before deadline; setStalk uses += so each replay accumulates; no spent/nonce mapping exists",
+        "evasion": "MerkleProof.verify and ECDSA.recover are stateless and pass identically on every call; the contract performs no idempotency check"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[reciever].stalk and s.accts[reciever].roots (incremented on every replay), plus re-written s.accts[reciever].deposits[depositId]",
+        "consumer_found": true,
+        "consumer_function": "LibSilo earned-Bean (mint) distribution and governance vote-weight reads of s.accts[].stalk/.roots",
+        "impact": "Unbacked stalk/roots -> stolen share of every future Bean mint and unbounded governance weight -> protocol insolvency",
+        "exploit_path": "observe a redeem tx -> resubmit identical calldata N times before deadline -> setStalk += accumulates stalk/roots each time -> downstream mint/governance consumers read the inflated balances"
+      },
+      "attack_surface_rank": 5,
+      "thread_refs": [
+        "T-003"
+      ],
+      "thread_note": "T-003: High (score=?) \u2014 "
+    },
+    {
+      "id": "CC-002",
+      "title": "BeanL1RecieverFacet caps migrated L1 Beans at EXTERNAL_L1_BEANS = 0, so every L2 mint reverts after the user's L1 Beans are already burned (permanent cross-chain fund loss)",
+      "severity": "Critical",
+      "confidence": "High",
+      "description": "The L1->L2 Bean migration is a burn-then-mint cross-chain flow: BeanL2MigrationFacet.migrateL2Beans() calls C.bean().burnFrom(msg.sender, amount) on L1 and then relays a cross-chain message to BeanL1RecieverFacet.recieveL1Beans(reciever, amount) on L2. On L2, recieveL1Beans does `s.sys.migration.migratedL1Beans += amount;` then `require(EXTERNAL_L1_BEANS >= s.sys.migration.migratedL1Beans, ...)` before `C.bean().mint(reciever, amount)`. EXTERNAL_L1_BEANS is a hardcoded constant equal to 0. For any amount > 0 the post-increment value of migratedL1Beans is positive, so the require evaluates `0 >= positive` = false and reverts. The L1 burn has already executed and is not rolled back on L2 (separate chains, asynchronous message). Therefore every honest external Bean migrant loses their L1 Beans with no corresponding L2 issuance.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/migration/BeanL1RecieverFacet.sol",
+        "function": "recieveL1Beans",
+        "line_start": 22,
+        "line_end": 44
+      },
+      "impact": "Direct, permanent loss of all externally-held L1 Beans that attempt migration: L1 burn succeeds, the corresponding L2 mint always reverts because the migration cap is 0. No attacker is required; the migration path is fully bricked and every user who uses it loses funds. Critical under Immunefi v2.2 (permanent loss of user funds).",
+      "proof_of_concept": "Foundry steps:\n1. On the L1 side, give an EOA Bean balance and approval; call migrateL2Beans(reciever, L2Beanstalk, amount=1e6, gasLimit). Assert C.bean().balanceOf(user) decreased by amount (burn occurred).\n2. On the L2 side, impersonate BRIDGE (0x4200...0007) and mock xDomainMessageSender() == L1BEANSTALK, then call recieveL1Beans(reciever, 1e6).\n3. Assert the call reverts with 'L2Migration: exceeds maximum migrated' (require 0 >= 1e6 is false).\n4. Outcome: L1 Beans burned, L2 mint reverted -> net supply destroyed for the user. Assert reciever's L2 Bean balance == 0.",
+      "ite": {
+        "intent": "Re-issue externally-held L1 Beans on L2 up to the migratable supply",
+        "technique": "Migration cap constant left at 0 placeholder makes the post-increment require always fail",
+        "evasion": "No attacker; the bug self-triggers for every legitimate migrant because the L1 burn precedes and is independent of the always-reverting L2 mint"
+      },
+      "ice_chain": {
+        "corrupted_state": "control flow: require(0 >= migratedL1Beans) always reverts; user's L1 Beans already burned via burnFrom",
+        "consumer_found": true,
+        "consumer_function": "C.bean().mint(reciever, amount) is never reached",
+        "impact": "Burned L1 Beans with no L2 issuance -> direct, permanent fund loss and a fully DoS'd external migration path",
+        "exploit_path": "migrateL2Beans burns on L1 -> bridge relays recieveL1Beans on L2 -> migratedL1Beans += amount -> require(0 >= amount) reverts -> mint never executes"
+      },
+      "attack_surface_rank": 4,
+      "thread_refs": [
+        "T-005"
+      ],
+      "thread_note": "T-005: High (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACCESS-002",
+          "note": "score-3 invariant covers same state vars (s.sys.migration.migratedL1Beans); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "CC-003",
+      "title": "Migration Merkle leaf omits reciever, so any holder of the public L1 signature can redirect another contract's migration credit to an attacker-chosen L2 address",
+      "severity": "High",
+      "confidence": "High",
+      "description": "verifyDepositsAndInternalBalances() computes the Merkle leaf as keccak256(abi.encode(account, deposits, internalBalances, ownerRoots)) \u2014 it commits to the L1 owner and the asset data but NOT to reciever. reciever (the L2 destination of the credit) is bound only by the separate EIP-712 signature in verifySignature() over (owner, reciever, deadline). The signature is presented in the public L2 transaction calldata. Combined with CC-001's lack of replay protection, the (owner, reciever, deadline) tuple and signature are observable on-chain, and because the Merkle proof does not constrain reciever, the redeem function will accept any reciever for which a matching signature is presented. There is no on-chain link forcing reciever to equal the original migrant, so credit can be steered to an attacker address as part of a replay.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "verifyDepositsAndInternalBalances",
+        "line_start": 120,
+        "line_end": 150
+      },
+      "impact": "The migration deposit/stalk/roots credit for an L1 contract can be redirected to and/or duplicated at an attacker-chosen L2 address using the publicly visible signature, rather than only the originally intended reciever. Standalone this is an authorization-binding gap; combined with CC-001 it converts replay into attacker-controlled theft of migrated value. High (Critical when chained with CC-001).",
+      "proof_of_concept": "Foundry steps:\n1. Produce a valid (owner, reciever_legit, deadline, sig_legit) redeem and a valid proof; show the leaf = keccak256(account, deposits, internalBalances, ownerRoots) verifies independently of reciever (recompute leaf with a different reciever and show MerkleProof.verify still passes \u2014 reciever is not an input).\n2. Demonstrate that only the signature binds reciever; since the original sig is public, replay CC-001 with the same sig to credit reciever_legit, then show no mechanism prevents an attacker who also obtains a signature over their own reciever from claiming.\n3. Assert deposits/stalk land at the attacker reciever address.",
+      "ite": {
+        "intent": "Bind migration credit immutably to the intended L2 reciever",
+        "technique": "reciever excluded from the Merkle leaf; only a replayable signature binds it",
+        "evasion": "Use the on-chain-visible signature; the proof check imposes no constraint on reciever"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[reciever].deposits / .stalk / .roots credited to an address not committed by the proof",
+        "consumer_found": true,
+        "consumer_function": "silo deposit, stalk and roots consumers (withdraw, earned-Bean distribution, governance)",
+        "impact": "Migration credit redirection / duplication to attacker-controlled reciever",
+        "exploit_path": "obtain the public owner signature -> call redeem with an unbound reciever -> proof passes (reciever absent from leaf) -> credit lands at chosen reciever"
+      },
+      "attack_surface_rank": 5
+    },
+    {
+      "id": "CC-004",
+      "title": "L2 contract-migration writes zero global silo balances (totalDeposited/totalDepositedBdv declared but never incremented), desyncing protocol-wide silo accounting after migration",
+      "severity": "High",
+      "confidence": "High",
+      "description": "addMigratedDepositsToAccount() declares `uint128 totalDeposited` and `uint128 totalDepositedBdv` (lines 159-160) and never increments them inside the deposit loop (the loop only increments totalBdvForAccount and accountStalk). After the loop it assigns these still-zero locals to global state: `s.sys.silo.balances[depositData.token].deposited = totalDeposited;` and `.depositedBdv = totalDepositedBdv;` (lines 194-195). Each contract-migration call therefore overwrites the protocol-wide deposited/depositedBdv totals for the migrated token with 0, while simultaneously crediting per-account deposit entries. This breaks the core silo invariant total == sum(per-account deposits). Unlike ReseedSilo (which validates and sets these globals correctly), this permissionless post-migration path corrupts them.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "addMigratedDepositsToAccount",
+        "line_start": 152,
+        "line_end": 200
+      },
+      "impact": "Global s.sys.silo.balances[token].deposited/.depositedBdv are zeroed while per-account deposits exist. Downstream withdraw decrements the global total: with the global already 0 a legitimate withdraw underflows/reverts (freeze of migrated silo deposits) or, depending on the consuming math, value/BDV is misvalued enabling inflation. Because the totals are reset to 0 on every migration call, even a single legitimate redemption corrupts protocol-wide accounting for that token. High (temporary/permanent freeze of silo funds and accounting desync).",
+      "proof_of_concept": "Foundry steps:\n1. Pre-state: record s.sys.silo.balances[token].deposited / .depositedBdv via vm.load.\n2. Execute a valid redeemDepositsAndInternalBalances for an account with deposits in `token`.\n3. Assert s.sys.silo.balances[token].deposited == 0 and .depositedBdv == 0 post-call (overwritten), while s.accts[reciever].deposits[id].amount > 0 (per-account credited).\n4. Call SiloFacet.withdrawDeposit for a migrated deposit and assert revert/underflow on the global decrement (outcome layer).",
+      "ite": {
+        "intent": "Keep global silo balance equal to the sum of migrated deposits",
+        "technique": "Accumulator locals declared but never written, then assigned to global state, zeroing protocol-wide totals",
+        "evasion": "Permissionless migrant call; no guard recomputes the global total afterward"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.silo.balances[token].deposited and .depositedBdv (overwritten to 0)",
+        "consumer_found": true,
+        "consumer_function": "LibTokenSilo withdraw / LibConvert / BDV getters reading s.sys.silo.balances[token]",
+        "impact": "Accounting desync: withdrawal underflow / DoS (freeze) or value inflation",
+        "exploit_path": "redeemDepositsAndInternalBalances -> addMigratedDepositsToAccount writes 0 to global balances -> later withdraw/convert reads inconsistent totals -> underflow or mispricing"
+      },
+      "attack_surface_rank": 4
+    },
+    {
+      "id": "CC-005",
+      "title": "Migration EIP-712 domain separator hardcodes L1 chainId and lacks any per-message nonce or destination-L2 binding, enabling cross-deployment/multi-L2 signature reuse",
+      "severity": "Medium",
+      "confidence": "Medium",
+      "description": "The migration permit is signed on L1 and verified on L2. _domainSeparatorV4() builds the domain with C.getLegacyChainId() (a hardcoded constant = 1, Ethereum mainnet) and address(this). The struct hash covers only (owner, reciever, deadline) \u2014 there is no nonce and no field identifying the specific destination L2 / L2 Beanstalk deployment. Consequently a single owner signature is valid on any L2 deployment whose migration facet shares the same address(this) and the same hardcoded legacy chainId domain, and it carries no monotonically increasing nonce to bound reuse. This is the cross-chain authorization-scoping weakness underlying CC-001/CC-003: the permit is not scoped to a single chain/deployment nor to a single use. If Beanstalk migrates to (or redeploys on) more than one L2, or the diamond address is deterministic across L2s, the same signature is replayable across each.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "_domainSeparatorV4",
+        "line_start": 136,
+        "line_end": 241
+      },
+      "impact": "Cross-deployment / multi-L2 replay of a single migration signature and absence of a nonce that would otherwise bound CC-001. On a single-L2 deployment the practical impact is subsumed by CC-001; the standalone severity (signature not scoped to destination chain + no nonce) is Medium. The hardcoded legacy chainId also means the domain does not reflect the actual L2, so any future chainId-based replay protection is absent.",
+      "proof_of_concept": "Steps:\n1. Show _domainSeparatorV4 uses getLegacyChainId() == 1 and address(this); compute the domain on two L2 deployments sharing the diamond address and show they are identical.\n2. Show the struct hash has no nonce field; produce one signature and demonstrate verifySignature accepts it on each deployment.\n3. Combined with CC-001 (no spent marker), demonstrate the same signature credits multiple deployments / multiple times.",
+      "ite": {
+        "intent": "Scope each migration permit to exactly one chain, one deployment, and one use",
+        "technique": "Domain uses a hardcoded legacy chainId and address(this); struct hash omits nonce and destination-L2 identifier",
+        "evasion": "Reuse the same signature across deployments / repeatedly because nothing in the signed payload binds chain or usage count"
+      },
+      "ice_chain": {
+        "corrupted_state": "authorization scope: a single signature is valid across deployments and reusable",
+        "consumer_found": true,
+        "consumer_function": "verifySignature -> redeemDepositsAndInternalBalances credit path",
+        "impact": "Cross-L2 / repeated acceptance of one signature -> amplifies CC-001 replay and CC-003 redirection",
+        "exploit_path": "obtain one L1 signature -> present it on any matching deployment / repeatedly -> verifySignature passes each time (no nonce, no destination binding)"
+      },
+      "attack_surface_rank": 4
+    },
+    {
+      "id": "CC-006",
+      "title": "Contract-owned deposits can be double-credited across the two L1->L2 migration paths (ReseedSilo bulk reseed and L2ContractMigrationFacet redemption) with no shared spent-set",
+      "severity": "Medium",
+      "confidence": "Medium",
+      "description": "Beanstalk migrates silo deposits to L2 via two independent paths that write the same s.accts[...].deposits / stalk storage: (1) ReseedSilo.init(), the bulk reseed run during the upgrade, which re-issues every snapshotted account's deposits and stalk; and (2) L2ContractMigrationFacet.redeemDepositsAndInternalBalances(), the permissionless path for contract-owned L1 accounts that re-issues deposits to an L2 reciever. Neither path records, nor checks against, the other's set of migrated accounts/leaves. If an L1 contract's deposits are included in the ReseedSilo snapshot AND that contract also redeems via L2ContractMigrationFacet (which uses += for stalk/roots), the deposits and stalk are credited twice. The two paths are reconciled only by the off-chain assumption that contract accounts are excluded from the ReseedSilo snapshot \u2014 an assumption not enforced on-chain. This is the cross-path/cross-chain double-mint surface for migrated balances.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "redeemDepositsAndInternalBalances",
+        "line_start": 88,
+        "line_end": 114
+      },
+      "impact": "If any L1 contract account is present in both migration sets, its deposits and stalk/roots are issued twice on L2 (unbacked double-credit), inflating that account's silo position and governance weight. Severity bounded to Medium because it depends on the off-chain snapshot composition (whether contract accounts are excluded from ReseedSilo); confidence Medium because the on-chain code does not enforce the exclusion and the deposit-id keys collide deterministically. Escalates toward Critical if the snapshot includes contract accounts.",
+      "proof_of_concept": "Steps:\n1. Reseed an account A (a contract on L1) via ReseedSilo for token T; record s.accts[A].deposits[id].amount and .stalk.\n2. Redeem the same account's deposits via L2ContractMigrationFacet to reciever == A; note setStalk uses += and deposit writes overwrite-or-add the same depositId.\n3. Assert stalk == reseed_stalk + redeem_stalk (double-counted) while only one economic backing exists; confirm no spent-set blocks the second path.",
+      "ite": {
+        "intent": "Migrate each L1 account's deposits to L2 exactly once across all migration paths",
+        "technique": "Two independent write paths (bulk reseed + per-contract redeem) with no shared migrated-account/leaf registry; redeem uses += for stalk/roots",
+        "evasion": "Rely on the off-chain snapshot to exclude contract accounts; nothing on-chain enforces or checks this"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[account].deposits and .stalk/.roots credited by both ReseedSilo and L2ContractMigrationFacet",
+        "consumer_found": true,
+        "consumer_function": "earned-Bean distribution and governance weight reads of s.accts[].stalk/.roots; silo withdraw reads deposits",
+        "impact": "Double-credited deposits/stalk -> unbacked silo position and inflated governance weight",
+        "exploit_path": "account included in ReseedSilo snapshot -> same account redeems via L2ContractMigrationFacet -> both paths write the same storage with no dedupe -> position credited twice"
+      },
+      "attack_surface_rank": 4,
+      "thread_refs": [
+        "T-003"
+      ],
+      "thread_note": "T-003: High (score=?) \u2014 "
+    }
+  ]
+}

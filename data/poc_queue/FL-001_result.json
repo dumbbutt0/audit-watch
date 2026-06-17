@@ -1,0 +1,13 @@
+{
+  "finding_id": "FL-001",
+  "status": "proved",
+  "test_file": "pocs/foundry/test/FL001_VirtualPriceOracle.t.sol",
+  "run_command": "forge test --root pocs/foundry --match-contract FL001_VirtualPriceOracle_PoC -vvv",
+  "stdout_excerpt": "Ran 4 tests for test/FL001_VirtualPriceOracle.t.sol:FL001_VirtualPriceOracle_PoC\n[PASS] test_baseline_check_balance_at_fair_price() (gas: 25459)\n[PASS] test_poc_fl001_fix_reference_time_averaged_price() (gas: 21376)\n[PASS] test_poc_fl001_imbalanced_deposit_inflates_check_balance() (gas: 36948)\n[PASS] test_poc_fl001_tvm_overstatement_magnitude() (gas: 53492)\nSuite result: ok. 4 passed; 0 failed; 0 skipped",
+  "stderr_excerpt": "",
+  "assertion_hit": true,
+  "repair_attempts": 0,
+  "evidence_summary": "The test `test_poc_fl001_imbalanced_deposit_inflates_check_balance` demonstrates that a large one-sided deposit into the Curve OETH/WETH pool inflates `get_virtual_price()`, causing `checkBalance()` to overstate the strategy's TVL. After adding 500 WETH in a single imbalanced deposit, the virtual price rises from 1.000 to ~1.004 (a ~0.4% increase), and checkBalance overstates TVL by the corresponding amount proportional to the strategy's LP holdings. `test_poc_fl001_tvm_overstatement_magnitude` confirms that 10 sequential 100 WETH imbalanced deposits produce >10 BPS TVL overstatement. `test_poc_fl001_fix_reference_time_averaged_price` shows that the actual virtual_price increase (~0.4% = ~40 BPS) exceeds a 0.3% circuit-breaker threshold, confirming a TWAP or circuit breaker would detect and prevent the manipulation.",
+  "next_steps": [],
+  "generated_at": "2026-05-13T22:00:00.000000+00:00"
+}

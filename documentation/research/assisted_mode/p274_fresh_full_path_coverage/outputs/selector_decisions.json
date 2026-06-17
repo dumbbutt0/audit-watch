@@ -1,0 +1,134 @@
+{
+  "module": "mechanism_pairwise_selector",
+  "generated_at": "2026-06-09T17:47:17.555595+00:00",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "emits_findings": false,
+  "concludes_vulnerability": false,
+  "output_type": "advisory_selector_decisions",
+  "guard_violations": 0,
+  "decision_count": 3,
+  "decisions": [
+    {
+      "pair_id": "distribute_tranche_split|pool_redeem_rounding",
+      "M1": {
+        "id": "distribute_tranche_split",
+        "label": "LiquidationDistributor.distribute mis-splits liquidation proceeds across tranches (seniority/excess pro-rata)",
+        "terminal_impact": 9,
+        "validity": 7,
+        "plausible": true,
+        "poc_feasibility": "hard"
+      },
+      "M2": {
+        "id": "pool_redeem_rounding",
+        "label": "Pool.redeem/withdraw share rounding dust",
+        "terminal_impact": 2,
+        "validity": 4,
+        "plausible": true,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 7,
+      "anti_easy_poc_flag": true,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "terminal_impact_dominance",
+        "both plausible -> protect high-impact before PoC",
+        "anti_easy_poc_bias: lower-impact rival is easier to PoC -> do not drop high-impact"
+      ],
+      "uncertainty": [],
+      "falsification_questions": [
+        "Does sum of per-tranche payouts equal _proceeds and respect seniority in both excess and insufficient branches?",
+        "Is the rounding direction favorable to the pool (solmate previewWithdraw rounds up / previewRedeem rounds down)?"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "pair_0"
+    },
+    {
+      "pair_id": "offer_validation|mergeTranches_grief",
+      "M1": {
+        "id": "offer_validation",
+        "label": "MultiSourceLoan._processOffersFromExecutionData accepts mismatched/under-validated offer terms",
+        "terminal_impact": 9,
+        "validity": 8,
+        "plausible": true,
+        "poc_feasibility": "hard"
+      },
+      "M2": {
+        "id": "mergeTranches_grief",
+        "label": "MultiSourceLoan.mergeTranches griefing on tranche consolidation",
+        "terminal_impact": 3,
+        "validity": 3,
+        "plausible": true,
+        "poc_feasibility": "moderate"
+      },
+      "impact_gap": 6,
+      "anti_easy_poc_flag": true,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "terminal_impact_dominance",
+        "both plausible -> protect high-impact before PoC",
+        "anti_easy_poc_bias: lower-impact rival is easier to PoC -> do not drop high-impact"
+      ],
+      "uncertainty": [],
+      "falsification_questions": [
+        "Is every offer field (principal, apr, fee, capacity, expiry, signer) bound and validated against the executed loan?",
+        "Can a non-owning party force a merge that changes economics, or is it borrower/lender-gated?"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "pair_1"
+    },
+    {
+      "pair_id": "settleWithBuyout_auth|withdrawalqueue_liveness",
+      "M1": {
+        "id": "settleWithBuyout_auth",
+        "label": "AuctionWithBuyoutLoanLiquidator.settleWithBuyout main-lender buyout authorization/timing/hash binding",
+        "terminal_impact": 9,
+        "validity": 6,
+        "plausible": true,
+        "poc_feasibility": "hard"
+      },
+      "M2": {
+        "id": "withdrawalqueue_liveness",
+        "label": "Pool/WithdrawalQueue withdrawal-queue rotation can strand or block claims (liveness)",
+        "terminal_impact": 9,
+        "validity": 4,
+        "plausible": true,
+        "poc_feasibility": "moderate"
+      },
+      "impact_gap": 0,
+      "anti_easy_poc_flag": false,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "near-equal impact, both plausible -> keep both"
+      ],
+      "uncertainty": [
+        "terminal-impact gap below min_gap; decision is low-confidence"
+      ],
+      "falsification_questions": [
+        "Is the auction/loan struct bound by hash and is the buyout window/main-lender check non-bypassable?",
+        "Can the queue index rotation skip a non-empty queue so funds are never claimable?"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "pair_2"
+    }
+  ]
+}

@@ -1,0 +1,174 @@
+{
+  "module": "mechanism_pairwise_selector",
+  "generated_at": "2026-06-09T17:04:40.424045+00:00",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "emits_findings": false,
+  "concludes_vulnerability": false,
+  "output_type": "advisory_selector_decisions",
+  "guard_violations": 0,
+  "decision_count": 4,
+  "decisions": [
+    {
+      "pair_id": "liq_incentive_cap_order|liq_incentive_revert",
+      "M1": {
+        "id": "liq_incentive_cap_order",
+        "label": "LiqIncentiveCalculator.getLiqIncentiveMultiplier_e18 applies min-floor AFTER max-cap (Math.max(min(...,max),min[mode])); misconfigured/edge min>max -> over-incentive multiplier -> liquidator over-seizes collateral",
+        "terminal_impact": 6,
+        "validity": 8,
+        "plausible": true,
+        "poc_feasibility": "moderate"
+      },
+      "M2": {
+        "id": "liq_incentive_revert",
+        "label": "liquidate reverts on edge health input",
+        "terminal_impact": 3,
+        "validity": 3,
+        "plausible": true,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 3,
+      "anti_easy_poc_flag": true,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "terminal_impact_dominance",
+        "both plausible -> protect high-impact before PoC",
+        "anti_easy_poc_bias: lower-impact rival is easier to PoC -> do not drop high-impact"
+      ],
+      "uncertainty": [],
+      "falsification_questions": [
+        "min is always <= max by config invariant",
+        "input validated upstream"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "L1_liq_incentive"
+    },
+    {
+      "pair_id": "health_zero_unliquidatable|health_zero_event",
+      "M1": {
+        "id": "health_zero_unliquidatable",
+        "label": "InitCore.liquidate: health_e18==0 (underwater) -> getLiqIncentiveMultiplier returns 0 -> repayAmtWithLiqIncentive=0 -> no collateral seized + post-liq health check bypassed -> underwater positions cannot be liquidated / bad debt unrecoverable",
+        "terminal_impact": 6,
+        "validity": 8,
+        "plausible": true,
+        "poc_feasibility": "heavy"
+      },
+      "M2": {
+        "id": "health_zero_event",
+        "label": "health==0 emits a misleading event",
+        "terminal_impact": 3,
+        "validity": 3,
+        "plausible": true,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 3,
+      "anti_easy_poc_flag": true,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "terminal_impact_dominance",
+        "both plausible -> protect high-impact before PoC",
+        "anti_easy_poc_bias: lower-impact rival is easier to PoC -> do not drop high-impact"
+      ],
+      "uncertainty": [],
+      "falsification_questions": [
+        "a separate bad-debt socialization path handles health==0 positions",
+        "no value effect"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "L2_health_zero_baddebt"
+    },
+    {
+      "pair_id": "coll_credit_miscalc|coll_credit_dust",
+      "M1": {
+        "id": "coll_credit_miscalc",
+        "label": "InitCore.getCollateralCreditCurrent_e36 collateral-credit/health miscalc enabling over-borrow or under-liquidation",
+        "terminal_impact": 12,
+        "validity": 8,
+        "plausible": true,
+        "poc_feasibility": "heavy"
+      },
+      "M2": {
+        "id": "coll_credit_dust",
+        "label": "collateral-credit rounding dust",
+        "terminal_impact": 1,
+        "validity": 3,
+        "plausible": true,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 11,
+      "anti_easy_poc_flag": true,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "terminal_impact_dominance",
+        "both plausible -> protect high-impact before PoC",
+        "anti_easy_poc_bias: lower-impact rival is easier to PoC -> do not drop high-impact"
+      ],
+      "uncertainty": [],
+      "falsification_questions": [
+        "risk manager bounds the credit correctly",
+        "rounding favors protocol"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "L3_collateral_credit"
+    },
+    {
+      "pair_id": "harvest_drama|harvest_benign",
+      "M1": {
+        "id": "harvest_drama",
+        "label": "PosManager.harvest reward manipulation (claimed systemic) but unsupported",
+        "terminal_impact": 12,
+        "validity": -4,
+        "plausible": false,
+        "poc_feasibility": "easy"
+      },
+      "M2": {
+        "id": "harvest_benign",
+        "label": "harvest benign",
+        "terminal_impact": 3,
+        "validity": -5,
+        "plausible": false,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 9,
+      "anti_easy_poc_flag": false,
+      "outcome": "REFUTE_M1_FIRST",
+      "decisive_dimensions": [
+        "terminal_impact(high) but refuted -> refute before trusting"
+      ],
+      "uncertainty": [
+        "at least one mechanism is refuted/unreachable as scored"
+      ],
+      "falsification_questions": [
+        "harvest is access-controlled / no value path",
+        "n/a"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "Lneg_harvest"
+    }
+  ]
+}

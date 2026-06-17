@@ -1,0 +1,19 @@
+{
+  "finding_id": "FL-002",
+  "title": "Curve get_virtual_price used for slippage oracle in deposits and withdrawals is manipulation-weakened",
+  "bug_class": "read_only_reentrancy_oracle",
+  "claimed_severity": "medium",
+  "contract": "BaseCurveAMOStrategy",
+  "function": "_deposit, mintAndAddOTokens, _withdrawAndRemoveFromPool",
+  "location": {
+    "file": "contracts/origin/origin-dollar/contracts/contracts/strategies/BaseCurveAMOStrategy.sol",
+    "function": "_deposit",
+    "line_start": 229,
+    "line_end": 233,
+    "code_snippet": "uint256 valueInLpTokens = (_wethAmount + oethToAdd).divPrecisely(curvePool.get_virtual_price());\nuint256 minMintAmount = valueInLpTokens.mulTruncate(uint256(1e18) - maxSlippage);"
+  },
+  "root_cause": "get_virtual_price() is used as the price oracle for computing minMintAmount (deposit slippage guard) and minAmount (withdrawal slippage guard). When virtual_price is inflated by an imbalanced deposit attack, the deposit minMintAmount shrinks (weaker protection), and the withdrawal minAmount grows (potential DoS). This allows an MEV bot to sandwich strategy deposits and extract value below the nominal maxSlippage bound.",
+  "impact": "Deposit slippage protection is weakened proportional to the virtual_price inflation; attacker can front-run deposits to receive more LP tokens than fair value while protocol receives fewer. Inflated virtual_price also raises minAmount for withdrawals, potentially causing withdrawal reverts.",
+  "fix": "Use calc_token_amount([amounts], true) as the primary slippage reference for deposits, and calc_withdraw_one_coin(_lpTokens, coinIndex) for withdrawals, both of which account for actual pool state rather than the manipulable virtual_price.",
+  "immunefi_v22_severity": "medium"
+}

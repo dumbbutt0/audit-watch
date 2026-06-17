@@ -1,0 +1,28 @@
+{
+  "version": "bridge-recall-v1",
+  "description": "Phase-21 RESEARCH-ONLY sampler-recall OVERLAY for bridge / router / cross-chain callback entrypoints. NOT the production sampler config: read ONLY by scripts/bridge_recall_sample.py (un-wired). Closes the Phase-20 Decent gap where score-5 callback entrypoints (UTB.receiveFromBridge, StargateBridgeAdapter.sgReceive) were never queued because no semantic_surface_patterns.json name_regex carried bridge-callback vocabulary. Inclusion requires TWO independent signals (name + trust-boundary/context); single-signal matches are refused. Generic verbs (handle/execute/dispatch/finalize/redeem/process/bridge/send) need STRONG context. The category generalizes by bridge-callback STRUCTURE, not just the example names.",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "min_score": 0,
+  "must_include_for_scheduler": true,
+
+  "callback_names_strong": "receivefrombridge|sgreceive|lzreceive|lzcompose|ccipreceive|xreceive|anyexecute|executemessage|receivemessage|processmessage|processpayload|completetransfer|finalizebridge|handlereceive|onmessagereceived|onossmessage|receivewormholemessages|_lzreceive|nonblockinglzreceive",
+  "callback_names_generic": "handle|execute|dispatch|finalize|redeem|process|bridge|send|deliver|relay|fulfill",
+
+  "entrypoint_visibility": ["external", "public"],
+
+  "param_context_regex": "bytes\\s+\\w*\\s*(memory|calldata)?\\s*(payload|message|data|_payload|_message|composemsg)|src[_ ]?chain|source[_ ]?chain|origin[_ ]?chain|_srcaddress|sourceaddress|\\borigin\\b|\\bnonce\\b|amountld|composemsg|composemessage|\\bguid\\b|dstchainid|_dstchainid|srcchainid|_srcchainid",
+
+  "protocol_terms": ["layerzero", "stargate", "axelar", "wormhole", "cctp", "hyperlane", "ccip", "connext", "across", "socket", "lifi", "endpoint", "trustedremote", "lzapp", "oapp", "ioapp", "ilayerzero", "istargatereceiver", "ccipreceiver", "iaxelar", "imessagerecipient", "messagerecipient", "gateway", "router", "adapter", "relayer"],
+
+  "interface_name_regex": "receiver|recipient|oapp|lzapp|gateway|adapter|messagehandler|endpoint|bridge|crosschain",
+
+  "_notes": {
+    "name_signal": "strong = callback_names_strong (explicit cross-chain callback); generic = callback_names_generic (counts ONLY with strong context); structural = no name match but contract is a receiver/adapter/gateway AND a payload/srcchain param is present.",
+    "context_signal": "any of: payload/message/src-chain param (param_context_regex); a protocol_term or bridge primary term in contract/signature/body; the contract name matching interface_name_regex or an override of a known receiver. visibility MUST be external|public.",
+    "inclusion": "include iff visibility in entrypoint_visibility AND name_signal(strong|structural) AND context_signal>=1. generic name => require STRONG context (param signal AND (protocol/interface signal)). single signal => REFUSED.",
+    "reuse": "scripts/bridge_terms.PRIMARY_BRIDGE_TERMS supplies additional FP-tuned cross-chain context terms."
+  }
+}

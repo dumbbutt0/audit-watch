@@ -1,0 +1,49 @@
+{
+  "queue": "p268_isolated_poc_queue",
+  "note": "Isolated PoC queue. Accepts ONLY ADVISORY_RECALL_CANDIDATE records. No canonical/triage/poc_queue.jsonl touch. No severity/reportable/submission authority. Each candidate carries a B/C top-2 PAIR fed to the frozen P267 selector.",
+  "is_gate": false, "research_only": true, "routes_in_production": false,
+  "emits_findings": false, "concludes_vulnerability": false,
+  "source_feed_hash": "0bfb52b70571c7cf",
+  "selected": [
+    {
+      "candidate_id": "C1",
+      "advisory_locus": "Vault.finishRedeem / startRedeem (redeem subsystem)",
+      "recall_class": "RECALL_DELTA",
+      "prioritizer_rank": 9,
+      "role": "primary recall-delta; high-impact-vs-easy PAIR (the P266 trap reproduced)",
+      "bc_pair": {
+        "M1_high": "permissionless finishRedeem + finish-time spot convertToAssets (totalAssets=balanceOf, no virtual-share offset) lets a queued withdrawer's payout be manipulated (donation/withdrawal-accounting) or value stranded; HIGH impact, harder PoC",
+        "M2_easy": "startRedeem uses this.transferFrom(msg.sender,...) requiring allowance[staker][vault]; without self-approval it reverts -> a UX/griefing revert; LOW impact, trivial PoC"
+      },
+      "falsifier": "M1: virtual shares / a snapshot rate at startRedeem neutralizes finish-time manipulation. M2: the vault auto-approves or solady treats self-transfer specially."
+    },
+    {
+      "candidate_id": "C2",
+      "advisory_locus": "Vault.mint / deposit (ERC4626 share accounting)",
+      "recall_class": "RECALL_DELTA",
+      "prioritizer_rank": 5,
+      "role": "secondary recall-delta; high-impact-vs-easy PAIR",
+      "bc_pair": {
+        "M1_high": "first-depositor share-inflation: Vault is solady ERC4626 with no _decimalsOffset override and totalAssets=asset.balanceOf(this); attacker mints 1 wei share then donates assets to inflate share price so a victim deposit rounds to 0 shares -> theft; HIGH impact",
+        "M2_easy": "tiny-deposit zero-share rounding: deposit of dust mints 0 shares (ZeroAmount guards 0 assets but not 0-share rounding); LOW impact, easy to show"
+      },
+      "falsifier": "M1: solady default _useVirtualShares()=true neutralizes inflation, OR the minSharesOut overload is the only intended deposit path. M2: rounding favors the vault harmlessly."
+    },
+    {
+      "candidate_id": "C-neg",
+      "advisory_locus": "SlasherLib.requestSlashing",
+      "recall_class": "narrow",
+      "prioritizer_rank": 4,
+      "role": "negative control",
+      "bc_pair": {
+        "M1_high": "slashing request manipulates vault accounting",
+        "M2_easy": "requestSlashing is Core/operator-gated (privileged) -> no permissionless attacker path"
+      },
+      "falsifier": "EXPECTED BENIGN: slashing entry points are access-controlled by Core; no unprivileged exploit -> control to confirm the path does not manufacture a finding."
+    }
+  ],
+  "skipped_high_ranked": [
+    {"locus": "NativeVault.validateWithdrawalCredentials/finishWithdrawal (narrow #0/#1)", "why_skipped": "native-ETH beacon-restaking flow depends on beacon-chain proof fixtures (BeaconProofs/Merkle) -> heavy PoC harness; deferred to keep the first selector-in-loop run on the self-contained ERC20 Vault subsystem."},
+    {"locus": "BeaconProofs/Merkle verifiers (delta, T6)", "why_skipped": "proof-verification math; needs beacon fixtures; out of focused scope."}
+  ]
+}

@@ -1,0 +1,768 @@
+{
+  "_meta": {
+    "phase": "P202",
+    "corpus": "decent-2024-01-holdout",
+    "calibrated_by": "fresh_firewall_subagent",
+    "note": "answer-key-blind mechanism-level calibration; reject-first rubric applied independently per mechanism"
+  },
+  "calibration": [
+    {
+      "id": "decent-01",
+      "blind_verdict": "CRITICAL_THREAD",
+      "mechanisms": [
+        {
+          "desc": "receiveFromBridge public with no access-control — permissionless arbitrary execution via UTB",
+          "class": "E",
+          "label": "HIGH_CONFIRMED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: source shows public function with no modifier, no allowlist, no msg.sender check",
+            "public_entry": "receiveFromBridge() — directly callable by any EOA",
+            "permissionless_reachability": "Fully permissionless; no role or capital prerequisite",
+            "asset_value_path": "Attacker controls swapInstructions, target, paymentOperator, payload, refund — drains UTB-held or in-flight tokens",
+            "actor_permissions": "None required",
+            "trusted_prerequisite": "None",
+            "loss_magnitude": "Proportional to UTB held balances and in-flight bridge funds — not dust",
+            "permanence": "Tokens drained permanently on each exploit call",
+            "blast_radius": "All tokens held or approved to UTB at settlement time; bridge receipt integrity",
+            "timing_config_dependency": "No timing dependency; exploitable any time UTB holds funds",
+            "exploit_executability": "Single EOA transaction; end-to-end trace complete from source",
+            "harness_requirement": "None for the access-control gap itself; outcome confirmed from source"
+          },
+          "rationale": "Completely unguarded public function intended only for trusted bridge adapters; permissionless, direct token-drain path proven from source."
+        },
+        {
+          "desc": "Fee bypass via feeCollector == address(0) — swapAndExecute executes with zero fees",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: fee block entirely inside if(feeCollector != address(0)); no enforcement when unset",
+            "public_entry": "swapAndExecute() — public",
+            "permissionless_reachability": "Permissionless when feeCollector is address(0)",
+            "asset_value_path": "Protocol fee revenue only — no user asset theft, no fund drain",
+            "actor_permissions": "None required when feeCollector unset",
+            "trusted_prerequisite": "Requires feeCollector to be unset (deployment or owner zeroing it)",
+            "loss_magnitude": "Bounded to fee revenue; no capital loss for users",
+            "permanence": "Ongoing until feeCollector set; reversible by admin",
+            "blast_radius": "Protocol fee revenue; no LP or user funds at risk",
+            "timing_config_dependency": "Dependent on feeCollector configuration state",
+            "exploit_executability": "Executable but produces only fee evasion, not fund theft",
+            "harness_requirement": "None for feasibility; magnitude capped at foregone fees"
+          },
+          "rationale": "DoS/revenue-bypass class; no direct user fund theft; magnitude bounded to fee revenue; admin-reversible."
+        }
+      ],
+      "summary_label": "HIGH_CONFIRMED"
+    },
+    {
+      "id": "decent-02",
+      "blind_verdict": "CRITICAL_THREAD",
+      "mechanisms": [
+        {
+          "desc": "receiveFromBridge public with no access-control — permissionless arbitrary execution via UTB (second surface)",
+          "class": "E",
+          "label": "HIGH_CONFIRMED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: public function, no onlyOwner, no bridgeAdapter whitelist, no msg.sender check",
+            "public_entry": "receiveFromBridge() — directly callable by any EOA",
+            "permissionless_reachability": "Fully permissionless",
+            "asset_value_path": "Attacker supplies postBridge, target=attacker, paymentOperator=attacker, payload; drains UTB in-flight tokens",
+            "actor_permissions": "None",
+            "trusted_prerequisite": "None",
+            "loss_magnitude": "In-flight user funds held by UTB; not dust",
+            "permanence": "Permanent loss per exploit call",
+            "blast_radius": "All users whose tokens transit UTB; protocol integrity",
+            "timing_config_dependency": "None",
+            "exploit_executability": "Single EOA transaction; end-to-end trace in source",
+            "harness_requirement": "None"
+          },
+          "rationale": "Same root cause as decent-01 M1; confirmed from source; no guard whatsoever on bridge-completion entry point."
+        },
+        {
+          "desc": "Zero-fee bypass via feeAmount=0, feeToken=address(0) with valid zero-fee signature",
+          "class": "D",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Plausible: modifier does not enforce minimum fee; zero-value path exists",
+            "public_entry": "bridgeAndExecute() — public",
+            "permissionless_reachability": "Permissionless if feeCollector accepts zero-fee signature",
+            "asset_value_path": "Protocol fee revenue only; no user fund theft",
+            "actor_permissions": "None beyond valid signature",
+            "trusted_prerequisite": "Requires feeCollector to accept a zero-fee signature — depends on off-chain signing logic not in scope",
+            "loss_magnitude": "Bounded to foregone fees",
+            "permanence": "Ongoing until signing policy changed",
+            "blast_radius": "Protocol fee revenue only",
+            "timing_config_dependency": "Depends on off-chain signature issuance policy",
+            "exploit_executability": "Conditional on feeCollector signature acceptance (unseen code)",
+            "harness_requirement": "feeCollector implementation needed to confirm zero-fee signature acceptance"
+          },
+          "rationale": "Exploitability depends on unseen feeCollector signing logic; magnitude bounded to fees regardless."
+        }
+      ],
+      "summary_label": "HIGH_CONFIRMED"
+    },
+    {
+      "id": "decent-03",
+      "blind_verdict": "CRITICAL_THREAD",
+      "mechanisms": [
+        {
+          "desc": "receiveFromBridge public with no access-control — permissionless arbitrary execution via UTB (third surface)",
+          "class": "E",
+          "label": "HIGH_CONFIRMED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed from source: public, no modifier, no whitelist",
+            "public_entry": "receiveFromBridge() — directly callable by any EOA",
+            "permissionless_reachability": "Fully permissionless",
+            "asset_value_path": "Attacker drains UTB-held/approved tokens; redirects swap output and refunds",
+            "actor_permissions": "None",
+            "trusted_prerequisite": "None",
+            "loss_magnitude": "All in-transit user tokens; bridge integrity",
+            "permanence": "Per-call permanent loss",
+            "blast_radius": "All UTB users; in-flight bridge funds",
+            "timing_config_dependency": "None",
+            "exploit_executability": "Single EOA transaction; confirmed from source",
+            "harness_requirement": "None"
+          },
+          "rationale": "Identical root cause confirmed from source; permissionless, direct fund-drain via unguarded bridge-completion callback."
+        },
+        {
+          "desc": "Arbitrary execution using UTB as msg.sender — impersonates UTB in external protocols via attacker-controlled target/payload",
+          "class": "E",
+          "label": "HIGH_CONFIRMED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: _swapAndExecute passes attacker-controlled target and payload to executor.execute with no sanitization",
+            "public_entry": "receiveFromBridge() — permissionless entry point also enables this",
+            "permissionless_reachability": "Permissionless (via unguarded receiveFromBridge)",
+            "asset_value_path": "Any token or permission UTB holds at any contract trusting UTB as caller; not bounded",
+            "actor_permissions": "None",
+            "trusted_prerequisite": "None; victim is any contract that grants UTB permissions",
+            "loss_magnitude": "Potentially all tokens approved to UTB by any protocol; high magnitude",
+            "permanence": "Per-call loss; permanent if victim contract loses state",
+            "blast_radius": "All external protocols trusting UTB; any token holder who approved UTB",
+            "timing_config_dependency": "None",
+            "exploit_executability": "Executable whenever UTB has external approvals; end-to-end trace from source",
+            "harness_requirement": "Executor implementation not in scope; magnitude depends on executor's whitelist (NEEDS_HARNESS for executor), but the UTB-identity impersonation via arbitrary target is independently proven"
+          },
+          "rationale": "Distinct escalation: attacker impersonates UTB to call any contract; permissionless via receiveFromBridge; material magnitude."
+        }
+      ],
+      "summary_label": "HIGH_CONFIRMED"
+    },
+    {
+      "id": "decent-04",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "desc": "Native ETH permanently stuck when refund.call result discarded and refund address is a reverting contract",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: (refund.call{value:amount}('')) with discarded return; no revert on failure",
+            "public_entry": "execute() — onlyOwner (UTB is owner); not directly permissionless",
+            "permissionless_reachability": "Indirect: user controls refund address through UTB upstream call",
+            "asset_value_path": "ETH locked in UTBExecutor — not stolen, locked",
+            "actor_permissions": "Attacker controls refund address via upstream UTB call",
+            "trusted_prerequisite": "Requires UTB to route the call (UTB itself is the owner of executor)",
+            "loss_magnitude": "Full tx value of ETH stuck; not dust for individual txns",
+            "permanence": "Permanent per occurrence; no recovery path shown",
+            "blast_radius": "Individual user transactions; not protocol-wide",
+            "timing_config_dependency": "None",
+            "exploit_executability": "DoS/griefing; no attacker profit; ETH locked not stolen",
+            "harness_requirement": "None for feasibility; outcome is permanent lock not theft"
+          },
+          "rationale": "DoS class D: ETH locked permanently but not stolen; no attacker profit; griefing via reverting refund address."
+        },
+        {
+          "desc": "ERC20 drain via unvalidated paymentOperator approval — approve never reset, paymentOperator drains tokens",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: approve(paymentOperator, amount) with no reset; paymentOperator user-supplied through UTB",
+            "public_entry": "execute() — onlyOwner (UTB); not directly callable by attacker",
+            "permissionless_reachability": "Depends on UTB passing attacker-controlled paymentOperator (via receiveFromBridge if unguarded)",
+            "asset_value_path": "ERC20 tokens equal to amount — real asset drain if attacker controls paymentOperator",
+            "actor_permissions": "Requires UTB to route call with attacker paymentOperator; UTB receiveFromBridge is unguarded making this compound-exploitable",
+            "trusted_prerequisite": "Requires UTB's unguarded receiveFromBridge to forward attacker paymentOperator; not standalone",
+            "loss_magnitude": "Full approved amount — material",
+            "permanence": "Permanent drain of approved tokens",
+            "blast_radius": "Users whose ERC20s transit execute() with attacker paymentOperator",
+            "timing_config_dependency": "Requires UTB to pass attacker-controlled paymentOperator",
+            "exploit_executability": "Compound exploit requiring UTB upstream vulnerability; not standalone from this contract alone",
+            "harness_requirement": "Needs UTB source confirmation that attacker-controlled paymentOperator flows through to execute()"
+          },
+          "rationale": "Material if compound exploit via UTB; standalone UTBExecutor has onlyOwner gate; severity depends on upstream UTB behavior."
+        },
+        {
+          "desc": "Persistent ERC20 approval not reset — residual allowance exploitable in subsequent transactions",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: approve(paymentOperator, amount) never reset to zero",
+            "public_entry": "execute() — onlyOwner; not directly exploitable",
+            "permissionless_reachability": "Requires executor to hold residual token balance in a later transaction",
+            "asset_value_path": "Residual token balance in executor across transactions",
+            "actor_permissions": "paymentOperator must be attacker-controlled",
+            "trusted_prerequisite": "Requires UTB upstream to forward attacker paymentOperator across multiple calls",
+            "loss_magnitude": "Residual balance — potentially material but depends on executor balance between txns",
+            "permanence": "Permanent drain if exploited",
+            "blast_radius": "Future users transiting executor",
+            "timing_config_dependency": "Requires executor to hold balance between transactions (cross-tx timing)",
+            "exploit_executability": "Cross-transaction window; needs executor balance residual (NEEDS_HARNESS)",
+            "harness_requirement": "Needs confirmation executor holds residual token balance between transactions"
+          },
+          "rationale": "Cross-transaction residual allowance; depends on executor holding balance between calls; harness needed for magnitude confirmation."
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "decent-05",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "desc": "fees/packedInfo decoupled — signature authenticates packedInfo but fees.feeAmount read independently, enabling zero-fee bypass",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: fees and packedInfo are separate calldata; no on-chain binding check",
+            "public_entry": "collectFees() — onlyUtb; not directly callable by unprivileged EOA",
+            "permissionless_reachability": "Requires UTB role; not permissionless from EOA",
+            "asset_value_path": "Protocol fee revenue only; no user asset theft",
+            "actor_permissions": "onlyUtb required",
+            "trusted_prerequisite": "UTB role required — privileged/semi-privileged caller",
+            "loss_magnitude": "Bounded to foregone fees; not direct fund theft",
+            "permanence": "Ongoing revenue loss; no permanent lock",
+            "blast_radius": "Protocol fee revenue",
+            "timing_config_dependency": "None beyond onlyUtb precondition",
+            "exploit_executability": "Restricted to UTB role; not permissionless",
+            "harness_requirement": "None for feasibility; magnitude bounded to fees"
+          },
+          "rationale": "Admin/privileged-prereq cap (onlyUtb required); revenue loss only, no user fund theft."
+        },
+        {
+          "desc": "Uninitialized signer (address(0)) allows trivial signature forgery before setSigner called",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: signer defaults to address(0); ecrecover returns address(0) for malformed sig; recovered==signer passes",
+            "public_entry": "collectFees() — onlyUtb",
+            "permissionless_reachability": "Requires UTB role AND uninitialized signer state",
+            "asset_value_path": "Fee authentication bypassed; same revenue-loss impact as M1",
+            "actor_permissions": "onlyUtb required",
+            "trusted_prerequisite": "Requires uninitialized deployment state and UTB role",
+            "loss_magnitude": "Bounded to fee revenue during initialization window",
+            "permanence": "Window closes when setSigner called",
+            "blast_radius": "Protocol fee revenue during initialization",
+            "timing_config_dependency": "Limited to pre-initialization deployment window",
+            "exploit_executability": "Requires onlyUtb + uninitialized state; not broadly permissionless",
+            "harness_requirement": "None for feasibility"
+          },
+          "rationale": "Initialization-window bug with onlyUtb prerequisite; bounded to fee revenue; Medium or lower."
+        },
+        {
+          "desc": "Signature replay — valid signature reusable indefinitely, no nonce or used-bitmap",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: no nonce, no bitmap, no expiry in collectFees",
+            "public_entry": "collectFees() — onlyUtb",
+            "permissionless_reachability": "Requires UTB role; not EOA-permissionless",
+            "asset_value_path": "Fee over-collection or accounting corruption; no direct user fund theft",
+            "actor_permissions": "onlyUtb required",
+            "trusted_prerequisite": "UTB role required",
+            "loss_magnitude": "Excess fee collection or accounting distortion; bounded",
+            "permanence": "Ongoing until nonce added",
+            "blast_radius": "Protocol fee accounting",
+            "timing_config_dependency": "None",
+            "exploit_executability": "Restricted to onlyUtb callers",
+            "harness_requirement": "None"
+          },
+          "rationale": "Replay with onlyUtb prerequisite; no direct user fund theft; accounting integrity issue."
+        },
+        {
+          "desc": "redeemFees uses transfer(2300 gas) — permanently locks native ETH if owner is a contract",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: payable(owner).transfer(amount) with 2300 gas stipend; reverts for contract owners",
+            "public_entry": "redeemFees() — onlyOwner",
+            "permissionless_reachability": "Requires admin/owner to be a contract (conditional configuration)",
+            "asset_value_path": "Native ETH fees locked in feeCollector — no theft, DoS on withdrawal",
+            "actor_permissions": "onlyOwner required",
+            "trusted_prerequisite": "Requires owner to be a contract (e.g., multisig)",
+            "loss_magnitude": "All accumulated native ETH fees locked; material but configuration-dependent",
+            "permanence": "Permanent if owner cannot be changed; semi-permanent",
+            "blast_radius": "Protocol fee withdrawal only; no user funds",
+            "timing_config_dependency": "Conditional on owner being a contract",
+            "exploit_executability": "Not exploitable by external attacker; admin configuration issue",
+            "harness_requirement": "None for feasibility"
+          },
+          "rationale": "Admin-conditional DoS on fee withdrawal; no permissionless attacker; Medium."
+        }
+      ],
+      "summary_label": "MEDIUM_OR_LOWER_CALIBRATED"
+    },
+    {
+      "id": "decent-06",
+      "blind_verdict": "CRITICAL_THREAD",
+      "mechanisms": [
+        {
+          "desc": "swapExactIn/swapExactOut public with no onlyUtb — permissionless bypass of UTB authorization for swaps",
+          "class": "E",
+          "label": "HIGH_CONFIRMED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: swapExactIn and swapExactOut declared public payable with no access modifier; swap() has onlyUtb but these do not",
+            "public_entry": "swapExactIn() and swapExactOut() — directly callable by any EOA",
+            "permissionless_reachability": "Fully permissionless",
+            "asset_value_path": "Attacker supplies swapParams with controlled tokenIn and receiver; drains residual contract balances or routes swaps without authorization",
+            "actor_permissions": "None",
+            "trusted_prerequisite": "None",
+            "loss_magnitude": "All residual token balances in UniSwapper; bypasses fee accounting",
+            "permanence": "Per-call loss; ongoing vulnerability",
+            "blast_radius": "All in-flight or residual funds in UniSwapper; UTB fee/accounting integrity",
+            "timing_config_dependency": "None",
+            "exploit_executability": "Single EOA transaction; confirmed from source",
+            "harness_requirement": "None"
+          },
+          "rationale": "Missing onlyUtb on public payable swap functions; permissionless access to swap infrastructure draining contract balances."
+        },
+        {
+          "desc": "swapNoPath drains contract's valuable token balance using worthless tokenIn input (junk-in, USDC-out)",
+          "class": "A",
+          "label": "HIGH_CONFIRMED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: swapNoPath sends swapParams.tokenOut (contract's held balance) to receiver without executing any real swap; also public with no guard",
+            "public_entry": "swapNoPath() — public, no access modifier",
+            "permissionless_reachability": "Fully permissionless",
+            "asset_value_path": "Attacker supplies worthless tokenIn; contract sends its own tokenOut balance (e.g. USDC) to attacker receiver",
+            "actor_permissions": "None",
+            "trusted_prerequisite": "None; requires only that UniSwapper holds a residual tokenOut balance",
+            "loss_magnitude": "Full tokenOut balance of UniSwapper — all residual valuable tokens drained",
+            "permanence": "Per-call permanent drain",
+            "blast_radius": "All residual and in-flight balances of any token held by UniSwapper",
+            "timing_config_dependency": "None; exploitable whenever UniSwapper holds tokens",
+            "exploit_executability": "Single EOA transaction; trade junk tokenIn for valuable contract-held tokenOut",
+            "harness_requirement": "None"
+          },
+          "rationale": "No-path branch allows junk-for-value token swap draining contract balances; permissionless; direct fund theft."
+        }
+      ],
+      "summary_label": "HIGH_CONFIRMED"
+    },
+    {
+      "id": "decent-07",
+      "blind_verdict": "CRITICAL_THREAD",
+      "mechanisms": [
+        {
+          "desc": "sgReceive ignores _srcChainId and _srcAddress — no cross-chain source validation, arbitrary payload injection",
+          "class": "E",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: _srcChainId and _srcAddress are unnamed/discarded parameters; only onlyExecutor restricts caller",
+            "public_entry": "sgReceive() — guarded by onlyExecutor; not directly EOA-callable",
+            "permissionless_reachability": "Depends on onlyExecutor strength; if Stargate executor is permissionless or relay is forgeable, becomes permissionless",
+            "asset_value_path": "Tokens approved to utb and adapter balances drained via arbitrary receiveFromBridge execution",
+            "actor_permissions": "Must satisfy onlyExecutor (Stargate executor role)",
+            "trusted_prerequisite": "onlyExecutor restriction; if executor is trusted single entity, requires its compromise; if permissionless, no prerequisite",
+            "loss_magnitude": "Protocol adapter balances and UTB in-flight funds — material",
+            "permanence": "Per-exploit permanent loss",
+            "blast_radius": "All users with in-flight funds through Stargate; adapter token balances",
+            "timing_config_dependency": "Dependent on onlyExecutor implementation (BaseAdapter — not in scope)",
+            "exploit_executability": "Conditional on onlyExecutor being permissionless or forgeable; needs harness",
+            "harness_requirement": "onlyExecutor/BaseAdapter implementation needed to determine executor permissioning"
+          },
+          "rationale": "Critical if executor is permissionless; but onlyExecutor restriction gates full exploitability; needs harness for executor permissioning."
+        },
+        {
+          "desc": "sgReceive approves swapParams.amountIn (payload-supplied) instead of actual amountLD to utb — approval amount attacker-controlled",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: approve(utb, swapParams.amountIn) where amountIn from payload; amountLD is the on-chain verified amount",
+            "public_entry": "sgReceive() — onlyExecutor",
+            "permissionless_reachability": "Same dependency on onlyExecutor as M1",
+            "asset_value_path": "Inflated approval enables UTB to pull more tokens from adapter than actually bridged",
+            "actor_permissions": "Requires satisfying onlyExecutor",
+            "trusted_prerequisite": "Same as M1",
+            "loss_magnitude": "Adapter token balance drained beyond bridged amount — material",
+            "permanence": "Per-exploit permanent drain",
+            "blast_radius": "All in-flight Stargate bridge users; adapter reserves",
+            "timing_config_dependency": "Dependent on onlyExecutor implementation",
+            "exploit_executability": "Conditional on onlyExecutor strength",
+            "harness_requirement": "onlyExecutor implementation and BaseAdapter needed"
+          },
+          "rationale": "Wrong variable (payload amountIn vs on-chain amountLD) enables over-approval; exploitability gated by onlyExecutor; needs harness."
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "decent-08",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "desc": "amt2Bridge vs swapParams.amountIn divergence — excess tokens permanently locked in DecentBridgeAdapter",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: bridge() transfers amt2Bridge but calls router with swapParams.amountIn; no assertion they are equal",
+            "public_entry": "bridge() — onlyUtb; not directly callable by EOA",
+            "permissionless_reachability": "Requires UTB caller; UTB user can craft divergent payload if UTB forwards them without equalizing",
+            "asset_value_path": "Excess tokens (amt2Bridge - amountIn) locked in adapter with no withdrawal path",
+            "actor_permissions": "Requires UTB to route bridge call with divergent amounts",
+            "trusted_prerequisite": "Depends on whether UTB passes through caller-supplied amounts without validation",
+            "loss_magnitude": "Amount equal to divergence — per-transaction; not dust if large divergence",
+            "permanence": "Permanent lock with no recovery path shown",
+            "blast_radius": "Individual UTB bridge users with divergent payloads",
+            "timing_config_dependency": "Dependent on UTB's amount-passing logic (not in scope)",
+            "exploit_executability": "Conditional on UTB forwarding divergent amounts; needs UTB source",
+            "harness_requirement": "UTB source needed to confirm divergent amounts flow through"
+          },
+          "rationale": "Fund lock requires UTB to forward divergent amounts; onlyUtb gates direct access; UTB behavior needed for full severity."
+        },
+        {
+          "desc": "Cross-chain payload manipulation drains executor via attacker-controlled tokenIn/amountIn in receiveFromBridge",
+          "class": "E",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: receiveFromBridge transfers swapParams.amountIn of attacker-chosen tokenIn from msg.sender (executor); payload fully attacker-controlled",
+            "public_entry": "receiveFromBridge() — onlyExecutor; requires legitimate executor to call",
+            "permissionless_reachability": "Requires cross-chain message delivery via legitimate executor; attacker controls payload content but not executor identity",
+            "asset_value_path": "Executor's standing token approvals drained into adapter; arbitrary downstream execution via UTB.receiveFromBridge",
+            "actor_permissions": "Must craft a valid cross-chain message that executor delivers",
+            "trusted_prerequisite": "Requires executor to deliver an attacker-crafted payload — source chain controls available to attacker",
+            "loss_magnitude": "Executor token balance drained — material if executor holds significant approvals",
+            "permanence": "Per-exploit drain",
+            "blast_radius": "Executor balance and any downstream UTB execution",
+            "timing_config_dependency": "Requires cross-chain message lifecycle; attacker initiates on source chain",
+            "exploit_executability": "Requires source-chain access to craft payload; end-to-end cross-chain harness needed",
+            "harness_requirement": "Full cross-chain harness needed; executor approval model and source-chain path required"
+          },
+          "rationale": "Cross-chain payload control grants fund-drain capability but requires source-chain access and legitimate executor relay; full severity needs harness."
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "decent-09",
+      "blind_verdict": "CRITICAL_THREAD",
+      "mechanisms": [
+        {
+          "desc": "setRouter public with no access control — permissionless router hijack enables unlimited mint/burn",
+          "class": "E",
+          "label": "HIGH_CONFIRMED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed from source: function setRouter(address _router) public { router = _router; } — no modifier",
+            "public_entry": "setRouter() — public, no modifier; directly callable by any EOA",
+            "permissionless_reachability": "Fully permissionless; zero-cost single transaction",
+            "asset_value_path": "After router hijack: mint(attacker, unbounded) redeemable for bridge ETH reserves; or burn(victim, victimBalance)",
+            "actor_permissions": "None required",
+            "trusted_prerequisite": "None",
+            "loss_magnitude": "Proportional to bridge ETH TVL — unbounded minting drains entire bridge reserve",
+            "permanence": "Permanent: each mint is irreversible without protocol intervention",
+            "blast_radius": "All DcntEth holders (dilution); entire bridge ETH reserve; individual holders subject to burn",
+            "timing_config_dependency": "None; exploitable immediately after deployment",
+            "exploit_executability": "Two-step EOA attack: setRouter(self) then mint(self, amount); fully proven from source",
+            "harness_requirement": "None"
+          },
+          "rationale": "No access control on a privileged setter; one permissionless tx grants full mint/burn authority over bridge token; bridge insolvency."
+        },
+        {
+          "desc": "mintByOwner allows owner to mint unbacked DcntEth breaking bridge collateral invariant",
+          "class": "E",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: mintByOwner(address _to, uint256 _amount) with onlyOwner; no cross-chain accounting guard",
+            "public_entry": "mintByOwner() — onlyOwner",
+            "permissionless_reachability": "Requires owner key compromise or malicious owner",
+            "asset_value_path": "Unbacked DcntEth minted and redeemable for locked ETH — bridge insolvency",
+            "actor_permissions": "onlyOwner required",
+            "trusted_prerequisite": "Owner key required — privileged",
+            "loss_magnitude": "Proportional to bridge ETH TVL if redeemed",
+            "permanence": "Permanent drain on redemption",
+            "blast_radius": "All bridge LPs and ETH depositors",
+            "timing_config_dependency": "None beyond owner key availability",
+            "exploit_executability": "Requires owner compromise; admin-prereq cap applies",
+            "harness_requirement": "None for feasibility"
+          },
+          "rationale": "Admin-prereq cap: requires owner compromise; privileged threat, not permissionless; Medium."
+        }
+      ],
+      "summary_label": "HIGH_CONFIRMED"
+    },
+    {
+      "id": "decent-10",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "desc": "Zero gasValue (msg.value == _amount) locks WETH in router — LZ message not delivered if zero fee accepted",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: gasValue = msg.value - _amount; called as dcntEth.sendAndCall{value: gasValue}; zero is arithmetically possible",
+            "public_entry": "bridge() and bridgeWithPayload() — public payable; permissionless",
+            "permissionless_reachability": "Permissionless; any EOA can call with msg.value == _amount",
+            "asset_value_path": "User's ETH deposited as WETH in router with no balanceOf entry; locked if LZ doesn't revert on zero fee",
+            "actor_permissions": "None",
+            "trusted_prerequisite": "None",
+            "loss_magnitude": "Full bridged amount locked; not dust",
+            "permanence": "Permanent if LZ silently accepts zero-fee message",
+            "blast_radius": "Individual bridge caller; could be systemic if users regularly miscalculate",
+            "timing_config_dependency": "Depends on LZ behavior with zero native fee (unseen OFT implementation)",
+            "exploit_executability": "Permissionless entry but outcome (lock vs revert) depends on LZ OFT implementation",
+            "harness_requirement": "LZ OFT sendAndCall behavior with zero value needed"
+          },
+          "rationale": "Permissionless entry; permanent fund lock if LZ doesn't revert; severity depends on LZ zero-fee behavior (unseen code)."
+        },
+        {
+          "desc": "Unregistered destinationBridge sends funds to address(0) on destination — permanent loss",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Plausible: destinationBridges[_dstChainId] = address(0) if never set; bytes32(abi.encode(address(0))) forwarded to LZ",
+            "public_entry": "bridge() — public payable",
+            "permissionless_reachability": "Permissionless; any user bridging to unregistered chain",
+            "asset_value_path": "Bridged ETH/WETH sent to address(0) on destination — irrecoverable",
+            "actor_permissions": "None",
+            "trusted_prerequisite": "Requires destination chain to be unregistered (admin omission)",
+            "loss_magnitude": "Full bridged amount permanently lost",
+            "permanence": "Permanent",
+            "blast_radius": "Individual user bridging to unregistered chain",
+            "timing_config_dependency": "Dependent on whether LZ reverts or silently accepts address(0) destination",
+            "exploit_executability": "Whether LZ OFT accepts address(0) as destination (unseen implementation); may revert safely",
+            "harness_requirement": "LZ OFT behavior with zero-address destination and missing destination validation in dcntEth.sendAndCall"
+          },
+          "rationale": "Permanent fund loss if LZ accepts address(0) destination; depends on LZ implementation; harness needed for severity confirmation."
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "decent-11",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "desc": "onOFTReceived payload fields (_from, _to, callPayload) attacker-controlled — arbitrary execution with router WETH approval",
+          "class": "E",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: _payload decoded verbatim; _to, callPayload, deliverEth passed to executor.execute without on-chain binding to originator",
+            "public_entry": "onOFTReceived() — onlyLzApp (msg.sender == address(dcntEth)); not directly EOA-callable on destination",
+            "permissionless_reachability": "Requires a valid LayerZero OFT message from dcntEth; attacker must control source-chain message submission",
+            "asset_value_path": "weth.approve(executor, _amount) then executor.execute with attacker _to and callPayload drains router WETH reserves",
+            "actor_permissions": "Must submit valid LZ OFT message via source-chain router (destinationBridges mapping)",
+            "trusted_prerequisite": "Source-chain router access or destinationBridges misconfiguration needed",
+            "loss_magnitude": "WETH reserves drained equal to _amount per exploit; scales with reserves",
+            "permanence": "Per-exploit permanent drain",
+            "blast_radius": "All LPs and bridge users; full WETH reserve at risk",
+            "timing_config_dependency": "Requires cross-chain message delivery; LZ message lifecycle",
+            "exploit_executability": "Cross-chain vector; requires source-chain access; on-chain trace complete but cross-chain harness needed",
+            "harness_requirement": "Source-chain access and LZ message crafting needed; executor implementation needed for full exploit confirmation"
+          },
+          "rationale": "High-impact if source-chain access achieved; payload validation absent; cross-chain dependency makes full severity harness-dependent."
+        },
+        {
+          "desc": "WETH fallback dcntEth transfer bypasses LP balanceOf accounting — insolvency divergence over time",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: fallback branch calls dcntEth.transfer(_to, _amount) without adjusting balanceOf LP mapping",
+            "public_entry": "onOFTReceived() — onlyLzApp",
+            "permissionless_reachability": "Triggered by any bridge receipt when WETH reserves insufficient; may not require attacker",
+            "asset_value_path": "LP redemption insolvency for later redeemers; dcntEth supply inflated relative to WETH reserves",
+            "actor_permissions": "None beyond triggering bridge receipts when reserves are low",
+            "trusted_prerequisite": "None; systemic",
+            "loss_magnitude": "Proportional to frequency of reserve shortfalls and LP redemption patterns; magnitude uncertain",
+            "permanence": "Compounding over time; difficult to recover without rebalancing",
+            "blast_radius": "Later-redeeming LPs; protocol solvency",
+            "timing_config_dependency": "Depends on reserve levels and redemption ordering",
+            "exploit_executability": "Systemic; no single attacker action required; magnitude depends on reserve rebalancing (unseen)",
+            "harness_requirement": "Need to confirm no external rebalancing mechanism; magnitude assessment requires protocol-level harness"
+          },
+          "rationale": "Accounting divergence class; systemic insolvency risk but magnitude depends on unseen rebalancing; harness needed."
+        },
+        {
+          "desc": "weth.approve(executor, _amount) not reset after execute — lingering approval exploitable",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: approve not reset; source shows no subsequent approve(executor, 0)",
+            "public_entry": "onOFTReceived() — onlyLzApp",
+            "permissionless_reachability": "Requires cross-chain message + executor partial consumption",
+            "asset_value_path": "Residual WETH approval exploitable by compromised/malicious executor",
+            "actor_permissions": "Requires executor to not consume full approval",
+            "trusted_prerequisite": "Requires executor to be malicious or misconfigured",
+            "loss_magnitude": "Residual approval amount — depends on partial consumption",
+            "permanence": "Per-residual drain",
+            "blast_radius": "Router WETH reserves",
+            "timing_config_dependency": "Cross-tx; requires executor to not consume full amount",
+            "exploit_executability": "Depends on executor implementation consuming partial amount",
+            "harness_requirement": "Executor implementation needed to confirm partial consumption"
+          },
+          "rationale": "Approval persistence confirmed; exploitability depends on executor partial consumption (unseen code); harness needed."
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "decent-12",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "desc": "redeemEth/redeemWeth do not decrement balanceOf — double withdrawal: redeemEth then removeLiquidityEth",
+          "class": "A",
+          "label": "HIGH_CONFIRMED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: redeemEth/redeemWeth do not modify balanceOf; removeLiquidityEth checks/decrements balanceOf independently",
+            "public_entry": "redeemEth() — no access restriction beyond caller holding dcntEth; permissionless after initial deposit",
+            "permissionless_reachability": "Permissionless after adding liquidity via addLiquidityEth; two-step exploit from single depositor",
+            "asset_value_path": "Double withdrawal: attacker redeems dcntEth for ETH AND later removeLiquidity for same ETH again; 2X for 1X deposited",
+            "actor_permissions": "None beyond dcntEth balance from addLiquidityEth",
+            "trusted_prerequisite": "None; requires only normal liquidity provision (initial deposit)",
+            "loss_magnitude": "X ETH profit for X deposited; scales with liquidity provision; drains other LPs' reserves",
+            "permanence": "Permanent drain of protocol WETH reserves",
+            "blast_radius": "All other LPs proportionally; entire reserve at risk with repeated exploitation",
+            "timing_config_dependency": "None; both redeem and removeLiquidity callable in any order",
+            "exploit_executability": "Two EOA transactions (addLiquidityEth → redeemEth → removeLiquidityEth); fully proven from source",
+            "harness_requirement": "None; accounting gap confirmed from source"
+          },
+          "rationale": "Classic double-withdrawal via missing state update; permissionless after deposit; material loss proven from source."
+        },
+        {
+          "desc": "onlyIfWeHaveEnoughReserves uses strict > instead of >= — off-by-one permanently locks last reserve unit",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: modifier uses weth.balanceOf(this) > amount; fails when balance == amount",
+            "public_entry": "redeemEth() / redeemWeth() — public",
+            "permissionless_reachability": "Triggered when reserves exactly equal requested amount",
+            "asset_value_path": "Last unit of WETH reserves unwithdrawable until new deposits added",
+            "actor_permissions": "None",
+            "trusted_prerequisite": "None",
+            "loss_magnitude": "One unit of reserves locked; bounded; reversible if new deposits made",
+            "permanence": "Conditional; reverses with new deposits",
+            "blast_radius": "The last LP trying to withdraw the final unit",
+            "timing_config_dependency": "Only triggers at exact boundary condition",
+            "exploit_executability": "No attacker gain; DoS at boundary",
+            "harness_requirement": "None"
+          },
+          "rationale": "Off-by-one DoS; bounded magnitude (1 unit); reversible; Medium or lower."
+        },
+        {
+          "desc": "Wrong lifecycle ordering in removeLiquidityEth — dcntEth burned before ETH delivery; external call failure risk",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: dcntEth.burn executes before weth.withdraw and payable(msg.sender).transfer",
+            "public_entry": "removeLiquidityEth() — no access restriction for LP",
+            "permissionless_reachability": "Any LP calling removeLiquidityEth",
+            "asset_value_path": "If ETH delivery fails, LP loses dcntEth with no ETH received — but Solidity atomicity normally reverts entire tx",
+            "actor_permissions": "None beyond being an LP",
+            "trusted_prerequisite": "None",
+            "loss_magnitude": "LP's entire withdrawal amount if partial-execution possible; but normally revert unwinds",
+            "permanence": "Dependent on whether revert atomicity holds; Solidity 0.8 normally reverts",
+            "blast_radius": "Individual LP who calls while being a contract wallet",
+            "timing_config_dependency": "Requires msg.sender to be a contract rejecting ETH",
+            "exploit_executability": "Normally safe (revert unwinds); partial-state concern needs harness",
+            "harness_requirement": "Confirm revert atomicity under all failure modes; router receive() fallback behavior"
+          },
+          "rationale": "Wrong ordering with Solidity atomicity normally protecting; partial-execution risk needs harness; Medium pending harness."
+        }
+      ],
+      "summary_label": "HIGH_CONFIRMED"
+    },
+    {
+      "id": "decent-13",
+      "blind_verdict": "HIGH_THREAD",
+      "mechanisms": [
+        {
+          "desc": "weth.approve(target, amount) persists after _executeWeth — attacker-controlled target drains subsequent deposits",
+          "class": "A",
+          "label": "NEEDS_HARNESS_FOR_SEVERITY",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: weth.approve(target, amount) with no subsequent reset; source shows no approve(target, 0) after call",
+            "public_entry": "execute() — onlyOwner (owner set to bridge relay); not directly EOA-callable",
+            "permissionless_reachability": "Requires owner (bridge relay) to forward call with attacker-controlled target",
+            "asset_value_path": "Lingering WETH approval: attacker's target contract later calls weth.transferFrom(executor, attacker, amount) draining subsequent deposits",
+            "actor_permissions": "Must control target address forwarded through bridge relay",
+            "trusted_prerequisite": "Bridge relay (onlyOwner) must forward attacker target; depends on upstream bridge caller validation",
+            "loss_magnitude": "Subsequent WETH deposits drained — material for bridge users",
+            "permanence": "Per-exploit drain; ongoing vulnerability",
+            "blast_radius": "Future bridge depositors whose WETH flows through executor",
+            "timing_config_dependency": "Cross-transaction timing window between initial call and subsequent deposit",
+            "exploit_executability": "Requires bridge relay to accept attacker target; depends on upstream validation (unseen)",
+            "harness_requirement": "Upstream bridge relay target-validation behavior needed; cross-tx timing confirmation"
+          },
+          "rationale": "Approval persistence confirmed; but execute() is onlyOwner gating; exploitability depends on bridge relay forwarding attacker targets."
+        },
+        {
+          "desc": "ETH delivery uses 2300-gas transfer — contract from addresses cannot receive refunds; permanent bridge undeliverability",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: payable(from).transfer(amount) with 2300 gas stipend; reverts for contract wallets",
+            "public_entry": "execute() — onlyOwner",
+            "permissionless_reachability": "Not attacker-initiated; affects any legitimate user whose from is a contract wallet",
+            "asset_value_path": "Bridge message permanently unexecutable for contract from addresses; ETH in limbo",
+            "actor_permissions": "onlyOwner (bridge relay) calls execute; user is passive victim",
+            "trusted_prerequisite": "None beyond being a contract wallet bridging",
+            "loss_magnitude": "Full bridged amount undeliverable; permanent stuck for contract wallets",
+            "permanence": "Permanent undeliverability for that bridge message",
+            "blast_radius": "All contract-wallet from addresses using the bridge",
+            "timing_config_dependency": "None",
+            "exploit_executability": "No active attacker needed; triggered by normal contract-wallet bridge usage",
+            "harness_requirement": "None for feasibility; but LZ retry semantics may allow redelivery (unseen)"
+          },
+          "rationale": "DoS for contract wallet from addresses; 2300 gas stipend is a known pattern; Medium — no direct attacker profit, stuck funds class."
+        }
+      ],
+      "summary_label": "NEEDS_HARNESS_FOR_SEVERITY"
+    },
+    {
+      "id": "decent-14",
+      "blind_verdict": "MEDIUM_THREAD",
+      "mechanisms": [
+        {
+          "desc": "No zero-address guard on setUtb/setBridgeExecutor/setOperator — admin error permanently DoSes bridge functions",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: no require(_utb != address(0)) or equivalent in any setter",
+            "public_entry": "setUtb() / setBridgeExecutor() / setOperator() — onlyOwner / onlyAdmin",
+            "permissionless_reachability": "Requires owner or admin key; not permissionless",
+            "asset_value_path": "No value extraction; DoS on all onlyUtb/onlyExecutor/onlyOperator functions",
+            "actor_permissions": "onlyOwner or onlyAdmin required",
+            "trusted_prerequisite": "Owner/admin key required",
+            "loss_magnitude": "Operational: bridge permanently DoS'd if zero-address set and key lost/renounced; in-flight funds potentially stuck",
+            "permanence": "Permanent if no recovery path; semi-permanent if owner retains ability to re-set",
+            "blast_radius": "All bridge users if cross-chain execution permanently bricked",
+            "timing_config_dependency": "None",
+            "exploit_executability": "Requires admin key compromise or error; no permissionless attacker",
+            "harness_requirement": "None for feasibility"
+          },
+          "rationale": "Admin-prereq cap; DoS class; requires privileged key to trigger; Medium."
+        },
+        {
+          "desc": "setOperator casts address to payable — type inconsistency, no independent exploitability",
+          "class": "D",
+          "label": "MEDIUM_OR_LOWER_CALIBRATED",
+          "dimensions": {
+            "mechanism_validity": "Confirmed: operator = payable(_operator) where operator declared address; type inconsistency",
+            "public_entry": "setOperator() — onlyAdmin",
+            "permissionless_reachability": "Not permissionless; onlyAdmin",
+            "asset_value_path": "No value extraction; code quality / design issue",
+            "actor_permissions": "onlyAdmin",
+            "trusted_prerequisite": "Admin key",
+            "loss_magnitude": "None independently; code smell only",
+            "permanence": "N/A",
+            "blast_radius": "None",
+            "timing_config_dependency": "None",
+            "exploit_executability": "Not independently exploitable; subsumed by zero-address path",
+            "harness_requirement": "None"
+          },
+          "rationale": "Code quality issue; no independent exploitability; Info/Low."
+        }
+      ],
+      "summary_label": "MEDIUM_OR_LOWER_CALIBRATED"
+    }
+  ]
+}

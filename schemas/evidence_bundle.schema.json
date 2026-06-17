@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EvidenceBundle",
+  "description": "Read-only assembly of the concrete evidence for a normalized research finding, answering ONLY 'is this candidate evidence-complete enough for a human/judge to investigate?' — a COMPLETENESS check, NOT a bug/severity/exploitability verdict. Invariant: assemble, don't adjudicate. confidence and declared_severity_potential are carried VERBATIM from the normalized record (never changed). routing_allowed is const false, research_only is const true.",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "routing_allowed", "source_normalized", "bundles", "summary"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "generated_at": { "type": "string" },
+    "routing_allowed": { "const": false },
+    "source_normalized": { "type": "string" },
+    "bundles": { "type": "array", "items": { "$ref": "#/definitions/bundle" } },
+    "summary": {
+      "type": "object",
+      "required": ["total_bundles", "by_status", "by_detector"],
+      "properties": {
+        "total_bundles": { "type": "integer" },
+        "by_status": { "type": "object" },
+        "by_detector": { "type": "object" }
+      }
+    }
+  },
+  "definitions": {
+    "bundle": {
+      "type": "object",
+      "required": ["candidate_id", "detector", "detector_version", "signal_type", "candidate_surface",
+                   "confidence", "declared_severity_potential", "source_audit_path", "location",
+                   "code_snippet", "evidence_signals", "rationale", "evidence_completeness",
+                   "bundle_status", "investigate_recommendation", "routing_allowed", "research_only"],
+      "properties": {
+        "candidate_id": { "type": "string" },
+        "detector": { "type": "string" },
+        "detector_version": { "type": "string" },
+        "signal_type": { "type": "string" },
+        "candidate_surface": { "type": "string" },
+        "confidence": { "type": "string", "description": "carried VERBATIM from the normalized record" },
+        "declared_severity_potential": { "type": "string", "description": "carried VERBATIM; a family hint, not a verdict" },
+        "source_audit_path": { "type": "string" },
+        "location": {
+          "type": "object",
+          "required": ["file", "start_line", "resolvable"],
+          "properties": {
+            "file": { "type": "string" },
+            "start_line": { "type": ["integer", "null"] },
+            "resolvable": { "type": "boolean" }
+          }
+        },
+        "code_snippet": { "type": ["string", "null"] },
+        "evidence_signals": { "type": "object" },
+        "rationale": { "type": ["string", "null"] },
+        "evidence_completeness": {
+          "type": "object",
+          "required": ["status", "present", "missing"],
+          "properties": {
+            "status": { "type": "string", "enum": ["COMPLETE", "INCOMPLETE"] },
+            "present": { "type": "array", "items": { "type": "string" } },
+            "missing": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "bundle_status": { "type": "string", "enum": ["READY_FOR_REVIEW", "INSUFFICIENT_EVIDENCE"] },
+        "investigate_recommendation": {
+          "type": "string",
+          "enum": ["ready_for_review", "needs_more_evidence"],
+          "description": "a COMPLETENESS recommendation — explicitly NOT a bug verdict (no poc/submit/downgrade/reject)"
+        },
+        "routing_allowed": { "const": false },
+        "research_only": { "const": true }
+      }
+    }
+  }
+}

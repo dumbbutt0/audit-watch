@@ -1,0 +1,99 @@
+{
+  "finding_id": "CC-003",
+  "title": "Migration Merkle leaf omits reciever, so any holder of the public L1 signature can redirect another contract's migration credit to an attacker-chosen L2 address",
+  "agent": "",
+  "claimed_severity": "High",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+    "function": "verifyDepositsAndInternalBalances",
+    "line_start": 120,
+    "line_end": 150
+  },
+  "description": "verifyDepositsAndInternalBalances() computes the Merkle leaf as keccak256(abi.encode(account, deposits, internalBalances, ownerRoots)) \u2014 it commits to the L1 owner and the asset data but NOT to reciever. reciever (the L2 destination of the credit) is bound only by the separate EIP-712 signature in verifySignature() over (owner, reciever, deadline). The signature is presented in the public L2 transaction calldata. Combined with CC-001's lack of replay protection, the (owner, reciever, deadline) tuple and signature are observable on-chain, and because the Merkle proof does not constrain reciever, the redeem function will accept any reciever for which a matching signature is presented. There is no on-chain link forcing reciever to equal the original migrant, so credit can be steered to an attacker address as part of a replay.",
+  "impact": "The migration deposit/stalk/roots credit for an L1 contract can be redirected to and/or duplicated at an attacker-chosen L2 address using the publicly visible signature, rather than only the originally intended reciever. Standalone this is an authorization-binding gap; combined with CC-001 it converts replay into attacker-controlled theft of migrated value. High (Critical when chained with CC-001).",
+  "ite": {
+    "intent": "Bind migration credit immutably to the intended L2 reciever",
+    "technique": "reciever excluded from the Merkle leaf; only a replayable signature binds it",
+    "evasion": "Use the on-chain-visible signature; the proof check imposes no constraint on reciever"
+  },
+  "ice_chain": {
+    "corrupted_state": "s.accts[reciever].deposits / .stalk / .roots credited to an address not committed by the proof",
+    "consumer_found": true,
+    "consumer_function": "silo deposit, stalk and roots consumers (withdraw, earned-Bean distribution, governance)",
+    "impact": "Migration credit redirection / duplication to attacker-controlled reciever",
+    "exploit_path": "obtain the public owner signature -> call redeem with an unbound reciever -> proof passes (reciever absent from leaf) -> credit lands at chosen reciever"
+  },
+  "source_slice": "90:         address reciever,\n91:         AccountDepositData[] calldata deposits,\n92:         AccountInternalBalance[] calldata internalBalances,\n93:         uint256 ownerRoots,\n94:         bytes32[] calldata proof,\n95:         uint256 deadline,\n96:         bytes calldata signature\n97:     ) external payable fundsSafu noSupplyChange nonReentrant {\n98:         // verify deposits are valid.\n99:         // note: if the number of contracts that own deposits is small,\n100:         // deposits can be stored in bytecode rather than relying on a merkle tree.\n101:         verifyDepositsAndInternalBalances(owner, deposits, internalBalances, ownerRoots, proof);\n102: \n103:         // signature verification.\n104:         verifySignature(owner, reciever, deadline, signature);\n105: \n106:         // set deposits for `reciever`.\n107:         uint256 accountStalk;\n108:         for (uint256 i; i < deposits.length; i++) {\n109:             accountStalk += addMigratedDepositsToAccount(reciever, deposits[i]);\n110:         }\n111: \n112:         // set stalk for account.\n113:         setStalk(reciever, accountStalk, ownerRoots);\n114:     }\n115: \n116:     /**\n117:      * @notice verfies that the input parameters for deposits\n118:      * are correct.\n119:      */\n120:     function verifyDepositsAndInternalBalances(\n121:         address account,\n122:         AccountDepositData[] calldata deposits,\n123:         AccountInternalBalance[] calldata internalBalances,\n124:         uint256 ownerRoots,\n125:         bytes32[] calldata proof\n126:     ) internal pure {\n127:         bytes32 leaf = keccak256(abi.encode(account, deposits, internalBalances, ownerRoots));\n128:         require(MerkleProof.verify(proof, MERKLE_ROOT, leaf), \"Migration: invalid proof\");\n129:     }\n130: \n131:     /**\n132:      * @notice verifies that the signature came from the owner.\n133:      * @dev the signature is signed on the L1 blockchain.\n134:      * the deposit data itself is not needed, as the signature\n135:      */\n136:     function verifySignature(\n137:         address owner,\n138:         address reciever,\n139:         uint256 deadline,\n140:         bytes calldata signature\n141:     ) internal view {\n142:         require(block.timestamp <= deadline, \"Migration: permit expired deadline\");\n143:         bytes32 structHash = keccak256(\n144:             abi.encode(REDEEM_DEPOSIT_TYPE_HASH, owner, reciever, deadline)\n145:         );\n146: \n147:         bytes32 hash = _hashTypedDataV4(structHash);\n148:         address signer = ECDSA.recover(hash, signature);\n149:         require(signer == owner, \"Migration: permit invalid signature\");\n150:     }\n151: \n152:     function addMigratedDepositsToAccount(\n153:         address account,\n154:         AccountDepositData calldata depositData\n155:     ) internal returns (uint256 accountStalk) {\n156:         int96 stemTip = LibTokenSilo.stemTipForToken(depositData.token);\n157:         uint256 stalkIssuedPerBdv = s.sys.silo.assetSettings[depositData.token].stalkIssuedPerBdv;\n158:         uint128 totalBdvForAccount;\n159:         uint128 totalDeposited;\n160:         uint128 totalDepositedBdv;\n161:         for (uint256 i; i < depositData.depositIds.length; i++) {\n162:             // verify that depositId is valid.\n163:             uint256 depositId = depositData.depositIds[i];\n164:             (address depositToken, int96 stem) = depositId.unpackAddressAndStem();\n165:             require(depositToken == depositData.token, \"Migration: INVALID_DEPOSIT_ID\");\n166:             require(stemTip >= stem, \"Migration: INVALID_STEM\");\n167: \n168:             // add deposit to account.\n169:             s.accts[account].deposits[depositId].amount = depositData.amounts[i];\n170:             s.accts[account].deposits[depositId].bdv = depositData.bdvs[i];\n171: \n172:             // increment totalBdvForAccount by bdv of deposit:\n173:             totalBdvForAccount += depositData.bdvs[i];\n174: \n175:             // increment by grown stalk of deposit.\n176:             accountStalk += uint96(stemTip - stem) * depositData.bdvs[i];\n177: \n178:             // emit events.\n179:             emit AddDeposit(\n180:                 account,",
+  "gate_verdict": {
+    "finding_id": "CC-003",
+    "severity": "High",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.536451+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

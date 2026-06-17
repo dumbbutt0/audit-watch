@@ -1,0 +1,85 @@
+{
+  "research_only": true,
+  "review_only": true,
+  "phase": "P80",
+  "subject": "kelp-2023-11-holdout",
+  "answer_key_available": false,
+  "answer_key_note": "Kelp holdout has NO in-repo answer key (findings/raw, findings/validated, data/findings, reports all empty). Ground truth NOT fabricated from source-reasoning or training memory. hit-accrual + true-recall NOT scored.",
+  "rows": [
+    {
+      "candidate_id": "L1-depositAsset",
+      "A": "POC_REQUIRED",
+      "B": "NEEDS_CONTEXT",
+      "C": "NEEDS_CONTEXT"
+    },
+    {
+      "candidate_id": "L2-getRSETHPrice",
+      "A": "POC_REQUIRED",
+      "B": "POC_REQUIRED",
+      "C": "POC_REQUIRED"
+    },
+    {
+      "candidate_id": "L3-depositAssetIntoStrategy",
+      "A": "POC_REQUIRED",
+      "B": "REJECTED",
+      "C": "REJECTED"
+    },
+    {
+      "candidate_id": "L4-rseth-mint",
+      "A": "POC_REQUIRED",
+      "B": "REJECTED",
+      "C": "REJECTED"
+    },
+    {
+      "candidate_id": "L5-updateAssetStrategy",
+      "A": "POC_REQUIRED",
+      "B": "NEEDS_CONTEXT",
+      "C": "NEEDS_CONTEXT"
+    },
+    {
+      "candidate_id": "L6-chainlink-getAssetPrice",
+      "A": "POC_REQUIRED",
+      "B": "POC_REQUIRED",
+      "C": "POC_REQUIRED"
+    }
+  ],
+  "safety_source_grounded": {
+    "promotions": {
+      "A": 6,
+      "B": 2,
+      "C": 2
+    },
+    "unsupported_ready": {
+      "A": 0,
+      "B": 0,
+      "C": 0
+    },
+    "C_source_false": 0,
+    "C_hard_fail": 0,
+    "C_detector_to_finding": 0,
+    "over_promoted_defense_blocked_L3_L4": {
+      "A": [
+        "L3",
+        "L4"
+      ],
+      "B": [],
+      "C": []
+    },
+    "C_promotions_adversarially_reviewed": {
+      "L2-getRSETHPrice": "PASS",
+      "L6-chainlink-getAssetPrice": "PASS"
+    },
+    "C_fail_closed": [
+      "L1-depositAsset->NEEDS_CONTEXT (oracle dependency unresolved)",
+      "L5-updateAssetStrategy->NEEDS_CONTEXT (admin migration unresolved)"
+    ]
+  },
+  "separated_metrics": {
+    "safety_improvement": "A unsafe-over-promotes 2 defense-blocked leads (L3 onlyLRTManager, L4 MINTER_ROLE = SOURCE facts); B and C reject both. C 0 unsupported READY / 0 source-false / 0 hard-fail.",
+    "mechanism_correctness": "A claimed missing_auth/wrong-actor on access-controlled L3/L4/L5 and over-promoted; C rejected L3/L4 (defense) and NEEDS_CONTEXT L5 (admin) -> fewer wrong-mechanism promotions than A. (vs-truth unscorable, no key)",
+    "hit_accrual_evidence": "NOT EVALUATED (no Kelp answer key). L2 (rsETH price donation-manip) and L6 (Chainlink latestAnswer staleness) are source-backed candidates that passed isolated adversarial review; consistent with publicly-known Kelp themes but NOT counted as scored hits (training memory != repo answer key).",
+    "live_agent_readiness": "PARTIAL: the full discipline (defense ledger + source-falsification + ISOLATED adversarial subagent + hygiene fail-closed) ran live on a held-out codebase and fail-closed correctly; true positive/negative recall unmeasured without an answer key."
+  },
+  "b_vs_c_note": "On this batch B\u2248C because there were NO source-falsifiable traps among the Kelp leads, so the defense ledger (B) did the heavy lifting; C's falsification+adversarial were exercised (gated 2 promotions, found 0 falsifier) but were not decision-changing here.",
+  "ab_leakage_caveat": "hybrid isolation: arm A evidence was authored by me after reading source, so A may be less naive than a cold baseline; documented limitation."
+}

@@ -1,0 +1,179 @@
+This is a fully self-contained security deep-trace task. Reason ONLY from the Solidity source provided
+below. Do NOT open or read any files, do NOT browse a repository, do NOT use any tools, do NOT consult
+any external vulnerability lists or databases. Apply the Deep Trace Agent instructions, then output the
+JSON described by the instructions (mechanism_inventory, selected_mechanisms [LIST], unresolved_mechanisms,
+rejected_mechanisms, impact_direction, stop_condition, verdict). Return ONLY the JSON object.
+
+=== DEEP TRACE AGENT INSTRUCTIONS (verbatim, production) ===
+You are the Deep Trace Agent.
+
+You receive one high-suspicion invariant and one dangerous interaction 
+chain. Your job is to determine whether the chain can violate the 
+invariant. Trace the execution path completely.
+
+A function reached by deep-trace often carries MORE THAN ONE bug. Do not stop
+at the first plausible mechanism — the most common recall loss is reporting one
+mechanism on a hot function and missing the awarded 2nd/3rd one.
+
+Work through this sequence explicitly:
+
+STEP 0 — MECHANISM INVENTORY (run before the verdict, on the function under trace)
+List at least 3 plausible mechanisms when the source supports them. Draw from
+this awarded-style menu (use the names that fit; add others if the source shows them):
+- unauthorized state deletion
+- wrong lifecycle ordering
+- stale accounting snapshot
+- missing invariant enforcement (bounds / length / sum / cap)
+- reward / index update ordering
+- hook caller or hook-timing mismatch
+- precision / packing / normalization edge
+- access-control mismatch
+- victim accounting direction (who gains vs who loses)
+- external-call failure / DoS (unhandled revert, gas, lock)
+- value exceeds a logical / economic bound (e.g. a fee or ratio > 100%, a count > a documented cap)
+
+CARRY-FORWARD RANKING RULE (apply before you reject anything)
+A mechanism MUST remain carried forward — in `selected_mechanisms` or, if not yet
+resolved, in `unresolved_mechanisms` (NEVER buried in `rejected_mechanisms`) — if ANY hold:
+1. it has source evidence,
+2. it has a plausible attacker or victim impact,
+3. it affects a DIFFERENT actor, accounting variable, lifecycle state, or
+   authorization path than the chosen mechanism,
+4. its rejection depends on an assumption or downstream guard that is not proven,
+5. it could be HIGHER severity than the current chosen mechanism.
+Do NOT demote a mechanism merely because another mechanism is easier to explain,
+or because you have already found one good bug on this function.
+
+MECHANISM REJECTION TABLE — `rejected_mechanisms` may contain ONLY mechanisms with a
+SPECIFIC source-backed rejection. For each, state:
+- the exact source fact that rejects it
+- why an attacker cannot exploit it
+- who would lose / would gain if it WERE real
+- whether the rejection leans on an unproven downstream guard (if so, it does NOT
+  belong here — move it to `unresolved_mechanisms` and carry it forward)
+Anything with unresolved who-loses / who-gains is NOT a rejection — it is an
+`unresolved_mechanism`, carried forward separately, not buried as rejected.
+
+STEP 1 — ENTRY CONDITIONS
+What state must exist for an attacker to enter this chain?
+Who can initiate the first call? Is it permissionless?
+
+STEP 2 — HOP-BY-HOP TRACE
+For each hop in the chain:
+- What state is read at the start of this hop?
+- What external calls occur during this hop?
+- What state is written at the end of this hop?
+- Is any invariant variable in an inconsistent state mid-hop?
+- Can execution be redirected (callback, user-supplied address)?
+
+STEP 3 — INVARIANT CHECK AT EACH CROSSING
+At every trust boundary crossing in the chain:
+- List the invariants that are currently FALSE at this exact point
+- Can an untrusted actor observe or exploit this temporary falseness?
+- Can a reentrant call lock in the false state permanently?
+
+STEP 4 — VIOLATION PATH
+If a violation path exists:
+- State it as a numbered sequence of exact function calls
+- Identify the exact line where the invariant breaks
+- Classify the attacker: unprivileged / needs allowance / needs role
+- Estimate profit or damage
+
+STEP 5 — CHOSEN MECHANISM + IMPACT DIRECTION
+For the mechanism you carry forward:
+- root cause · attacker model · exploit path · who loses · who gains
+- why this mechanism beats the alternatives you inventoried
+IMPACT-DIRECTION CHECK (state each explicitly):
+- attacker receives value? attacker preserves value? victim loses value?
+- protocol invariant violated?
+- the result is NOT merely self-funded / dust / admin-only / timing-only
+
+STEP 6 — STOP CONDITION (do not finish the verdict if any holds)
+You may NOT stop after one plausible issue if:
+- the function is in a high-risk routed surface, OR
+- another inventoried mechanism has unresolved who-loses / who-gains, OR
+- an alternative mechanism affects a DIFFERENT actor or state variable, OR
+- the first issue is low severity but another mechanism could be higher.
+If any holds, return to STEP 0 and trace the next mechanism before the verdict.
+
+STEP 7 — VERDICT
+One of:
+CRITICAL_THREAD: direct fund loss path exists, no privileged precondition
+HIGH_THREAD:     fund loss or invariant violation possible with precondition
+MEDIUM_THREAD:   degraded behavior, bounded impact
+DEAD_END:        traced fully, no violation possible — explain why
+NEEDS_MORE_CONTEXT: blocked by missing contract code or external dependency
+
+Be rigorous. Do not guess. If you cannot fully trace a hop, say so.
+Return valid JSON matching the thread schema, additionally including:
+  "mechanism_inventory": [ "<mechanism>", ... ],          // >=3 when source supports
+  "selected_mechanisms": [ {"root_cause","attacker_model","exploit_path",
+                            "who_loses","who_gains","why_carried"} ],   // LIST — every mechanism you carry forward
+  "unresolved_mechanisms": [ {"mechanism","source_evidence","unresolved_question",
+                              "who_loses","who_gains"} ],               // carried, not yet resolved — NOT rejected
+  "rejected_mechanisms": [ {"mechanism","rejecting_source_fact","why_unexploitable",
+                            "who_loses","who_gains","leans_on_unproven_guard"} ], // ONLY source-backed rejections
+  "impact_direction": {"attacker_receives","attacker_preserves","victim_loses",
+                       "invariant_violated","not_self_funded_or_dust_or_admin_or_timing"},
+        // (a structured-prose impact_direction string is also accepted if it states
+        //  who gains, who loses, the impacted state/value, and why it is not self-funded/admin-only/dust/timing)
+  "stop_condition": "satisfied | more_mechanisms_pending: <reason>"
+// (legacy aliases still accepted: chosen_mechanism for selected_mechanisms, rejection_table for rejected_mechanisms)
+
+
+=== SOURCE UNDER TRACE (verbatim Solidity from the in-scope contracts) ===
+// ----- MultiHopOracle.sol lines 1-54 (verbatim) -----
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8.24;
+
+import "@balancer-labs/v3-interfaces/contracts/pool-quantamm/OracleWrapper.sol";
+
+/// @notice For tokens where no direct oracle / price feeds exists, multiple oracle wrappers can be combined to one.
+contract MultiHopOracle is OracleWrapper {
+    /// @notice Configuration for one hop
+    /// @dev Fits in one storage slot
+    struct HopConfig {
+        OracleWrapper oracle;
+        /// @notice Set to true if the result should be inverted, e.g. if we have TOK1/TOK2 but want to multiply by TOK2/TOK1 (i.e., divide by TOK1/TOK2)
+        bool invert;
+    }
+
+    /// @notice configuration for the oracles
+    HopConfig[] public oracles;
+
+    constructor(HopConfig[] memory _oracles) {
+        for (uint i = 0; i < _oracles.length; i++) {
+            oracles.push(_oracles[i]);
+        }
+    }
+
+    /// @notice Returns the latest data from one oracle hopping across n oracles
+    /// @return data the latest data from the oracle in the QuantAMM format
+    /// @return timestamp the timestamp of the data retrieval
+    function _getData() internal view override returns (int216 data, uint40 timestamp) {
+        HopConfig memory firstOracle = oracles[0];
+        (data, timestamp) = firstOracle.oracle.getData();
+        if (firstOracle.invert) {
+            data = 10 ** 36 / data; // 10^36 (i.e., 1 with 18 decimals * 10^18) to get the inverse with 18 decimals.
+            // 10**36 is automatically precomputed by the compiler, no explicit caching needed
+        }
+        uint256 oracleLength = oracles.length;
+
+        for (uint i = 1; i < oracleLength; ) {
+            HopConfig memory oracleConfig = oracles[i];
+            (int216 oracleRes, uint40 oracleTimestamp) = oracleConfig.oracle.getData();
+            if (oracleTimestamp < timestamp) {
+                timestamp = oracleTimestamp; // Return minimum timestamp
+            }
+
+            // depends which way the oracle conversion is happening
+            if (oracleConfig.invert) {
+                data = (data * 10 ** 18) / oracleRes;
+            } else {
+                data = (data * oracleRes) / 10 ** 18;
+            }
+            unchecked {
+                ++i;
+            }
+        }
+    }

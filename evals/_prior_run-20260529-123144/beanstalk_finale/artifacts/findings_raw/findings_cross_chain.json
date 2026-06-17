@@ -1,0 +1,122 @@
+{
+  "agent": "cross_chain",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T00:00:00+00:00",
+  "findings": [
+    {
+      "id": "CC-001",
+      "title": "L1->L2 migration redemption replayable: no nonce, stalk/roots re-credited",
+      "severity": "High",
+      "vuln_type": "signature-replay",
+      "description": "L2ContractMigrationFacet.redeemDepositsAndInternalBalances() is the L2-side receiver of the one-time L1->L2 contract migration. It authorizes a redemption purely with (a) a Merkle proof of the (owner, deposits, internalBalances, ownerRoots) leaf against a hardcoded MERKLE_ROOT, and (b) an EIP-712 signature over (owner, reciever, deadline). Crucially, the function NEVER records that a given owner/leaf/signature has already been consumed. The Migration struct (System.sol#375) holds only `migratedL1Beans` (used by the unrelated BeanL1RecieverFacet path); there is no per-account `hasMigrated`/`claimed` mapping and no nonce in the signed digest (REDEEM_DEPOSIT_TYPE_HASH = redeemDepositsAndInternalBalances(address owner,address reciever,uint256 deadline) — no nonce, no chain message id). Because both the proof and the signature are static and re-verifiable, the SAME redemption can be submitted unlimited times (by anyone — the call is permissionless; the signature is the only auth and it is reusable until `deadline`). The deposit writes in addMigratedDepositsToAccount() use `=` (idempotent), but setStalk() accumulates with `+=`: `s.accts[account].stalk += accountStalk` and `s.accts[account].roots += accountRoots` (L206-207). Each replay therefore adds another full copy of the account's stalk and roots without ever increasing the global s.sys.silo.stalk/roots. Stalk is Beanstalk's governance vote weight and yield-share unit; roots is the numerator of the earned-Bean distribution. An attacker (or the receiver themselves) replays the redemption N times to inflate their stalk/roots arbitrarily, then drains a disproportionate share of every Bean emission and gains majority governance weight — stolen pro-rata from every honest Silo depositor.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "redeemDepositsAndInternalBalances",
+        "line_start": 88,
+        "line_end": 150,
+        "code_snippet": "function redeemDepositsAndInternalBalances(...) external payable fundsSafu noSupplyChange nonReentrant {\n    verifyDepositsAndInternalBalances(owner, deposits, internalBalances, ownerRoots, proof);\n    verifySignature(owner, reciever, deadline, signature);\n    // NO consumed/claimed mapping set or checked anywhere\n    uint256 accountStalk;\n    for (uint256 i; i < deposits.length; i++) {\n        accountStalk += addMigratedDepositsToAccount(reciever, deposits[i]);\n    }\n    setStalk(reciever, accountStalk, ownerRoots);\n}\n// setStalk (L205): s.accts[account].stalk += accountStalk; s.accts[account].roots += accountRoots;\n// REDEEM_DEPOSIT_TYPE_HASH has NO nonce; signature reusable until deadline"
+      },
+      "impact": "Permissionless replay of a single valid migration redemption inflates the recipient's silo stalk (governance vote weight) and roots (earned-Bean share numerator) without bound. Consumed by _balanceOfEarnedBeans() (LibSilo.sol#681: stalk = s.sys.silo.stalk * accountRoots / s.sys.silo.roots) and balanceOfStalk() (SiloGettersFacet.sol#323), the inflated account drains a disproportionate share of all future Bean emissions and can capture governance majority. Direct, pro-rata theft of yield and voting power from every honest Silo depositor.",
+      "proof_of_concept": "1) A migrating L1 contract's redemption (owner, reciever, deposits, ownerRoots, proof, deadline, signature) is broadcast to L2. 2) The reciever (or any observer who copies the public calldata) calls redeemDepositsAndInternalBalances() once -> stalk/roots credited. 3) Re-call the exact same calldata K more times before `deadline`; verifyDepositsAndInternalBalances and verifySignature pass identically each time, and setStalk adds another (accountStalk, ownerRoots) on every call. 4) Assert s.accts[reciever].roots == (K+1) * ownerRoots and balanceOfEarnedBeans(reciever) scales with it. With deadline set far out, the multiplier is unbounded.",
+      "recommendation": "Bind a per-owner one-time guard into both the proof and the signed digest, and mark it consumed before crediting state. Concretely: (1) add a `mapping(address => bool) migrated` (or include the leaf hash) to the Migration struct and `require(!migrated[owner]); migrated[owner] = true;` at the top of redeemDepositsAndInternalBalances; (2) include this consumption in the EIP-712 struct (e.g. add a nonce or the full deposits hash to REDEEM_DEPOSIT_TYPE_HASH) so a replayed signature is rejected; (3) since setStalk uses += while deposits use =, switch stalk/roots to authoritative `=` writes (or guarantee single execution) and also update the global s.sys.silo.stalk/roots consistently (see CC cross-ref to LG-003).",
+      "confidence": "High",
+      "duplicate_of": "AC-001",
+      "cross_agent_refs": ["AC-001", "LG-002", "LG-003"],
+      "ite": {
+        "intent": "An attacker inflates a chosen L2 account's silo stalk and roots without bound, stealing a disproportionate share of every future Bean emission and governance voting power from all honest Silo depositors.",
+        "technique": "Submit a valid L1 migration redemption to L2ContractMigrationFacet.redeemDepositsAndInternalBalances (L88); verifyDepositsAndInternalBalances (L120, Merkle over static leaf) and verifySignature (L136, EIP-712 over owner/reciever/deadline with NO nonce) both pass. No consumed/claimed state is written. setStalk (L205) does s.accts[account].stalk += accountStalk and roots += accountRoots. Re-submit the identical calldata up to `deadline`: each call re-adds the full stalk/roots. _balanceOfEarnedBeans (LibSilo.sol#689) computes the account's Bean payout as s.sys.silo.stalk * accountRoots / s.sys.silo.roots, so inflated accountRoots = inflated earned Beans and governance weight.",
+        "evasion": "Developer intended the Merkle proof + EIP-712 signature to authorize the migration. The gap: neither the proof leaf nor the signed digest contains a nonce/uniqueness field, and no `claimed`/`migrated` flag is set, so the authorization is infinitely reusable. nonReentrant only blocks intra-tx re-entry, not separate-transaction replay; the EIP-712 deadline only bounds the window, not the count."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[reciever].roots and s.accts[reciever].stalk (re-credited with += on every replay)",
+        "consumer_found": true,
+        "consumer_function": "LibSilo._balanceOfEarnedBeans / SiloGettersFacet.balanceOfEarnedBeans / balanceOfStalk",
+        "consumer_action": "distributes earned Beans pro-rata to account roots and counts stalk as governance vote weight, so inflated roots/stalk drain Bean emissions and capture governance",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "attack_surface_rank": 4,
+      "assumption_count": 1,
+      "critical_assumptions": [
+        "At least one valid (owner, signature, proof) redemption exists and its deadline has not yet elapsed; the calldata is public on L2 so any caller can replay it."
+      ],
+      "human_review_required": false
+    },
+    {
+      "id": "CC-002",
+      "title": "L1 burns Beans but L2 receiver always reverts (EXTERNAL_L1_BEANS=0)",
+      "severity": "Medium",
+      "vuln_type": "logic-error",
+      "description": "The external-Bean L1->L2 migration is a two-sided cross-chain flow. On L1, BeanL2MigrationFacet.migrateL2Beans() (L43) irreversibly burns the user's Beans (C.bean().burnFrom(msg.sender, amount), L49) and then sends a cross-chain message instructing the L2 to mint the same amount to `reciever`. On L2, BeanL1RecieverFacet.recieveL1Beans() (L31) is the receiver. It increments s.sys.migration.migratedL1Beans by `amount` and then enforces `require(EXTERNAL_L1_BEANS >= s.sys.migration.migratedL1Beans, \"L2Migration: exceeds maximum migrated\")`. EXTERNAL_L1_BEANS is declared `uint256 constant EXTERNAL_L1_BEANS = 0;` (L22) with NO setter anywhere in scope. Therefore for any amount > 0 the require evaluates `0 >= amount` which is false, and the L2 mint reverts. The L1 burn has already succeeded and is irreversible. Result: a cross-chain accounting asymmetry where the source side destroys value but the destination side categorically refuses to credit it, stranding the migrated Beans. The BRIDGE addresses themselves are consistent with an Optimism/Base-stack deployment (L1 messenger 0x866E...0Afa, L2 CrossDomainMessenger predeploy 0x4200...0007) and xDomainMessageSender is checked against L1BEANSTALK, so the gate that fails is the supply cap, not the messenger auth.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/migration/BeanL1RecieverFacet.sol",
+        "function": "recieveL1Beans",
+        "line_start": 22,
+        "line_end": 44,
+        "code_snippet": "uint256 constant EXTERNAL_L1_BEANS = 0;\n...\nfunction recieveL1Beans(address reciever, uint256 amount) external nonReentrant {\n    require(msg.sender == address(BRIDGE) && IL2Messenger(BRIDGE).xDomainMessageSender() == L1BEANSTALK);\n    s.sys.migration.migratedL1Beans += amount;\n    require(EXTERNAL_L1_BEANS >= s.sys.migration.migratedL1Beans, \"L2Migration: exceeds maximum migrated\");\n    C.bean().mint(reciever, amount);\n}\n// L1 side: BeanL2MigrationFacet.migrateL2Beans burns first (C.bean().burnFrom) then sends the message"
+      },
+      "impact": "Any user who migrates external Beans loses them: Beans are burned on L1 (irreversible) while the corresponding mint on L2 reverts for every nonzero amount because the hardcoded supply cap is 0. The cross-chain message cannot succeed, so funds are stranded with no recovery path in scope.",
+      "proof_of_concept": "1) User calls BeanL2MigrationFacet.migrateL2Beans(reciever, L2Beanstalk, amount>0, gasLimit) on L1 -> burnFrom destroys `amount` Beans, message dispatched. 2) Relayer delivers the message to L2 BeanL1RecieverFacet.recieveL1Beans; messenger auth passes; migratedL1Beans becomes `amount`; require(0 >= amount) is false -> revert. 3) Mint never occurs; the L1 burn is permanent. Repeat for every migrating user -> all migrated external Beans destroyed.",
+      "recommendation": "Replace the EXTERNAL_L1_BEANS constant with a value (or governed setter) equal to the actual snapshot of external L1 Bean supply eligible for migration before enabling the path, and gate migrateL2Beans behind the same readiness so no L1 burn can occur while the L2 cap is 0. Treat the current `= 0` as a deploy-time placeholder that MUST be set; add a deployment invariant check.",
+      "confidence": "High",
+      "ite": {
+        "intent": "A farmer migrating external Beans from L1 to L2 loses the entire migrated amount: burned on L1, mint refused on L2.",
+        "technique": "migrateL2Beans (BeanL2MigrationFacet.sol#49) burns the caller's Beans then bridges a recieveL1Beans(reciever, amount) call. On L2, recieveL1Beans (BeanL1RecieverFacet.sol#38-42) adds amount to migratedL1Beans then asserts EXTERNAL_L1_BEANS(=0) >= migratedL1Beans, which is false for any amount>0, reverting after the L1 burn already committed.",
+        "evasion": "The require is intended as a supply cap so the L2 cannot mint more Beans than existed externally on L1. The gap: the cap constant ships as 0 with no setter, so it blocks ALL migrations rather than capping them, turning a safety bound into a guaranteed fund-loss on the source side."
+      },
+      "ice_chain": {
+        "corrupted_state": "C.bean() total supply on L1 (burned) with no matching mint on L2; s.sys.migration.migratedL1Beans",
+        "consumer_found": true,
+        "consumer_function": "BeanL1RecieverFacet.recieveL1Beans require gate",
+        "consumer_action": "reverts the L2 mint for every nonzero amount, leaving the L1 burn uncompensated",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      },
+      "attack_surface_rank": 3,
+      "assumption_count": 1,
+      "critical_assumptions": [
+        "EXTERNAL_L1_BEANS is deployed as-is (0). It is clearly a placeholder; if governance sets it before enabling migration the fund-loss does not occur — hence Medium, not High."
+      ],
+      "human_review_required": false
+    },
+    {
+      "id": "CC-003",
+      "title": "Migration EIP-712 hardcodes chainId=1; MERKLE_ROOT is a placeholder",
+      "severity": "Low",
+      "vuln_type": "signature-replay",
+      "description": "Two cross-chain configuration hazards in L2ContractMigrationFacet. (1) The EIP-712 domain separator uses C.getLegacyChainId() which returns the hardcoded LEGACY_CHAIN_ID = 1 (C.sol#21,112), NOT block.chainid. This is an intentional design choice (the user signs on L1/mainnet, so the digest must reflect mainnet's chainId while being verified on L2), and verifyingContract is address(this) = the L2 diamond, which does bind the signature to the L2 contract. However, hardcoding chainId means the domain no longer reflects the executing chain: if the same signed redemption scheme were ever reused on another deployment, or if mainnet forks (both forks keep chainId 1 until one updates genesis), the digest provides no chain disambiguation beyond verifyingContract. Combined with CC-001 (no nonce / no consumed flag), the lack of true chain binding widens the replay surface. (2) MERKLE_ROOT is a static placeholder with an explicit `// todo: update with the correct merkle root.` comment (L50-52); if it ships unset, proof verification authorizes the wrong leaf set. Flagged as Low because both are deploy-time configuration that governance is expected to finalize, but they sit directly on the migration trust boundary and must be verified at deployment.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "_domainSeparatorV4",
+        "line_start": 230,
+        "line_end": 241,
+        "code_snippet": "bytes32 private constant MERKLE_ROOT = 0xa84dc8...; // todo: update with the correct merkle root.\n...\nfunction _domainSeparatorV4() internal view returns (bytes32) {\n    return keccak256(abi.encode(EIP712_TYPE_HASH, MIGRATION_HASHED_NAME, MIGRATION_HASHED_VERSION, C.getLegacyChainId() /* ==1, not block.chainid */, address(this)));\n}"
+      },
+      "impact": "Hardcoded chainId removes execution-chain binding from the migration signature (mitigated only by verifyingContract=address(this)); a placeholder Merkle root, if not updated at deploy, authorizes an incorrect ownership set. Neither is independently exploitable but both amplify CC-001's replay/authorization surface and must be confirmed at deployment.",
+      "recommendation": "Document and lock the chainId choice: because the message is signed on L1 and consumed on L2, the safest binding is the verifyingContract (the L2 diamond, already used) PLUS a per-owner nonce (see CC-001) so a static chainId cannot be leveraged for replay. Ensure MERKLE_ROOT is replaced with the production root and add a deploy-time assertion that it is non-placeholder before the facet is cut in.",
+      "confidence": "Medium",
+      "cross_agent_refs": ["CC-001", "AC-001", "AC-002"],
+      "ite": {
+        "intent": "Weaken the chain/identity binding of the migration signature so a signed redemption is not uniquely tied to one chain+contract, broadening replay potential.",
+        "technique": "_domainSeparatorV4 (L230) feeds C.getLegacyChainId() (constant 1) instead of block.chainid into the EIP-712 domain; only address(this) distinguishes the L2 diamond. With no nonce in REDEEM_DEPOSIT_TYPE_HASH, the digest is fully static per (owner, reciever, deadline).",
+        "evasion": "Hardcoding chainId is deliberate for cross-chain L1-signed/L2-consumed flow, and verifyingContract supplies contract binding; the gap is the absence of a uniqueness/nonce field plus an unupdated MERKLE_ROOT placeholder, which together undermine the intended one-time authorization."
+      },
+      "ice_chain": {
+        "corrupted_state": "EIP-712 digest binding (chainId field) and authorized leaf set (MERKLE_ROOT)",
+        "consumer_found": true,
+        "consumer_function": "verifySignature / verifyDepositsAndInternalBalances",
+        "consumer_action": "accepts a signed/proven redemption; weak binding compounds the CC-001 replay to credit stalk/roots",
+        "severity_ceiling": "Low",
+        "search_method": "manual_trace"
+      },
+      "attack_surface_rank": 3,
+      "assumption_count": 2,
+      "critical_assumptions": [
+        "Hardcoded chainId=1 is intentional for L1-signed redemption; impact is conditional on the CC-001 missing-nonce gap.",
+        "MERKLE_ROOT is a placeholder per the in-code todo and must be set at deploy."
+      ],
+      "human_review_required": true,
+      "human_review_reason": "Chain-binding choice for an L1-signed/L2-consumed migration is a design decision; needs human confirmation of intended chainId/verifyingContract semantics and the production Merkle root before severity is finalized."
+    }
+  ]
+}

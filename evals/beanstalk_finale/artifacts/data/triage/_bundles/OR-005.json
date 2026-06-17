@@ -1,0 +1,101 @@
+{
+  "finding_id": "OR-005",
+  "title": "Chainlink oracle ignores answeredInRound and has no min/max price bounds",
+  "agent": "",
+  "claimed_severity": "Low",
+  "claimed_confidence": "Medium",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibChainlinkOracle.sol",
+    "function": "getPrice",
+    "line_start": 71,
+    "line_end": 84,
+    "code_snippet": "try priceAggregator.latestRoundData() returns (uint80 roundId, int256 answer, uint256, uint256 timestamp, uint80 /* answeredInRound */) { if (roundId == 0) return 0; ... }"
+  },
+  "description": "LibChainlinkOracle validates latestRoundData only via roundId!=0 and checkForInvalidTimestampOrAnswer (timestamp non-zero/not-future, within maxTimeout, answer>0). It never checks `answeredInRound >= roundId`, so a carried-over/stale answer from a prior round that still satisfies the timeout passes as fresh. It also applies no min/max sanity bounds on the returned answer, so during a Chainlink mispricing or a feed pinned at its circuit-breaker min/max the out-of-range value is consumed at face value (the protocol has no minAnswer/maxAnswer rejection). Heartbeat handling is coarse: FOUR_HOUR_TIMEOUT (14400s) is applied to feeds the comments describe as 1-hour heartbeat, accepting answers up to 4h stale.",
+  "impact": "Stale (carried) Chainlink rounds within the 4h timeout and out-of-band circuit-breaker prices are accepted without rejection, feeding slightly-wrong USD prices into pricing/ratio math. Lower severity because Chainlink is the trusted source, the 0-on-failure design already handles outright outages, and the timeout bounds gross staleness.",
+  "ite": {
+    "intent": "Reject stale or out-of-range Chainlink answers so only fresh, sane prices are used.",
+    "technique": "answeredInRound is decoded but discarded; no min/max bound; coarse 4h timeout.",
+    "evasion": "The presence of roundId!=0 + timeout + answer>0 checks gives the appearance of full staleness validation while answeredInRound and bounds are missing."
+  },
+  "ice_chain": {
+    "corrupted_state": "answer accepted as fresh/in-range without answeredInRound or min/max checks",
+    "consumer_found": true,
+    "consumer_function": "LibChainlinkOracle.getPrice/getTwap -> LibUsdOracle / LibEthUsdOracle pricing",
+    "consumer_action": "slightly-wrong USD price consumed in ratio/pricing math",
+    "severity_ceiling": "Low",
+    "search_method": "manual_trace"
+  },
+  "source_slice": "41:         uint256 maxTimeout,\n42:         uint256 lookback\n43:     ) internal view returns (uint256 price) {\n44:         return\n45:             lookback > 0\n46:                 ? getPrice(priceAggregatorAddress, maxTimeout)\n47:                 : getTwap(priceAggregatorAddress, maxTimeout, lookback);\n48:     }\n49: \n50:     /**\n51:      * @dev Returns the price of a given `priceAggregator`\n52:      * Return value has 6 decimal precision.\n53:      * Returns 0 if Chainlink's price feed is broken or frozen.\n54:      **/\n55:     function getPrice(\n56:         address priceAggregatorAddress,\n57:         uint256 maxTimeout\n58:     ) internal view returns (uint256 price) {\n59:         IChainlinkAggregator priceAggregator = IChainlinkAggregator(priceAggregatorAddress);\n60:         // First, try to get current decimal precision:\n61:         uint8 decimals;\n62:         try priceAggregator.decimals() returns (uint8 _decimals) {\n63:             // If call to Chainlink succeeds, record the current decimal precision\n64:             decimals = _decimals;\n65:         } catch {\n66:             // If call to Chainlink aggregator reverts, return a price of 0 indicating failure\n67:             return 0;\n68:         }\n69: \n70:         // Secondly, try to get latest price data:\n71:         try priceAggregator.latestRoundData() returns (\n72:             uint80 roundId,\n73:             int256 answer,\n74:             uint256 /* startedAt */,\n75:             uint256 timestamp,\n76:             uint80 /* answeredInRound */\n77:         ) {\n78:             // Check for an invalid roundId that is 0\n79:             if (roundId == 0) return 0;\n80:             if (checkForInvalidTimestampOrAnswer(timestamp, answer, block.timestamp, maxTimeout)) {\n81:                 return 0;\n82:             }\n83:             // Adjust to 6 decimal precision.\n84:             return uint256(answer).mul(PRECISION).div(10 ** decimals);\n85:         } catch {\n86:             // If call to Chainlink aggregator reverts, return a price of 0 indicating failure\n87:             return 0;\n88:         }\n89:     }\n90: \n91:     /**\n92:      * @dev Returns the TWAP price from the Chainlink Oracle over the past `lookback` seconds.\n93:      * Return value has 6 decimal precision.\n94:      * Returns 0 if Chainlink's price feed is broken or frozen.\n95:      **/\n96:     function getTwap(\n97:         address priceAggregatorAddress,\n98:         uint256 maxTimeout,\n99:         uint256 lookback\n100:     ) internal view returns (uint256 price) {\n101:         IChainlinkAggregator priceAggregator = IChainlinkAggregator(priceAggregatorAddress);\n102:         // First, try to get current decimal precision:\n103:         uint8 decimals;\n104:         try priceAggregator.decimals() returns (uint8 _decimals) {\n105:             // If call to Chainlink succeeds, record the current decimal precision\n106:             decimals = _decimals;\n107:         } catch {\n108:             // If call to Chainlink aggregator reverts, return a price of 0 indicating failure\n109:             return 0;\n110:         }\n111: \n112:         // Secondly, try to get latest price data:\n113:         try priceAggregator.latestRoundData() returns (\n114:             uint80 roundId,",
+  "gate_verdict": {
+    "finding_id": "OR-005",
+    "severity": "Low",
+    "vuln_type": "oracle-manipulation",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.544988+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

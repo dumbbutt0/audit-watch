@@ -1,0 +1,270 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-06-01T14:50:33.146468+00:00",
+  "routing_allowed": false,
+  "source_normalized": "documentation/research/_normalization_demo/research_findings_normalized.json",
+  "bundles": [
+    {
+      "candidate_id": "permit_asset_binding:V3Vault:liquidate:permit_asset_binding_missing:91cca09f",
+      "detector": "permit_asset_binding",
+      "detector_version": "v1",
+      "signal_type": "asset_binding_missing",
+      "candidate_surface": "V3Vault.liquidate",
+      "confidence": "high",
+      "declared_severity_potential": "high",
+      "source_audit_path": "documentation/research/_permit_experiment/_validation/revert-lend-2024-03/output/permit_asset_binding_audit.json",
+      "location": {
+        "file": "audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/V3Vault.sol",
+        "start_line": 685,
+        "resolvable": true
+      },
+      "code_snippet": "function liquidate(LiquidateParams calldata params) external override returns (uint256 amount0, uint256 amount1) {\n        // liquidation is not allowed during transformer mode\n        if (transformedTokenId > 0) {\n            revert TransformNotAllowed();\n        }\n\n        LiquidateState memory state;\n\n        (state.newDebtExchangeRateX96, state.newLendExchangeRateX96) = _updateGlobalInterest();\n\n        uint256 debtShares = loans[params.tokenId].debtShares;\n        if (debtShares != params.debtShares) {\n            revert DebtChanged();\n        }\n\n        state.debt = _convertToAssets(debtShares, state.newDebtExchangeRateX96, Math.Rounding.Up);\n\n        (state.isHealthy, state.fullValue, state.collateralValue, state.feeValue) =\n            _checkLoanIsHealthy(params.tokenId, state.debt);\n        if (state.isHealthy) {\n            revert NotLiquidatable();\n        }\n\n        (state.liquidationValue, state.liquidatorCost, state.reserveCost) =\n            _calculateLiquidation(state.debt, state.fullValue, state.collateralValue);\n\n        // calculate reserve (before transfering liquidation money - otherwise calculation is off)\n        if (state.reserveCost > 0) {\n            state.missing =\n                _handleReserveLiquidation(state.reserveCost, state.newDebtExchangeRateX96, state.newLendExchangeRateX96);\n        }\n\n        if (params.permitData.length > 0) {\n            (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) =\n                abi.decode(params.permitData, (ISignatureTransfer.PermitTransferFrom, bytes));\n            permit2.permitTransferFrom(\n                permit,\n                ISignatureTransfer.SignatureTransferDetails(address(this), state.liquidatorCost),\n                msg.sender,\n                signature",
+      "evidence_signals": {
+        "permit_source": "permittransferfrom",
+        "expected_asset_source": "IERC20(asset)",
+        "missing_binding_explanation": "liquidate consumes a permit/Permit2 transfer (permittransferfrom) into a protocol with a single expected asset (IERC20(asset)) but never asserts the permit's token equals that asset (no permitted.token == asset / InvalidToken check) \u2014 a Permit2 signature for a different ERC-20 could be credited as the protocol asset (Shape A, Revert Lend #368 class)."
+      },
+      "rationale": "liquidate consumes a permit/Permit2 transfer (permittransferfrom) into a protocol with a single expected asset (IERC20(asset)) but never asserts the permit's token equals that asset (no permitted.token == asset / InvalidToken check) \u2014 a Permit2 signature for a different ERC-20 could be credited as the protocol asset (Shape A, Revert Lend #368 class).",
+      "evidence_completeness": {
+        "status": "COMPLETE",
+        "present": [
+          "location_resolvable",
+          "code_snippet",
+          "candidate_surface",
+          "signal_type",
+          "confidence",
+          "evidence_payload",
+          "rationale",
+          "traceability"
+        ],
+        "missing": []
+      },
+      "bundle_status": "READY_FOR_REVIEW",
+      "investigate_recommendation": "ready_for_review",
+      "routing_allowed": false,
+      "research_only": true
+    },
+    {
+      "candidate_id": "permit_asset_binding:V3Vault:_deposit:permit_asset_binding_missing:c73b243a",
+      "detector": "permit_asset_binding",
+      "detector_version": "v1",
+      "signal_type": "asset_binding_missing",
+      "candidate_surface": "V3Vault._deposit",
+      "confidence": "high",
+      "declared_severity_potential": "high",
+      "source_audit_path": "documentation/research/_permit_experiment/_validation/revert-lend-2024-03/output/permit_asset_binding_audit.json",
+      "location": {
+        "file": "audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/V3Vault.sol",
+        "start_line": 877,
+        "resolvable": true
+      },
+      "code_snippet": "function _deposit(address receiver, uint256 amount, bool isShare, bytes memory permitData)\n        internal\n        returns (uint256 assets, uint256 shares)\n    {\n        (, uint256 newLendExchangeRateX96) = _updateGlobalInterest();\n\n        _resetDailyLendIncreaseLimit(newLendExchangeRateX96, false);\n\n        if (isShare) {\n            shares = amount;\n            assets = _convertToAssets(shares, newLendExchangeRateX96, Math.Rounding.Up);\n        } else {\n            assets = amount;\n            shares = _convertToShares(assets, newLendExchangeRateX96, Math.Rounding.Down);\n        }\n\n        if (permitData.length > 0) {\n            (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) =\n                abi.decode(permitData, (ISignatureTransfer.PermitTransferFrom, bytes));\n            permit2.permitTransferFrom(\n                permit, ISignatureTransfer.SignatureTransferDetails(address(this), assets), msg.sender, signature\n            );\n        } else {\n            // fails if not enough token approved\n            SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, address(this), assets);\n        }\n\n        _mint(receiver, shares);\n\n        if (totalSupply() > globalLendLimit) {\n            revert GlobalLendLimit();\n        }\n\n        if (assets > dailyLendIncreaseLimitLeft) {\n            revert DailyLendIncreaseLimit();\n        } else {\n            dailyLendIncreaseLimitLeft -= assets;\n        }\n\n        emit Deposit(msg.sender, receiver, assets, shares);",
+      "evidence_signals": {
+        "permit_source": "permittransferfrom",
+        "expected_asset_source": "IERC20(asset)",
+        "missing_binding_explanation": "_deposit consumes a permit/Permit2 transfer (permittransferfrom) into a protocol with a single expected asset (IERC20(asset)) but never asserts the permit's token equals that asset (no permitted.token == asset / InvalidToken check) \u2014 a Permit2 signature for a different ERC-20 could be credited as the protocol asset (Shape A, Revert Lend #368 class)."
+      },
+      "rationale": "_deposit consumes a permit/Permit2 transfer (permittransferfrom) into a protocol with a single expected asset (IERC20(asset)) but never asserts the permit's token equals that asset (no permitted.token == asset / InvalidToken check) \u2014 a Permit2 signature for a different ERC-20 could be credited as the protocol asset (Shape A, Revert Lend #368 class).",
+      "evidence_completeness": {
+        "status": "COMPLETE",
+        "present": [
+          "location_resolvable",
+          "code_snippet",
+          "candidate_surface",
+          "signal_type",
+          "confidence",
+          "evidence_payload",
+          "rationale",
+          "traceability"
+        ],
+        "missing": []
+      },
+      "bundle_status": "READY_FOR_REVIEW",
+      "investigate_recommendation": "ready_for_review",
+      "routing_allowed": false,
+      "research_only": true
+    },
+    {
+      "candidate_id": "permit_asset_binding:V3Vault:_repay:permit_asset_binding_missing:482cc57d",
+      "detector": "permit_asset_binding",
+      "detector_version": "v1",
+      "signal_type": "asset_binding_missing",
+      "candidate_surface": "V3Vault._repay",
+      "confidence": "high",
+      "declared_severity_potential": "high",
+      "source_audit_path": "documentation/research/_permit_experiment/_validation/revert-lend-2024-03/output/permit_asset_binding_audit.json",
+      "location": {
+        "file": "audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/V3Vault.sol",
+        "start_line": 954,
+        "resolvable": true
+      },
+      "code_snippet": "function _repay(uint256 tokenId, uint256 amount, bool isShare, bytes memory permitData) internal {\n        (uint256 newDebtExchangeRateX96, uint256 newLendExchangeRateX96) = _updateGlobalInterest();\n\n        Loan storage loan = loans[tokenId];\n\n        uint256 currentShares = loan.debtShares;\n\n        uint256 shares;\n        uint256 assets;\n\n        if (isShare) {\n            shares = amount;\n            assets = _convertToAssets(amount, newDebtExchangeRateX96, Math.Rounding.Up);\n        } else {\n            assets = amount;\n            shares = _convertToShares(amount, newDebtExchangeRateX96, Math.Rounding.Down);\n        }\n\n        // fails if too much repayed\n        if (shares > currentShares) {\n            revert RepayExceedsDebt();\n        }\n\n        if (assets > 0) {\n            if (permitData.length > 0) {\n                (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) =\n                    abi.decode(permitData, (ISignatureTransfer.PermitTransferFrom, bytes));\n                permit2.permitTransferFrom(\n                    permit, ISignatureTransfer.SignatureTransferDetails(address(this), assets), msg.sender, signature\n                );\n            } else {\n                // fails if not enough token approved\n                SafeERC20.safeTransferFrom(IERC20(asset), msg.sender, address(this), assets);\n            }\n        }\n\n        uint256 loanDebtShares = loan.debtShares - shares;\n        loan.debtShares = loanDebtShares;\n        debtSharesTotal -= shares;",
+      "evidence_signals": {
+        "permit_source": "permittransferfrom",
+        "expected_asset_source": "IERC20(asset)",
+        "missing_binding_explanation": "_repay consumes a permit/Permit2 transfer (permittransferfrom) into a protocol with a single expected asset (IERC20(asset)) but never asserts the permit's token equals that asset (no permitted.token == asset / InvalidToken check) \u2014 a Permit2 signature for a different ERC-20 could be credited as the protocol asset (Shape A, Revert Lend #368 class)."
+      },
+      "rationale": "_repay consumes a permit/Permit2 transfer (permittransferfrom) into a protocol with a single expected asset (IERC20(asset)) but never asserts the permit's token equals that asset (no permitted.token == asset / InvalidToken check) \u2014 a Permit2 signature for a different ERC-20 could be credited as the protocol asset (Shape A, Revert Lend #368 class).",
+      "evidence_completeness": {
+        "status": "COMPLETE",
+        "present": [
+          "location_resolvable",
+          "code_snippet",
+          "candidate_surface",
+          "signal_type",
+          "confidence",
+          "evidence_payload",
+          "rationale",
+          "traceability"
+        ],
+        "missing": []
+      },
+      "bundle_status": "READY_FOR_REVIEW",
+      "investigate_recommendation": "ready_for_review",
+      "routing_allowed": false,
+      "research_only": true
+    },
+    {
+      "candidate_id": "multicall_invariant:PanopticPool:multicall:delegatecall_self_context:22591006",
+      "detector": "multicall_invariant",
+      "detector_version": "v1",
+      "signal_type": "batch_invariant_opportunity",
+      "candidate_surface": "PanopticPool.multicall",
+      "confidence": "high",
+      "declared_severity_potential": "medium",
+      "source_audit_path": "documentation/research/_b1_experiment/_runs/panoptic-b1-synthetic/output/multicall_invariant_audit.json",
+      "location": {
+        "file": "audits/panoptic-2025-12-strict-eval/contracts/2025-12-panoptic/contracts/base/Multicall.sol",
+        "start_line": 12,
+        "resolvable": true
+      },
+      "code_snippet": "function multicall(bytes[] calldata data) public payable returns (bytes[] memory results) {\n        results = new bytes[](data.length);\n        for (uint256 i = 0; i < data.length; ) {\n            (bool success, bytes memory result) = address(this).delegatecall(data[i]);\n\n            if (!success) {\n                // Bubble up the revert reason\n                // The bytes type is ABI encoded as a length-prefixed byte array\n                // So we simply need to add 32 to the pointer to get the start of the data\n                // And then revert with the size loaded from the first 32 bytes\n                // Other solutions will do work to differentiate the revert reasons and provide parenthetical information\n                // However, we have chosen to simply replicate the the normal behavior of the call\n                // NOTE: memory-safe because it reads from memory already allocated by solidity (the bytes memory result)\n                assembly (\"memory-safe\") {\n                    revert(add(result, 32), mload(result))\n                }\n            }\n\n            results[i] = result;\n\n            unchecked {\n                ++i;\n            }\n        }\n    }",
+      "evidence_signals": {
+        "evidence_terms": [
+          "batch_loop",
+          "self_delegatecall"
+        ],
+        "multicall_function": "multicall",
+        "check_location": "in_loop",
+        "reason": "multicall delegatecalls address(this) over bytes[] sub-calls preserving msg.sender/context \u2014 verify each callable selector is safe under batched execution (no msg.value reuse, no assumption of standalone execution, no invariant only valid per single call)"
+      },
+      "rationale": "multicall delegatecalls address(this) over bytes[] sub-calls preserving msg.sender/context \u2014 verify each callable selector is safe under batched execution (no msg.value reuse, no assumption of standalone execution, no invariant only valid per single call)",
+      "evidence_completeness": {
+        "status": "COMPLETE",
+        "present": [
+          "location_resolvable",
+          "code_snippet",
+          "candidate_surface",
+          "signal_type",
+          "confidence",
+          "evidence_payload",
+          "rationale",
+          "traceability"
+        ],
+        "missing": []
+      },
+      "bundle_status": "READY_FOR_REVIEW",
+      "investigate_recommendation": "ready_for_review",
+      "routing_allowed": false,
+      "research_only": true
+    },
+    {
+      "candidate_id": "multicall_invariant:SemiFungiblePositionManager:multicall:delegatecall_self_context:0ad90c6d",
+      "detector": "multicall_invariant",
+      "detector_version": "v1",
+      "signal_type": "batch_invariant_opportunity",
+      "candidate_surface": "SemiFungiblePositionManager.multicall",
+      "confidence": "high",
+      "declared_severity_potential": "medium",
+      "source_audit_path": "documentation/research/_b1_experiment/_runs/panoptic-b1-synthetic/output/multicall_invariant_audit.json",
+      "location": {
+        "file": "audits/panoptic-2025-12-strict-eval/contracts/2025-12-panoptic/contracts/base/Multicall.sol",
+        "start_line": 12,
+        "resolvable": true
+      },
+      "code_snippet": "function multicall(bytes[] calldata data) public payable returns (bytes[] memory results) {\n        results = new bytes[](data.length);\n        for (uint256 i = 0; i < data.length; ) {\n            (bool success, bytes memory result) = address(this).delegatecall(data[i]);\n\n            if (!success) {\n                // Bubble up the revert reason\n                // The bytes type is ABI encoded as a length-prefixed byte array\n                // So we simply need to add 32 to the pointer to get the start of the data\n                // And then revert with the size loaded from the first 32 bytes\n                // Other solutions will do work to differentiate the revert reasons and provide parenthetical information\n                // However, we have chosen to simply replicate the the normal behavior of the call\n                // NOTE: memory-safe because it reads from memory already allocated by solidity (the bytes memory result)\n                assembly (\"memory-safe\") {\n                    revert(add(result, 32), mload(result))\n                }\n            }\n\n            results[i] = result;\n\n            unchecked {\n                ++i;\n            }\n        }\n    }",
+      "evidence_signals": {
+        "evidence_terms": [
+          "batch_loop",
+          "self_delegatecall"
+        ],
+        "multicall_function": "multicall",
+        "check_location": "in_loop",
+        "reason": "multicall delegatecalls address(this) over bytes[] sub-calls preserving msg.sender/context \u2014 verify each callable selector is safe under batched execution (no msg.value reuse, no assumption of standalone execution, no invariant only valid per single call)"
+      },
+      "rationale": "multicall delegatecalls address(this) over bytes[] sub-calls preserving msg.sender/context \u2014 verify each callable selector is safe under batched execution (no msg.value reuse, no assumption of standalone execution, no invariant only valid per single call)",
+      "evidence_completeness": {
+        "status": "COMPLETE",
+        "present": [
+          "location_resolvable",
+          "code_snippet",
+          "candidate_surface",
+          "signal_type",
+          "confidence",
+          "evidence_payload",
+          "rationale",
+          "traceability"
+        ],
+        "missing": []
+      },
+      "bundle_status": "READY_FOR_REVIEW",
+      "investigate_recommendation": "ready_for_review",
+      "routing_allowed": false,
+      "research_only": true
+    },
+    {
+      "candidate_id": "multicall_invariant:PanopticFactory:multicall:delegatecall_self_context:b702436d",
+      "detector": "multicall_invariant",
+      "detector_version": "v1",
+      "signal_type": "batch_invariant_opportunity",
+      "candidate_surface": "PanopticFactory.multicall",
+      "confidence": "high",
+      "declared_severity_potential": "medium",
+      "source_audit_path": "documentation/research/_b1_experiment/_runs/panoptic-b1-synthetic/output/multicall_invariant_audit.json",
+      "location": {
+        "file": "audits/panoptic-2025-12-strict-eval/contracts/2025-12-panoptic/contracts/base/Multicall.sol",
+        "start_line": 12,
+        "resolvable": true
+      },
+      "code_snippet": "function multicall(bytes[] calldata data) public payable returns (bytes[] memory results) {\n        results = new bytes[](data.length);\n        for (uint256 i = 0; i < data.length; ) {\n            (bool success, bytes memory result) = address(this).delegatecall(data[i]);\n\n            if (!success) {\n                // Bubble up the revert reason\n                // The bytes type is ABI encoded as a length-prefixed byte array\n                // So we simply need to add 32 to the pointer to get the start of the data\n                // And then revert with the size loaded from the first 32 bytes\n                // Other solutions will do work to differentiate the revert reasons and provide parenthetical information\n                // However, we have chosen to simply replicate the the normal behavior of the call\n                // NOTE: memory-safe because it reads from memory already allocated by solidity (the bytes memory result)\n                assembly (\"memory-safe\") {\n                    revert(add(result, 32), mload(result))\n                }\n            }\n\n            results[i] = result;\n\n            unchecked {\n                ++i;\n            }\n        }\n    }",
+      "evidence_signals": {
+        "evidence_terms": [
+          "batch_loop",
+          "self_delegatecall"
+        ],
+        "multicall_function": "multicall",
+        "check_location": "in_loop",
+        "reason": "multicall delegatecalls address(this) over bytes[] sub-calls preserving msg.sender/context \u2014 verify each callable selector is safe under batched execution (no msg.value reuse, no assumption of standalone execution, no invariant only valid per single call)"
+      },
+      "rationale": "multicall delegatecalls address(this) over bytes[] sub-calls preserving msg.sender/context \u2014 verify each callable selector is safe under batched execution (no msg.value reuse, no assumption of standalone execution, no invariant only valid per single call)",
+      "evidence_completeness": {
+        "status": "COMPLETE",
+        "present": [
+          "location_resolvable",
+          "code_snippet",
+          "candidate_surface",
+          "signal_type",
+          "confidence",
+          "evidence_payload",
+          "rationale",
+          "traceability"
+        ],
+        "missing": []
+      },
+      "bundle_status": "READY_FOR_REVIEW",
+      "investigate_recommendation": "ready_for_review",
+      "routing_allowed": false,
+      "research_only": true
+    }
+  ],
+  "summary": {
+    "total_bundles": 6,
+    "by_status": {
+      "READY_FOR_REVIEW": 6
+    },
+    "by_detector": {
+      "permit_asset_binding": 3,
+      "multicall_invariant": 3
+    }
+  }
+}

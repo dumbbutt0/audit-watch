@@ -1,0 +1,63 @@
+{
+  "bug_class": "zero_slippage_sandwich",
+  "description": "Zero slippage parameters in DEX liquidity operations enable MEV sandwich attacks that extract value from the protocol",
+  "required_for_medium": [
+    "zero_min_amounts_proven",
+    "sandwich_attack_sequence_shown"
+  ],
+  "required_for_high": [
+    "zero_min_amounts_proven",
+    "sandwich_attack_sequence_shown",
+    "victim_balance_decrease_asserted",
+    "attacker_profit_quantified"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "public withdrawal/rebalance entrypoint called with sandwich position",
+    "L3B": "tick/price manipulation shown; strategy receives fewer tokens than fair share",
+    "L3C": "full sandwich: front-run + strategy call + back-run; attacker profit and strategy loss quantified"
+  },
+  "poc_level_requirements": {
+    "L3A": [
+      "zero_min_amounts_proven"
+    ],
+    "L3B": [
+      "zero_min_amounts_proven",
+      "sandwich_attack_sequence_shown"
+    ],
+    "L3C": [
+      "zero_min_amounts_proven",
+      "sandwich_attack_sequence_shown",
+      "victim_balance_decrease_asserted",
+      "attacker_profit_quantified"
+    ]
+  },
+  "proof_signatures": {
+    "zero_min_amounts_proven": [
+      "amount0Min: 0",
+      "amount1Min: 0",
+      "min_amounts: [0, 0]",
+      "min_amounts: [uint256(0), uint256(0)]"
+    ],
+    "sandwich_attack_sequence_shown": [
+      "setTickOutOfRange",
+      "imbalance",
+      "front_run",
+      "back_run",
+      "mev_bot",
+      "sandwich"
+    ],
+    "victim_balance_decrease_asserted": [
+      "weth < expectedWeth",
+      "wethReceived == 0",
+      "assertLt(actualWETH",
+      "shortfall"
+    ],
+    "attacker_profit_quantified": [
+      "attacker_profit",
+      "spread",
+      "profit_wei"
+    ]
+  },
+  "high_severity_rationale": "High requires proving attacker profit from sandwich and direct balance decrease. Medium is supported by showing the zero-slippage code path exists and the attack vector is viable.",
+  "negative_control_template": "Apply 1% slippage tolerance (amount0Min = expected * 99/100). Assert the call reverts when pool is manipulated. Assert strategy receives expected token amounts with protection."
+}

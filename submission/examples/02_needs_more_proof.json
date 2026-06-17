@@ -1,0 +1,51 @@
+{
+  "finding_id": "SUB-002",
+  "title": "Possible rounding loss in StakingPool.claim under-pays rewards",
+  "root_cause": "StakingPool.claim() computes reward as (stake * rate) / PRECISION with integer division applied before multiplying by elapsed time, which may truncate small claims to zero.",
+  "affected_contracts": ["contracts/StakingPool.sol"],
+  "affected_functions": ["StakingPool.claim()"],
+  "attacker_entrypoint": "",
+  "attacker_capabilities": ["call any public function from an EOA"],
+  "privilege_required": "none",
+  "scope_status": "in_scope",
+  "in_scope_asset": "StakingPool.sol (listed in program scope)",
+  "out_of_scope_risks": [],
+  "impact_category": "reward_extraction",
+  "severity_claim": "High",
+  "severity_justification": {
+    "worst_case": "Small stakers receive zero rewards over many epochs.",
+    "realistic_case": "Stakers below ~1e6 wei lose sub-wei amounts per claim; aggregate impact unclear.",
+    "program_table_mapping": "Immunefi v2.2 — theft/loss of yield (needs quantification)."
+  },
+  "bounty_program_mapping": {
+    "program": "ExampleProtocol",
+    "platform": "Immunefi",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "https://immunefi.com/bounty/exampleprotocol/#scope"
+  },
+  "call_trace": [],
+  "state_transition": {
+    "before": "pendingRewards[user] = R",
+    "after": "pendingRewards[user] = R (truncated claim returns 0)",
+    "slots_or_balances": ["pendingRewards[user]"]
+  },
+  "asset_delta": "Suspected per-claim truncation; exact amount not yet computed.",
+  "proof_type": "reasoning_only",
+  "poc_path": "",
+  "poc_status": "none",
+  "reproduction_steps": [],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "searched_clear",
+  "prior_audit_overlap": [],
+  "false_positive_risks": ["The division order may be mathematically equivalent for realistic stake sizes; needs a concrete numeric example."],
+  "invalidating_conditions": ["Invalid if PRECISION division is applied after the time multiplication."],
+  "defense_analysis": [
+    {"defense": "minimum-claim threshold", "blocks_path": false, "why_it_fails": "No minimum-claim threshold exists in claim().", "uncertain": false}
+  ],
+  "assumptions": ["Assumes typical small-staker sizes; not yet bounded."],
+  "evidence_links": ["contracts/StakingPool.sol:201-214"],
+  "triager_summary": "Plausible rounding issue but no call trace, no PoC, and no quantified loss. Needs a runnable example before it can advance.",
+  "recommended_status": "NEEDS_MORE_PROOF",
+  "human_approval_required": true
+}

@@ -1,0 +1,69 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "L6-chainlink-getAssetPrice",
+  "detector_family": "oracle",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "ChainlinkPriceOracle",
+    "function": "getAssetPrice",
+    "lines": "latestRoundData",
+    "suspicious_pattern": "Chainlink latestRoundData consumed without staleness/round checks",
+    "detector_claim": "stale price accepted"
+  },
+  "context_summary": {
+    "source_resolved": true,
+    "reachability": "external"
+  },
+  "attacker_reachability": "external",
+  "defense_ledger": {},
+  "invariant_analysis": {
+    "broken_invariant": "price is fresh",
+    "why_defenses_do_not_block": "see ledger"
+  },
+  "exploit_path": {
+    "attacker_profile": "EOA",
+    "entrypoint": "getAssetPrice",
+    "preconditions": "reachable",
+    "transaction_sequence": "stale Chainlink price accepted (latestAnswer, no staleness/round check) -> mispriced rsETH mint",
+    "state_before": "s0",
+    "state_after": "s1",
+    "rejection_case": "considered defenses/falsifiers from source",
+    "source_evidence": "getAssetPrice"
+  },
+  "impact_analysis": {
+    "impact_category": "mispricing_fund_loss",
+    "minimum_profit_or_damage_condition": "exploit stale/wrong price"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED",
+  "arm": "A_baseline",
+  "claimed_mechanism": "oracle"
+}

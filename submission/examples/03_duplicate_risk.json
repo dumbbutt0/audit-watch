@@ -1,0 +1,61 @@
+{
+  "finding_id": "SUB-003",
+  "title": "slot0 spot price used in OracleAdapter.getPrice enables single-block manipulation",
+  "root_cause": "OracleAdapter.getPrice() reads pool.slot0().sqrtPriceX96 directly instead of a TWAP, so the price is manipulable within one block via a flash-loan swap.",
+  "affected_contracts": ["contracts/OracleAdapter.sol"],
+  "affected_functions": ["OracleAdapter.getPrice()"],
+  "attacker_entrypoint": "Attacker contract: flash-loan -> swap to move slot0 -> call protocol function consuming getPrice() -> unwind.",
+  "attacker_capabilities": ["take a flash loan", "call any public function from an EOA"],
+  "privilege_required": "none",
+  "scope_status": "in_scope",
+  "in_scope_asset": "OracleAdapter.sol (listed in program scope)",
+  "out_of_scope_risks": [],
+  "impact_category": "fund_loss",
+  "severity_claim": "High",
+  "severity_justification": {
+    "worst_case": "Attacker borrows against an inflated price and leaves bad debt.",
+    "realistic_case": "Attacker extracts ~5-12% of borrowable liquidity per manipulation depending on pool depth.",
+    "program_table_mapping": "Immunefi v2.2 — oracle manipulation leading to fund loss (High)."
+  },
+  "bounty_program_mapping": {
+    "program": "ExampleProtocol",
+    "platform": "Immunefi",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "https://immunefi.com/bounty/exampleprotocol/#scope"
+  },
+  "call_trace": [
+    "Attacker.attack(): flashLoan(token, amount)",
+    "swapExactInput to push slot0 sqrtPriceX96 up",
+    "LendingPool.borrow() -> OracleAdapter.getPrice() returns manipulated price",
+    "swap back, repay flash loan, keep over-borrowed funds"
+  ],
+  "state_transition": {
+    "before": "slot0.sqrtPriceX96 = P0; attacker debt = 0",
+    "after": "slot0.sqrtPriceX96 = P0 (restored); attacker holds over-borrowed funds vs collateral",
+    "slots_or_balances": ["pool.slot0.sqrtPriceX96", "debt[attacker]"]
+  },
+  "asset_delta": "Over-borrow of ~8% of pool borrowable liquidity in the modeled scenario.",
+  "proof_type": "runnable_poc",
+  "poc_path": "submission/examples/poc/OracleSlot0.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "forge test --match-test test_slot0_manipulation -vvv",
+    "Observe getPrice() returns the manipulated price mid-transaction",
+    "Assert attacker borrow exceeds honest-price collateral value"
+  ],
+  "duplicate_check_status": "possible_duplicate",
+  "known_issue_check_status": "searched_clear",
+  "prior_audit_overlap": ["Solodit: several reported 'slot0 spot price' oracle findings on similar adapters; needs human comparison to confirm this instance is distinct."],
+  "false_positive_risks": ["If a downstream TWAP guard wraps getPrice() in the consuming contract, impact is reduced."],
+  "invalidating_conditions": ["Invalid if getPrice() actually returns a TWAP (observe()) rather than slot0."],
+  "defense_analysis": [
+    {"defense": "TWAP oracle", "blocks_path": true, "why_it_fails": "getPrice() reads slot0 directly; no observe()/TWAP is used (contracts/OracleAdapter.sol:66).", "uncertain": false},
+    {"defense": "deviation circuit-breaker", "blocks_path": false, "why_it_fails": "No deviation check exists between slot0 and any reference price.", "uncertain": false}
+  ],
+  "assumptions": ["A flash-loan source with sufficient liquidity exists for the manipulated token."],
+  "evidence_links": ["contracts/OracleAdapter.sol:60-72", "submission/examples/poc/OracleSlot0.t.sol:1-120"],
+  "triager_summary": "Well-proven slot0 oracle manipulation, but slot0 findings are extremely common and a possible duplicate was flagged. Route to a human to compare against prior reports before submitting.",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true
+}

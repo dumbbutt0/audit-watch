@@ -1,0 +1,75 @@
+{
+  "agent": "economic_attack",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T21:40:00+00:00",
+  "findings": [
+    {
+      "id": "EA-001",
+      "title": "Flood (Season of Plenty) mints and dumps Beans sized by instantaneous well reserves and swaps with zero slippage, enabling flash-loan over-mint + sandwich of stalkholder proceeds",
+      "severity": "High",
+      "confidence": "High",
+      "description": "During a Flood, SeasonFacet.gm() -> calcCaseIdandUpdate() -> LibFlood.handleRain() takes the else (flood) branch and calls getWellsByDeltaB(), which derives each well's deltaB from LibDeltaB.currentDeltaB(well) -> IWell(well).getReserves(). These are the INSTANTANEOUS spot reserves of the Well, not the manipulation-resistant cumulative-pump TWAP that the sunrise mint uses (LibWellMinting.twaDeltaB / readTwaReserves). calculateSopPerWell() converts that instantaneous positive deltaB directly into the Bean amount to mint, then sopWell() does C.bean().mint(this, sopBeans) followed by IWell(well).swapFrom(bean, sopToken, sopBeans, 0, this, type(uint256).max) — minAmountOut hardcoded to 0 and deadline to max. The non-Bean proceeds (e.g. WETH) are distributed to Stalkholders via rewardSop(). Because the entire SOP size and the swap price both come from the live, single-block-manipulable Well state, a flood season is a deterministic, permissionlessly-triggerable MEV event: (1) an attacker who pushes the Well's Bean reserve down (raising instantaneous deltaB) immediately before the sunrise tx inflates sopBeans, and (2) the zero-minAmountOut swap can be sandwiched so the attacker buys the dumped Beans cheaply / sells the scarce non-Bean token, extracting value that should have become stalkholder plenty. The flood is triggerable by anyone via the permissionless sunrise/gm() once Beanstalk has been Oversaturated for a season, so the attacker controls the timing.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+        "function": "sopWell / getWellsByDeltaB / calculateSopPerWell",
+        "line_start": 212,
+        "line_end": 315
+      },
+      "impact": "Stalkholders receive materially less SOP plenty than the Flood mints; the shortfall is captured by the MEV/sandwich actor. Combined with instantaneous-reserve sizing, an attacker can also force a larger Bean mint+dump than the protocol intends, deepening the post-flood depeg. Value-at-risk per flood scales with Well liquidity and the depth of the reserve skew; on a deep Bean:ETH well a single flood can leak a large fraction of the SOP proceeds. No privileged access required.",
+      "proof_of_concept": "Preconditions: Beanstalk is Oversaturated (P>1, pod rate <5%) and was raining last season, so the next sunrise will Flood. Soppable well = Bean:WETH, instantaneous deltaB ~ +200,000 Bean at honest reserves.\n1. Attacker observes the pending sunrise()/gm() (or front-runs the season boundary).\n2. In the same block, BEFORE the sunrise tx: flash-loan WETH and buy Beans from the Bean:WETH well, lowering the Bean reserve. This raises currentDeltaB(well) read by getWellsByDeltaB() to, e.g., +260,000 (over-mint of ~60,000 Bean).\n3. sunrise()/gm() executes: LibFlood.sopWell() mints 260,000 Bean and calls swapFrom(bean->WETH, 260000e6, minAmountOut=0). With the reserve already skewed and no slippage floor, the protocol sells its freshly minted Beans into the attacker-degraded curve at a poor rate.\n4. Attacker back-runs: sell the Beans bought in step 2 back / unwind the flash loan, pocketing the spread plus the WETH the protocol under-received. The WETH credited to Stalkholders via rewardSop() (amount.mul(SOP_PRECISION).div(rain.roots)) is reduced by the same spread.\nNet: attacker profit = (WETH extracted from the zero-slippage protocol swap) - (flash-loan fee + gas); positive whenever the skew exceeds swap fees, which deep wells easily permit. Stalkholder plenty falls by the same amount.",
+      "ite": {
+        "intent": "Capture the non-Bean proceeds of a Flood that are meant to be distributed to Stalkholders, and force a larger Bean mint+dump than intended",
+        "technique": "Permissionlessly trigger the Flood via sunrise/gm(); pre-skew the Well so currentDeltaB (instantaneous getReserves) over-sizes the SOP mint; sandwich the minAmountOut=0 swapFrom in LibFlood.sopWell",
+        "evasion": "SOP intentionally uses instantaneous deltaB and a 0-slippage market sell; there is no commit/TWAP guard or minimum-out on the protocol's own swap, so the manipulation leaves no revert path"
+      },
+      "ice_chain": {
+        "corrupted_state": "sopBeans (Bean amount minted+sold) and the realized swap price / amountOut of WETH credited to s.sys.sop.sops[rainStart][well]",
+        "impact": "Stalkholder SOP plenty is under-credited and the Bean depeg is deepened; the difference is extracted by the attacker",
+        "consumer_found": true,
+        "consumer_function": "LibFlood.rewardSop -> s.sys.sop.sops[...] consumed by LibFlood.balanceOfPlenty / ClaimFacet plenty claims",
+        "exploit_path": "permissionless sunrise/gm() during an Oversaturated streak -> handleRain flood branch -> getWellsByDeltaB() reads instantaneous getReserves() -> calculateSopPerWell sizes sopBeans -> sopWell() mint+swapFrom(minOut=0) on the attacker-skewed well -> reduced amountOut -> rewardSop credits less plenty to stalkholders"
+      },
+      "ice": {
+        "impact": "High",
+        "confidence": "High",
+        "exploitability": "Permissionless"
+      },
+      "attack_surface_rank": 4,
+      "cross_agent_refs": ["OR-001", "DT-006"]
+    },
+    {
+      "id": "EA-002",
+      "title": "floodPodline mints 0.1% of Bean supply to the Field every Flood season, harvestable in pod (FIFO) order — front-runnable by buying the front of the pod line before an Oversaturation streak",
+      "severity": "Medium",
+      "confidence": "Medium",
+      "description": "LibFlood.floodPodline() makes up to FLOOD_PODLINE_PERCENT_DENOMINATOR^-1 = 0.1% of total Bean supply worth of Pods Harvestable on every flood season (it runs first in the flood branch, before the well SOP). Harvestable Pods are consumed strictly in pod-line (FIFO) index order. Because a Flood is permissionlessly triggerable via sunrise/gm() once Beanstalk has been Oversaturated for a season, and because the marketplace lets Pods near the front of the line be purchased, a well-capitalized actor who anticipates an Oversaturation streak can accumulate the front-most Pods (or sow into the front) cheaply and then permissionlessly drive the flood seasons to ripen 0.1% of supply per season directly into those positions. The reward is bounded (0.1% of supply per season, capped by maxHarvestable) and the front-of-line Pods are a public, priced market, so this is opportunistic value capture / reward-timing rather than theft of others' principal — hence Medium, not High.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+        "function": "floodPodline",
+        "line_start": 187,
+        "line_end": 210
+      },
+      "impact": "An actor timing the controllable Flood schedule can convert held Beans into a near-deterministic stream of Field harvest at the front of the pod line, advantaging informed/MEV-capable participants over passive Pod holders. Bounded to 0.1% of supply per flood season and to the front of the line; no protocol insolvency, but a recurring incentive-timing edge.",
+      "proof_of_concept": "1. Beanstalk enters Oversaturation (P>1, pod rate <5%); attacker recognizes the streak will continue.\n2. Attacker buys the front-most outstanding Pods on the marketplace (or sows when those plots will be first in line) for X Beans.\n3. Each subsequent season the attacker (or anyone) permissionlessly calls sunrise()/gm(); handleRain() flood branch runs floodPodline(), minting min(0.1% of beanSupply, pods-harvestable) Beans into harvestable, consumed FIFO by the attacker's front-line Pods.\n4. Attacker harvests; repeated each flood season. Profit = sum of harvested Beans (each up to 0.1% of supply) - purchase cost of the front Pods. Positive when the attacker acquired the front Pods below their post-flood harvest value.",
+      "ite": {
+        "intent": "Capture the per-flood 0.1%-of-supply Field mint by controlling the front of the pod line and the (permissionless) flood timing",
+        "technique": "Acquire front-of-line Pods, then permissionlessly trigger successive flood seasons via sunrise/gm() so floodPodline() ripens supply into those positions FIFO",
+        "evasion": "Flood ripening is intended protocol behavior; the edge is informational/timing, leaving no invariant violated"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.fields[activeField].harvestable (advanced by 0.1% of supply each flood, FIFO)",
+        "impact": "Front-line Pod holders capture a controllable, recurring Bean harvest stream ahead of other Pod holders",
+        "consumer_found": true,
+        "consumer_function": "FieldFacet.harvest -> reads s.sys.fields[activeField].harvestable and pays the front of the pod line",
+        "exploit_path": "buy front pods -> permissionless sunrise/gm() each season during Oversaturation -> floodPodline() ripens 0.1% of supply -> attacker harvests front-line pods"
+      },
+      "ice": {
+        "impact": "Medium",
+        "confidence": "Medium",
+        "exploitability": "Permissionless"
+      },
+      "attack_surface_rank": 3,
+      "cross_agent_refs": []
+    }
+  ]
+}

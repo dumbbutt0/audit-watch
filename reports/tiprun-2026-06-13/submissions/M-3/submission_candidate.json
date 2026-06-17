@@ -1,0 +1,92 @@
+{
+  "finding_id": "M-3",
+  "title": "Liquidate / Deleverage have no on-chain maintenance-margin precondition",
+  "root_cause": "LiquidateTransLib/DeleverageTransLib never verify the target is below maintenance margin before force-resizing its position; deleverage only checks the signer is registered (no signature/nonce).",
+  "affected_contracts": [
+    "src/.../LiquidateTransLib.sol"
+  ],
+  "affected_functions": [
+    "LiquidateTransLib.process",
+    "DeleverageTransLib.process"
+  ],
+  "attacker_entrypoint": "TYPE_LIQUIDATE / TYPE_DELEVERAGE (onlyTxBatcher) against a healthy account",
+  "attacker_capabilities": [
+    "malicious or buggy sequencer/operator (onlyTxBatcher)"
+  ],
+  "privilege_required": "privileged",
+  "scope_status": "uncertain",
+  "in_scope_asset": "LiquidateTransLib (process)",
+  "out_of_scope_risks": [
+    "relies on trusted operator/admin behavior (program trust model dependent)"
+  ],
+  "impact_category": "fund_loss",
+  "severity_claim": "Medium",
+  "severity_justification": {
+    "worst_case": "Faulty/malicious operator seizes healthy users' positions.",
+    "realistic_case": "Operator-trust dependent; severity per the program's trust model.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "TipRun",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": true,
+    "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
+  },
+  "call_trace": [
+    "target is healthy (100 collateral, tiny long 1; risk <= value*FXP)",
+    "submit TYPE_LIQUIDATE for the target",
+    "liquidation succeeds; healthy account's position force-closed (no 'not liquidatable' guard)"
+  ],
+  "state_transition": {
+    "before": "target healthy (collateral 100, long 1)",
+    "after": "target position force-closed (assets.length 0); forced trade settled against target",
+    "slots_or_balances": []
+  },
+  "asset_delta": "Healthy users' positions can be force-seized at operator-chosen price; over-seizure not blocked (with F-1).",
+  "proof_type": "runnable_poc",
+  "poc_path": "reports/tiprun-2026-06-13/submissions/M-3/poc/PoC_NoLiquidatablePrecondition.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "cd reports/tiprun-2026-06-13/harness",
+    "forge test --match-contract PoC_NoLiquidatablePrecondition -vv"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [],
+  "false_positive_risks": [
+    "severity/scope depend on the official program trust model"
+  ],
+  "invalidating_conditions": [
+    "program may treat operator/admin actions as out of scope"
+  ],
+  "defense_analysis": [
+    {
+      "defense": "onlyTxBatcher gating",
+      "blocks_path": true,
+      "uncertain": true,
+      "why_it_fails": "mitigates to operator-trust; on-chain protection of healthy users is still absent"
+    }
+  ],
+  "assumptions": [
+    "perp profile (RiskPlugin wired as CAP_MARGIN_CHECK)"
+  ],
+  "evidence_links": [
+    "src/perp/transactions/LiquidateTransLib.sol:process (no health check)",
+    "src/perp/transactions/DeleverageTransLib.sol:process (checkSigner only; no sig/nonce/health)",
+    "harness/test/PoC_NoLiquidatablePrecondition.t.sol",
+    "submissions/M-3/poc_output.log"
+  ],
+  "triager_summary": "Liquidate / Deleverage have no on-chain maintenance-margin precondition \u2014 PoC passing (PASS: a provably healthy account is force-liquidated with no maintenance-margin precondition).",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Unsecure Design \u2192 Violation of Secure Design Principles (Liquidate/Deleverage have no on-chain maintenance-margin precondition; correctness relies entirely on the trusted off-chain batcher)",
+  "cvss": [
+    {
+      "aspect": "Trusted-batcher precondition gap",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:N/I:H/A:N",
+      "score": 4.9,
+      "severity": "Medium"
+    }
+  ]
+}

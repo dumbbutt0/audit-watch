@@ -1,0 +1,18 @@
+{
+  "lens": "crosschain_min_gas_unchecked",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Generalized CLASS of the P306 decent H-02 miss: a cross-chain send (LayerZero sendAndCall / lzSend / Stargate router.swap) forwards a caller-supplied destination-gas amount (dstGasForCall) with NO minimum-gas check, so an underfunded gas value makes the destination execution fail (funds delivered, the call reverts). Two-signal: S1 a cross-chain send primitive; S2 a destination-gas param/var forwarded without a floor (no require(gas>=MIN) / min comparison). Suppress: pure view fee-estimators; an explicit min-gas check. Anchor: decent DecentEthRouter.bridgeWithPayload/_bridgeWithPayload (sendAndCall + _dstGasForCall, no floor). Does NOT detect fee miscalc, refund recipient, or replay.",
+
+  "send_primitives": ["sendandcall", "lzsend", "_lzsend", "nonblockinglzsend", "estimatesendandcallfee", "lzendpoint.send", "endpoint.send", "router.swap{", "stargaterouter", "_lzsend("],
+  "gas_terms": ["dstgasforcall", "_dstgasforcall", "gasforcall", "dstgas", "_dstgas", "gasamount", "dstgaslimit", "_dstgaslimit", "gaslimitdst"],
+  "min_gas_markers": ["mingas", "min_gas", "minimumgas", "minimum_gas", "mindstgas", "min_dst_gas"],
+
+  "suppress_library_contracts": ["lzapp", "nonblockinglzapp", "oftcore", "oftv2", "messagehashutils"],
+
+  "fp_controls": {
+    "two_signal_required": "S1 a cross-chain send primitive AND S2 a destination-gas param forwarded with no floor.",
+    "min_check_suppression": "a require/comparison flooring the dst-gas (gas >= MIN) or a min-gas constant -> suppressed.",
+    "view_estimator_suppression": "view/pure fee-estimator functions -> suppressed.",
+    "library_suppression": "LZ base libraries (LzApp/OFTCore/OFTV2) -> suppressed."
+  }
+}

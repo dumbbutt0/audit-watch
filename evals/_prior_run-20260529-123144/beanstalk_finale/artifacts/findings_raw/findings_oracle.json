@@ -1,0 +1,141 @@
+{
+  "agent": "oracle",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-28T23:55:00+00:00",
+  "findings": [
+    {
+      "id": "OR-001",
+      "title": "LibChainlinkOracle.getTokenPrice ternary inverted: TWAP lookback gives spot",
+      "severity": "High",
+      "vuln_type": "oracle-manipulation",
+      "description": "LibChainlinkOracle.getTokenPrice(priceAggregatorAddress, maxTimeout, lookback) is the manipulation-resistance dispatcher: per its own NatSpec (LibChainlinkOracle.sol#34-35) it must return the instantaneous price when lookback == 0 and a TWAP when lookback > 0. The ternary at LibChainlinkOracle.sol#44-47 is inverted: `lookback > 0 ? getPrice(...) : getTwap(...)`. getPrice() (line 55) is the single-round instantaneous reader; getTwap() (line 96) is the multi-round time-weighted reader. As written, every caller that passes a NON-zero lookback (the value chosen specifically to obtain a manipulation-resistant TWAP) silently receives the instantaneous, single-block Chainlink answer, while a zero lookback (intended to be the cheap instantaneous read) runs the TWAP path. The protection that callers believe they have turned on is exactly the protection that is turned off.\n\nThis function is the Chainlink leg of LibUsdOracle.getTokenPriceFromExternal: it is reached (a) for any whitelisted token configured with oracleImplementation.encodeType == 0x01 (default Chainlink) at LibUsdOracle.sol#120-127, and (b) as the secondary USDC/USDT-USD Chainlink leg of the Uniswap encodeType == 0x02 path at LibUsdOracle.sol#155-159. getTokenPriceFromExternal feeds LibUsdOracle.getUsdPrice / getTokenPrice, which are consumed by the season minting oracle (LibWell.getRatiosAndBeanIndex -> LibWellMinting.twaDeltaB, called from sunrise()->gm()->stepOracle()), by FertilizerFacet._getMintFertilizerOut (barn-raise pricing), by WellPrice/UsdOracle/OracleFacet view surfaces used by integrators, and gates which tokens may back a Well (LibFertilizer.beginBarnRaiseMigration). In the currently deployed configuration the two whitelisted Wells pair Bean with WETH and WSTETH, whose USD prices are routed through LibEthUsdOracle/LibWstethUsdOracle (which implement the lookback ternary correctly), so the live season path is not yet affected; however the oracle stack is explicitly designed to price arbitrary non-Bean Well tokens and barn-raise tokens through this Chainlink path, and the external getters are already exploitable today. Wherever the Chainlink path is used with a non-zero lookback, an attacker can flash-skew the underlying market for one block, capture a price that should have been TWA-smoothed, and bias the downstream deltaB / fertilizer mint / liquidity valuation.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibChainlinkOracle.sol",
+        "function": "getTokenPrice",
+        "line_start": 39,
+        "line_end": 48,
+        "code_snippet": "function getTokenPrice(address priceAggregatorAddress, uint256 maxTimeout, uint256 lookback) internal view returns (uint256 price) {\n    return\n        lookback > 0\n            ? getPrice(priceAggregatorAddress, maxTimeout)   // instantaneous -- WRONG branch\n            : getTwap(priceAggregatorAddress, maxTimeout, lookback); // TWAP with lookback==0\n}"
+      },
+      "impact": "Callers that explicitly request a manipulation-resistant TWAP (non-zero lookback) receive a single-block instantaneous Chainlink price instead. The intended oracle hardening is silently disabled for every token priced via the default-Chainlink (encodeType 0x01) path and for the Chainlink leg of the Uniswap (0x02) path, exposing deltaB-driven Bean minting, fertilizer/barn-raise pricing, and integrator price reads to single-block / flash-loan price manipulation. Symmetrically, a lookback of 0 (intended to be cheap and instantaneous) silently runs an expensive multi-round TWAP, and because getTwap is hardcoded to divide by `lookback` (LibChainlinkOracle.sol#157) a literal 0 lookback reaching the TWAP branch reverts on division-by-zero, breaking any caller expecting an instantaneous read.",
+      "proof_of_concept": "1. Whitelist (or barn-raise) a Bean-X Well whose non-Bean token X is configured with oracleImplementation[X].encodeType = 0x01 (default Chainlink), or simply call OracleFacet.getUsdPriceWithLookback(X, 1800).\n2. The caller passes lookback = 1800 (30 min) expecting a TWAP.\n3. Inside getTokenPriceFromExternal -> LibChainlinkOracle.getTokenPrice(addr, FOUR_HOUR_TIMEOUT, 1800): because 1800 > 0, getPrice() runs and returns the latest single-round answer with NO time-weighting.\n4. An attacker who has moved X's market this block (or is mid-flash-loan around a feed update / using a thinly-updated feed) has the manipulated spot reflected directly; assert that the returned value equals the instantaneous getPrice() output and differs from the true 30-min average. The manipulation-resistance the caller paid for is absent.",
+      "recommendation": "Invert the condition to match the NatSpec and the (correct) sibling implementation in LibEthUsdOracle.getEthUsdPrice(uint256): `return lookback == 0 ? getPrice(priceAggregatorAddress, maxTimeout) : getTwap(priceAggregatorAddress, maxTimeout, lookback);`. Add a unit test asserting getTokenPrice(addr, t, 0) == getPrice(addr, t) and getTokenPrice(addr, t, N>0) == getTwap(addr, t, N), and guard getTwap against lookback == 0 (revert or treat as instantaneous) so the two entrypoints cannot be confused.",
+      "references": [
+        {
+          "title": "LibChainlinkOracle::getTokenPrice will always return instantaneous prices (Codehawks, Beanstalk: The Finale)",
+          "url": "https://github.com/Cyfrin/2024-05-beanstalk-the-finale",
+          "source": "solodit"
+        },
+        {
+          "title": "Beanstalk Wells TWAP oracles susceptible to manipulation (Cyfrin)",
+          "url": "https://github.com/solodit/solodit_content/blob/main/reports/Cyfrin/2023-06-16-Beanstalk%20wells.md",
+          "source": "solodit"
+        }
+      ],
+      "confidence": "High",
+      "ite": {
+        "intent": "Defeat the manipulation-resistant TWAP that a price consumer believes it enabled, so a single-block / flash-loan-skewed market price is accepted and biases Bean minting, fertilizer pricing, or integrator valuations in the attacker's favour.",
+        "technique": "A consumer calls LibUsdOracle.get(Usd|Token)Price(token, lookback>0) -> getTokenPriceFromExternal (LibUsdOracle.sol#120-127 / #155-159) -> LibChainlinkOracle.getTokenPrice(addr, FOUR_HOUR_TIMEOUT, lookback); the inverted ternary at LibChainlinkOracle.sol#44-47 routes lookback>0 to getPrice() (instantaneous, line 55) instead of getTwap() (line 96). The returned spot price carries the attacker's same-block market skew straight into deltaB / fertilizerAmountOut / pool.price.",
+        "evasion": "The developer intended TWA smoothing via the `lookback` parameter (NatSpec LibChainlinkOracle.sol#34-35) and implemented it correctly in LibEthUsdOracle.getEthUsdPrice(uint256) (#53-65); the gap is purely the inverted boolean in getTokenPrice, which makes non-zero lookbacks silently bypass the TWAP. The error is invisible to a caller because the function still returns a plausible price."
+      },
+      "ice_chain": {
+        "corrupted_state": "tokenPrice returned by LibUsdOracle.getTokenPriceFromExternal (USD price of a whitelisted/barn-raise token) — instantaneous instead of TWA",
+        "impact": "Mispriced non-Bean token propagates into deltaB (season Bean mint sizing), fertilizerAmountOut (barn-raise mint), and pool.price/liquidity reads; flash-loan-manipulable for one block.",
+        "consumer_found": true,
+        "consumer_function": "LibWellMinting.twaDeltaB / FertilizerFacet._getMintFertilizerOut / WellPrice.getConstantProductWell",
+        "consumer_action": "sizes freshly minted Beans (deltaB) and fertilizer issued per token, and reports protocol price/liquidity to integrators",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "attack_surface_rank": 5,
+      "cross_agent_refs": [],
+      "critical_assumptions": [
+        "A token priced via the default-Chainlink (0x01) path or the Chainlink leg of the Uniswap (0x02) path is configured/whitelisted, OR an integrator/getter consumes get(Usd|Token)Price with a non-zero lookback. The two currently-deployed Wells (WETH, WSTETH) route through LibEthUsdOracle/LibWstethUsdOracle and are NOT affected on the live season path."
+      ],
+      "human_review_required": false
+    },
+    {
+      "id": "OR-002",
+      "title": "LibUsdOracle.getTokenPrice ignores lookback for WSTETH, returns spot",
+      "severity": "Medium",
+      "vuln_type": "oracle-manipulation",
+      "description": "In LibUsdOracle.getTokenPrice(token, lookback) the WETH branch correctly forwards the caller's lookback to LibEthUsdOracle.getEthUsdPrice(lookback) (LibUsdOracle.sol#79), but the WSTETH branch hardcodes a zero lookback: `LibWstethUsdOracle.getWstethUsdPrice(0)` at LibUsdOracle.sol#84. As a result, any caller requesting a manipulation-resistant TWAP wstETH/USD price through getTokenPrice receives the instantaneous price regardless of the lookback argument. getTokenPrice is consumed by SeasonGettersFacet.getLiquidityToSupplyRatio (via LibWell.getTwaLiquidityFromPump, SeasonGettersFacet.sol#285), by LibWell.getWellTwaUsdLiquidityFromReserves (LibWell.sol#154), by LibFertilizer.beginBarnRaiseMigration (LibFertilizer.sol#224), and by the UsdOracle/OracleFacet external getters. The sibling getUsdPrice(token, lookback) WSTETH branch (LibUsdOracle.sol#56) correctly forwards lookback, confirming the #84 hardcode is an inconsistency/typo rather than intent.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibUsdOracle.sol",
+        "function": "getTokenPrice",
+        "line_start": 83,
+        "line_end": 87,
+        "code_snippet": "if (token == C.WSTETH) {\n    uint256 wstethUsdPrice = LibWstethUsdOracle.getWstethUsdPrice(0); // <-- ignores `lookback`\n    if (wstethUsdPrice == 0) return 0;\n    return wstethUsdPrice;\n}"
+      },
+      "impact": "Callers that request a TWA wstETH/USD price for liquidity-to-supply ratio, TWA liquidity, or barn-raise validation instead receive the instantaneous wstETH/USD price, weakening manipulation resistance for any consumer of the wstETH token-price path. Impact is bounded because LibWstethEthOracle itself blends Chainlink + Uniswap-TWAP and caps at the stEthPerToken redemption rate, but the caller's explicit lookback is silently discarded.",
+      "proof_of_concept": "Call OracleFacet.getTokenPrice(C.WSTETH, 1800) and OracleFacet.getTokenPrice(C.WSTETH, 0); both return identical values because line 84 passes 0 regardless. Compare with getTokenPrice(C.WETH, 1800) vs (C.WETH, 0), which differ — demonstrating the WSTETH branch ignores the lookback while the WETH branch honours it.",
+      "recommendation": "Forward the caller's lookback: `uint256 wstethUsdPrice = LibWstethUsdOracle.getWstethUsdPrice(lookback);`, matching the WETH branch (line 79) and the getUsdPrice WSTETH branch (line 56).",
+      "references": [],
+      "confidence": "High",
+      "ite": {
+        "intent": "Obtain a manipulable instantaneous wstETH/USD price where a consumer requested a TWA, weakening liquidity/peg calculations that feed reward and ratio logic.",
+        "technique": "Consumer calls LibUsdOracle.getTokenPrice(C.WSTETH, lookback>0); line 84 discards `lookback` and calls getWstethUsdPrice(0), returning the instantaneous blended price instead of the TWA the consumer asked for.",
+        "evasion": "Developer intended lookback-driven TWA (and implemented it in the WETH branch at #79 and in getUsdPrice WSTETH branch at #56); the gap is the hardcoded literal 0 at #84."
+      },
+      "ice_chain": {
+        "corrupted_state": "wstETH/USD token price returned by getTokenPrice — instantaneous instead of TWA",
+        "impact": "TWA liquidity / liquidity-to-supply ratio and barn-raise token validation use a non-time-weighted wstETH price.",
+        "consumer_found": true,
+        "consumer_function": "SeasonGettersFacet.getLiquidityToSupplyRatio / LibWell.getWellTwaUsdLiquidityFromReserves",
+        "consumer_action": "computes USD liquidity used in supply-ratio / reward calculations",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      },
+      "attack_surface_rank": 5,
+      "cross_agent_refs": [],
+      "critical_assumptions": [
+        "A consumer of getTokenPrice for WSTETH passes a non-zero lookback expecting a TWAP."
+      ],
+      "human_review_required": false
+    },
+    {
+      "id": "OR-003",
+      "title": "Chainlink getTwap aborts to 0 if any historical round is unavailable",
+      "severity": "Low",
+      "vuln_type": "oracle-manipulation",
+      "description": "LibChainlinkOracle.getTwap walks backwards through Chainlink rounds (roundId -= 1, line 140) accumulating a cumulative price until a round at least `lookback` seconds old is reached. getRoundData returns (-1, 0) on any failed round read (line 178), and checkForInvalidTimestampOrAnswer treats a 0 timestamp or non-positive answer as invalid (lines 188-194), causing getTwap to return 0 for the entire window (line 151). A single missing/stale historical round (e.g. a phase transition where the predecessor roundId belongs to a prior aggregator phase, or a gap in round IDs) therefore collapses the whole TWAP to 0 rather than skipping that round. Because the broader oracle stack treats a 0 price as 'oracle off' (LibWellMinting.twaDeltaB returns deltaB 0 / success=false; LibUsdOracle returns 0), this degrades to the minting oracle silently turning off rather than direct fund loss, but it makes the TWAP path fragile precisely when it is most needed (volatile periods with rapid round turnover). Note also that decrementing the uint80 roundId across a Chainlink phase boundary does not move to the previous phase's last round, so the lookup will fail at the boundary.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibChainlinkOracle.sol",
+        "function": "getTwap",
+        "line_start": 136,
+        "line_end": 158,
+        "code_snippet": "while (timestamp > t.endTimestamp) {\n    t.cumulativePrice = t.cumulativePrice.add(uint256(answer).mul(t.lastTimestamp.sub(timestamp)));\n    roundId -= 1;                       // naive decrement; breaks across phase boundary\n    t.lastTimestamp = timestamp;\n    (answer, timestamp) = getRoundData(priceAggregator, roundId);\n    if (checkForInvalidTimestampOrAnswer(timestamp, answer, t.lastTimestamp, maxTimeout)) {\n        return 0;                       // one bad round -> whole TWAP returns 0\n    }\n}"
+      },
+      "impact": "A single unavailable or phase-boundary historical round forces the Chainlink TWAP to return 0, which the consuming oracle interprets as a feed failure and turns the minting oracle / USD price off for that read. This is a graceful-degradation/availability weakness (deltaB and barn-raise pricing become unavailable, not wrong), not a direct theft, but it can be triggered by ordinary Chainlink phase transitions.",
+      "proof_of_concept": "Configure a feed whose latest round sits shortly after an aggregator phase upgrade so that roundId-1 belongs to the prior phase (different phaseId high bits). Call any path that reaches getTwap with lookback spanning the boundary: getRoundData(roundId-1) reverts/returns (-1,0), checkForInvalidTimestampOrAnswer returns true, and getTwap returns 0 — even though a valid average over the window exists.",
+      "recommendation": "Skip (continue to the next earlier round) rather than aborting on an individual failed round, and reconstruct the previous Chainlink phase's terminal roundId when crossing a phase boundary (decode phaseId/aggregatorRoundId from the packed roundId) instead of a naive `roundId -= 1`. Alternatively, bound the loop and fall back to the last good instantaneous price with an explicit staleness check.",
+      "references": [
+        {
+          "title": "Folks Finance: Chainlink TWAP aborts instead of skipping a failed round (Immunefi, Low)",
+          "url": "https://reports.immunefi.com/folks-finance/boost-_-folks-finance-34153-smart-contract-low-twap-query-by-chainlink-is-wrong-according-to-chainli",
+          "source": "other"
+        }
+      ],
+      "confidence": "Medium",
+      "ite": {
+        "intent": "Cause the Chainlink TWAP path to report a feed failure (price 0) during a phase transition or a single missing round, turning the dependent minting/pricing oracle off for that read.",
+        "technique": "getTwap loops roundId -= 1 (line 140); any getRoundData failure returns (-1,0) (line 178) and checkForInvalidTimestampOrAnswer returns true (lines 188-194), so getTwap returns 0 (line 151) for the whole window; consumers map 0 to 'oracle off'.",
+        "evasion": "Developer wrapped round reads in try/catch to fail gracefully, but the catch path zeroes the entire TWAP instead of skipping the bad round, and the naive uint80 decrement does not handle Chainlink phase boundaries."
+      },
+      "ice_chain": {
+        "corrupted_state": "Chainlink TWAP price (returns 0 = 'feed failed')",
+        "impact": "Minting oracle / USD price treated as off for that read; deltaB contribution 0 and barn-raise/liquidity pricing unavailable.",
+        "consumer_found": true,
+        "consumer_function": "LibWellMinting.twaDeltaB / LibUsdOracle.getTokenPriceFromExternal",
+        "consumer_action": "treats 0 as oracle-off and skips/zeroes the price-dependent action",
+        "severity_ceiling": "Low",
+        "search_method": "manual_trace"
+      },
+      "attack_surface_rank": 5,
+      "cross_agent_refs": [],
+      "critical_assumptions": [
+        "A Chainlink phase boundary or missing round falls inside the requested lookback window."
+      ],
+      "human_review_required": false
+    }
+  ]
+}

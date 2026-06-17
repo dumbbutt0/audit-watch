@@ -1,0 +1,90 @@
+{
+  "finding_id": "M-2",
+  "title": "Oracle has no read-side staleness check and the monotonic-update guard is commented out",
+  "root_cause": "Oracle.updatePrice's monotonic timestamp guard is commented out and Oracle.getPrice has no max-age, so stale or rolled-back prices are used by Risk's margin math indefinitely.",
+  "affected_contracts": [
+    "src/.../Oracle.sol"
+  ],
+  "affected_functions": [
+    "Oracle.updatePrice",
+    "Oracle.getPrice",
+    "Risk.getAssetValueAndRisk"
+  ],
+  "attacker_entrypoint": "OraclePlugin price tick path / operator delay (price feeder is trusted; the missing guard is contract-level)",
+  "attacker_capabilities": [
+    "operator delay/failure or a reordered/rolled-back price tick"
+  ],
+  "privilege_required": "privileged",
+  "scope_status": "uncertain",
+  "in_scope_asset": "Oracle (updatePrice)",
+  "out_of_scope_risks": [
+    "relies on trusted operator/admin behavior (program trust model dependent)"
+  ],
+  "impact_category": "accounting_corruption",
+  "severity_claim": "Medium",
+  "severity_justification": {
+    "worst_case": "Stale price drives wrong liquidations / margin => fund loss under operator delay or reorg.",
+    "realistic_case": "Robustness gap; impact bounded by operator liveness in the happy path.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "TipRun",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": true,
+    "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
+  },
+  "call_trace": [
+    "set price 100 @ recent ts",
+    "updatePrice price 1 @ OLDER ts => accepted (no monotonic guard)",
+    "getPrice returns rolled-back 1; warp 10 years => still exist=true (no staleness)"
+  ],
+  "state_transition": {
+    "before": "price 100 @ recent ts",
+    "after": "price 1 @ older ts accepted; 10-year-old price still exist=true",
+    "slots_or_balances": []
+  },
+  "asset_delta": "Margin/liquidation decisions can run on stale/rolled-back prices (mispriced solvency).",
+  "proof_type": "runnable_poc",
+  "poc_path": "reports/tiprun-2026-06-13/submissions/M-2/poc/PoC_OracleStaleness.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "cd reports/tiprun-2026-06-13/harness",
+    "forge test --match-contract PoC_OracleStaleness -vv"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [],
+  "false_positive_risks": [
+    "severity/scope depend on the official program trust model"
+  ],
+  "invalidating_conditions": [
+    "program may treat operator/admin actions as out of scope"
+  ],
+  "defense_analysis": [
+    {
+      "defense": "OraclePriceTickTransLib ingestion (quorum+median+<=1day)",
+      "blocks_path": false,
+      "why_it_fails": "bounds ingestion only; stored price has no read-side freshness and can be reordered"
+    }
+  ],
+  "assumptions": [],
+  "evidence_links": [
+    "src/core/oracle/Oracle.sol:updatePrice (monotonic guard commented out ~46-54)",
+    "src/core/oracle/Oracle.sol:getPrice (exist = timestamp>0, no max-age)",
+    "harness/test/PoC_OracleStaleness.t.sol",
+    "submissions/M-2/poc_output.log"
+  ],
+  "triager_summary": "Oracle has no read-side staleness check and the monotonic-update guard is commented out \u2014 PoC passing (PASS: older-timestamp price accepted; ancient price still reads exist=true).",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Insufficient Cryptography / Insecure Design \u2192 Business Logic Errors (oracle price consumed with no read-side staleness check; monotonic-update guard disabled)  \u00b7  Sensitive Data / data-authenticity: Insufficient Verification of Data Authenticity",
+  "cvss": [
+    {
+      "aspect": "Stale-price acceptance",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:L",
+      "score": 4.8,
+      "severity": "Medium"
+    }
+  ]
+}

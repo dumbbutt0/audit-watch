@@ -1,0 +1,89 @@
+{
+  "_doc": "P274 Phase 3 — B/C top-2 mechanism pairs from BLIND gondi source reading (no answer key). Each pair = a high-impact mechanism vs an easier-to-PoC rival competing for the same selection slot. Dimensions are blind source-derived assessments, not award labels.",
+  "pairs": [
+    {
+      "M1": {
+        "id": "distribute_tranche_split",
+        "label": "LiquidationDistributor.distribute mis-splits liquidation proceeds across tranches (seniority/excess pro-rata)",
+        "impact_class": "accounting_corruption",
+        "value_at_risk": "multi_user",
+        "persistence": "repeatable",
+        "attacker_control": "conditional",
+        "refutation_resistance": "conditional",
+        "intent_violation": "invariant_or_comparand",
+        "victim_gainer_clarity": "partial",
+        "poc_feasibility": "hard",
+        "falsifier": "Does sum of per-tranche payouts equal _proceeds and respect seniority in both excess and insufficient branches?"
+      },
+      "M2": {
+        "id": "pool_redeem_rounding",
+        "label": "Pool.redeem/withdraw share rounding dust",
+        "impact_class": "dust_rounding",
+        "value_at_risk": "single_op",
+        "persistence": "one_off",
+        "attacker_control": "permissionless",
+        "refutation_resistance": "conditional",
+        "intent_violation": "none",
+        "victim_gainer_clarity": "weak",
+        "poc_feasibility": "easy",
+        "falsifier": "Is the rounding direction favorable to the pool (solmate previewWithdraw rounds up / previewRedeem rounds down)?"
+      }
+    },
+    {
+      "M1": {
+        "id": "offer_validation",
+        "label": "MultiSourceLoan._processOffersFromExecutionData accepts mismatched/under-validated offer terms",
+        "impact_class": "accounting_corruption",
+        "value_at_risk": "multi_user",
+        "persistence": "repeatable",
+        "attacker_control": "permissionless",
+        "refutation_resistance": "conditional",
+        "intent_violation": "invariant_or_comparand",
+        "victim_gainer_clarity": "partial",
+        "poc_feasibility": "hard",
+        "falsifier": "Is every offer field (principal, apr, fee, capacity, expiry, signer) bound and validated against the executed loan?"
+      },
+      "M2": {
+        "id": "mergeTranches_grief",
+        "label": "MultiSourceLoan.mergeTranches griefing on tranche consolidation",
+        "impact_class": "griefing_minor",
+        "value_at_risk": "single_op",
+        "persistence": "one_off",
+        "attacker_control": "conditional",
+        "refutation_resistance": "conditional",
+        "intent_violation": "none",
+        "victim_gainer_clarity": "weak",
+        "poc_feasibility": "moderate",
+        "falsifier": "Can a non-owning party force a merge that changes economics, or is it borrower/lender-gated?"
+      }
+    },
+    {
+      "M1": {
+        "id": "settleWithBuyout_auth",
+        "label": "AuctionWithBuyoutLoanLiquidator.settleWithBuyout main-lender buyout authorization/timing/hash binding",
+        "impact_class": "blocked_liquidation_redemption",
+        "value_at_risk": "multi_user",
+        "persistence": "repeatable",
+        "attacker_control": "conditional",
+        "refutation_resistance": "conditional",
+        "intent_violation": "documented_intent",
+        "victim_gainer_clarity": "partial",
+        "poc_feasibility": "hard",
+        "falsifier": "Is the auction/loan struct bound by hash and is the buyout window/main-lender check non-bypassable?"
+      },
+      "M2": {
+        "id": "withdrawalqueue_liveness",
+        "label": "Pool/WithdrawalQueue withdrawal-queue rotation can strand or block claims (liveness)",
+        "impact_class": "liveness_failure",
+        "value_at_risk": "multi_user",
+        "persistence": "repeatable",
+        "attacker_control": "conditional",
+        "refutation_resistance": "conditional",
+        "intent_violation": "none",
+        "victim_gainer_clarity": "partial",
+        "poc_feasibility": "moderate",
+        "falsifier": "Can the queue index rotation skip a non-empty queue so funds are never claimable?"
+      }
+    }
+  ]
+}

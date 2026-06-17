@@ -1,0 +1,99 @@
+{
+  "finding_id": "DT-009",
+  "title": "ReseedSilo does not initialize global total stalk to the sum of reseeded account stalk",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "Medium",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+    "function": "reseedSiloDeposit",
+    "line_start": 109,
+    "line_end": 180
+  },
+  "description": "reseedSiloDeposit writes per-account stalk and per-token global deposited/depositedBdv, but does not accumulate a protocol-wide total stalk. If the system-wide total stalk used by earned-Bean distribution and governance is not set elsewhere in the reseed sequence to match the issued account stalk, global vs summed stalk diverge.",
+  "impact": "If total stalk is mis-initialized, earned-Bean distribution (divides by total stalk) and governance quorum are mis-scaled. Needs confirmation of where total stalk is set across the full reseed (e.g. ReseedSun/InitalizeDiamond). Medium pending that trace.",
+  "ite": {
+    "intent": "Global total stalk equals the sum of all account stalk after reseed",
+    "technique": "Per-account writes without a corresponding global total update in this contract",
+    "evasion": "No attacker; init-sequence completeness gap"
+  },
+  "ice_chain": {
+    "corrupted_state": "s.sys.silo.stalk (potentially uninitialized/stale relative to sum of accounts)",
+    "consumer_found": true,
+    "consumer_function": "earned-Bean distribution and governance weight read total stalk",
+    "impact": "Mis-scaled yield/quorum if total not reconciled",
+    "exploit_path": "reseed issues account stalk -> global total not set here -> distribution math divides by wrong total"
+  },
+  "source_slice": "79:         SiloDeposits calldata beanEthDeposits,\n80:         SiloDeposits calldata beanWstEthDeposits,\n81:         SiloDeposits calldata bean3CrvDeposits,\n82:         SiloDeposits calldata urBeanDeposits,\n83:         SiloDeposits calldata urBeanLpDeposits\n84:     ) external {\n85:         // initialize beanDeposits.\n86:         reseedSiloDeposit(beanDeposits);\n87: \n88:         // initialize beanEthDeposits.\n89:         reseedSiloDeposit(beanEthDeposits);\n90: \n91:         // initialize beanWstEthDeposits.\n92:         reseedSiloDeposit(beanWstEthDeposits);\n93: \n94:         // initialize beanStableDeposits.\n95:         reseedSiloDeposit(bean3CrvDeposits);\n96: \n97:         // initialize urBeanDeposits.\n98:         reseedSiloDeposit(urBeanDeposits);\n99: \n100:         // initialize urBeanLpDeposits.\n101:         reseedSiloDeposit(urBeanLpDeposits);\n102:     }\n103: \n104:     /**\n105:      * @notice reseed the silo deposit for a given token.\n106:      * @param siloDeposit The silo deposit data\n107:      * @dev all deposits and accounts are mown to the current season.\n108:      */\n109:     function reseedSiloDeposit(SiloDeposits calldata siloDeposit) internal {\n110:         uint256 totalCalcDeposited;\n111:         uint256 totalCalcDepositedBdv;\n112:         uint256 stalkIssuedPerBdv = s.sys.silo.assetSettings[siloDeposit.token].stalkIssuedPerBdv;\n113:         for (uint256 i; i < siloDeposit.siloDepositsAccount.length; i++) {\n114:             AccountSiloDeposits memory deposits = siloDeposit.siloDepositsAccount[i];\n115:             uint128 totalBdvForAccount;\n116:             uint256 accountStalk;\n117:             for (uint256 j; j < deposits.dd.length; j++) {\n118:                 // verify that depositId is valid.\n119:                 int96 stem = deposits.dd[j].stem;\n120:                 require(siloDeposit.stemTip >= stem, \"ReseedSilo: INVALID_STEM\");\n121:                 uint256 depositId = LibBytes.packAddressAndStem(siloDeposit.token, stem);\n122: \n123:                 // add deposit to account. Add to depositIdList.\n124:                 s.accts[deposits.accounts].deposits[depositId].amount = deposits.dd[j].amount;\n125:                 s.accts[deposits.accounts].deposits[depositId].bdv = deposits.dd[j].bdv;\n126:                 s.accts[deposits.accounts].depositIdList[siloDeposit.token].push(depositId);\n127: \n128:                 // increment totalBdvForAccount by bdv of deposit:\n129:                 totalBdvForAccount += deposits.dd[j].bdv;\n130: \n131:                 // increment by grown stalk of deposit.\n132:                 accountStalk += uint96(siloDeposit.stemTip - stem) * deposits.dd[j].bdv;\n133: \n134:                 // increment totalCalcDeposited and totalCalcDepositedBdv.\n135:                 totalCalcDeposited += deposits.dd[j].amount;\n136:                 totalCalcDepositedBdv += deposits.dd[j].bdv;\n137: \n138:                 // emit events.\n139:                 emit AddDeposit(\n140:                     deposits.accounts,\n141:                     siloDeposit.token,\n142:                     stem,\n143:                     deposits.dd[j].amount,\n144:                     deposits.dd[j].bdv\n145:                 );\n146:                 emit TransferSingle(\n147:                     deposits.accounts, // operator\n148:                     address(0), // from\n149:                     deposits.accounts, // to\n150:                     depositId, // depositID\n151:                     deposits.dd[j].amount // token amount\n152:                 );\n153:             }\n154:             // update mowStatuses for account and token.\n155:             s.accts[deposits.accounts].mowStatuses[siloDeposit.token].bdv = totalBdvForAccount;\n156:             s.accts[deposits.accounts].mowStatuses[siloDeposit.token].lastStem = siloDeposit\n157:                 .stemTip;\n158: \n159:             // increment stalkForAccount by the stalk issued per BDV.\n160:             // placed outside of loop for gas effiency.\n161:             accountStalk += stalkIssuedPerBdv * totalBdvForAccount;\n162: \n163:             // set stalk for account.\n164:             s.accts[deposits.accounts].stalk = accountStalk;\n165:         }\n166: \n167:         // verify that the total deposited and total deposited bdv are correct.\n168:         require(\n169:             totalCalcDeposited == siloDeposit.totalDeposited,\n170:             \"ReseedSilo: INVALID_TOTAL_DEPOSITS\"\n171:         );\n172:         require(\n173:             totalCalcDepositedBdv == siloDeposit.totalDepositedBdv,\n174:             \"ReseedSilo: INVALID_TOTAL_DEPOSITED_BDV\"\n175:         );\n176: \n177:         // set global state\n178:         s.sys.silo.balances[siloDeposit.token].deposited = siloDeposit.totalDeposited;\n179:         s.sys.silo.balances[siloDeposit.token].depositedBdv = siloDeposit.totalDepositedBdv;\n180:     }\n181: }",
+  "gate_verdict": {
+    "finding_id": "DT-009",
+    "severity": "Medium",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.541260+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "description": "Cross-artifact lifecycle lens. When an IN-SCOPE contract deploys/initializes/owns/upgrades/configures/holds-custody-over an artifact (often an OUT-OF-SCOPE token/collection/escrow/vault/proxy), that artifact's lifecycle invariants stay audit-relevant THROUGH the in-scope controller. Recovers the ArkProject AK-H4 miss: Deployer/CollectionManager deploy an upgradeable ERC721 proxy but never transfer ownership / never _disableInitializers. Advisory recall lens — never blocks.",
+  "deploy_signals": [
+    "new\\s+[A-Z]\\w*\\s*\\(", "ERC1967Proxy", "BeaconProxy", "TransparentUpgradeableProxy",
+    "deployERC721", "deployERC1155", "deployProxy", "Clones\\.clone", "cloneDeterministic",
+    "create2", "Create2", "\\.deploy\\(", "Deployer\\."
+  ],
+  "init_signals": ["initialize", "\\.selector", "initializer", "__init"],
+  "disable_init_signals": ["_disableInitializers", "disableInitializers"],
+  "ownership_signals": ["_transferOwnership", "transferOwnership", "Ownable", "owner\\s*=", "setOwner", "_setOwner", "transferAdmin", "grantRole"],
+  "upgrade_signals": ["_authorizeUpgrade", "upgradeToAndCall", "upgradeTo", "UUPSUpgradeable", "_IMPLEMENTATION_SLOT", "upgradeBeacon"],
+  "custody_signals": ["escrow", "lock", "release", "custody", "deposit", "withdraw", "mintFromBridge", "burnFromBridge"],
+  "artifact_kinds": {
+    "token": ["erc721", "erc1155", "erc20", "token", "nft", "bridgeable"],
+    "collection": ["collection", "collectionmanager"],
+    "escrow": ["escrow"],
+    "vault": ["vault"],
+    "bridge_asset": ["bridge", "bridgeable", "wrapped"],
+    "proxy": ["proxy", "erc1967", "beacon", "implementation"]
+  },
+  "role_signals": {
+    "deployer": ["deploy", "new ", "clone", "create2", "ERC1967Proxy"],
+    "factory": ["factory", "deploy", "create"],
+    "initializer": ["initialize", "initializer", "__init"],
+    "owner_setter": ["transferOwnership", "_transferOwnership", "setOwner", "owner ="],
+    "upgrader": ["_authorizeUpgrade", "upgradeTo", "upgradeToAndCall"],
+    "configurer": ["setMarketParameters", "config", "setL1L2", "setMapping", "whiteList", "set"],
+    "custodian": ["escrow", "lock", "release", "custody", "_withdrawFromEscrow", "_depositIntoEscrow"]
+  },
+  "high_risk_roles": ["deployer", "factory", "custodian", "upgrader"],
+  "review_hint": "An in-scope contract controls an artifact's lifecycle. Verify: is the artifact ownership transferred to the controller (or a trusted admin)? Is the initializer disabled (or protected)? Can the controller still upgrade/configure/recover the artifact post-deploy? Can users permanently lose assets via a recipient/lifecycle mismatch? The artifact's lifecycle is in-scope THROUGH the controller even if the artifact file is out of scope."
+}

@@ -1,0 +1,55 @@
+{
+  "mechanism_inventory": [
+    "missing caller authorization — execute() public, no check msg.sender is NFT owner/approved",
+    "victim accounting direction — proceeds routed to instructions.recipient (attacker)",
+    "external-call failure / DoS via attacker-supplied swapData — arbitrary router calls",
+    "wrong lifecycle ordering — liquidity decreased/fees collected before ownership verification",
+    "precision / packing edge — feeAmount0/1 + amount0/1 before toUint128() overflow"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "execute() has no ownership/approval check on tokenId; any EOA calls with arbitrary tokenId and instructions.recipient=attacker; _decreaseLiquidity + _collectFees then route to attacker.",
+      "attacker_model": "Unprivileged EOA; only needs victim tokenId (public).",
+      "exploit_path": "execute(victimTokenId, {WITHDRAW_AND_COLLECT_AND_SWAP, liquidity=full, recipient=attacker}) -> drain liquidity+fees to attacker.",
+      "who_loses": "Victim NFT owner (all liquidity + fees).",
+      "who_gains": "Attacker (token proceeds).",
+      "why_carried": "Direct fund loss, no precondition; no ownership check anywhere in execute()."
+    },
+    {
+      "root_cause": "swapData0/swapData1 passed to _routerSwap unsanitized; attacker controls calldata to route via malicious router; amountOutMin attacker-set to 0.",
+      "attacker_model": "Unprivileged EOA (same).",
+      "exploit_path": "craft swapData to malicious router -> _routerSwap arbitrary external call -> extract slippage/MEV/theft.",
+      "who_loses": "Victim/protocol.",
+      "who_gains": "Attacker-controlled router.",
+      "why_carried": "Different state var/sub-path (swap routing); slippage guard ineffective."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "precision/packing overflow — feeAmount0 addition before toUint128()",
+      "source_evidence": "(amount0 + instructions.feeAmount0).toUint128() may overflow uint128 and truncate.",
+      "unresolved_question": "Does toUint128() revert or silently truncate? SafeCast impl.",
+      "who_loses": "Position owner if truncation under-collects fees.",
+      "who_gains": "Protocol or nobody if revert.",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [
+    {
+      "mechanism": "wrong lifecycle ordering as a standalone bug",
+      "claimed_locus": "ordering of _decreaseLiquidity/_collectFees relative to authorization check",
+      "rejecting_source_fact": "There is no authorization check anywhere in execute(); ordering is a consequence of the missing check, not an independent mechanism.",
+      "why_unexploitable": "No guard to be out-of-order with; subsumed by missing-authorization mechanism.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    }
+  ],
+  "impact_direction": {
+    "attacker_receives": "Full token proceeds from victim position routed to attacker recipient.",
+    "attacker_preserves": "Own funds not spent; pure extraction.",
+    "victim_loses": "All liquidity and fees from NFT position.",
+    "invariant_violated": "Only owner/approved may manage a position; execute() bypasses.",
+    "not_self_funded_or_dust_or_admin_or_timing": "Permissionless, single block, scales with victim position."
+  },
+  "stop_condition": "more_mechanisms_pending: swapData mechanism different sub-path; overflow NEEDS_HARNESS.",
+  "verdict": "CRITICAL_THREAD"
+}

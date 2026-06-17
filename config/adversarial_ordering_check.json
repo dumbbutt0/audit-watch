@@ -1,0 +1,72 @@
+{
+  "_doc": "P96 adversarial state-ordering & boundary-enumeration check (RESEARCH-ONLY, advisory, UN-WIRED). After the deep pass LOCALIZES a mechanism and the depth-trace COMPLETES (localized_depth_trace.py P92/P94), this is a SECOND gate before a REJECT/harmless/Low may be FINALIZED: it forces the analyst to state the relied-upon invariant and try to BREAK it with concrete adversarial state orderings + boundary cases + actor interleavings. It repairs P95's completed-but-WRONG REJECTs: H-01 executeWithdrawal pro-rata read as locally correct without the closed-market early-execution ordering, and M-05 grantRole provider-vs-provider expiry-bypass false-cleared as a 'trusted control'. P94 guarantees a trace is DONE; P96 guarantees it was ADVERSARIALLY enumerated. It does NOT touch severity_impact_gate (frozen 193abf9f), never sets severity, never converts a REJECT into a finding, never routes. It only decides whether a REJECT may be finalized vs must reopen. is_gate:false research_only:true routes_in_production:false.",
+  "_flags": {"is_gate": false, "research_only": true, "review_only": true, "routes_in_production": false, "routed_manifest_ids": []},
+
+  "min_orderings": 3,
+  "verdicts": ["REJECT_CONFIRMED", "REOPEN_DEPTH_TRACE", "NEEDS_EXECUTION", "PASS_CANDIDATE"],
+  "mechanism_classes": ["accounting", "lifecycle", "role", "state_order", "guarded_control", "other"],
+  "mechanism_classes_requiring_3": ["accounting", "lifecycle", "role", "state_order"],
+
+  "lifecycle_orderings": [
+    "open_vs_closed_market",
+    "active_vs_expired",
+    "pre_vs_post_settlement",
+    "before_vs_after_batch_creation",
+    "before_vs_after_checkpoint",
+    "before_vs_after_role_or_provider_expiry",
+    "before_vs_after_liquidation",
+    "before_vs_after_settle_claim_forge_mint"
+  ],
+  "actor_interleavings": [
+    "first_actor_vs_last_actor",
+    "victim_before_vs_after_attacker",
+    "third_party_between_setup_and_execution",
+    "provider_A_vs_provider_B",
+    "admin_or_keeper_interleave"
+  ],
+  "accounting_boundaries": [
+    "zero_vs_nonzero",
+    "partial_vs_full_withdrawal",
+    "pro_rata_denominator_change",
+    "rounding_accumulation",
+    "stale_snapshot",
+    "batch_total_vs_individual_share",
+    "global_vs_scoped_counter",
+    "array_add_vs_remove_order"
+  ],
+  "recovery_classes": [
+    "self_correct",
+    "privileged_only",
+    "migration_or_upgrade",
+    "temporary",
+    "bounded",
+    "permanent"
+  ],
+
+  "_policy": "evaluate(case) decision precedence: (1) relied_upon_invariant empty -> REOPEN_DEPTH_TRACE (must state the invariant being relied on for the REJECT). (2) counterexample_found=true -> PASS_CANDIDATE if counterexample_trace non-empty, else REOPEN_DEPTH_TRACE (a claimed counterexample without a concrete trace is not finalizable). (3) unresolved_ordering_dependency non-empty -> REOPEN_DEPTH_TRACE. (4) inter_principal_trust_boundary=true AND relevant_orderings<min_orderings -> REOPEN_DEPTH_TRACE (an inter-principal boundary, e.g. provider-vs-provider, may NOT be dismissed as a simple trusted control without enumerating orderings; fixes M-05). (5) mechanism_class in mechanism_classes_requiring_3 AND relevant_orderings<min_orderings -> REOPEN_DEPTH_TRACE (a 'locally correct' reject on accounting/lifecycle/role/state-order needs >=3 concrete orderings tried; fixes H-01). (6) needs_execution=true -> NEEDS_EXECUTION if execution_test_idea non-empty, else REOPEN_DEPTH_TRACE. (7) else (guarded_control with no inter-principal boundary, or a fully-enumerated >=3-ordering trace with no counterexample) -> REJECT_CONFIRMED. relevant_orderings = len(ordering_cases_tested)+len(boundary_cases_tested)+len(actor_interleavings_tested). The check NEVER sets severity, NEVER converts a REJECT into a finding, NEVER routes; it only gates whether a REJECT may be finalized vs must reopen the depth trace.",
+
+  "input_fields": [
+    "proposed_reject_reason",
+    "relied_upon_invariant",
+    "mechanism_class",
+    "ordering_cases_tested",
+    "boundary_cases_tested",
+    "actor_interleavings_tested",
+    "recovery_paths",
+    "counterexample_found",
+    "counterexample_trace",
+    "unresolved_ordering_dependency",
+    "inter_principal_trust_boundary",
+    "needs_execution",
+    "execution_test_idea"
+  ],
+
+  "target_failure_classes": [
+    "completed_local_trace_missing_lifecycle_ordering",
+    "inter_principal_boundary_dismissed_as_trusted_control",
+    "pro_rata_denominator_assumed_constant",
+    "first_vs_last_actor_share_dependence",
+    "third_party_race_between_setup_and_execution",
+    "closed_or_settled_state_early_execution"
+  ]
+}

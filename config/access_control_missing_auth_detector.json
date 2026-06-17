@@ -1,0 +1,49 @@
+{
+  "version": "missing-auth-public-privileged-mutation-v1",
+  "description": "Phase-63 RESEARCH-ONLY + REVIEW-ONLY Access-Control detector for the NARROW missing-auth shape ONLY: a public/external privileged-state mutation with NO authorization (no modifier and no inline check), corroborated by a protected-sibling / authorized-internal-caller comparand. Read ONLY by scripts/access_control_missing_auth_detector.py (un-wired). It NEVER emits CONFIRMED_BUG/READY_TO_SUBMIT/AUTO_SUBMIT; only REVIEW_ONLY_ADVANCE/REVIEW_ONLY_ABSTAIN/REVIEW_ONLY_REJECTED. Out of scope (do not handle): over-permissive/wrong-actor auth (modifier present), delegatecall/multicall bypass, initializer misuse, stale operator after ownership transfer, signature-authority, hook/callback bypass, governance. Generic only — NO subject identifiers. is_gate:false research_only:true review_only:true routes_in_production:false routed_manifest_ids:[].",
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+
+  "public_visibilities": ["public", "external"],
+  "view_mutabilities": ["view", "pure"],
+
+  "auth_modifier_regex": "^_?only[A-Z]",
+  "auth_modifier_terms": ["owner", "role", "auth", "admin", "manager", "guardian", "governance", "factory", "creator", "operator", "controller", "keeper", "restricted", "requiresauth", "permission", "proxy"],
+  "inline_auth_signals": ["msg.sender", "_msgsender(", "hasrole(", "_checkrole", "_checkowner", "owner()", "authority", "isauthorized", "accesscontrol", "requiresauth", "onlyrole", "_authorizeupgrade", "delegatecallonly", "onlyproxy"],
+  "inline_auth_context": ["require(", "revert", "if (", "if("],
+
+  "state_write_ops": ["=", "+=", "-=", ".push(", "delete ", "[", "_mint", "_burn", "_grantrole", "_revokerole", "grantrole", "revokerole", "_transferownership", "transferownership"],
+  "privileged_state_terms": ["owner", "role", "admin", "manager", "operator", "guardian", "registry", "whitelist", "blacklist", "allowlist", "config", "paused", "pause", "feerecipient", "feedestination", "treasury", "strategy", "vault", "market", "implementation", "signer", "authority", "eligibility", "approved", "controller", "membership", "registered"],
+  "mapping_write_is_privileged": true,
+  "privileged_effect_calls": ["_mint", "mint(", "_burn", "burn(", "seize", "sweep", "safetransfer", "transferfrom", "_pause", "_unpause", "pause(", "unpause(", "upgradeto", "grantrole", "revokerole", "transferownership"],
+
+  "design_absence_permissionless_verbs": ["claim", "buy", "sell", "deposit", "withdraw", "redeem", "swap", "stake", "unstake", "mintpublic", "approve", "transfer", "compound", "liquidate", "flashloan"],
+  "token_standard_fns": ["transfer", "transferfrom", "approve", "safetransferfrom", "setapprovalforall", "permit"],
+
+  "permissionless_state_advance_verbs": ["checkpoint", "poke", "accrue", "harvest", "sync", "update", "updatestate", "updateepoch", "advanceepoch", "processepoch", "settle", "settleepoch", "distribute", "distributerewards", "notifyrewardamount", "updateglobal", "updateaccount"],
+  "state_advance_context_signals": ["epoch", "reward", "accumul", "checkpoint", "rewardpertoken", "pertoken", "index", "_calculate", "totalrewards", "availablerewards", "mapepoch", "mapserviceinfo", "inflation", "emission", "lastupdate", "global"],
+  "privileged_admin_effect_signals": ["grantrole", "revokerole", "_grantrole", "_revokerole", "transferownership", "_transferownership", "owner =", "owner=", "admin =", "admin=", "authority =", "authority=", "implementation =", "implementation=", "setowner", "setadmin", "sweep"],
+
+  "position_reduction_verbs": ["repay", "burn", "payback", "reducedebt", "repaydebt", "decreasedebt", "closedebt", "reduceposition", "deleverage", "burndebt"],
+  "debt_reduction_signals": ["debt", "minted", "liability", "loan", "borrowed", "position", "owed"],
+  "caller_funded_source_signals": ["burnfrom(msg.sender", "_burn(msg.sender", "transferfrom(msg.sender", "safetransferfrom(msg.sender", "msg.value"],
+  "position_reduction_value_exit_veto": ["transfer(", "withdraw", "mint(", "_mint", "seize", ".call{value", "redeem"],
+
+  "factory_deploy_verbs": ["deploy", "create", "clone"],
+  "factory_deploy_call_signals": ["createproxywithnonce", "create2", "clonedeterministic", "clone(", "createproxy", "deployproxy", "deployclone", "deploycontract"],
+  "factory_deploy_veto": ["upgradeto", "installmodule", "activatepolicy", "executeaction", "_authorizeupgrade", "transfer(", "seize", ".call{value"],
+
+  "setup_only_signals": ["initializer", "reinitializer", "_disableinitializers", "constructor"],
+  "internal_convention_prefix": "_",
+  "comparand_terms": ["onlyowner", "onlyrole", "onlyadmin", "requiresauth", "authorized internal caller", "protected sibling"],
+
+  "decisions": {
+    "advance": "REVIEW_ONLY_ADVANCE",
+    "abstain": "REVIEW_ONLY_ABSTAIN",
+    "rejected": "REVIEW_ONLY_REJECTED"
+  },
+  "forbidden_output_states": ["CONFIRMED_BUG", "READY_TO_SUBMIT", "AUTO_SUBMIT"]
+}

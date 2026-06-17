@@ -1,0 +1,1225 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "SUPERVISED_EVAL_DERIVED_EVIDENCE",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "packages": [
+    {
+      "candidate_id": "coverage_manifest:AccountingManager:calculateDepositShares:5",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "AccountingManager.calculateDepositShares",
+      "source_refs": "AccountingManager.calculateDepositShares function calculateDepositShares(uint256 maxIterations) public onlyManager nonReentrant whenNotPaused {",
+      "mechanism_hypothesis": "[T5] AccountingManager.calculateDepositShares: A state transition may make a required later operation impossible, stuck, delayed, or incorrectly successful.",
+      "root_cause": "AccountingManager.calculateDepositShares function calculateDepositShares(uint256 maxIterations) public onlyManager nonReentrant whenNotPaused {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "AccountingManager.calculateDepositShares is guarded by modifier(s) ['onlyManager', 'nonReentrant', 'whenNotPaused']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function calculateDepositShares(uint256 maxIterations) public onlyManager nonRee",
+      "victim_gainer": "victim = users/LPs of AccountingManager (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in AccountingManager via calculateDepositShares (value-moving op)",
+      "invariant_expected": "share<->asset conversion in AccountingManager.calculateDepositShares conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "AccountingManager.calculateDepositShares rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls AccountingManager.calculateDepositShares with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "After this transition, can a needed later step (claim/finalize/withdraw) still complete correctly?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through AccountingManager.calculateDepositShares nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyManager', 'nonReentrant', 'whenNotPaused'] would be the CORE exploitability claim - needs source review",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyManager', 'nonReentrant', 'whenNotPaused'], external_calls=False, has_loop=False, tags=['accounting', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyManager', 'nonReentrant', 'whenNotPaused'], external_calls=False, has_loop=False, tags=['accounting', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "modifier_auth(only*)",
+          "notpaused",
+          "whennotpaused"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "+=",
+          "shares"
+        ],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/accountingManager/AccountingManager.sol",
+        "source_span": [
+          226,
+          250
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "+=",
+          "shares"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [226, 250] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/accountingManager/AccountingManager.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:UNIv3Connector:openPosition:6",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "UNIv3Connector.openPosition",
+      "source_refs": "UNIv3Connector.openPosition function openPosition(MintParams memory p) external onlyManager nonReentrant returns (uint256 tokenId) {",
+      "mechanism_hypothesis": "[T8] UNIv3Connector.openPosition: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "UNIv3Connector.openPosition function openPosition(MintParams memory p) external onlyManager nonReentrant returns (uint256 tokenId) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "UNIv3Connector.openPosition is guarded by modifier(s) ['onlyManager', 'nonReentrant']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function openPosition(MintParams memory p) external onlyManager nonReentrant ret",
+      "victim_gainer": "victim = users/LPs of UNIv3Connector (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in UNIv3Connector via openPosition (value-moving op)",
+      "invariant_expected": "post-UNIv3Connector.openPosition accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "UNIv3Connector.openPosition leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls UNIv3Connector.openPosition with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-UNIv3Connector.openPosition accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyManager', 'nonReentrant'] would be the CORE exploitability claim - needs source review",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyManager', 'nonReentrant'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyManager', 'nonReentrant'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "modifier_auth(only*)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/connectors/UNIv3Connector.sol",
+        "source_span": [
+          40,
+          57
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [40, 57] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/connectors/UNIv3Connector.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:PositionRegistry:addVault:7",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "PositionRegistry.addVault",
+      "source_refs": "PositionRegistry.addVault function addVault( uint256 vaultId, address _accountingManager, address _baseToken, address _governer, address _maintainer, address _maintainerWithoutTimelock, address _keeperContract, address _watcher, address _emergency, address[] calldata _trustedTokens ) external onlyRole(MAINTAINER_ROLE) {",
+      "mechanism_hypothesis": "[T4] PositionRegistry.addVault: Value/rewards/shares/debt/indexes/permissions may be lost, duplicated, or mispriced across old/new domains.",
+      "root_cause": "PositionRegistry.addVault function addVault( uint256 vaultId, address _accountingManager, address _baseToken, address _governer, address _maintainer, address _maintainerWithoutTimelock, address _keeperContract, address _watcher, address _emergency, address[] calldata _trustedTokens ) external onlyRole(MAINTAINER_ROLE) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "PositionRegistry.addVault is guarded by modifier(s) ['onlyRole', 'MAINTAINER_ROLE']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function addVault( uint256 vaultId, address _accountingManager, address _baseTok",
+      "victim_gainer": "victim = users/LPs of PositionRegistry (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in PositionRegistry via addVault (value-moving op)",
+      "invariant_expected": "post-PositionRegistry.addVault accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "PositionRegistry.addVault leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls PositionRegistry.addVault with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Across this conversion/migration/split/merge, is every unit and right conserved exactly?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-PositionRegistry.addVault accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyRole', 'MAINTAINER_ROLE'] would be the CORE exploitability claim - needs source review",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyRole', 'MAINTAINER_ROLE'], external_calls=False, has_loop=False, tags=['config', 'permissions', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyRole', 'MAINTAINER_ROLE'], external_calls=False, has_loop=False, tags=['config', 'permissions', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "modifier_auth(only*)",
+          "onlyrole("
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/accountingManager/Registry.sol",
+        "source_span": [
+          106,
+          146
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [106, 146] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/accountingManager/Registry.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SNXV3Connector:claimRewards:9",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "SNXV3Connector.claimRewards",
+      "source_refs": "SNXV3Connector.claimRewards function claimRewards(uint128 accountId, uint128 poolId, address collateralType, address distributor) public onlyManager {",
+      "mechanism_hypothesis": "[T2] SNXV3Connector.claimRewards: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "SNXV3Connector.claimRewards function claimRewards(uint128 accountId, uint128 poolId, address collateralType, address distributor) public onlyManager {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "SNXV3Connector.claimRewards is guarded by modifier(s) ['onlyManager']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function claimRewards(uint128 accountId, uint128 poolId, address collateralType,",
+      "victim_gainer": "victim = users/LPs of SNXV3Connector (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in SNXV3Connector via claimRewards (value-moving op)",
+      "invariant_expected": "rewards via SNXV3Connector.claimRewards go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "SNXV3Connector.claimRewards mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls SNXV3Connector.claimRewards with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert SNXV3Connector.claimRewards pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyManager'] would be the CORE exploitability claim - needs source review",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyManager'], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyManager'], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "modifier_auth(only*)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [
+          "collateral"
+        ],
+        "state_write": false,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/connectors/SNXConnector.sol",
+        "source_span": [
+          94,
+          100
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [
+          "collateral"
+        ],
+        "value_movement_or_accounting_write": false,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [94, 100] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/connectors/SNXConnector.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:CurveConnector:harvestPrismaRewards:11",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "CurveConnector.harvestPrismaRewards",
+      "source_refs": "CurveConnector.harvestPrismaRewards function harvestPrismaRewards(address[] calldata pools) public onlyManager nonReentrant {",
+      "mechanism_hypothesis": "[T1] CurveConnector.harvestPrismaRewards: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "CurveConnector.harvestPrismaRewards function harvestPrismaRewards(address[] calldata pools) public onlyManager nonReentrant {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "CurveConnector.harvestPrismaRewards is guarded by modifier(s) ['onlyManager', 'nonReentrant']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function harvestPrismaRewards(address[] calldata pools) public onlyManager nonRe",
+      "victim_gainer": "victim = users/LPs of CurveConnector (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in CurveConnector via harvestPrismaRewards (value-moving op)",
+      "invariant_expected": "rewards via CurveConnector.harvestPrismaRewards go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "CurveConnector.harvestPrismaRewards mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls CurveConnector.harvestPrismaRewards with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert CurveConnector.harvestPrismaRewards pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyManager', 'nonReentrant'] would be the CORE exploitability claim - needs source review",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyManager', 'nonReentrant'], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyManager', 'nonReentrant'], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "modifier_auth(only*)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/connectors/CurveConnector.sol",
+        "source_span": [
+          233,
+          241
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [233, 241] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/connectors/CurveConnector.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:DolomiteConnector:withdraw:12",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "DolomiteConnector.withdraw",
+      "source_refs": "DolomiteConnector.withdraw function withdraw(uint256 marketId, uint256 _amount) public onlyManager nonReentrant {",
+      "mechanism_hypothesis": "[T2] DolomiteConnector.withdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "DolomiteConnector.withdraw function withdraw(uint256 marketId, uint256 _amount) public onlyManager nonReentrant {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "DolomiteConnector.withdraw is guarded by modifier(s) ['onlyManager', 'nonReentrant']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function withdraw(uint256 marketId, uint256 _amount) public onlyManager nonReent",
+      "victim_gainer": "victim = users/LPs of DolomiteConnector (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in DolomiteConnector via withdraw (value-moving op)",
+      "invariant_expected": "DolomiteConnector.withdraw preserves the relevant protocol invariant",
+      "invariant_broken": "DolomiteConnector.withdraw violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls DolomiteConnector.withdraw with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert DolomiteConnector.withdraw produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyManager', 'nonReentrant'] would be the CORE exploitability claim - needs source review"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyManager', 'nonReentrant'], external_calls=False, has_loop=False, tags=['accounting']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyManager', 'nonReentrant'], external_calls=False, has_loop=False, tags=['accounting']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "modifier_auth(only*)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/connectors/Dolomite.sol",
+        "source_span": [
+          43,
+          56
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [43, 56] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/connectors/Dolomite.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:AccountingManager:startCurrentWithdrawGroup:13",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "AccountingManager.startCurrentWithdrawGroup",
+      "source_refs": "AccountingManager.startCurrentWithdrawGroup function startCurrentWithdrawGroup() public onlyManager nonReentrant whenNotPaused {",
+      "mechanism_hypothesis": "[T2] AccountingManager.startCurrentWithdrawGroup: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "AccountingManager.startCurrentWithdrawGroup function startCurrentWithdrawGroup() public onlyManager nonReentrant whenNotPaused {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "AccountingManager.startCurrentWithdrawGroup is guarded by modifier(s) ['onlyManager', 'nonReentrant', 'whenNotPaused']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function startCurrentWithdrawGroup() public onlyManager nonReentrant whenNotPaus",
+      "victim_gainer": "victim = users/LPs of AccountingManager (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in AccountingManager via startCurrentWithdrawGroup (value-moving op)",
+      "invariant_expected": "AccountingManager.startCurrentWithdrawGroup preserves the relevant protocol invariant",
+      "invariant_broken": "AccountingManager.startCurrentWithdrawGroup violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls AccountingManager.startCurrentWithdrawGroup with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert AccountingManager.startCurrentWithdrawGroup produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyManager', 'nonReentrant', 'whenNotPaused'] would be the CORE exploitability claim - needs source review"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyManager', 'nonReentrant', 'whenNotPaused'], external_calls=False, has_loop=False, tags=['accounting', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyManager', 'nonReentrant', 'whenNotPaused'], external_calls=False, has_loop=False, tags=['accounting', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "modifier_auth(only*)",
+          "notpaused",
+          "whennotpaused"
+        ],
+        "state_machine_detected": true,
+        "state_markers": [
+          "filled"
+        ],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/accountingManager/AccountingManager.sol",
+        "source_span": [
+          360,
+          365
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [360, 365] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/accountingManager/AccountingManager.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:AccountingManager:fulfillCurrentWithdrawGroup:14",
+      "award_class": "ORDER_VALIDATION",
+      "contract_function": "AccountingManager.fulfillCurrentWithdrawGroup",
+      "source_refs": "AccountingManager.fulfillCurrentWithdrawGroup function fulfillCurrentWithdrawGroup() public onlyManager nonReentrant whenNotPaused {",
+      "mechanism_hypothesis": "[T2] AccountingManager.fulfillCurrentWithdrawGroup: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "AccountingManager.fulfillCurrentWithdrawGroup function fulfillCurrentWithdrawGroup() public onlyManager nonReentrant whenNotPaused {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "AccountingManager.fulfillCurrentWithdrawGroup is guarded by modifier(s) ['onlyManager', 'nonReentrant', 'whenNotPaused']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function fulfillCurrentWithdrawGroup() public onlyManager nonReentrant whenNotPa",
+      "victim_gainer": "victim = users/LPs of AccountingManager (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in AccountingManager via fulfillCurrentWithdrawGroup (value-moving op)",
+      "invariant_expected": "an order can only be filled/cancelled by the entitled party under its terms",
+      "invariant_broken": "AccountingManager.fulfillCurrentWithdrawGroup lets a non-entitled party fill/redirect/replay the order",
+      "tx_sequence": [
+        "attacker calls AccountingManager.fulfillCurrentWithdrawGroup with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Are nonce/deadline/signature checks present? Is recipient bound to the maker?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert an attacker-controlled call to AccountingManager.fulfillCurrentWithdrawGroup violates the maker/taker/order-state invariant",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyManager', 'nonReentrant', 'whenNotPaused'] would be the CORE exploitability claim - needs source review"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyManager', 'nonReentrant', 'whenNotPaused'], external_calls=False, has_loop=False, tags=['accounting', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyManager', 'nonReentrant', 'whenNotPaused'], external_calls=False, has_loop=False, tags=['accounting', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "modifier_auth(only*)",
+          "notpaused",
+          "whennotpaused"
+        ],
+        "state_machine_detected": true,
+        "state_markers": [
+          "filled"
+        ],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "assets",
+          "balanceof"
+        ],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/accountingManager/AccountingManager.sol",
+        "source_span": [
+          370,
+          390
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "assets",
+          "balanceof"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [370, 390] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/accountingManager/AccountingManager.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:AccountingManager:burnShares:17",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "AccountingManager.burnShares",
+      "source_refs": "AccountingManager.burnShares function burnShares(uint256 amount) public {",
+      "mechanism_hypothesis": "[T2] AccountingManager.burnShares: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "AccountingManager.burnShares function burnShares(uint256 amount) public {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls AccountingManager.burnShares with chosen inputs (function burnShares(uint256 amount) public {)",
+      "attacker_controlled_inputs": "msg.sender + args of function burnShares(uint256 amount) public {",
+      "victim_gainer": "victim = users/LPs of AccountingManager (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in AccountingManager via burnShares (value-moving op)",
+      "invariant_expected": "share<->asset conversion in AccountingManager.burnShares conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "AccountingManager.burnShares rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls AccountingManager.burnShares with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through AccountingManager.burnShares nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "_burn",
+          "shares"
+        ],
+        "state_write": false,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/accountingManager/AccountingManager.sol",
+        "source_span": [
+          543,
+          545
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [
+          "_burn",
+          "shares"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [543, 545] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/accountingManager/AccountingManager.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

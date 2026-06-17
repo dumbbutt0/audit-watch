@@ -1,0 +1,29 @@
+{
+  "phase": "P184",
+  "corpus": "quantamm-2024-12-eval",
+  "read_only": true,
+  "headline_metric": "awarded_mechanism_selected",
+  "n_awarded": 9,
+  "awarded_mechanism_enumerated": "8/9",
+  "awarded_mechanism_selected": "7/9",
+  "awarded_mechanism_selected_conservative": "6/9 (excluding H-03, a loose near-duplicate of the already-found PARTIAL H-02)",
+  "baseline_selected_on_these_losses_at_eval_time": "0/9 (the original deep-trace reported the FIRST mechanism per function: H-01/H-06/H-02, and stopped)",
+  "selected_findings": ["H-07", "L-01", "M-03", "M-10", "H-03(loose)", "M-06", "L-02"],
+  "enumerated_not_selected": ["M-02 (folded into rejection_table as a fee-evasion amplifier, not carried as a standalone chosen mechanism)"],
+  "missed": ["M-17 (feePerLP>100% bound mechanism not enumerated; blind enumerated a different 'fee truncation' and rejected it as dust)"],
+  "wrong_mechanism_reduced": true,
+  "wrong_mechanism_reduced_evidence": "all 5 functions carried MULTIPLE mechanisms (vs the original single); on afterUpdate the blind trace carried 3 distinct awarded mechanisms (M-03,M-10,L-01) beyond the original H-01; stop_condition fired 'more_mechanisms_pending' on afterUpdate + oracle",
+  "unresolved_alternative_flagged": "yes on afterUpdate + oracle_getData (stop_condition=more_mechanisms_pending); 'satisfied' after carrying multiple on the others",
+  "noise": {
+    "level": "low",
+    "detail": "extra (unawarded) enumerated mechanisms are SOURCE-GROUNDED, not generic spam: reverse-loop unsigned underflow (onAfterRemoveLiquidity), upliftFeeBps re-stamp (afterUpdate), int216 multiplicative overflow + div-by-zero (oracles), backup-loop j=1 off-by-one (UpdateWeightRunner). Some may be real unawarded issues or FPs; the rejection-table discipline kept each justified with a source fact. A real run would triage these."
+  },
+  "checker_on_blind_outputs": "mechanism_incomplete on all 5 due to SCHEMA-FORMAT only (chosen_mechanism returned as LIST not dict; impact_direction as PROSE not dict) - reasoning content complete. Recommend P185 checker/prompt schema: allow chosen_mechanism as a list. FLAGGED, not fixed (P184 measurement only).",
+  "decision": "KEEP P183 PROMOTED",
+  "decision_basis": "awarded_mechanism_selected 7/9 (conservative 6/9) vs 0/9 at eval time on these exact losses = material improvement; enumeration+stop-condition demonstrably surfaced 2nd/3rd mechanisms (afterUpdate 3/3). The one enumerated-not-selected (M-02) signals the secondary next-fix = mechanism ranking/selection scoring; the one miss (M-17) = an inventory-menu gap (logical-bound-exceeded).",
+  "residual_caveats": [
+    "same model family: blind subagent shares the model; faint QuantAMM training priors cannot be fully excluded. Mitigants: reasoning cites exact source facts; no answer-key IDs cited; 2/9 genuinely missed (an omniscient evaluator would not miss).",
+    "H-03 is a loose/near-duplicate match (generic title; same onAfterSwap admin-fee region as the already-found H-02) -> conservative selected = 6/9.",
+    "this is one in-session blind run, n=9; the gold standard remains a firewall-sealed fresh-model run."
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "audit_id": "recall-2025-02-strict-eval",
+  "set": "unknown",
+  "generated_at": "2026-06-12T14:13:53Z",
+  "awarded_source": "answer_key_normalization.json",
+  "auto_heuristic": false,
+  "awarded": [],
+  "candidates": [
+    {
+      "id": "DT-001",
+      "title": "Checkpoint quorum can be forged via duplicate signatures (no signatory de-duplication in submitCheckpoint)",
+      "severity": "Critical",
+      "file": "contracts/foundry/src_inscope/contracts/lib/LibMultisignatureChecker.sol",
+      "contract": "",
+      "function": "isValidWeightedMultiSignature",
+      "description": "SubnetActorCheckpointingFacet.submitCheckpoint validates the quorum through validateActiveQuorumSignatures -> MultisignatureChecker.isValidWeightedMultiSignature. That verifier iterates the attacker-supplied signatories/signatures arrays and accumulates weights[i] for each entry whose recovered signer == signatories[i], but it NEVER checks that signatories are distinct. The weights come from LibStaking.getTotalPowerOfValidators(signatories), which returns each address's full power once per occurrence (it only reverts if an address is not an active validator). Therefore a single active validator V can pass signatories=[V,V,...]/signatures=[sigV,sigV,...]; tryRecover returns V for every copy and weight becomes k*power(V), which exceeds threshold = activeCollateral*majorityPercentage/100 for sufficiently large k. The quorum check passes without real majority. The gateway-side incremental path (LibQuorum.addQuorumSignature) is NOT vulnerable because it dedups via quorumSignatureSenders (SignatureReplay) \u2014 the batch verifier simply omits that check."
+    },
+    {
+      "id": "DT-002",
+      "title": "Bottom-up circSupply decrement excludes Call-kind message value",
+      "severity": "Medium",
+      "file": "contracts/foundry/src_inscope/contracts/gateway/router/CheckpointingFacet.sol",
+      "contract": "",
+      "function": "execBottomUpMsgs",
+      "description": "CheckpointingFacet.execBottomUpMsgs accumulates totalValue only for messages whose kind != IpcMsgKind.Call, then decrements subnet.circSupply by that sum, while LibGateway.applyMessages/applyMsg execute every message including Call-kind ones. If a Call-kind bottom-up message carries value that is actually moved during execution, the subnet circulating-supply accounting is under-decremented relative to value leaving the subnet."
+    },
+    {
+      "id": "DT-003",
+      "title": "preRelease transfers funds before validating the caller's genesis balance (CEI inversion)",
+      "severity": "Low",
+      "file": "contracts/foundry/src_inscope/contracts/subnet/SubnetActorManagerFacet.sol",
+      "contract": "",
+      "function": "preRelease",
+      "description": "SubnetActorManagerFacet.preRelease calls s.supplySource.transferFunds(msg.sender, amount) before the `genesisBalance[msg.sender] < amount` check and the balance decrement. The function is nonReentrant and on revert the transfer is rolled back, so for standard native/ERC20 supply sources funds are not lost; however the ordering is a checks-effects-interactions inversion that becomes unsafe for callback/hook-bearing supply tokens."
+    },
+    {
+      "id": "SWP-001",
+      "title": "CrossMsgHelper.execute \u2014 see DT-002",
+      "severity": "see DT-002",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "Executor that moves crossMsg.value via performCall for Call/Result kinds; the Call-value vs circSupply accounting gap is tracked in DT-002. (tracked as DT-002)"
+    },
+    {
+      "id": "SWP-002",
+      "title": "SubnetActorCheckpointingFacet.submitCheckpoint \u2014 see DT-001",
+      "severity": "see DT-001",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "Entry point of the duplicate-signature quorum-forgery finding: attacker-supplied signatories/signatures reach validateActiveQuorumSignatures->isValidWeightedMultiSignature which does not de-dup. (tracked as DT-001)"
+    }
+  ],
+  "summary": {
+    "awarded_total": 0,
+    "awarded_source": "answer_key_normalization.json",
+    "adjudicated": 0,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 0,
+    "recall_of_surfaced": null,
+    "strong_only": null,
+    "by_label": {
+      "MISSED": 0,
+      "SAME_AREA": 0,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 0,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

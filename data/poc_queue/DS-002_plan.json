@@ -1,0 +1,77 @@
+{
+  "finding_id": "DS-002",
+  "test_name": "poc_ds_002_zero_slippage_sandwich_loss",
+  "approach": "pure_arithmetic",
+  "language": "rust",
+  "framework": "soroban",
+  "target_contract": "BaseCurveAMOStrategy",
+  "target_function": "withdrawAll",
+  "bug_claim": "The withdrawAll function passes [0, 0] as minimum withdrawal amounts to curvePool.remove_liquidity, meaning zero slippage protection. A sandwich attacker can manipulate pool reserves before the withdrawal to drain value from the position.",
+  "minimal_setup": [
+    "Define pool constants: initial WETH reserve, initial OETH reserve, LP token supply",
+    "Define victim LP token balance representing the strategy's position",
+    "Compute expected fair withdrawal amounts at pre-attack spot price",
+    "Simulate attacker front-run: large WETH->OETH swap that tilts pool",
+    "Compute actual withdrawal amounts at post-manipulation spot price with zero minimum enforcement",
+    "Compute attacker back-run profit from restoring pool balance",
+    "No contract deployment needed - pure math simulation"
+  ],
+  "constants": [
+    "WAD = 1_000_000_000_000_000_000u128",
+    "INITIAL_WETH = 1_000u128 (in WAD units: 1_000 * WAD)",
+    "INITIAL_OETH = 1_000u128 (in WAD units: 1_000 * WAD)",
+    "TOTAL_LP = 2_000u128 (in WAD units)",
+    "STRATEGY_LP = 200u128 (10% of pool, in WAD units)",
+    "ATTACKER_WETH = 500u128 (attack swap size, in WAD units)"
+  ],
+  "test_steps": [
+    "Step 1: Define constant pool state (balanced 1:1 Curve pool) with WETH=1000, OETH=1000, total_LP=2000",
+    "Step 2: Strategy holds 200 LP tokens (10% of pool)",
+    "Step 3: Compute fair_weth_out = (strategy_lp / total_lp) * pool_weth = 100 WETH expected",
+    "Step 4: Simulate attacker front-run: swap 500 WETH in for OETH. After swap: pool_weth = 1500, pool_oeth = 666 (using x*y=k invariant approximation)",
+    "Step 5: Recompute withdrawal at manipulated pool: actual_weth_out = (strategy_lp / total_lp) * manipulated_weth = 150 WETH, actual_oeth_out = (strategy_lp / total_lp) * manipulated_oeth = 66 OETH",
+    "Step 6: Compute WETH value of OETH shortfall: oeth_shortfall = fair_oeth_out - actual_oeth_out = 100 - 66 = 34 OETH lost",
+    "Step 7: Simulate attacker back-run: sells 150 WETH profit OETH back, restoring pool. Net attacker profit from manipulation = value extracted from strategy position",
+    "Step 8: Assert that with zero slippage (minAmounts=[0,0]), the actual OETH received (66) is far below the fair value (100), demonstrating the vulnerability",
+    "Step 9: Assert that if minAmounts were set to 99% of fair value (99 WETH, 99 OETH), the withdrawal would revert because actual_oeth=66 < 99, proving zero-slippage is the root cause"
+  ],
+  "assertions": [
+    {
+      "variable": "fair_oeth_out",
+      "expected_value": "100 OETH (100 * WAD)",
+      "actual_buggy_value": "66 OETH (66 * WAD) received due to pool manipulation",
+      "explanation": "With zero minimum amounts enforced, the withdrawal accepts 34% less OETH than fair value after attacker tilts pool"
+    },
+    {
+      "variable": "oeth_slippage_loss_percent",
+      "expected_value": "0% loss with proper slippage protection",
+      "actual_buggy_value": "~34% OETH value loss accepted silently",
+      "explanation": "zero minAmounts means no lower bound check; any manipulated pool ratio is accepted"
+    },
+    {
+      "variable": "would_revert_with_1pct_slippage",
+      "expected_value": "true (transaction would revert, protecting funds)",
+      "actual_buggy_value": "false (transaction succeeds with current [0,0] minAmounts, value is extracted)",
+      "explanation": "If minAmounts=[99*WAD, 99*WAD] (1% slippage), actual_oeth=66 < 99 would cause revert; current code passes [0,0] so no protection"
+    }
+  ],
+  "run_command": "cargo test --manifest-path pocs/k2/DS-002/Cargo.toml -- --nocapture",
+  "directory": "pocs/ds_002",
+  "files_to_create": [
+    {
+      "path": "pocs/ds_002/Cargo.toml",
+      "description": "Minimal Cargo.toml with no external dependencies, pure arithmetic test"
+    },
+    {
+      "path": "pocs/ds_002/src/lib.rs",
+      "description": "Pure arithmetic simulation of Curve pool sandwich attack against zero-slippage withdrawAll"
+    }
+  ],
+  "failure_modes": [
+    "The x*y=k approximation for Curve pool math may differ from actual StableSwap invariant, making exact numbers slightly off - adjust constants to use simpler linear proportion math",
+    "The finding is about a Solidity contract but the repo framework is Soroban/Rust - pure arithmetic approach avoids this mismatch entirely",
+    "Attacker profit calculation may be imprecise if fees are not accounted for - simplify by ignoring fees in the model",
+    "The bug location is in Solidity (origin-dollar) but tests are in Rust - pure arithmetic test correctly sidesteps this by reproducing only the math logic",
+    "Off-by-one errors in integer arithmetic when simulating WAD-scaled pool math - use simple integer ratios without WAD scaling to keep it clear"
+  ]
+}

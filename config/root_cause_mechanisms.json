@@ -1,0 +1,29 @@
+{
+  "version": "root-cause-discrimination-v1",
+  "description": "Phase-32 RESEARCH-ONLY mechanism-discrimination vocab. Read ONLY by scripts/root_cause_discriminator.py (un-wired). Given a validity-passed candidate, the engine SCORES each enumerated mechanism by SOURCE-BACKED comparand evidence (present-elsewhere/absent-here on the SAME state var, a units/decimals requirement, or a self-computed-unapplied value) and REJECTS design-absence mechanisms with no comparand. Engine reads ONLY source snippets + the located bundle + call/callee context + these generic patterns; it NEVER sees award labels, issue IDs, contest text, or expected_mechanism.json. Patterns are GENERIC (standard DeFi vocab), not anchor-specific. is_gate:false research_only:true routes_in_production:false routed_manifest_ids:[].",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+
+  "confidence_order": {"STRONG": 3, "MEDIUM": 2, "WEAK": 1, "REJECT": 0},
+  "advance_min_confidence": "MEDIUM",
+  "multi_mechanism_when_multiple_advance": true,
+
+  "scale_op_patterns": ["wmul", "muldiv", "mulwad", "mulDiv", "wdiv", "rmul"],
+  "scale_token_patterns": ["scale", "decimals", "precision"],
+  "transfer_patterns": ["safetransfer", "safetransferfrom", "transfer", "transferfrom", "sendvalue", "mint", "burn", "_supply", "_withdraw"],
+  "term_name_patterns": ["penalty", "fee", "discount", "bonus", "reward", "tax", "premium", "rebate", "commission"],
+  "resolution_call_patterns": ["getoriginalowner", "resolve", "recipientof", "beneficiary", "ownerof", "originalowner", "convert", "normalize", "tovalue", "getsafe", "latestprice"],
+  "bound_name_patterns": ["closefactor", "close_factor", "maxclose", "maxliquidation", "cap", "ceiling", "floor", "maxrepay", "healthfactor"],
+
+  "mechanism_types": {
+    "missing_scale": {"rule": "sibling_scale_comparand", "comment": "a sibling applies a scale op (scale_op_patterns) with a scale-named var (scale_token_patterns) around a transfer (transfer_patterns) that the target's same transfer omits -> STRONG"},
+    "wrong_basis": {"rule": "basis_conversion_comparand", "comment": "target passes a value of one basis where a sibling converts via an explicit conversion call -> STRONG; no distinct conversion comparand -> WEAK"},
+    "omitted_term": {"rule": "self_computed_unapplied", "comment": "a term-named var (term_name_patterns) is assigned in the target but absent from the value arg of a transfer/state-change path -> MEDIUM"},
+    "missing_call": {"rule": "sibling_call_comparand", "comment": "a call present in a sibling before a shared transfer is absent in the target before its shared transfer -> STRONG"},
+    "recipient_missing": {"rule": "sibling_call_comparand", "comment": "alias of missing_call scoped to resolution_call_patterns"},
+    "missing_bound": {"rule": "design_absence_unless_comparand", "comment": "the named bound (bound_name_patterns) must appear in a sibling/callee but be absent in the target to score; if absent EVERYWHERE it is a design-absence -> REJECT (constraint 6)"},
+    "rounding_loss": {"rule": "rounding_order_comparand", "comment": "target does div-before-mul where a sibling does mul-before-div on the same operands -> STRONG; else WEAK"}
+  }
+}

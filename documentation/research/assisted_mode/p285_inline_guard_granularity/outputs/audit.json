@@ -1,0 +1,88 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "D1_GRANULARITY_EVIDENCE_AUDIT",
+  "items": [
+    {
+      "candidate": "RewardsDistributor.claim_many",
+      "status": "READY_FOR_POC_INTENT",
+      "token": "ownerOf(",
+      "context": "RECIPIENT_READ",
+      "verdict": "CORRECT UNBLOCK",
+      "note": "`address _nftOwner = IVotingEscrow(...).ownerOf(_tokenId)` is the buggy recipient read (Blackhole M-04). Not in any require/if-revert/modifier gate. Lifts via P282 anomaly + P284 SIBLING_REFERENCE_FOUND HIGH."
+    },
+    {
+      "candidate": "V3Vault.transform",
+      "status": "INLINE_GUARD_REFUTED",
+      "token": "loanowner/msg.sender/transformApprovals",
+      "context": "EXECUTION_GUARD",
+      "verdict": "CORRECT BLOCK",
+      "note": "`if (loanOwner != msg.sender && !transformApprovals[...]) { revert Unauthorized(); }` is a real if-revert execution gate."
+    },
+    {
+      "candidate": "VotingEscrow.withdraw",
+      "status": "INLINE_GUARD_REFUTED",
+      "token": "_isApprovedOrOwner",
+      "context": "EXECUTION_GUARD",
+      "verdict": "CORRECT BLOCK",
+      "note": "`assert(_isApprovedOrOwner(msg.sender, _tokenId))` \u2014 caught after adding assert() to gate detection."
+    },
+    {
+      "candidate": "L2Governor.execute",
+      "status": "READY_FOR_POC_INTENT",
+      "token": "-",
+      "context": "-",
+      "verdict": "CORRECT (unchanged)",
+      "note": "READY via D2 state-machine; PoC 2/2 PASS."
+    },
+    {
+      "candidate": "IBeanstalk.cancelPodListing",
+      "status": "NEEDS_SOURCE_SPAN",
+      "token": "-",
+      "context": "-",
+      "verdict": "CORRECT (unchanged)",
+      "note": "declaration-only span."
+    },
+    {
+      "candidate": "CollateralTracker.withdraw",
+      "status": "NEEDS_VALUE_FLOW_EVIDENCE",
+      "token": "if (msg.sender != owner)",
+      "context": "UNKNOWN_READ",
+      "verdict": "CORRECT (held)",
+      "note": "ERC4626 `if (msg.sender != owner) { allowance -= shares }` \u2014 allowance-spend, NO revert in the block, so not a hard access guard. Value class -> held at NEEDS_VALUE_FLOW (not READY). Prior INLINE_GUARD_REFUTED was over-conservative."
+    },
+    {
+      "candidate": "V3Vault._withdraw",
+      "status": "NEEDS_STATE_MACHINE_EVIDENCE",
+      "token": "if (msg.sender != owner)",
+      "context": "UNKNOWN_READ",
+      "verdict": "CORRECT (held)",
+      "note": "ERC4626 `if (msg.sender != owner) { _spendAllowance(...) }` \u2014 no revert in block; allowance helper gates internally. Held, not READY."
+    },
+    {
+      "candidate": "SubnetActorActivityFacet.batchSubnetClaim",
+      "status": "NEEDS_VALUE_FLOW_EVIDENCE",
+      "token": "whenNotPaused",
+      "context": "VALUE_READ",
+      "verdict": "ACCEPTABLE (held)",
+      "note": "`whenNotPaused` is a LIVENESS control, not an access guard (it does not restrict WHO calls). Not treated as an access refutation. Held at NEEDS_VALUE_FLOW. See LIMITATIONS."
+    },
+    {
+      "candidate": "LibConvert._withdrawTokens / FieldFacet._harvest",
+      "status": "NEEDS_VALUE_FLOW_EVIDENCE",
+      "token": "_user()",
+      "context": "VALUE_READ",
+      "verdict": "CORRECT (held)",
+      "note": "`LibTractor._user()` is a current-user READ, not a guard."
+    }
+  ],
+  "summary": {
+    "newly_ready": [
+      "RewardsDistributor.claim_many"
+    ],
+    "false_unblock": 0,
+    "false_block": 0,
+    "hallucinated_source_context": 0,
+    "severe_fp": 0,
+    "note": "7 candidates reclassified out of INLINE_GUARD_REFUTED; all held (NEEDS_VALUE_FLOW/STATE) except claim_many (correct READY). assert() gap found+fixed (VotingEscrow)."
+  }
+}

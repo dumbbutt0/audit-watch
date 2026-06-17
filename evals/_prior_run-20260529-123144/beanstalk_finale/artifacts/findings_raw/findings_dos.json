@@ -1,0 +1,127 @@
+{
+  "agent": "dos",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T00:00:00+00:00",
+  "findings": [
+    {
+      "id": "DS-001",
+      "title": "Unbounded plotIndexes growth bricks victim harvest/transfer (gas-griefing)",
+      "severity": "High",
+      "vuln_type": "dos",
+      "description": "An attacker can permanently brick a victim's ability to harvest or transfer their Pods by inflating the victim's per-account plotIndexes array, then forcing every later harvest()/transferPlot() to perform an O(n) linear scan that exceeds the block gas limit.\n\nRoot cause: plot transfers are PUSH-style and require NO consent from the recipient. transferPlot(sender, recipient, fieldId, index, start, end) (MarketplaceFacet.sol#111) lets the caller (sender = attacker, or any sender that has approved the attacker) move Pods to an arbitrary recipient. _transferPlot (PodTransfer.sol#47) calls insertPlot (PodTransfer.sol#58) which does s.accts[to].fields[fieldId].plotIndexes.push(index) for the recipient. validatePlotAndReturnPods only requires the transferred range to be >= 1 pod (end > start, amount >= end), so an attacker can split one owned plot into thousands of 1-pod plots and push one plotIndexes entry into the victim's array per transfer. There is NO cap on plotIndexes.length anywhere in the codebase.\n\nThe corrupted array is consumed by LibDibbler.removePlotIndexFromAccount (LibDibbler.sol#388), which calls findPlotIndexForAccount (LibDibbler.sol#403). That function copies the ENTIRE plotIndexes array into memory (uint256[] memory plotIndexes = field.plotIndexes, one cold SLOAD ~2100 gas per element) and then runs a while-loop linear search for the target index. removePlotIndexFromAccount is invoked on the victim's own array every time the victim:\n  - harvests a plot: FieldFacet.harvest -> _harvestPlot -> LibDibbler.removePlotIndexFromAccount (FieldFacet.sol#209), and\n  - transfers/sells a full plot: PodTransfer.removePlot -> LibDibbler.removePlotIndexFromAccount (PodTransfer.sol#76).\n\nBecause the search cost scales with the total number of entries the attacker pushed (not with the victim's own plot count), and the worst-case target sits at the end of the array, a sufficiently large plotIndexes array makes the victim's harvest/transfer transaction revert with out-of-gas no matter how it is constructed. The victim cannot prune the array because pruning itself goes through the same removePlot path that runs out of gas.\n\nAsymmetry: the attacker spreads the cost of pushing N entries across N cheap transactions (~one storage push each, batchable across many blocks via transferPlots), while the victim is forced to pay the full O(N) scan in a single transaction that must fit inside one block.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/LibDibbler.sol",
+        "function": "findPlotIndexForAccount / removePlotIndexFromAccount",
+        "line_start": 388,
+        "line_end": 418,
+        "code_snippet": "function removePlotIndexFromAccount(address account, uint256 fieldId, uint256 plotIndex) internal {\n    AppStorage storage s = LibAppStorage.diamondStorage();\n    uint256 i = findPlotIndexForAccount(account, fieldId, plotIndex);\n    Field storage field = s.accts[account].fields[fieldId];\n    field.plotIndexes[i] = field.plotIndexes[field.plotIndexes.length - 1];\n    field.plotIndexes.pop();\n}\n\nfunction findPlotIndexForAccount(address account, uint256 fieldId, uint256 plotIndex) internal view returns (uint256 i) {\n    AppStorage storage s = LibAppStorage.diamondStorage();\n    Field storage field = s.accts[account].fields[fieldId];\n    uint256[] memory plotIndexes = field.plotIndexes;   // full-array SLOAD copy\n    uint256 length = plotIndexes.length;\n    while (plotIndexes[i] != plotIndex) {                // O(n) linear scan\n        i++;\n        if (i >= length) { revert(\"Id not found\"); }\n    }\n    return i;\n}\n\n// PodTransfer.sol#58 — recipient array grown with NO consent:\nfunction insertPlot(address account, uint256 fieldId, uint256 index, uint256 amount) internal {\n    s.accts[account].fields[fieldId].plots[index] = amount;\n    s.accts[account].fields[fieldId].plotIndexes.push(index);\n}"
+      },
+      "impact": "A griefing attacker can permanently deny a targeted Pod holder the ability to Harvest their Pods (claim Beans owed by the protocol once their Plots become Harvestable) and the ability to transfer or sell full Plots, by forcing every such transaction over the block gas limit. The victim's funds (Harvestable Beans) become effectively locked because the only redemption path (harvest -> _harvestPlot -> removePlotIndexFromAccount) reverts out-of-gas. No protocol-side recovery path exists; the bloated array can only be drained through the same reverting function.",
+      "proof_of_concept": "Setup: attacker owns one Plot of P pods in fieldId 0 (acquired by sowing/buying), victim is any address.\nStep 1 (repeatable, cheap): attacker calls transferPlot(attacker, victim, 0, index, start, start+1) splitting off a 1-pod sub-plot to the victim. Each call executes insertPlot(victim,...) -> plotIndexes.push (one new cold storage slot, ~22k gas). Using transferPlots(...) the attacker batches many such 1-pod splits per tx and repeats across many blocks. No victim consent is needed.\nStep 2: attacker repeats until victim's plotIndexes.length is large (e.g. several thousand).\nStep 3 (impact): victim attempts harvest(0, [theirPlot], mode). _harvestPlot -> LibDibbler.removePlotIndexFromAccount -> findPlotIndexForAccount copies the full plotIndexes array (cold SLOAD ~2100 gas/elt) and linear-scans it.\n  Approx victim cost: ~2,100 gas/entry for the SLOAD copy alone.\n    At  5,000 entries: ~10.5M gas (still lands on a 30M block but crowds out other ops)\n    At 14,000 entries: ~29.4M gas (approaches the 30M block gas limit)\n    At ~15,000+ entries: harvest()/transferPlot() for that field reverts out-of-gas for the victim in every block.\nThe attacker paid ~22k gas per entry spread over many txs/blocks; the victim must pay the entire scan in one tx -> permanent DoS of the victim's harvest and full-plot transfers in that field.",
+      "recommendation": "Do not allow unbounded, non-consensual growth of a recipient's plotIndexes. Options: (1) cap plotIndexes.length per account/field and reject pushes beyond the cap; (2) replace the linear findPlotIndexForAccount scan with an index map (mapping(uint256 index => uint256 arrayPosition)) so removal is O(1) and never scans the whole array; (3) require recipient opt-in / pull-style acceptance for incoming plot transfers so an attacker cannot force entries into a victim's array; or (4) enforce a minimum transferred-pod size to make spray-splitting economically unattractive (mitigation only, not a full fix).",
+      "references": [
+        {
+          "title": "Unbounded array growth by third party causing OOG on later iteration (gas griefing)",
+          "url": "",
+          "source": "solodit"
+        }
+      ],
+      "confidence": "High",
+      "attack_surface_rank": 4,
+      "ite": {
+        "intent": "A griefer permanently locks a targeted Pod holder out of Harvesting their Pods and transferring full Plots, freezing the victim's Harvestable Beans.",
+        "technique": "Attacker repeatedly calls transferPlot/transferPlots(attacker, victim, ...) (MarketplaceFacet.sol#111/#140) splitting owned Pods into 1-pod sub-plots; each call's insertPlot (PodTransfer.sol#58) pushes one entry to s.accts[victim].fields[fieldId].plotIndexes with no victim consent. Once the array is large, the victim's harvest()/transferPlot() routes through LibDibbler.removePlotIndexFromAccount -> findPlotIndexForAccount (LibDibbler.sol#403), which SLOAD-copies the entire array and linear-scans it, exceeding the block gas limit and reverting.",
+        "evasion": "Developers cap nothing: there is no max on plotIndexes.length and no recipient-consent gate; transfers are push-style and validatePlotAndReturnPods only enforces a >=1 pod range. The intended O(1)-ish removal is actually O(n) over an attacker-controllable array, and the protocol offers no array-pruning path that does not itself hit the same OOG."
+      },
+      "human_review_required": true,
+      "human_review_reason": "Gas-DoS severity depends on the realistic attainable plotIndexes length vs the deployed chain's block gas limit (Beanstalk is migrating to L2/Arbitrum where gas limits and costs differ); a PoC should measure exact gas-per-entry on the target chain and confirm the victim cannot construct any harvest/transfer call that stays under the limit. Also confirm attacker pod-acquisition cost is not prohibitive.",
+      "assumption_count": 2,
+      "critical_assumptions": [
+        "Attacker can acquire enough Pods (>=1 per pushed entry) to spray-split into the victim's array; Pods are obtainable permissionlessly via sow().",
+        "Target chain block gas limit is low enough that the achievable plotIndexes scan exceeds it (depends on L2 deployment parameters)."
+      ],
+      "ice_chain": {
+        "corrupted_state": "s.accts[victim].fields[fieldId].plotIndexes (unbounded length)",
+        "consumer_found": true,
+        "consumer_function": "FieldFacet.harvest() -> _harvestPlot() -> LibDibbler.removePlotIndexFromAccount(); PodTransfer.removePlot() -> removePlotIndexFromAccount()",
+        "consumer_action": "Linear-scans the entire plotIndexes array (findPlotIndexForAccount) to locate the entry being removed; cost scales with attacker-controlled array length and OOG-reverts the victim's harvest/transfer",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      }
+    },
+    {
+      "id": "DS-002",
+      "title": "claimAllPlenty loops all whitelisted Well tokens with external send each iter",
+      "severity": "Low",
+      "vuln_type": "dos",
+      "description": "claimAllPlenty (ClaimFacet.sol#79) iterates LibWhitelistedTokens.getWhitelistedWellLpTokens() and calls _claimPlenty for each, which performs an external token send (LibTransfer.sendToken at ClaimFacet.sol#100) per iteration. If any whitelisted Well's non-Bean SOP token is a contract whose transfer reverts (e.g. a paused or blacklisting token, or a To.INTERNAL/hook path that reverts), the entire claimAllPlenty reverts, blocking the caller from claiming plenty across all wells in one call. Unlike claimPlenty, claimAllPlenty also lacks the oneOutFlow invariant guard. The whitelist is governance-controlled (not attacker-controllable), so this is a robustness/availability issue rather than a permissionless attack: the per-well claimPlenty(well, ...) entry point remains available as a workaround, so no funds are locked.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/SiloFacet/ClaimFacet.sol",
+        "function": "claimAllPlenty",
+        "line_start": 79,
+        "line_end": 86,
+        "code_snippet": "function claimAllPlenty(LibTransfer.To toMode) external payable fundsSafu noSupplyChange nonReentrant {\n    address[] memory tokens = LibWhitelistedTokens.getWhitelistedWellLpTokens();\n    for (uint i; i < tokens.length; i++) {\n        _claimPlenty(LibTractor._user(), tokens[i], toMode);   // external send per iter; one revert reverts all\n    }\n}"
+      },
+      "impact": "If a single whitelisted Well's SOP token reverts on transfer, batch claimAllPlenty() reverts for everyone using it. Limited: the whitelist is governance-set (not attacker-grown) and per-well claimPlenty() still works, so this is degraded availability, not locked funds.",
+      "recommendation": "Wrap the per-well _claimPlenty in a try/skip pattern (continue on revert) or cap/iterate defensively, and document that claimPlenty(well) is the fallback. Consider adding the oneOutFlow-equivalent flow accounting consistent with claimPlenty.",
+      "references": [],
+      "confidence": "High",
+      "attack_surface_rank": 4,
+      "ite": {
+        "intent": "Make the batch claimAllPlenty() path unusable so users cannot claim Flood plenty in one call.",
+        "technique": "A whitelisted Well token that reverts on transfer causes the per-iteration LibTransfer.sendToken (ClaimFacet.sol#100) to revert, reverting the whole loop.",
+        "evasion": "The whitelist is governance-controlled, so an attacker cannot insert a malicious token; the developer's pull-per-well claimPlenty(well) remains as a fallback, so the gap is only batch-call robustness, not a fund lock."
+      },
+      "human_review_required": false,
+      "assumption_count": 1,
+      "critical_assumptions": [
+        "A governance-whitelisted Well SOP token begins reverting on transfer (pause/blacklist) — not attacker-controllable."
+      ],
+      "ice_chain": {
+        "corrupted_state": "n/a (availability of claimAllPlenty batch loop)",
+        "consumer_found": true,
+        "consumer_function": "ClaimFacet.claimAllPlenty()",
+        "consumer_action": "Reverts the whole batch if one whitelisted token send reverts; per-well claimPlenty() unaffected",
+        "severity_ceiling": "Low",
+        "search_method": "manual_trace"
+      }
+    },
+    {
+      "id": "DS-003",
+      "title": "Reseed mintFertilizers nested unbounded loops risk OOG on L2 init",
+      "severity": "Low",
+      "vuln_type": "dos",
+      "description": "ReseedBarn.init -> mintFertilizers (ReseedBarn.sol#72) runs a nested loop over fertilizerIds[] and, for each, over f.accountData[], calling fertilizerProxy.beanstalkMint per holder (an external 1155 mint). The full holder set could exceed a single transaction's gas budget. This is an admin/owner one-shot migration routine (called via diamondCut init by the protocol deployer, not permissionless), and the input is operator-supplied, so the operator can chunk the data across multiple calls. It is a deployment-robustness concern, not an attacker-exploitable DoS. Flagged for completeness since the task scope calls out reseed init OOG.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedBarn.sol",
+        "function": "mintFertilizers",
+        "line_start": 72,
+        "line_end": 96,
+        "code_snippet": "for (uint i; i < fertilizerIds.length; i++) {\n    ...\n    for (uint j; j < f.accountData.length; j++) {\n        fertilizerProxy.beanstalkMint(f.accountData[j].account, fid, f.accountData[j].amount, f.accountData[j].lastBpf);\n    }\n}"
+      },
+      "impact": "If the reseed operator passes too many fertilizer holders in one call, init() reverts out-of-gas and the migration step fails. No attacker leverage (operator-controlled, one-shot, chunkable). Worst case is operational friction during migration.",
+      "recommendation": "Document and enforce batching of fertilizer reissuance across multiple bounded calls; ensure the migration runbook caps accountData per call well under the L2 block gas limit.",
+      "references": [],
+      "confidence": "Medium",
+      "attack_surface_rank": 3,
+      "ite": {
+        "intent": "No attacker intent — operational OOG during one-shot reseed migration.",
+        "technique": "Nested loop over operator-supplied fertilizerIds[][accountData] minting 1155s; large input exceeds the block gas limit.",
+        "evasion": "Routine is operator/diamondCut-gated and input-chunkable; not permissionless, so the only gap is migration sizing discipline."
+      },
+      "human_review_required": false,
+      "assumption_count": 1,
+      "critical_assumptions": [
+        "Operator passes an oversized accountData batch in a single init() call."
+      ],
+      "ice_chain": {
+        "corrupted_state": "n/a (one-shot migration execution)",
+        "consumer_found": true,
+        "consumer_function": "ReseedBarn.init()",
+        "consumer_action": "Reverts OOG if holder batch too large; operator can re-chunk",
+        "severity_ceiling": "Low",
+        "search_method": "manual_trace"
+      }
+    }
+  ]
+}

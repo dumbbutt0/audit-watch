@@ -1,0 +1,15 @@
+{
+  "model": "sonnet", "verdict": "HIGH_THREAD",
+  "mechanism_inventory": ["division by zero invert first hop (10**36/data, data==0)","division by zero invert loop hop ((data*10**18)/oracleRes, oracleRes==0)","silent negative price propagation (int216 signed, no positivity guard)","precision loss accumulation across hops (sequential floor-division truncation)","int216 overflow on intermediate multiplication at extreme prices"],
+  "selected_mechanisms": [
+    {"root_cause":"no zero-guard before 10**36/data (line 157) or (data*10**18)/oracleRes (line 171); any sub-oracle returning 0 panics -> getData reverts -> oracle DoS","who_loses":"LPs/traders of pools using this oracle (no swaps)","who_gains":"attacker pre-positions in related markets","why_carried":"permissionless if any sub-oracle is a manipulable DEX spot feed"},
+    {"root_cause":"precision loss: ((A*B)/1e18*C)/1e18 sequential truncation across N hops grows with hop count","who_loses":"LPs (mispriced pool, arbitraged)","who_gains":"arbitrageurs","why_carried":"different impact (LP mispricing) vs DoS; distinct root cause (mul/div ordering)"}],
+  "unresolved_mechanisms": [
+    {"mechanism":"silent negative price propagation","source_evidence":"data int216 (signed); no require data>0 anywhere; negative propagates multiplicatively","unresolved_question":"does QuantAMM pool guard data>0 downstream (source not provided)","who_loses":"pool LPs/traders if negative price consumed unguarded","who_gains":"attacker forcing negative sub-oracle return"},
+    {"mechanism":"int216 overflow on intermediate multiplication at extreme prices","source_evidence":"data*10**18 / data*oracleRes checked int216 mult","unresolved_question":"realistic price/hop conditions to exceed int216 max","who_loses":"LPs/traders (oracle access)","who_gains":"attacker moving prices into overflow range"}],
+  "rejected_mechanisms": [
+    {"mechanism":"reentrancy via sub-oracle external calls","rejecting_source_fact":"_getData is internal view; no state writes","why_unexploitable":"view, no storage mutation","who_loses":"nobody","who_gains":"nobody","leans_on_unproven_guard":false},
+    {"mechanism":"access-control on hop config","rejecting_source_fact":"oracles[] set only in constructor; no setter","why_unexploitable":"no runtime modification path","who_loses":"n/a","who_gains":"n/a","leans_on_unproven_guard":false}],
+  "impact_direction": {"attacker_receives":"arbitrage profit / pre-positioning before DoS","attacker_preserves":"own capital (flash-loan DoS)","victim_loses":"LPs lose to arbitrage; traders lose swap access","invariant_violated":"getData must return true multi-hop price within precision; div-by-zero breaks availability","not_self_funded_or_dust_or_admin_or_timing":true},
+  "stop_condition": "more_mechanisms_pending: negative price + int216 overflow unresolved"
+}

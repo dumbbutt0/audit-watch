@@ -1,0 +1,49 @@
+{
+  "_doc": "P300 multi-target calibration campaign — RESEARCH-ONLY, ADVISORY. Per target: recall (read-only from match_matrix) + novelty (KB chroma) + executed-PoC validity (P294 verifier; exploit + logic_differential). Answer keys + contest source READ-ONLY. ground_truth + promote_learning NOT touched (human-only); FP rejection-rule proposals staged to data/learning/_proposed/ only.",
+  "is_gate": false,
+  "research_only": true,
+  "novelty_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "novelty_collection": "solodit_findings",
+  "novelty_threshold": 0.4,
+  "forge_std_lib": "pocs/p286/lib",
+  "targets": {
+    "silo-finance-2025-03-strict-eval": {
+      "match_matrix": "audits/silo-finance-2025-03-strict-eval/output/eval_ready/match_matrix.json",
+      "merged_findings": "audits/silo-finance-2025-03-strict-eval/output/merged_findings.json",
+      "source_root": "audits/silo-finance-2025-03-strict-eval/contracts",
+      "validity_targets": [
+        {"id": "M-05", "match": "HIT", "sev": "Medium", "locus": "SiloVault._accrueFee/_update", "build_mode": "logic_differential",
+         "file": "contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+         "mechanism": "incorrect reward distribution: _accrueFee mints fee shares to feeRecipient via _update which triggers _claimRewards/_afterTokenTransfer BEFORE the user's action, so reward accrual is mis-attributed (feeShares minted at the wrong point shift reward distribution)"},
+        {"id": "M-06", "match": "PARTIAL", "sev": "Medium", "locus": "SiloVault.deposit/_accruedFeeShares", "build_mode": "logic_differential",
+         "file": "contracts/in_scope/silo-vaults/contracts/SiloVault.sol",
+         "mechanism": "deflation/rounding: deposit/mint/withdraw/redeem accrue fee shares via _accruedFeeShares (Floor rounding on totalSupply + newTotalAssets-feeAssets) enabling a first/market-deposit rounding (deflation) attack on share price"}
+      ]
+    },
+    "revert-lend-2024-03-strict-eval": {
+      "match_matrix": "audits/revert-lend-2024-03-strict-eval/output/eval_ready/match_matrix.json",
+      "merged_findings": "audits/revert-lend-2024-03-strict-eval/output/merged_findings.json",
+      "source_root": "audits/revert-lend-2024-03-strict-eval/contracts",
+      "validity_targets": [
+        {"id": "H-03", "match": "PARTIAL", "sev": "High", "locus": "V3Vault.transform", "build_mode": "exploit",
+         "file": "contracts/2024-03-revert-lend/src/V3Vault.sol",
+         "mechanism": "transform() approves the position NFT to a whitelisted transformer and executes transformer.call(data) BEFORE the end-of-call health check; the unvalidated tokenId encoded in `data` lets a caller act on a position/token other than the intended one (the awarded root cause is the unvalidated data input, not just transformer trust)"}
+      ]
+    },
+    "panoptic-2025-12-strict-eval": {
+      "match_matrix": "audits/panoptic-2025-12-strict-eval/output/eval_ready/match_matrix.json",
+      "merged_findings": "audits/panoptic-2025-12-strict-eval/output/merged_findings.json",
+      "source_root": "audits/panoptic-2025-12-strict-eval/contracts",
+      "validity_targets": [
+        {"id": "M-01", "match": "ADJACENT", "sev": "Medium", "locus": "RiskEngine.getLiquidationBonus", "build_mode": "logic_differential",
+         "file": "contracts/in_scope/RiskEngine.sol",
+         "mechanism": "rounding-direction mismatch: in the cross-shortfall branch the converted bonus uses convert0to1/convert1to0 (rounding toward zero) while the offsetting deduction uses the opposite conversion, so the two legs round inconsistently and the bonus/shortfall accounting is off (ADJACENT — right area; build to the rounding-direction differential, refute honestly if it doesn't hold)"}
+      ]
+    }
+  },
+  "beanstalk_reuse": {
+    "exploit_confirmed": ["AC-001", "AC-003"],
+    "logic_confirmed": ["LG-001", "PC-001", "SN-001"],
+    "source": "P298 (exploit) + P299 (logic); 5 confirmed of 81 ak"
+  }
+}

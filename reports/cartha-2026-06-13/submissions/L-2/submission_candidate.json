@@ -1,0 +1,88 @@
+{
+  "finding_id": "L-2",
+  "title": "Child shares transferable post-lock but only redeemable via a Position (orphan shares)",
+  "root_cause": "CarthaVault exposes no position-independent redeem; redemption is position-bound, but shares are ERC20-transferable once the lock expires (_update only blocks while locked). Shares moved to an address without a Position are non-redeemable yet still count in totalSupply.",
+  "affected_contracts": [
+    "src/CarthaVault.sol"
+  ],
+  "affected_functions": [
+    "CarthaVault._update",
+    "CarthaVault.release",
+    "CarthaVault.forceExit",
+    "CarthaVault.processQueuedWithdrawals"
+  ],
+  "attacker_entrypoint": "CarthaVault ERC20 transfer of shares post-lock to a non-position address",
+  "attacker_capabilities": [
+    "transfer/sell child shares after the lock expires"
+  ],
+  "privilege_required": "none",
+  "scope_status": "in_scope",
+  "in_scope_asset": "CarthaVault (_update)",
+  "out_of_scope_risks": [],
+  "impact_category": "fund_freeze",
+  "severity_claim": "Low",
+  "severity_justification": {
+    "worst_case": "User who acquires shares by transfer cannot redeem them.",
+    "realistic_case": "Footgun; matters if child shares are traded.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "Cartha",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "Cartha contest (cartha-vaults-main @ 4c51f2a); official scope list not bundled with PoC package."
+  },
+  "call_trace": [
+    "user's lock expires; user transfers/sells child shares",
+    "recipient has no Position; no redeem(shares) exists",
+    "recipient's shares are orphaned (non-redeemable) but still in totalSupply"
+  ],
+  "state_transition": {
+    "before": "holder owns transferable child shares without a Position",
+    "after": "shares non-redeemable (no position-independent redeem path)",
+    "slots_or_balances": []
+  },
+  "asset_delta": "Acquired-by-transfer shares are unrecoverable for the holder; orphan supply skews share price.",
+  "proof_type": "runnable_poc",
+  "poc_path": "reports/cartha-2026-06-13/submissions/L-2/poc/PoC_OrphanShares.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "cd reports/cartha-2026-06-13/harness",
+    "forge test --match-contract PoC_OrphanShares -vv"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [],
+  "false_positive_risks": [
+    "Footgun; matters if child shares are traded."
+  ],
+  "invalidating_conditions": [],
+  "defense_analysis": [
+    {
+      "defense": "lock-gated _update",
+      "blocks_path": false,
+      "why_it_fails": "only blocks while locked; post-lock transfers create orphan shares"
+    }
+  ],
+  "assumptions": [
+    "perp deployment with 0xM pool wired (reader/oracle set)"
+  ],
+  "evidence_links": [
+    "src/CarthaVault.sol:_update (transfers allowed once unlocked)",
+    "src/CarthaVault.sol (release/forceExit/processQueuedWithdrawals are position-bound; no redeem-by-shares)",
+    "reports/cartha-2026-06-13/submissions/L-2/vulnerable/CarthaVault.sol"
+  ],
+  "triager_summary": "Child shares transferable post-lock but only redeemable via a Position (orphan shares) \u2014 PASS: transferred shares orphaned - recipient holds 50k*1e12 shares, release/requestRelease revert (no Position), totalSupply unchanged",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Business Logic Errors (child shares are ERC-20-transferable after lock but redemption is position-bound \u2192 transferred shares are not redeemable by the recipient)",
+  "cvss": [
+    {
+      "aspect": "Transferable-but-bound shares",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N",
+      "score": 3.7,
+      "severity": "Low"
+    }
+  ]
+}

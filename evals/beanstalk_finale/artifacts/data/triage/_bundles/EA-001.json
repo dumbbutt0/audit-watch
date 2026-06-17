@@ -1,0 +1,99 @@
+{
+  "finding_id": "EA-001",
+  "title": "Flood (Season of Plenty) mints and dumps Beans sized by instantaneous well reserves and swaps with zero slippage, enabling flash-loan over-mint + sandwich of stalkholder proceeds",
+  "agent": "",
+  "claimed_severity": "High",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+    "function": "sopWell / getWellsByDeltaB / calculateSopPerWell",
+    "line_start": 212,
+    "line_end": 315
+  },
+  "description": "During a Flood, SeasonFacet.gm() -> calcCaseIdandUpdate() -> LibFlood.handleRain() takes the else (flood) branch and calls getWellsByDeltaB(), which derives each well's deltaB from LibDeltaB.currentDeltaB(well) -> IWell(well).getReserves(). These are the INSTANTANEOUS spot reserves of the Well, not the manipulation-resistant cumulative-pump TWAP that the sunrise mint uses (LibWellMinting.twaDeltaB / readTwaReserves). calculateSopPerWell() converts that instantaneous positive deltaB directly into the Bean amount to mint, then sopWell() does C.bean().mint(this, sopBeans) followed by IWell(well).swapFrom(bean, sopToken, sopBeans, 0, this, type(uint256).max) \u2014 minAmountOut hardcoded to 0 and deadline to max. The non-Bean proceeds (e.g. WETH) are distributed to Stalkholders via rewardSop(). Because the entire SOP size and the swap price both come from the live, single-block-manipulable Well state, a flood season is a deterministic, permissionlessly-triggerable MEV event: (1) an attacker who pushes the Well's Bean reserve down (raising instantaneous deltaB) immediately before the sunrise tx inflates sopBeans, and (2) the zero-minAmountOut swap can be sandwiched so the attacker buys the dumped Beans cheaply / sells the scarce non-Bean token, extracting value that should have become stalkholder plenty. The flood is triggerable by anyone via the permissionless sunrise/gm() once Beanstalk has been Oversaturated for a season, so the attacker controls the timing.",
+  "impact": "Stalkholders receive materially less SOP plenty than the Flood mints; the shortfall is captured by the MEV/sandwich actor. Combined with instantaneous-reserve sizing, an attacker can also force a larger Bean mint+dump than the protocol intends, deepening the post-flood depeg. Value-at-risk per flood scales with Well liquidity and the depth of the reserve skew; on a deep Bean:ETH well a single flood can leak a large fraction of the SOP proceeds. No privileged access required.",
+  "ite": {
+    "intent": "Capture the non-Bean proceeds of a Flood that are meant to be distributed to Stalkholders, and force a larger Bean mint+dump than intended",
+    "technique": "Permissionlessly trigger the Flood via sunrise/gm(); pre-skew the Well so currentDeltaB (instantaneous getReserves) over-sizes the SOP mint; sandwich the minAmountOut=0 swapFrom in LibFlood.sopWell",
+    "evasion": "SOP intentionally uses instantaneous deltaB and a 0-slippage market sell; there is no commit/TWAP guard or minimum-out on the protocol's own swap, so the manipulation leaves no revert path"
+  },
+  "ice_chain": {
+    "corrupted_state": "sopBeans (Bean amount minted+sold) and the realized swap price / amountOut of WETH credited to s.sys.sop.sops[rainStart][well]",
+    "impact": "Stalkholder SOP plenty is under-credited and the Bean depeg is deepened; the difference is extracted by the attacker",
+    "consumer_found": true,
+    "consumer_function": "LibFlood.rewardSop -> s.sys.sop.sops[...] consumed by LibFlood.balanceOfPlenty / ClaimFacet plenty claims",
+    "exploit_path": "permissionless sunrise/gm() during an Oversaturated streak -> handleRain flood branch -> getWellsByDeltaB() reads instantaneous getReserves() -> calculateSopPerWell sizes sopBeans -> sopWell() mint+swapFrom(minOut=0) on the attacker-skewed well -> reduced amountOut -> rewardSop credits less plenty to stalkholders"
+  },
+  "source_slice": "182:     }\n183: \n184:     /**\n185:      * @notice Floods the field, up to 0.1% of the total Bean supply worth of pods.\n186:      */\n187:     function floodPodline() private {\n188:         AppStorage storage s = LibAppStorage.diamondStorage();\n189:         // Make 0.1% of the total bean supply worth of pods harvestable.\n190: \n191:         uint256 totalBeanSupply = C.bean().totalSupply();\n192:         uint256 sopFieldBeans = totalBeanSupply.div(FLOOD_PODLINE_PERCENT_DENOMINATOR); // 1/1000 = 0.1% of total supply\n193: \n194:         // Note there may be cases where zero harvestable pods are available. For clarity, the code will still emit an event\n195:         // but with zero sop field beans.\n196:         uint256 maxHarvestable = s.sys.fields[s.sys.activeField].pods.sub(\n197:             s.sys.fields[s.sys.activeField].harvestable\n198:         );\n199: \n200:         sopFieldBeans = sopFieldBeans > maxHarvestable ? maxHarvestable : sopFieldBeans;\n201: \n202:         s.sys.fields[s.sys.activeField].harvestable = s\n203:             .sys\n204:             .fields[s.sys.activeField]\n205:             .harvestable\n206:             .add(sopFieldBeans);\n207:         C.bean().mint(address(this), sopFieldBeans);\n208: \n209:         emit SeasonOfPlentyField(sopFieldBeans);\n210:     }\n211: \n212:     function getWellsByDeltaB()\n213:         internal\n214:         view\n215:         returns (\n216:             WellDeltaB[] memory wellDeltaBs,\n217:             uint256 totalPositiveDeltaB,\n218:             uint256 totalNegativeDeltaB,\n219:             uint256 positiveDeltaBCount\n220:         )\n221:     {\n222:         address[] memory wells = LibWhitelistedTokens.getCurrentlySoppableWellLpTokens();\n223:         wellDeltaBs = new WellDeltaB[](wells.length);\n224: \n225:         for (uint i = 0; i < wells.length; i++) {\n226:             wellDeltaBs[i] = WellDeltaB(wells[i], LibDeltaB.currentDeltaB(wells[i]));\n227:             if (wellDeltaBs[i].deltaB > 0) {\n228:                 totalPositiveDeltaB += uint256(wellDeltaBs[i].deltaB);\n229:                 positiveDeltaBCount++;\n230:             } else {\n231:                 totalNegativeDeltaB += uint256(-wellDeltaBs[i].deltaB);\n232:             }\n233:         }\n234: \n235:         // Sort the wellDeltaBs array\n236:         quickSort(wellDeltaBs, 0, int(wellDeltaBs.length - 1));\n237:     }\n238: \n239:     // Reviewer note: This works, but there's got to be a way to make this more gas efficient\n240:     function quickSort(\n241:         WellDeltaB[] memory arr,\n242:         int left,\n243:         int right\n244:     ) internal pure returns (WellDeltaB[] memory) {\n245:         if (left >= right) return arr;\n246: \n247:         // Choose the median of left, right, and middle as pivot (improves performance on random data)\n248:         uint mid = uint(left) + (uint(right) - uint(left)) / 2;\n249:         WellDeltaB memory pivot = arr[uint(left)].deltaB > arr[uint(mid)].deltaB\n250:             ? (\n251:                 arr[uint(left)].deltaB < arr[uint(right)].deltaB\n252:                     ? arr[uint(left)]\n253:                     : arr[uint(right)]\n254:             )\n255:             : (arr[uint(mid)].deltaB < arr[uint(right)].deltaB ? arr[uint(mid)] : arr[uint(right)]);\n256: \n257:         int i = left;\n258:         int j = right;\n259:         while (i <= j) {\n260:             while (arr[uint(i)].deltaB > pivot.deltaB) i++;\n261:             while (pivot.deltaB > arr[uint(j)].deltaB) j--;\n262:             if (i <= j) {\n263:                 (arr[uint(i)], arr[uint(j)]) = (arr[uint(j)], arr[uint(i)]);\n264:                 i++;\n265:                 j--;\n266:             }\n267:         }\n268: \n269:         if (left < j) {\n270:             return quickSort(arr, left, j);\n271:         }\n272:         if (i < right) {\n273:             return quickSort(arr, i, right);\n274:         }\n275:         return arr;\n276:     }\n277: \n278:     /**\n279:      * @dev Flood was previously called a \"Season of Plenty\" (SOP for short).\n280:      * When Beanstalk has been Oversaturated for a Season, Beanstalk returns the\n281:      * Bean price to its peg by minting additional Beans and selling them directly\n282:      * on the sop well. Proceeds from the sale in the form of WETH are distributed to\n283:      * Stalkholders at the beginning of a Season in proportion to their Stalk\n284:      * ownership when the Farm became Oversaturated. Also, at the beginning of the\n285:      * Flood, all Pods that were minted before the Farm became Oversaturated Ripen\n286:      * and become Harvestable.\n287:      * For more information On Oversaturation see {Weather.handleRain}.\n288:      */\n289:     function sopWell(WellDeltaB memory wellDeltaB) private {\n290:         AppStorage storage s = LibAppStorage.diamondStorage();\n291:         if (wellDeltaB.deltaB > 0) {\n292:             IERC20 sopToken = LibWell.getNonBeanTokenFromWell(wellDeltaB.well);\n293: \n294:             uint256 sopBeans = uint256(wellDeltaB.deltaB);\n295:             C.bean().mint(address(this), sopBeans);\n296: \n297:             // Approve and Swap Beans for the non-bean token of the SOP well.\n298:             C.bean().approve(wellDeltaB.well, sopBeans);\n299:             uint256 amountOut = IWell(wellDeltaB.well).swapFrom(\n300:                 C.bean(),\n301:                 sopToken,\n302:                 sopBeans,\n303:                 0,\n304:                 address(this),\n305:                 type(uint256).max\n306:             );\n307:             rewardSop(wellDeltaB.well, amountOut, address(sopToken));\n308:             emit SeasonOfPlentyWell(\n309:                 s.sys.season.current,\n310:                 wellDeltaB.well,\n311:                 address(sopToken),\n312:                 amountOut\n313:             );\n314:         }\n315:     }\n316: \n317:     /**\n318:      * @dev Allocate `sop token` during a Season of Plenty.\n319:      */\n320:     function rewardSop(address well, uint256 amount, address sopToken) private {\n321:         AppStorage storage s = LibAppStorage.diamondStorage();\n322:         s.sys.sop.sops[s.sys.season.rainStart][well] = s\n323:         .sys\n324:         .sop\n325:         .sops[s.sys.season.lastSop][well].add(amount.mul(C.SOP_PRECISION).div(s.sys.rain.roots));\n326: \n327:         s.sys.season.lastSop = s.sys.season.rainStart;\n328:         s.sys.season.lastSopSeason = s.sys.season.current;\n329: \n330:         // update Beanstalk's stored overall plenty for this well\n331:         s.sys.sop.plentyPerSopToken[sopToken] += amount;\n332:     }\n333: \n334:     /*\n335:      * @notice Calculates the amount of beans per well that should be minted in a sop.\n336:      * @param wellDeltaBs The deltaBs of all whitelisted wells in which to flood. Must be sorted in descending order.\n337:      */\n338:     function calculateSopPerWell(\n339:         WellDeltaB[] memory wellDeltaBs,\n340:         uint256 totalPositiveDeltaB,\n341:         uint256 totalNegativeDeltaB,\n342:         uint256 positiveDeltaBCount\n343:     ) internal pure returns (WellDeltaB[] memory) {\n344:         // most likely case is that all deltaBs are positive\n345:         if (positiveDeltaBCount == wellDeltaBs.length) {",
+  "gate_verdict": {
+    "finding_id": "EA-001",
+    "severity": "High",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.537017+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

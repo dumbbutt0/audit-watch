@@ -1,0 +1,10 @@
+$ cargo test -p solvbtc --test poc_nav_tolerance -- --nocapture
+running 1 test
+request_nav         = 101000000        # request created at NAV = 1.01 * ONE_BITCOIN
+current_nav (claim) = 100000000        # NAV dropped ~1% by claim time (= request_nav / 1.01)
+payout (request-nav based) = 1010000000   # vault_withdraw pays withdraw_amount fixed at request NAV
+fair value at current nav  = 1000000000   # what the shares are actually worth at current NAV
+OVERPAY = 10000000  (~100 bps of fair value)   # ~1% overpaid from the vault
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+Asserted: new (1.01x) nav check PASSES; pre-audit (current_nav>=request_nav) check REJECTS; payout > fair; overpay == 1e7 (1%).

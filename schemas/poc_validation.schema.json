@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PoCValidation",
+  "description": "Result of validating whether a candidate PoC actually proves the finding claim. A passing test is NOT proof. validation_status='proven' is only legal when ALL of: root_cause_proven=true, attacker_reachability_proven=true, impact_proven=true, state_transition_proven=true, severity_supported is non-null, why_test_proves_claim is non-empty, limitations is present, test_file and test_name exist, and command_exit_code=0. Anything weaker must be partially_proven/inconclusive/setup_only/invalid_poc. severity_supported must reflect the impact actually demonstrated, never the revert/pass behavior alone.",
+  "type": "object",
+  "required": [
+    "poc_id", "finding_id", "test_type", "validation_status",
+    "root_cause_proven", "attacker_reachability_proven", "impact_proven",
+    "state_transition_proven", "why_test_proves_claim", "limitations"
+  ],
+  "properties": {
+    "poc_id":              { "type": "string" },
+    "finding_id":          { "type": "string" },
+    "title":               { "type": "string" },
+    "target_contracts":    { "type": "array", "items": { "type": "string" } },
+    "target_functions":    { "type": "array", "items": { "type": "string" } },
+    "manifest_refs":       { "type": "array", "items": { "type": "string" } },
+    "test_file":           { "type": ["string", "null"] },
+    "test_name":           { "type": ["string", "null"] },
+    "test_type": {
+      "type": "string",
+      "enum": ["unit", "fork", "integration", "static_proof", "invariant"]
+    },
+    "command":             { "type": ["string", "null"] },
+    "command_exit_code":   { "type": ["integer", "null"] },
+    "raw_result_path":     { "type": ["string", "null"] },
+    "validation_status": {
+      "type": "string",
+      "enum": ["proven", "partially_proven", "failed", "inconclusive", "invalid_poc", "setup_only", "duplicate_proof"]
+    },
+    "root_cause_proven":            { "type": "boolean" },
+    "attacker_reachability_proven": { "type": "boolean" },
+    "impact_proven":                { "type": "boolean" },
+    "severity_supported": {
+      "type": ["string", "null"],
+      "enum": ["Critical", "High", "Medium", "Low", "Informational", null]
+    },
+    "guard_bypass_proven":          { "type": ["boolean", "null"] },
+    "state_transition_proven":      { "type": "boolean" },
+    "privilege_assumptions": { "type": "array", "items": { "type": "string" } },
+    "fork_assumptions":      { "type": "array", "items": { "type": "string" } },
+    "setup_assumptions":     { "type": "array", "items": { "type": "string" } },
+    "excluded_assumptions":  { "type": "array", "items": { "type": "string" } },
+    "pre_state":             { "type": ["string", "null"] },
+    "actions":               { "type": "array", "items": { "type": "string" } },
+    "post_state":            { "type": ["string", "null"] },
+    "observed_delta":        { "type": ["string", "null"] },
+    "expected_delta":        { "type": ["string", "null"] },
+    "invariant_violated":    { "type": ["string", "null"] },
+    "why_test_proves_claim":   { "type": "string" },
+    "what_test_does_not_prove": { "type": ["string", "null"] },
+    "limitations":           { "type": "string" },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "source_spans": { "type": "array", "items": { "type": "string" } },
+        "test_spans":   { "type": "array", "items": { "type": "string" } },
+        "logs":         { "type": "array", "items": { "type": "string" } },
+        "traces":       { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "reviewer_notes":        { "type": ["string", "null"] }
+  }
+}

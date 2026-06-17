@@ -1,0 +1,237 @@
+{
+  "agent": "behavioral_state_analysis",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T21:40:00+00:00",
+  "methodology_note": "BLIND audit. NatSpec/comments treated only as claims to test against code behavior; never used to set severity. Each finding is a documented-but-not-enforced divergence whose consequence is traced to a real consumer. Severity per Immunefi v2.2.",
+  "findings": [
+    {
+      "id": "BSA-001",
+      "title": "LibChainlinkOracle.getTokenPrice NatSpec states lookback>0 returns TWAP, but the ternary returns spot for lookback>0 and divides-by-zero for lookback==0",
+      "severity": "High",
+      "confidence": "High",
+      "vuln_type": "behavioral_state_divergence",
+      "description": "The NatSpec on getTokenPrice (lines 34-36) explicitly documents the intended behavior: 'Use lookback = 0 for the instantaneous price. lookback > 0 for a TWAP.' and 'Returns 0 if priceAggregatorAddress is broken or frozen.' The code implements the exact opposite mapping: `return lookback > 0 ? getPrice(...) : getTwap(..., lookback)`. getPrice is the instantaneous/spot path and getTwap is the lookback-windowed path, so a caller requesting a manipulation-resistant TWAP (lookback>0) silently receives a flash-loan-manipulable spot price, and a caller requesting spot (lookback==0) invokes getTwap with lookback=0 whose final statement is `t.cumulativePrice.mul(PRECISION).div(10 ** decimals).div(lookback)` \u2014 a division by zero that REVERTS rather than returning the documented 0 sentinel. Both halves of the NatSpec contract are violated: the value semantics are inverted, and the documented frozen-feed graceful-degradation guarantee does not hold on the lookback==0 path.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibChainlinkOracle.sol",
+        "function": "getTokenPrice",
+        "line_start": 33,
+        "line_end": 48
+      },
+      "impact": "Any internal consumer that follows the documented convention and passes lookback>0 expecting manipulation resistance instead consumes the instantaneous spot price. If a reachable mint/convert/peg path (LibEthUsdOracle -> LibWellMinting/LibDeltaB -> sunrise Bean issuance / convert valuation) requests a TWAP through this function, single-block flash-loan reserve/price skew mispriced Bean issuance and conversions. The lookback==0 spot path additionally bricks (reverts) instead of degrading, contradicting the '@dev Returns 0 if broken or frozen' guarantee for that path.",
+      "proof_of_concept": "@dev: \"Use `lookback = 0` for the instantaneous price. `lookback > 0` for a TWAP.\"\nActual code: return lookback > 0 ? getPrice(priceAggregatorAddress, maxTimeout) : getTwap(priceAggregatorAddress, maxTimeout, lookback);\n// lookback>0 path -> getPrice (SPOT, not TWAP); lookback==0 path -> getTwap(...,0) -> final `.div(lookback)` = `.div(0)` -> revert (not the documented 0 sentinel)",
+      "ite": {
+        "intent": "Stated intent: return a manipulation-resistant TWAP when lookback>0 and a spot price when lookback==0, returning 0 on a broken feed.",
+        "technique": "Ternary branches transposed; consumer relying on lookback>0 for safety receives manipulable spot. Spot request (lookback==0) reverts via div-by-zero.",
+        "evasion": "The inversion defeats the only manipulation guard; a flash-loan attacker requests/relies on a path the protocol believes is TWAP-protected."
+      },
+      "ice_chain": {
+        "corrupted_state": "oracle return value: spot price substituted where a TWAP is documented (and revert where a 0-sentinel is documented)",
+        "impact": "Manipulable price flows into Bean minting/convert peg math; or feed-outage DoS of the spot path",
+        "consumer_found": true,
+        "consumer_function": "LibEthUsdOracle/LibUsdOracle.getTokenPrice -> LibWellMinting/LibDeltaB deltaB & peg calculations feeding SeasonFacet.sunrise mint and ConvertFacet valuation",
+        "exploit_path": "consumer calls getTokenPrice(addr, timeout, lookback>0) believing it gets a TWAP -> receives spot -> attacker flash-loan-skews the source within one block -> sunrise/convert mint mispriced Beans/BDV"
+      },
+      "bsa_metadata": {
+        "stated_intent": "NatSpec: lookback>0 returns a TWAP (manipulation-resistant); lookback==0 returns instantaneous spot; returns 0 on broken/frozen feed.",
+        "actual_behavior": "lookback>0 returns the instantaneous spot (getPrice); lookback==0 calls getTwap with lookback=0 and reverts on the final div-by-zero instead of returning 0.",
+        "divergence_type": "doc_lie"
+      },
+      "cross_agent_refs": [
+        "OR-001",
+        "DT-006",
+        "AR-001"
+      ],
+      "attack_surface_rank": 5,
+      "invariant_violated": "oracle_manipulation_resistance",
+      "thread_refs": [
+        "T-006"
+      ],
+      "thread_note": "T-006: High (score=?) \u2014 "
+    },
+    {
+      "id": "BSA-002",
+      "title": "BeanL1RecieverFacet NatSpec says it migrates Beans to L2 issued to reciever, but EXTERNAL_L1_BEANS=0 cap makes every mint revert after the L1 burn",
+      "severity": "High",
+      "confidence": "High",
+      "vuln_type": "behavioral_state_divergence",
+      "description": "The contract NatSpec (line 13) states 'Allows beanstalk to recieve data from an L1, specifically to mint beans' and recieveL1Beans is documented (lines 27-30) as '@notice migrates `amount` of Beans to L2, issued to `reciever`.' The documented behavior is that calling this function mints `amount` Beans to `reciever`. The code instead defines `uint256 constant EXTERNAL_L1_BEANS = 0`, then after `s.sys.migration.migratedL1Beans += amount` enforces `require(EXTERNAL_L1_BEANS >= s.sys.migration.migratedL1Beans, ...)`. For any amount>0 this is `require(0 >= positive)` which is always false, so C.bean().mint(reciever, amount) on line 43 is unreachable. The companion L1 path (BeanL2MigrationFacet.migrateL2Beans) burns the user's Beans on L1 before the cross-chain message is relayed. The documented 'migrate and mint' guarantee is not enforced \u2014 it is structurally impossible \u2014 while the irreversible L1 burn still occurs.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/migration/BeanL1RecieverFacet.sol",
+        "function": "recieveL1Beans",
+        "line_start": 22,
+        "line_end": 44
+      },
+      "impact": "Permanent loss of all externally-held L1 Beans that attempt migration: the L1 burn succeeds and the documented L2 mint always reverts. Honest migrants lose funds; the migration feature documented as functional is permanently bricked.",
+      "proof_of_concept": "@notice: \"migrates `amount` of Beans to L2, issued to `reciever`.\"\nActual code:\n  uint256 constant EXTERNAL_L1_BEANS = 0;\n  ...\n  s.sys.migration.migratedL1Beans += amount;\n  require(EXTERNAL_L1_BEANS >= s.sys.migration.migratedL1Beans, \"L2Migration: exceeds maximum migrated\"); // 0 >= amount -> always reverts for amount>0\n  C.bean().mint(reciever, amount); // unreachable",
+      "ite": {
+        "intent": "Stated intent: receive an L1 message and mint `amount` Beans to `reciever` on L2.",
+        "technique": "Migration cap constant left at the placeholder 0; the post-increment require can never pass for any positive amount.",
+        "evasion": "No attacker required; the divergence self-triggers for every legitimate migrant."
+      },
+      "ice_chain": {
+        "corrupted_state": "control flow: require always reverts; C.bean().mint never executes; user's L1 Beans already burned",
+        "impact": "Burned L1 Beans with no L2 issuance -> direct, permanent fund loss for honest migrants",
+        "consumer_found": true,
+        "consumer_function": "C.bean().mint(reciever, amount) (the documented mint, never reached)",
+        "exploit_path": "migrateL2Beans burns Beans on L1 -> bridge relays recieveL1Beans -> migratedL1Beans += amount -> require(0 >= amount) reverts -> documented mint never happens"
+      },
+      "bsa_metadata": {
+        "stated_intent": "NatSpec: function migrates `amount` Beans to L2 and issues them to `reciever` (i.e. mints on L2).",
+        "actual_behavior": "EXTERNAL_L1_BEANS hardcoded to 0 makes the migrated-supply require revert for any amount>0; the mint is unreachable while the L1 burn is already final.",
+        "divergence_type": "logic_mismatch"
+      },
+      "cross_agent_refs": [
+        "CC-002",
+        "LG-007",
+        "DT-005"
+      ],
+      "attack_surface_rank": 4,
+      "invariant_violated": "cross_chain_value_conservation",
+      "thread_refs": [
+        "T-005"
+      ],
+      "thread_note": "T-005: High (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACCESS-002",
+          "note": "score-3 invariant covers same state vars (s.sys.migration.migratedL1Beans); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "BSA-003",
+      "title": "ReseedSilo @dev 're-issues all stalk to holders' but per-token '= ' assignment overwrites prior tokens, so multi-token holders keep only their last token's stalk",
+      "severity": "High",
+      "confidence": "High",
+      "vuln_type": "behavioral_state_divergence",
+      "description": "ReseedSilo.init NatSpec (lines 70-74) documents the invariant: the function '- re-issues all stalk to holders.' init calls reseedSiloDeposit six times (bean, beanEth, beanWstEth, bean3Crv, urBean, urBeanLp) against the same s.accts mapping. Inside reseedSiloDeposit the comment on line 163 reads '// set stalk for account' and the code is `s.accts[deposits.accounts].stalk = accountStalk;` \u2014 a plain assignment, not an increment. Because the six token passes share the same account keys, any holder with deposits in more than one token has their stalk overwritten on each subsequent pass, leaving only the last token's (urBeanLp) stalk. This directly contradicts the contract-level documented guarantee of re-issuing ALL stalk. Notably the sibling migration path L2ContractMigrationFacet.setStalk uses `+=` for exactly this accumulation, confirming the intended semantics and revealing an asymmetry between the two reseed/migration code paths.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+        "function": "reseedSiloDeposit",
+        "line_start": 159,
+        "line_end": 165
+      },
+      "impact": "The documented 'all stalk re-issued' guarantee is violated for every multi-token depositor: they receive only the last token's stalk on L2, permanently losing the rest of their governance weight and earned-Bean share after migration.",
+      "proof_of_concept": "@dev: \"- re-issues all stalk to holders.\"\nInline comment: \"// set stalk for account\"\nActual code: s.accts[deposits.accounts].stalk = accountStalk;  // '=' overwrites prior token passes\nContrast (intended): L2ContractMigrationFacet.setStalk -> s.accts[account].stalk += accountStalk;",
+      "ite": {
+        "intent": "Stated intent: re-issue each holder's full (summed across tokens) stalk during the L1->L2 reseed.",
+        "technique": "Per-token loop assigns (=) account stalk; later token passes overwrite earlier ones for the same account.",
+        "evasion": "No attacker; the divergence self-triggers during the migration upgrade for every multi-token holder."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[account].stalk (set to last-token value, not the documented sum)",
+        "impact": "Loss of stalk -> loss of yield (earned-Bean share) and governance voting power",
+        "consumer_found": true,
+        "consumer_function": "LibSilo earned-Bean distribution and governance vote-weight reads of s.accts[].stalk",
+        "exploit_path": "init -> reseedSiloDeposit(token1) sets stalk -> reseedSiloDeposit(token2) overwrites stalk -> ... -> account retains only urBeanLp stalk"
+      },
+      "bsa_metadata": {
+        "stated_intent": "ReseedSilo @dev: re-issues ALL stalk to holders (full per-account total across all six tokens).",
+        "actual_behavior": "reseedSiloDeposit assigns (=) per-token stalk to the same account key each pass, overwriting prior tokens; only the last token's stalk survives.",
+        "divergence_type": "invariant_violated"
+      },
+      "cross_agent_refs": [
+        "LG-002",
+        "DT-001",
+        "AR-001"
+      ],
+      "attack_surface_rank": 4,
+      "invariant_violated": "stalk_conservation",
+      "thread_refs": [
+        "T-001"
+      ],
+      "thread_note": "T-001: High (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-006",
+          "note": "score-3 invariant covers same state vars (s.accts[account].stalk); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "BSA-004",
+      "title": "L2ContractMigrationFacet '// set global state' comment writes uninitialized (always-zero) totalDeposited/totalDepositedBdv to protocol-wide silo balances",
+      "severity": "High",
+      "confidence": "High",
+      "vuln_type": "behavioral_state_divergence",
+      "description": "In addMigratedDepositsToAccount the comment on line 193 reads '// set global state' before assigning s.sys.silo.balances[token].deposited and .depositedBdv. The stated intent is that the per-token global silo totals are set to reflect the migrated deposits. However the local accumulators `uint128 totalDeposited` and `uint128 totalDepositedBdv` (lines 159-160) are declared and never incremented anywhere in the deposit loop (the loop only increments totalBdvForAccount and accountStalk). The 'global state' written on lines 194-195 is therefore always 0, overwriting the protocol-wide silo totals with zero while per-account deposits are credited. The accompanying behavior diverges from the sibling ReseedSilo.reseedSiloDeposit, which actually accumulates totalCalcDeposited/totalCalcDepositedBdv and validates them with a require before writing global state. The comment asserts a correct global-state update that the code does not perform.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "addMigratedDepositsToAccount",
+        "line_start": 158,
+        "line_end": 200
+      },
+      "impact": "Global deposited/depositedBdv for the migrated token is zeroed while per-account deposits exist, breaking the documented total == sum(accounts) silo invariant. Downstream LibTokenSilo withdraw / LibConvert / BDV getters read the zeroed total, causing withdrawal underflow / DoS or value-accounting inflation.",
+      "proof_of_concept": "Comment: \"// set global state\"\nActual code:\n  uint128 totalDeposited;      // never incremented in the loop\n  uint128 totalDepositedBdv;   // never incremented in the loop\n  ...\n  s.sys.silo.balances[depositData.token].deposited = totalDeposited;       // writes 0\n  s.sys.silo.balances[depositData.token].depositedBdv = totalDepositedBdv;  // writes 0\nContrast: ReseedSilo accumulates totalCalcDeposited/Bdv and require()s them before writing global state.",
+      "ite": {
+        "intent": "Stated intent (comment + sibling pattern): set the per-token global silo totals to the sum of the migrated deposits.",
+        "technique": "Accumulator locals declared but never written, then assigned to global state -> global totals overwritten with 0.",
+        "evasion": "Permissionless migration call; no guard recomputes or validates the global total in this path."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.silo.balances[token].deposited and .depositedBdv (overwritten to 0)",
+        "impact": "Accounting desync (total != sum of accounts): withdrawal underflow/DoS or value inflation",
+        "consumer_found": true,
+        "consumer_function": "LibTokenSilo withdraw / LibConvert / SiloGetters BDV reads of s.sys.silo.balances[token]",
+        "exploit_path": "redeemDepositsAndInternalBalances -> addMigratedDepositsToAccount writes 0 to global balances -> later withdraw/convert reads inconsistent totals -> underflow or mispriced accounting"
+      },
+      "bsa_metadata": {
+        "stated_intent": "Comment '// set global state' asserts the global per-token silo totals are updated to the migrated amounts.",
+        "actual_behavior": "Local accumulators are never incremented; the function writes 0 to the protocol-wide deposited/depositedBdv totals.",
+        "divergence_type": "doc_lie"
+      },
+      "cross_agent_refs": [
+        "LG-001",
+        "CC-004",
+        "DT-002"
+      ],
+      "attack_surface_rank": 5,
+      "invariant_violated": "silo_total_equals_sum_of_accounts"
+    },
+    {
+      "id": "BSA-005",
+      "title": "ReseedBarn struct @dev 'fertilizerIds MUST be in acsending order' is never enforced in mintFertilizers, allowing a malformed nextFid linked list",
+      "severity": "Medium",
+      "confidence": "High",
+      "vuln_type": "behavioral_state_divergence",
+      "description": "The Fertilizers struct NatSpec (line 34) states a hard requirement using 'MUST': '@dev fertilizerIds MUST be in acsending order.' mintFertilizers builds the fertilizer linked list relying on this order: it sets s.sys.fert.fertFirst on i==0, s.sys.fert.nextFid[fertilizerIds[i-1].fertilizerId] = fid for i!=0, and s.sys.fert.fertLast on the last element. No require or comparison enforces that f.fertilizerId values are strictly ascending. If the upgrade input is out of order (or contains duplicate ids), the nextFid mapping is wired incorrectly \u2014 producing a chain that skips ids, points backward, or forms a cycle \u2014 while fertFirst/fertLast are taken from positional (not value) extremes. The documented invariant is stated with 'MUST' but enforced only by trust in the caller's input ordering.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedBarn.sol",
+        "function": "mintFertilizers",
+        "line_start": 72,
+        "line_end": 96
+      },
+      "impact": "A non-ascending or duplicate-id input yields a malformed/cyclic fertilizer linked list. Sun fertilizer payout traverses nextFid in id order to pay Beans to fertilizer holders; a corrupted chain strands or mispays fertilizer (holders past the break never get paid, or a cycle disrupts iteration). Bounded by trusted upgrade-caller input, hence Medium per Immunefi v2.2 (incorrect protocol behavior / griefing of payouts rather than directly attacker-permissionless).",
+      "proof_of_concept": "@dev: \"fertilizerIds MUST be in acsending order.\"\nActual code (no ordering check):\n  if (i != 0) s.sys.fert.nextFid[fertilizerIds[i - 1].fertilizerId] = fid;\n  if (i == fertilizerIds.length - 1) s.sys.fert.fertLast = fid;\n// no require(fid > fertilizerIds[i-1].fertilizerId)",
+      "ite": {
+        "intent": "Stated intent ('MUST be ascending'): build a correctly ordered ascending fertilizer linked list.",
+        "technique": "Ordering enforced by NatSpec comment only; no require/comparison on consecutive fertilizerId values.",
+        "evasion": "No attacker; depends on upgrade-caller input correctness \u2014 a documented invariant left structurally unguarded."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.fert.nextFid / fertFirst / fertLast (malformed/cyclic chain on unsorted input)",
+        "impact": "Mispaid or stranded fertilizer rewards during Sun payout iteration",
+        "consumer_found": true,
+        "consumer_function": "Sun/LibFertilizer fertilizer payout traversal of nextFid in id order",
+        "exploit_path": "init with non-ascending/duplicate ids -> nextFid chain malformed -> Sun payout iteration breaks/strands holders"
+      },
+      "bsa_metadata": {
+        "stated_intent": "Struct @dev: fertilizerIds MUST be in ascending order (hard invariant per 'MUST').",
+        "actual_behavior": "mintFertilizers builds the linked list with no ordering check, accepting any order/duplicates.",
+        "divergence_type": "invariant_violated"
+      },
+      "cross_agent_refs": [
+        "LG-008",
+        "DT-012"
+      ],
+      "attack_surface_rank": 3,
+      "invariant_violated": "fertilizer_id_ordering",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-007",
+          "note": "score-3 invariant covers same state vars (s.sys.fert.fertFirst, s.sys.fert.nextFid, s.sys.fert.fertLast); not traced \u2014 consider manual review"
+        }
+      ]
+    }
+  ]
+}

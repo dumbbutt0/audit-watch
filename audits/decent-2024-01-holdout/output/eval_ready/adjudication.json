@@ -1,0 +1,245 @@
+{
+  "audit_id": "decent-2024-01-holdout",
+  "set": "training",
+  "generated_at": "2026-06-12T14:11:02Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": true,
+  "awarded": [
+    {
+      "id": "H-01",
+      "severity": "High",
+      "title": "Anyone can update the address of the Router in the DcntEth contract to any address they would like to set.",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "DT-01",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "H-02",
+      "severity": "High",
+      "title": "Due to missing checks on minimum gas passed through LayerZero, executions can fail on the destination chain",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "H-03",
+      "severity": "High",
+      "title": "When `DecentBridgeExecutor.execute` fails, funds will be sent to a random address",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "H-04",
+      "severity": "High",
+      "title": "Users will lose their cross-chain transaction if the destination router do not have enough WETH reserves.",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Permanent loss of tokens if swap data gets outdated",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "Users can use the protocol freely without paying any fees by calling the `DecentEthRouter::bridgeWithPayload()` function directly.",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "Missing access control on UTB:receiveFromBridge allows UTB swaps to be executed without spending bridge fees while bypassing fee/swap instruction signature verification",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-04",
+      "severity": "Medium",
+      "title": "Potential loss of capital due to fixed fee calculations",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-05",
+      "severity": "Medium",
+      "title": "DecentEthRouter.sol#_bridgeWithPayload() - Any refunded ETH (native token) will be refunded to the DecentBridgeAdapter, making them stuck",
+      "label": "SAME_AREA",
+      "matched_candidate_id": "DT-04",
+      "mechanism_class": null,
+      "read_file": true,
+      "source": "auto-heuristic",
+      "confidence": "medium"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "AC-01",
+      "title": "DcntEth.setRouter is unprotected \u2014 anyone becomes router and mints unlimited DcntEth",
+      "severity": "Critical",
+      "file": "lib/decent-bridge/src/DcntEth.sol:20-30",
+      "contract": "",
+      "function": "",
+      "description": "setRouter(address) is public with no onlyOwner; mint/burn are onlyRouter. An attacker calls setRouter(self) then mints unlimited DcntEth / burns holders."
+    },
+    {
+      "id": "DT-01",
+      "title": "DcntEth.setRouter has no access control \u2014 anyone can become the router and mint unlimited DcntEth",
+      "severity": "Critical",
+      "file": "lib/decent-bridge/src/DcntEth.sol:20-30",
+      "contract": "",
+      "function": "",
+      "description": "DcntEth.setRouter(address) is `public` with no onlyOwner/onlyAdmin guard. mint() and burn() are `onlyRouter`. Any EOA can call setRouter(self), become the router, and mint unlimited DcntEth (then redeem it for WETH/ETH from the routers), or burn arbitrary holders' balances."
+    },
+    {
+      "id": "AC-02",
+      "title": "UTB.receiveFromBridge is public \u2014 arbitrary caller drives the privileged executor",
+      "severity": "High",
+      "file": "UTB.sol:311-319",
+      "contract": "",
+      "function": "",
+      "description": "receiveFromBridge is public; intended caller is a bridge adapter (sgReceive, onlyExecutor). Anyone can drive _swapAndExecute -> UTBExecutor.execute(target,payload) with UTB's approvals."
+    },
+    {
+      "id": "DT-02",
+      "title": "UTB.receiveFromBridge is public \u2014 arbitrary caller drives the privileged executor",
+      "severity": "High",
+      "file": "UTB.sol:311-319 (cf. bridge_adapters/StargateBridgeAdapter.sol:183-216 sgReceive onlyExecutor)",
+      "contract": "",
+      "function": "",
+      "description": "UTB.receiveFromBridge is `public` with no caller restriction; its intended caller is a registered bridge adapter (e.g. StargateBridgeAdapter.sgReceive, onlyExecutor). Anyone can call it with arbitrary postBridge/target/paymentOperator/payload, driving _swapAndExecute -> UTBExecutor.execute (which UTB owns) to make an arbitrary call to `target` with UTB's approvals."
+    },
+    {
+      "id": "DT-03",
+      "title": "Fee signature is replayable (no nonce / deadline / chainId / sender binding)",
+      "severity": "Medium",
+      "file": "src/UTBFeeCollector.sol:44-62",
+      "contract": "",
+      "function": "",
+      "description": "UTBFeeCollector.collectFees verifies ecrecover(keccak(BANNER, keccak(packedInfo))) == signer, where packedInfo = abi.encode(instructions, fees). The signed message has no nonce, deadline, chainId, or msg.sender binding, so a valid fee signature can be replayed across transactions and chains."
+    },
+    {
+      "id": "EA-01",
+      "title": "UTBFeeCollector fee signature is replayable (no nonce/deadline/chainId/sender)",
+      "severity": "Medium",
+      "file": "src/UTBFeeCollector.sol:44-62",
+      "contract": "",
+      "function": "",
+      "description": "collectFees verifies a signature over abi.encode(instructions,fees) with no freshness/context binding -> replay across txs/chains."
+    },
+    {
+      "id": "DT-04",
+      "title": "DecentEthRouter redemption ignores the LP balanceOf ledger \u2014 reserves drainable below LP credits",
+      "severity": "Medium",
+      "file": "lib/decent-bridge/src/DecentEthRouter.sol:285-335",
+      "contract": "",
+      "function": "",
+      "description": "addLiquidityEth/Weth credit balanceOf[LP] and mint dcntEth to the router; redeemEth/redeemWeth let ANY dcntEth holder pull WETH/ETH from the router's reserves without touching balanceOf. Reserves can drop below sum(balanceOf), so LP removeLiquidity* (dcntEth.burn + weth withdraw/transfer) reverts \u2014 the LP ledger is not backed."
+    },
+    {
+      "id": "LG-01",
+      "title": "DecentEthRouter redemption ignores the LP balanceOf ledger -> reserves drainable below LP credits",
+      "severity": "Medium",
+      "file": "lib/decent-bridge/src/DecentEthRouter.sol:285-335",
+      "contract": "",
+      "function": "",
+      "description": "redeemEth/redeemWeth let any dcntEth holder pull reserves without touching balanceOf; LP removeLiquidity* then reverts (ledger unbacked)."
+    },
+    {
+      "id": "AC-03",
+      "title": "DcntEth.setRouter also lacks one-time / event protection",
+      "severity": "Low",
+      "file": "lib/decent-bridge/src/DcntEth.sol:20-22",
+      "contract": "",
+      "function": "",
+      "description": "Even ignoring the missing guard, setRouter can be re-pointed at any time with no event/timelock."
+    },
+    {
+      "id": "CC-01",
+      "title": "Hardcoded Stargate fee (SG_FEE_BPS=6) in getBridgedAmount diverges from real bridge output",
+      "severity": "Low",
+      "file": "src/bridge_adapters/StargateBridgeAdapter.sol:22-23,61-67,176",
+      "contract": "",
+      "function": "",
+      "description": "getBridgedAmount = amt*(1e4-6)/1e4 hardcoded; post-bridge swap amountIn set from it. Real Stargate fee/output differences cause revert/misprice."
+    },
+    {
+      "id": "DT-05",
+      "title": "Hardcoded Stargate fee (SG_FEE_BPS=6) in getBridgedAmount may diverge from the real bridge output",
+      "severity": "Low",
+      "file": "src/bridge_adapters/StargateBridgeAdapter.sol:22-23,61-67,176",
+      "contract": "",
+      "function": "",
+      "description": "StargateBridgeAdapter.getBridgedAmount returns amt*(1e4-6)/1e4 using a hardcoded 6bps fee, used to set the post-bridge swap amountIn. If Stargate's actual fee/output differs, the post-bridge swap reverts or is mis-priced."
+    },
+    {
+      "id": "CC-02",
+      "title": "onOFTReceived delivers dcntEth instead of ETH/WETH when reserves are low (degraded delivery)",
+      "severity": "Low",
+      "file": "lib/decent-bridge/src/DecentEthRouter.sol:266-269",
+      "contract": "",
+      "function": "",
+      "description": "If weth.balanceOf < amount, onOFTReceived transfers dcntEth to _to instead of the expected ETH/WETH; recipient silently receives a different asset."
+    },
+    {
+      "id": "LG-02",
+      "title": "onlyIfWeHaveEnoughReserves uses strict > (off-by-one) blocking redemption of the full reserve",
+      "severity": "Low",
+      "file": "lib/decent-bridge/src/DecentEthRouter.sol:50-53",
+      "contract": "",
+      "function": "",
+      "description": "require(weth.balanceOf > amount) prevents redeeming exactly the full balance."
+    }
+  ],
+  "summary": {
+    "awarded_total": 9,
+    "awarded_source": "report.md",
+    "adjudicated": 9,
+    "pending": 0,
+    "auto_adjudicated": 9,
+    "misses_detected": 7,
+    "recall_of_surfaced": 0.222,
+    "strong_only": 0.0,
+    "by_label": {
+      "MISSED": 7,
+      "SAME_AREA": 1,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 1,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

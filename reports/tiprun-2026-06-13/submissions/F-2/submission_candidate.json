@@ -1,0 +1,88 @@
+{
+  "finding_id": "F-2",
+  "title": "Account freeze / liquidation lock when notional exceeds the top risk segment (short can dodge liquidation)",
+  "root_cause": "getRiskFactor returns (0,false) when notional exceeds the largest risk segment; Risk.getAssetValueAndRisk then reverts 'Risk: no risk' instead of clamping, freezing every position operation (incl. liquidation) on the account.",
+  "affected_contracts": [
+    "src/.../GeneralConfig.sol"
+  ],
+  "affected_functions": [
+    "GeneralConfig.getRiskFactor",
+    "Risk.getAssetValueAndRisk",
+    "Risk.getAccountPositionStatus"
+  ],
+  "attacker_entrypoint": "Oracle price move (notional=price*|amount|); attacker opens a short sized to breach the cap while underwater",
+  "attacker_capabilities": [
+    "open a short position",
+    "wait for / rely on price moving up (short goes underwater as notional crosses the cap)"
+  ],
+  "privilege_required": "none",
+  "scope_status": "in_scope",
+  "in_scope_asset": "GeneralConfig (getRiskFactor)",
+  "out_of_scope_risks": [],
+  "impact_category": "fund_freeze",
+  "severity_claim": "High",
+  "severity_justification": {
+    "worst_case": "Attacker deliberately freezes an insolvent short to dodge liquidation => unrecoverable bad debt.",
+    "realistic_case": "Any account on a pumping asset freezes (funds locked, un-liquidatable) when notional crosses the cap.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "TipRun",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
+  },
+  "call_trace": [
+    "open short 3000 @ price 1 (notional 3000 <= cap 10000, healthy)",
+    "price rises to 4 (short underwater; equity = 10000 - 4*3000 = -2000)",
+    "notional 12000 > cap 10000 => getRiskFactor (0,false) => Risk reverts 'Risk: no risk'",
+    "every liquidation/resize of the insolvent short reverts => un-liquidatable => bad debt"
+  ],
+  "state_transition": {
+    "before": "short 3000 @ price 1, healthy",
+    "after": "price 4, equity -2000 (insolvent), all position ops revert 'Risk: no risk' (frozen/un-liquidatable)",
+    "slots_or_balances": []
+  },
+  "asset_delta": "Insolvent short (negative equity, e.g. -2,000) cannot be liquidated => loss is unrecoverable protocol bad debt.",
+  "proof_type": "runnable_poc",
+  "poc_path": "reports/tiprun-2026-06-13/submissions/F-2/poc/PoC_RiskSegmentFreeze.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "cd reports/tiprun-2026-06-13/harness",
+    "forge test --match-contract PoC_RiskSegmentFreeze -vv"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [],
+  "false_positive_risks": [],
+  "invalidating_conditions": [],
+  "defense_analysis": [
+    {
+      "defense": "tiered risk segments",
+      "blocks_path": false,
+      "why_it_fails": "finite top segment (normal config) => notional past it reverts instead of clamping"
+    }
+  ],
+  "assumptions": [
+    "perp profile (RiskPlugin wired as CAP_MARGIN_CHECK)"
+  ],
+  "evidence_links": [
+    "src/core/config/GeneralConfig.sol:getRiskFactor (returns (0,false) past top segment)",
+    "src/core/risk/Risk.sol:getAssetValueAndRisk (require(riskOk,'Risk: no risk'))",
+    "harness/test/PoC_RiskSegmentFreeze.t.sol",
+    "submissions/F-2/poc_output.log"
+  ],
+  "triager_summary": "Account freeze / liquidation lock when notional exceeds the top risk segment (short can dodge liquidation) \u2014 PoC passing (PASS (2 tests): long-freeze blocks withdrawal/liquidation; short variant leaves an insolvent account un-liquidatable).",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Blockchain \u2192 DoS with (Unexpected) revert (`getRiskFactor` returns `(0,false)` past the top risk segment \u2192 `require(riskOk,\"Risk: no risk\")` reverts \u2192 account frozen, including un-liquidatable \u2192 bad debt)",
+  "cvss": [
+    {
+      "aspect": "Account freeze / liquidation-lock",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H",
+      "score": 7.4,
+      "severity": "High"
+    }
+  ]
+}

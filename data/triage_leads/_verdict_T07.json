@@ -1,0 +1,54 @@
+{
+  "group_id": "T-07-EnrootFacet-BDV",
+  "analyst": "triage-specialist",
+  "methodology": "zero-trust ICE re-derivation from raw source (EnrootFacet.sol, LibUnripe.sol, LibWellBdv.sol, BDVFacet.sol, LibTokenSilo.beanDenominatedValue, Invariable.sol). BLIND to documentation/evals.",
+  "reserve_source_finding": "The enroot BDV is computed via LibTokenSilo.beanDenominatedValue -> whitelisted BDV selector (BDVFacet). UNRIPE_BEAN path (unripeBeanToBDV) = LibUnripe.unripeToUnderlying = balanceOfUnderlying*unripe/supply, PURE STORAGE accounting, not reserve-dependent and not manipulable. UNRIPE_LP path (unripeLPToBDV) = storage unripeToUnderlying then LibWellBdv.bdv -> IInstantaneousPump.readInstantaneousReserves (Basin MultiFlowPump EMA/smoothed reserves) with a WELL_MINIMUM_BEAN_BALANCE floor. This is the IDENTICAL MEV-resistant pump oracle every normal LP deposit and convert uses for BDV; it is NOT the raw uncapped IWell.getReserves()/ZERO_LOOKBACK spot path. Enroot therefore introduces NO new or weaker valuation surface relative to ordinary deposits. The noNetFlow/noSupplyChange hypothesis is structurally correct (noNetFlow only enforces stalk>=initialStalk and exact token balances; noSupplyChange only bounds Bean supply; neither caps stalk-mint magnitude) BUT the over-mint it would gate requires a manipulable BDV source, which does not exist on the defended pump path.",
+  "fl001_attribution": "DOES NOT HOLD for enroot. FL-001 concerns LibDeltaB reading raw, uncapped IWell.getReserves() (ZERO_LOOKBACK spot) inside the convert stalk-penalty machinery and comparing it against a capped-pump capacity ceiling. The enroot BDV path reads readInstantaneousReserves (pump EMA), a different and defended oracle read. Different code, different oracle, different surface. Enroot is also NOT a distinct enroot-specific over-mint, because it shares the same defended pump BDV as normal deposits.",
+  "ar005_attribution": "HOLDS as a class-level duplicate (Info, verified-safe-under-bounds). AR-005 documents the same uint128-downcast-of-bdv*stalkIssuedPerBdv class at LibConvert.sol:540 and LibGauge.sol:320. EnrootFacet's analogous casts (line 119 uint128(deltaBDV); line 256 uint128(bdv)) are the same class with the same bound argument: max realistic bdv*stalkIssuedPerBdv << 2^128. The terminal mint at line 122 uses SafeCast .toUint128() (reverts on overflow). No reachable truncation. Same conclusion as AR-005.",
+  "ti002_attribution": "Not relevant to enroot over-mint; TI-002 is the latent FOT/rebasing-token whitelist assumption (Info, privileged-gated). Unripe underlying tokens (BEAN, BEAN-LP wells) are standard, non-FOT. No bearing on enroot stalk minting.",
+  "verdicts": [
+    {
+      "id": "function:EnrootFacet:enrootDeposit#f669e65c",
+      "function": "EnrootFacet.enrootDeposit",
+      "verdict": "duplicate_or_known",
+      "disposition": "no_finding_new; arithmetic-cast aspect duplicates AR-005 (Info)",
+      "severity": "Info",
+      "confidence": "High",
+      "ice": {
+        "impact": "Info",
+        "confidence": "High",
+        "exploitability": "Conditional",
+        "advances_past_2_5": false
+      },
+      "reserve_source": "UNRIPE_BEAN -> pure storage (unripeToUnderlying, balanceOfUnderlying-based), not manipulable. No spot reserve read for unripe-bean BDV.",
+      "rationale": "deltaBDV = newBDV(unripeBeanToBDV) - ogBDV is derived from storage balanceOfUnderlying and recap accounting; there is no instantaneous/spot reserve in the unripe-bean valuation, so no flash-manipulable BDV. Stalk mint = deltaBDV*stalkIssuedPerBdv + stalkReward, minted via SafeCast .toUint128(). The 'enroot mints active stalk from a manipulable penalized-underlying BDV' hypothesis is NOT supported for single-deposit enrootDeposit on unripe BEAN. Only the uint128(deltaBDV) downcast (line 119) is notable, and it duplicates the AR-005 Info class (safe under realistic bounds). NOTE: enrootDeposit accepts any unripe token; an unripe-LP single deposit would route through unripeLPToBDV -> LibWellBdv.bdv (pump EMA) which is the same defended oracle as normal deposits, still not the FL-001 raw-getReserves spot path.",
+      "fl001_dup": false,
+      "ar005_dup": true,
+      "ti002_dup": false,
+      "next_action": "no_fork_poc; record as known/Info. No standalone submission-worthy finding.",
+      "overclaim_guard": "No claim of fund loss or governance over-mint. Pump implementation (Basin) is out of scope; conclusion that readInstantaneousReserves is EMA-smoothed rests on the IInstantaneousPump contract and on it being the same source used by every whitelisted deposit BDV - not independently re-derived from pump bytecode."
+    },
+    {
+      "id": "function:EnrootFacet:enrootDeposits#5f691bb7",
+      "function": "EnrootFacet.enrootDeposits",
+      "verdict": "duplicate_or_known",
+      "disposition": "no_finding_new; arithmetic-cast aspect duplicates AR-005 (Info)",
+      "severity": "Info",
+      "confidence": "High",
+      "ice": {
+        "impact": "Info",
+        "confidence": "High",
+        "exploitability": "Conditional",
+        "advances_past_2_5": false
+      },
+      "reserve_source": "newTotalBdv = beanDenominatedValue(token, total tokens). For UNRIPE_BEAN -> storage-only. For UNRIPE_LP -> unripeToUnderlying (storage) then LibWellBdv.bdv -> readInstantaneousReserves (pump EMA, WELL_MINIMUM_BEAN_BALANCE floored). Same defended pump oracle as normal LP deposits; NOT raw getReserves spot.",
+      "rationale": "enrootDeposits computes one newTotalBdv via the whitelisted BDV selector, then pro-rates it across stems and mints net stalk = stalkAdded - (removed stalk + grownStalkFromGermDeposits). The valuation surface is identical to ordinary deposits: storage for unripe-bean, pump-EMA for unripe-LP. noNetFlow/noSupplyChange do not bound stalk-mint magnitude (confirmed: noNetFlow only requires stalk non-decrease + exact token balances; noSupplyChange only bounds Bean supply), but the absence of a manipulable BDV input means there is no over-mint primitive here distinct from normal deposit accounting. addDepositAndCalculateStalk uses uint128(bdv) (line 256) and bdv.mul(stalkPerBdv) - same AR-005 Info downcast class; per-deposit bdv is the pro-rata share, bounded well under 2^128. The final mintActiveStalk amount itself is not SafeCast-wrapped in enrootDeposits (it passes a uint256 to mintActiveStalk), but the magnitude is bounded by realistic BDV*stalkIssuedPerBdv, same bound as AR-005.",
+      "fl001_dup": false,
+      "ar005_dup": true,
+      "ti002_dup": false,
+      "next_action": "no_fork_poc; record as known/Info. No standalone submission-worthy finding.",
+      "overclaim_guard": "No fund-loss or over-mint claim. The pro-rata last-deposit remainder handling (newTotalBdv.sub(bdvAdded)) and incrementTotalDepositedBdv subtraction (reverts if bdvAdded < bdvRemoved) were read but not exhaustively fuzzed; flagged as low-residual-risk rounding, not a confirmed bug. Pump EMA property is asserted from interface/usage parity, not pump-bytecode re-derivation."
+    }
+  ],
+  "group_verdict": "duplicate_or_known for both items. No new submission-worthy finding. T-07 hypothesis (FL-001-class spot-manipulable enroot BDV over-mint) is REJECTED: unripe-bean BDV is storage-only and unripe-LP BDV uses the same defended pump-EMA oracle as normal deposits, not the FL-001 raw-getReserves spot path. The only carryover is the AR-005 Info-class uint128 downcast, which is safe under realistic bounds."
+}

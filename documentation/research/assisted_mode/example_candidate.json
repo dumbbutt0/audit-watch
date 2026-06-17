@@ -1,0 +1,51 @@
+{
+  "subject": "secondswap-2024-12",
+  "repo": "github.com/code-423n4/2024-12-secondswap",
+  "commit": "6693d9e4f03a37919a52626de64b1cadf632fd29",
+  "contract": "SecondSwap_VestingManager",
+  "function": "listVesting",
+  "candidate_invariant": "a user cannot list/sell more than maxSellPercent of their original (locked) allocation onto the secondary market",
+  "suspected_break": "repeated buy-and-resell cycles inflate allocations[user].bought, which raises the user's sellLimit, letting a cartel sell more than maxSellPercent of the original allocation",
+  "affected_actor": "the vesting issuer / honest market (the sell-restriction is bypassed)",
+  "attacker_or_trigger_actor": "a seller cooperating with one or more sybil buyer addresses",
+  "entrypoint": "Marketplace.listVesting + Marketplace.spotPurchase (EOA, permissionless)",
+  "source_refs": [
+    "contracts/SecondSwap_VestingManager.sol:121 listVesting sellLimit",
+    "contracts/SecondSwap_VestingManager.sol:127-138 sellLimit = bought + (alloc+sold-bought)*maxSellPercent/BASE",
+    "contracts/SecondSwap_VestingManager.sol:161-164 completePurchase bought += amount"
+  ],
+  "expected_impact": "Medium - vesting sell-restriction (maxSellPercent) bypassable, defeats a core protocol invariant",
+  "confidence": "medium",
+  "supplied_by": "previous_eval",
+  "known_unknowns": ["exact fee cost of each wash cycle vs the amount of extra sell headroom unlocked"],
+  "requested_check": "VALIDATE",
+
+  "depth_trace": {
+    "localized_mechanism": "VestingManager.listVesting sellLimit = bought + (currentAlloc+sold-bought)*maxSellPercent/BASE",
+    "controlled_inputs": "EOA seller + sybil buyer addresses; repeated list/spotPurchase cycles",
+    "pre_state": "allocations[seller].sold=0, bought=0; original locked allocation A; maxSellPercent=2000 (20%)",
+    "operation_trace": "seller lists 20% to sybil; sybil.bought += amount -> sybil.sellLimit rises by that amount; sybil re-lists; cumulative tokens sold across the cartel exceed 20% of A",
+    "boundary_cases": "after N cycles the cartel's aggregate sold > maxSellPercent*A; the per-user require(sold<=sellLimit) never trips because bought inflates sellLimit",
+    "post_state": "more than maxSellPercent of the original locked allocation has reached external buyers; restriction defeated",
+    "concrete_outcome": "PASS"
+  },
+  "adversarial_ordering": {
+    "proposed_reject_reason": "n/a — supplier asserts a break",
+    "relied_upon_invariant": "a user cannot list/sell more than maxSellPercent of their original allocation",
+    "mechanism_class": "accounting",
+    "counterexample_found": true,
+    "counterexample_trace": "seller->sybil purchase increments sybil.bought; sellLimit = bought + maxSell% of (alloc+sold-bought); repeated buy/resell cycles grow `bought`, raising sellLimit beyond the intended 20% cap on the original allocation",
+    "actor_interleavings_tested": ["seller A vs sybil buyer B repeated cycles"],
+    "boundary_cases_tested": ["cumulative cartel sold > maxSellPercent*A"]
+  },
+  "impact_assessment": {
+    "impact_class": "medium",
+    "proven_magnitude": "significant",
+    "source_true": true,
+    "source_backed": true,
+    "material_consequence": ["denial_of_asset_movement"]
+  },
+
+  "is_gate": false, "research_only": true, "review_only": true,
+  "routes_in_production": false, "routed_manifest_ids": []
+}

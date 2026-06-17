@@ -1,0 +1,24 @@
+{
+  "phase": "P223",
+  "target": "size-credit-2024-06-blind",
+  "discovery_mode": "key_blind_deep_trace_subagents",
+  "subagent_clusters": ["liquidation", "accounting", "offer_market", "custody", "config_multicall"],
+  "sealed_answer_key_sha256": "8eacd8059e1dfbe12b297e044c3a36279edbd5ad7fe98d8319139d856c0a9c23",
+  "answer_key_read_before_freeze": false,
+  "candidate_count": 12,
+  "severity_ceiling_summary": {"High": 1, "Medium": 5, "Low": 6},
+  "candidates": [
+    {"id": "SC-01", "severity_ceiling": "High", "cluster": "custody+config_multicall", "title": "executeDeposit uses address(this).balance not msg.value -> next WETH depositor sweeps mis-sent ETH", "file": "contracts/libraries/actions/Deposit.sol", "function": "executeDeposit", "attacker_model": "permissionless", "confidence": "confirmed", "needs_harness": false},
+    {"id": "SC-02", "severity_ceiling": "Medium", "cluster": "offer_market", "title": "Market-order minimum-credit check applied to cash amount (exactAmountIn semantics)", "file": "contracts/libraries/actions/BuyCreditMarket.sol", "function": "validateBuyCreditMarket", "attacker_model": "permissionless", "confidence": "high", "needs_harness": false},
+    {"id": "SC-03", "severity_ceiling": "Medium", "cluster": "offer_market", "title": "Unvalidated negative APR bricks market orders (SafeCast.toUint256)", "file": "contracts/libraries/YieldCurveLibrary.sol", "function": "getAdjustedAPR/validateYieldCurve", "attacker_model": "permissionless", "confidence": "high", "needs_harness": false},
+    {"id": "SC-04", "severity_ceiling": "Medium", "cluster": "config_multicall", "title": "Compensate fragmentation fee silently waived when payer collateral balance is zero", "file": "contracts/libraries/actions/Compensate.sol", "function": "executeCompensate", "attacker_model": "permissionless", "confidence": "high", "needs_harness": false},
+    {"id": "SC-05", "severity_ceiling": "Low", "cluster": "accounting", "title": "NonTransferrableScaledToken.transferFrom double-rounding dust lock", "file": "contracts/token/NonTransferrableScaledToken.sol", "function": "transferFrom", "attacker_model": "permissionless", "confidence": "high", "needs_harness": true},
+    {"id": "SC-06", "severity_ceiling": "Low", "cluster": "accounting", "title": "getCreditAmountIn no-trade gap reverts in (max - fragmentationFee, max)", "file": "contracts/libraries/AccountingLibrary.sol", "function": "getCreditAmountIn", "attacker_model": "permissionless", "confidence": "medium", "needs_harness": false},
+    {"id": "SC-07", "severity_ceiling": "Medium", "cluster": "liquidation", "title": "SelfLiquidate PERCENT floor stricter than crLiquidation gate -> lender blocked in [100%, crLiquidation)", "file": "contracts/libraries/actions/SelfLiquidate.sol", "function": "validateSelfLiquidate", "attacker_model": "permissionless", "confidence": "confirmed", "needs_harness": false},
+    {"id": "SC-08", "severity_ceiling": "Medium", "cluster": "custody", "title": "borrowATokenCap skipped in multicall -> supply exceeds cap by repaid amount", "file": "contracts/libraries/actions/Deposit.sol", "function": "executeDeposit", "attacker_model": "permissionless", "confidence": "medium", "needs_harness": true},
+    {"id": "SC-09", "severity_ceiling": "Low", "cluster": "custody", "title": "executeWithdraw silently clamps to balance (Math.min), no revert", "file": "contracts/libraries/actions/Withdraw.sol", "function": "executeWithdraw", "attacker_model": "permissionless", "confidence": "high", "needs_harness": false},
+    {"id": "SC-10", "severity_ceiling": "Low", "cluster": "offer_market", "title": "SellCreditMarket existing-position guard compares cash vs credit (non-effective)", "file": "contracts/libraries/actions/SellCreditMarket.sol", "function": "validateSellCreditMarket", "attacker_model": "permissionless", "confidence": "high", "needs_harness": false},
+    {"id": "SC-11", "severity_ceiling": "Low", "cluster": "liquidation", "title": "LiquidateWithReplacement emits transient REPAID UpdateDebtPosition mid-execution", "file": "contracts/libraries/actions/LiquidateWithReplacement.sol", "function": "executeLiquidateWithReplacement", "attacker_model": "keeper", "confidence": "medium", "needs_harness": true},
+    {"id": "SC-12", "severity_ceiling": "Low", "cluster": "accounting", "title": "Claim uses current liquidity index at claim time -> sequential over-disbursement (SC-05 family)", "file": "contracts/libraries/actions/Claim.sol", "function": "executeClaim", "attacker_model": "permissionless", "confidence": "medium", "needs_harness": true}
+  ]
+}

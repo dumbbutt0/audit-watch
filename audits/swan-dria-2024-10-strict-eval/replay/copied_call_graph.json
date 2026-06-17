@@ -1,0 +1,37 @@
+{
+  "call_graph": [
+    {"from": "BuyerAgent.oraclePurchaseRequest", "to": "LLMOracleCoordinator.request", "type": "external", "value_flow": "feeToken from BuyerAgent treasury (max-approved) to Coordinator"},
+    {"from": "BuyerAgent.oracleStateRequest", "to": "LLMOracleCoordinator.request", "type": "external", "value_flow": "feeToken from BuyerAgent treasury to Coordinator"},
+    {"from": "BuyerAgent.purchase", "to": "LLMOracleCoordinator.getBestResponse", "type": "external_view", "value_flow": "none (reads best response output)"},
+    {"from": "BuyerAgent.purchase", "to": "Swan.purchase", "type": "external", "value_flow": "drives NFT + price transfer"},
+    {"from": "BuyerAgent.updateState", "to": "LLMOracleCoordinator.getBestResponse", "type": "external_view", "value_flow": "none"},
+    {"from": "Swan.purchase", "to": "SwanAsset.transferFrom", "type": "external", "value_flow": "NFT seller->Swan->buyer"},
+    {"from": "Swan.purchase", "to": "token.transferFrom/transfer", "type": "external", "value_flow": "price buyer->Swan->seller"},
+    {"from": "Swan.list", "to": "SwanAssetFactory.deploy", "type": "external", "value_flow": "deploys ERC721"},
+    {"from": "Swan.list/relist", "to": "Swan.transferRoyalties", "type": "internal", "value_flow": "listing fee seller->Swan->buyerAgent+owner"},
+    {"from": "Swan.createBuyer", "to": "BuyerAgentFactory.deploy", "type": "external", "value_flow": "deploys BuyerAgent; max-approves coordinator & swan"},
+    {"from": "LLMOracleCoordinator.request", "to": "LLMOracleManager.getFee", "type": "internal_view", "value_flow": "computes fee split"},
+    {"from": "LLMOracleCoordinator.request", "to": "feeToken.transferFrom", "type": "external", "value_flow": "requester->Coordinator total fee"},
+    {"from": "LLMOracleCoordinator.respond", "to": "LLMOracleCoordinator.assertValidNonce", "type": "internal_view", "value_flow": "PoW check"},
+    {"from": "LLMOracleCoordinator.validate", "to": "LLMOracleCoordinator.finalizeValidation", "type": "internal", "value_flow": "computes scores; grants reward allowances"},
+    {"from": "LLMOracleCoordinator.finalizeValidation", "to": "Statistics.stddev", "type": "internal_pure", "value_flow": "mean/stddev over scores"},
+    {"from": "LLMOracleCoordinator.finalizeValidation", "to": "LLMOracleCoordinator._increaseAllowance", "type": "internal", "value_flow": "feeToken approve to generators/validators"},
+    {"from": "LLMOracleCoordinator.respond", "to": "LLMOracleRegistry.isRegistered", "type": "external_view", "value_flow": "auth"},
+    {"from": "Statistics.stddev", "to": "Statistics.variance", "type": "internal_pure", "value_flow": "diff*diff sum"},
+    {"from": "BuyerAgent.getRoundPhase", "to": "SwanManager.getMarketParameters", "type": "external_view", "value_flow": "phase math over param history"}
+  ],
+  "interaction_chains": [
+    {"chain_id": "CH-01", "name": "oracle-validation-finalize", "path": ["BuyerAgent.oraclePurchaseRequest", "LLMOracleCoordinator.request", "respond(xN)", "validate(xM)", "finalizeValidation", "Statistics.stddev", "Statistics.variance"], "danger_score": 5, "note": "Score statistics run on every multi-validation task finalization."},
+    {"chain_id": "CH-02", "name": "best-response-purchase", "path": ["validate", "finalizeValidation (sets scores)", "BuyerAgent.purchase", "getBestResponse", "Swan.purchase"], "danger_score": 5, "note": "Purchase depends on a Completed task + best score; selection driven by validator scores."},
+    {"chain_id": "CH-03", "name": "reward-allowance-vs-withdraw", "path": ["finalizeValidation._increaseAllowance", "withdrawPlatformFees"], "danger_score": 4, "note": "Owner sweep vs reserved oracle reward allowances."},
+    {"chain_id": "CH-04", "name": "validator-score-injection", "path": ["validate(scores)", "finalizeValidation", "getBestResponse"], "danger_score": 4, "note": "Unbounded validator scores bias selection & stats."},
+    {"chain_id": "CH-05", "name": "market-param-round-shift", "path": ["SwanManager.setMarketParameters", "BuyerAgent.getRoundPhase", "_computePhase", "Swan.list/purchase"], "danger_score": 4, "note": "Param append re-derives round/phase for all buyers."},
+    {"chain_id": "CH-06", "name": "purchase-batch-revert", "path": ["BuyerAgent.purchase", "Swan.getListingPrice", "Swan.purchase"], "danger_score": 3, "note": "One bad asset reverts whole batch."}
+  ],
+  "trust_boundary_crossings": [
+    {"boundary": "EOA oracle node -> Coordinator", "functions": ["respond", "validate"], "note": "Permissionless once registered; scores & nonces attacker-controlled within registration."},
+    {"boundary": "Swan owner -> Coordinator/Swan config", "functions": ["setFees", "setParameters", "setDeviationFactors", "setMarketParameters", "withdrawPlatformFees"], "note": "Trusted but powerful; withdraw sweeps full balance."},
+    {"boundary": "Buyer owner/operator -> BuyerAgent", "functions": ["oraclePurchaseRequest", "purchase", "withdraw", "updateState"], "note": "Operator (FirstBatch, centralized) shares auth with buyer owner."},
+    {"boundary": "Seller (EOA) -> Swan", "functions": ["list", "relist"], "note": "Permissionless listing; pays royalty fee."}
+  ]
+}

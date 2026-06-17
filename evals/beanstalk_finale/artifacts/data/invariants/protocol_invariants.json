@@ -1,0 +1,342 @@
+[
+  {
+    "invariant_id": "ACC-001",
+    "category": "ACCOUNTING",
+    "statement": "After a Silo reseed, an account's total stalk equals the sum of stalk contributions across ALL whitelisted tokens it holds, not just the last-processed token.",
+    "formal_expression": "s.accts[a].stalk == SUM_over_tokens( stalkIssuedPerBdv[t]*bdv(a,t) + grownStalk(a,t) )",
+    "state_variables_involved": ["s.accts[account].stalk", "s.accts[account].roots"],
+    "mutating_functions": ["ReseedSilo.reseedSiloDeposit", "ReseedSilo.init"],
+    "violation_consequence": "Accounts holding deposits in >1 token have their stalk overwritten (set, not added) on each token pass; final stalk reflects only the last token reseeded, destroying governance weight and Bean earnings.",
+    "suspicion_score": 5
+  },
+  {
+    "invariant_id": "ACC-002",
+    "category": "ACCOUNTING",
+    "statement": "Global per-token silo balances (deposited, depositedBdv) equal the sum of all migrated account deposits for that token.",
+    "formal_expression": "s.sys.silo.balances[t].deposited == SUM_over_accounts(deposit.amount); same for depositedBdv",
+    "state_variables_involved": ["s.sys.silo.balances[token].deposited", "s.sys.silo.balances[token].depositedBdv"],
+    "mutating_functions": ["L2ContractMigrationFacet.addMigratedDepositsToAccount", "ReseedSilo.reseedSiloDeposit"],
+    "violation_consequence": "In L2ContractMigrationFacet, totalDeposited/totalDepositedBdv are declared but never incremented in the loop, so global balances are overwritten with 0 — corrupting protocol-wide silo accounting (withdrawals, BDV, conversion).",
+    "suspicion_score": 5
+  },
+  {
+    "invariant_id": "ACC-003",
+    "category": "ACCOUNTING",
+    "statement": "Every L1->L2 migration credit (deposits + stalk) for a given owner can be redeemed at most once.",
+    "formal_expression": "redeemed[owner] transitions false->true exactly once; replay reverts",
+    "state_variables_involved": ["s.accts[reciever].deposits", "s.accts[reciever].stalk", "s.accts[reciever].roots"],
+    "mutating_functions": ["L2ContractMigrationFacet.redeemDepositsAndInternalBalances"],
+    "violation_consequence": "No nonce / spent-marker is stored; the same merkle proof + signature can be replayed to repeatedly add deposits/stalk/roots to reciever, minting unbacked silo balance and governance weight.",
+    "suspicion_score": 5
+  },
+  {
+    "invariant_id": "STATE-001",
+    "category": "STATE_MACHINE",
+    "statement": "ReseedField must terminate and assign each account its plots exactly once.",
+    "formal_expression": "for each i: inner loop iterates j in [0, plots.length) exactly once",
+    "state_variables_involved": ["s.accts[account].fields[fieldId].plots", "s.sys.field.pods"],
+    "mutating_functions": ["ReseedField.init"],
+    "violation_consequence": "Inner loop increments `i` instead of `j` (line 49), causing index-out-of-bounds revert (or wrong indexing) — Field reseed cannot complete, bricking the migration of all pods.",
+    "suspicion_score": 5
+  },
+  {
+    "invariant_id": "ACC-004",
+    "category": "ACCOUNTING",
+    "statement": "The cap on externally-migrated L1 Beans must allow the legitimately-migratable supply to be minted on L2.",
+    "formal_expression": "EXTERNAL_L1_BEANS >= total external beans eligible for migration",
+    "state_variables_involved": ["s.sys.migration.migratedL1Beans", "EXTERNAL_L1_BEANS"],
+    "mutating_functions": ["BeanL1RecieverFacet.recieveL1Beans"],
+    "violation_consequence": "EXTERNAL_L1_BEANS is hardcoded to 0, so require(0 >= migratedL1Beans) reverts for any amount>0 — external Bean holders who burned on L1 can never receive L2 Beans (permanent fund loss / DoS).",
+    "suspicion_score": 5
+  },
+  {
+    "invariant_id": "ARITH-001",
+    "category": "ARITHMETIC",
+    "statement": "getTokenPrice must return a TWAP when a lookback>0 is requested and an instantaneous price when lookback==0.",
+    "formal_expression": "lookback>0 => result==TWAP(lookback); lookback==0 => result==spot",
+    "state_variables_involved": ["return value of LibChainlinkOracle.getTokenPrice"],
+    "mutating_functions": ["LibChainlinkOracle.getTokenPrice"],
+    "violation_consequence": "The ternary is inverted: lookback>0 calls getPrice (spot), lookback==0 calls getTwap (which then divides by lookback==0). Manipulation-resistant TWAP requests silently return spot price, and spot requests revert/return 0.",
+    "suspicion_score": 5
+  },
+  {
+    "invariant_id": "CC-001",
+    "category": "CROSS-CONTRACT",
+    "statement": "The migration merkle leaf must commit to the L2 reciever so a signature/proof cannot be redirected.",
+    "formal_expression": "leaf = H(owner, deposits, internalBalances, ownerRoots) AND reciever bound by signature only",
+    "state_variables_involved": ["s.accts[reciever].deposits", "s.accts[reciever].stalk"],
+    "mutating_functions": ["L2ContractMigrationFacet.redeemDepositsAndInternalBalances", "verifyDepositsAndInternalBalances"],
+    "violation_consequence": "Merkle leaf excludes reciever; only the EIP-712 signature binds reciever. Combined with no replay marker, a leaked/observed signature lets anyone replay deposits to an arbitrary reciever.",
+    "suspicion_score": 4
+  },
+  {
+    "invariant_id": "ACC-005",
+    "category": "ACCOUNTING",
+    "statement": "Internal balances reseed: sum of per-farmer balances equals declared total and the farmers/balances arrays are equal length.",
+    "formal_expression": "len(farmers)==len(balances) AND SUM(balances)==totalInternalBalance",
+    "state_variables_involved": ["s.accts[farmer].internalTokenBalance[token]", "s.sys.internalTokenBalanceTotal[token]"],
+    "mutating_functions": ["ReseedInternalBalances.setInternalBalances"],
+    "violation_consequence": "No check that farmers.length==balances.length; mismatched arrays revert (DoS) or, if balances shorter and read defensively, silently truncate. Total guard exists but array-length guard does not.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "ACC-006",
+    "category": "ARITHMETIC",
+    "statement": "Migrated grown-stalk uses the correct stem delta and does not underflow when stem == stemTip.",
+    "formal_expression": "accountStalk += uint96(stemTip - stem) * bdv with stemTip>=stem enforced",
+    "state_variables_involved": ["s.accts[account].stalk"],
+    "mutating_functions": ["L2ContractMigrationFacet.addMigratedDepositsToAccount", "ReseedSilo.reseedSiloDeposit"],
+    "violation_consequence": "stemTip>=stem is checked; but cast uint96(stemTip-stem) of an int96 difference could mis-handle large/negative-domain stems if stems are negative — needs verification that stem signage is bounded.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "ACCESS-001",
+    "category": "ACCESS",
+    "statement": "Reseed/init functions can only be invoked once, during the diamondCut upgrade, by the contract owner.",
+    "formal_expression": "ReseedSilo.init / ReseedField.init / ReseedBarn.init callable only via InitDiamond delegatecall by owner",
+    "state_variables_involved": ["s.sys.silo.balances", "s.sys.field", "s.sys.fert"],
+    "mutating_functions": ["ReseedSilo.init", "ReseedField.init", "ReseedBarn.init", "ReseedBean.init", "ReseedInternalBalances.init"],
+    "violation_consequence": "These init functions are external with no access modifier; if exposed as facet selectors rather than one-shot delegatecalls, anyone could re-run them and overwrite global accounting. Depends on diamondCut wiring.",
+    "suspicion_score": 4
+  },
+  {
+    "invariant_id": "ACCESS-002",
+    "category": "ACCESS",
+    "statement": "Only the canonical L1 cross-domain messenger (with xDomainMessageSender == L1 Beanstalk) can trigger L2 Bean mints.",
+    "formal_expression": "msg.sender==BRIDGE && IL2Messenger(BRIDGE).xDomainMessageSender()==L1BEANSTALK",
+    "state_variables_involved": ["s.sys.migration.migratedL1Beans"],
+    "mutating_functions": ["BeanL1RecieverFacet.recieveL1Beans"],
+    "violation_consequence": "If BRIDGE / L1BEANSTALK constants are wrong for the target L2, mints are either impossible (DoS) or, if mis-set, spoofable. Hardcoded addresses must match deployment.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "STATE-002",
+    "category": "STATE_MACHINE",
+    "statement": "A blueprint (tractor order) cannot be executed more times than its maxNonce.",
+    "formal_expression": "blueprintNonce[hash] < maxNonce required before each run; incremented after",
+    "state_variables_involved": ["TractorStorage.blueprintNonce", "TractorStorage.activePublisher"],
+    "mutating_functions": ["TractorFacet.tractor", "LibTractor._incrementBlueprintNonce", "LibTractor._setPublisher"],
+    "violation_consequence": "If nonce/maxNonce check is missing or off-by-one, an operator can replay a signed blueprint to drain the publisher's allowed actions repeatedly.",
+    "suspicion_score": 4
+  },
+  {
+    "invariant_id": "CC-002",
+    "category": "CROSS-CONTRACT",
+    "statement": "The Tractor EIP-712 domain separator must be standards-compliant so signatures cannot be confused with another domain/typed structure.",
+    "formal_expression": "domainSeparator = H(EIP712Domain typehash, name, version, chainId, this)",
+    "state_variables_involved": ["LibTractor.domainSeparator"],
+    "mutating_functions": ["LibTractor._domainSeparatorV4", "LibTractor._getBlueprintHash"],
+    "violation_consequence": "_domainSeparatorV4 uses BLUEPRINT_TYPE_HASH instead of EIP712_TYPE_HASH as the first encoded field. Self-consistent within the contract (sign==verify), so impact is non-standard tooling/wallet display rather than direct fund loss. Low.",
+    "suspicion_score": 2
+  },
+  {
+    "invariant_id": "ARITH-002",
+    "category": "ARITHMETIC",
+    "statement": "Chainlink TWAP loop must not underflow roundId or read across phase boundaries.",
+    "formal_expression": "roundId-=1 only while a valid prior round exists in the same phaseId",
+    "state_variables_involved": ["LibChainlinkOracle TWAP cumulativePrice"],
+    "mutating_functions": ["LibChainlinkOracle.getTwap"],
+    "violation_consequence": "roundId is decremented by 1 across aggregator phases; Chainlink roundIds encode phaseId in the high bits, so naive -1 can cross into an invalid round, returning 0 (handled) or skewed TWAP.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "SOLV-001",
+    "category": "SOLVENCY",
+    "statement": "Total Bean supply minted on L2 during reseed equals the audited L1 Bean supply snapshot (no inflation).",
+    "formal_expression": "bean.totalSupply() after ReseedBean == beanSupply param == L1 snapshot",
+    "state_variables_involved": ["bean.totalSupply", "well reserves"],
+    "mutating_functions": ["ReseedBean.init", "ReseedBean.deployBean", "ReseedBean.mintAndSync"],
+    "violation_consequence": "beanSupply, well bean amounts, and unripe supplies are all caller-supplied with no on-chain cross-check; an incorrect or malicious init param mints arbitrary Bean. Trust rests entirely on the upgrade caller.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "ACC-007",
+    "category": "ACCOUNTING",
+    "statement": "ReseedBarn fertilizer linked-list (fertFirst/nextFid/fertLast) is well-formed and ascending.",
+    "formal_expression": "fertilizerIds strictly ascending; nextFid forms a single chain from fertFirst to fertLast",
+    "state_variables_involved": ["s.sys.fert.fertFirst", "s.sys.fert.nextFid", "s.sys.fert.fertLast", "s.sys.fert.activeFertilizer"],
+    "mutating_functions": ["ReseedBarn.mintFertilizers", "ReseedBarn.init"],
+    "violation_consequence": "No check enforces ascending order of fertilizerIds; a mis-ordered input corrupts the nextFid linked list used by Sun fertilizer payout iteration, mispaying or stranding fertilizer.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "STATE-003",
+    "category": "STATE_MACHINE",
+    "statement": "L1 Beanstalk must be paused and liquidity moved to BCM before any L2 mint can occur (no double-spend across chains).",
+    "formal_expression": "ReseedL2Migration.init sets paused=true before BeanL2MigrationFacet/burn flow",
+    "state_variables_involved": ["s.paused", "s.pausedAt"],
+    "mutating_functions": ["ReseedL2Migration.init", "BeanL2MigrationFacet.migrateL2Beans"],
+    "violation_consequence": "If pause ordering or LP transfer fails (e.g. a token transfer returns false but is unchecked), liquidity may remain on L1 while L2 mints proceed, enabling cross-chain double-spend.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "ACC-008",
+    "category": "ACCOUNTING",
+    "statement": "mowStatuses.bdv for an account/token equals the sum of that token's deposit BDVs for the account after migration.",
+    "formal_expression": "s.accts[a].mowStatuses[t].bdv == SUM(deposit.bdv for a,t)",
+    "state_variables_involved": ["s.accts[account].mowStatuses[token].bdv", "s.accts[account].mowStatuses[token].lastStem"],
+    "mutating_functions": ["L2ContractMigrationFacet.addMigratedDepositsToAccount", "ReseedSilo.reseedSiloDeposit"],
+    "violation_consequence": "If totalBdvForAccount is computed but the global deposited totals are wrong (ACC-002), mow/germinate math against global vs per-account bdv diverges, breaking stalk-per-season growth.",
+    "suspicion_score": 4
+  },
+  {
+    "invariant_id": "ARITH-003",
+    "category": "ARITHMETIC",
+    "statement": "USD price inversion (1e24 / price) never divides by zero and preserves 6-decimal precision.",
+    "formal_expression": "price>0 before 1e24/price; result has 6 decimals",
+    "state_variables_involved": ["LibUsdOracle return value"],
+    "mutating_functions": ["LibUsdOracle.getUsdPrice", "LibUsdOracle.getTokenPriceFromExternal"],
+    "violation_consequence": "getTokenPriceFromExternal does 1e24/getTokenPrice(...); if the underlying chainlink call returns 0 (frozen feed) the division reverts instead of the documented graceful 0-return, potentially DoSing peg/minting logic.",
+    "suspicion_score": 4
+  },
+  {
+    "invariant_id": "CC-003",
+    "category": "CROSS-CONTRACT",
+    "statement": "Oracle implementation staticcall result decoding reads exactly the returned uint256 price.",
+    "formal_expression": "mload(data+0x20) == returned price; success checked",
+    "state_variables_involved": ["s.sys.oracleImplementation[token]", "tokenPrice"],
+    "mutating_functions": ["LibUsdOracle.getTokenPriceFromExternal"],
+    "violation_consequence": "Custom oracle target is read via low-level staticcall + assembly mload without length check; a malicious/short-return oracle implementation can feed an arbitrary price into peg/minting calculations.",
+    "suspicion_score": 4
+  },
+  {
+    "invariant_id": "ACC-009",
+    "category": "ACCOUNTING",
+    "statement": "Field pods/harvestable/harvested ordering holds: pods >= harvestable >= harvested.",
+    "formal_expression": "totalPods >= harvestable && harvestable >= harvested",
+    "state_variables_involved": ["s.sys.field.pods", "s.sys.field.harvestable", "s.sys.field.harvested"],
+    "mutating_functions": ["ReseedField.init"],
+    "violation_consequence": "Checks exist, but only reachable if the loop (STATE-001) terminates; since the loop is broken, these guards are unreachable and field state is never finalized.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "STATE-004",
+    "category": "STATE_MACHINE",
+    "statement": "activePublisher is reset to address(1) after every tractor execution so no residual delegated context leaks.",
+    "formal_expression": "post-tractor: activePublisher == address(1)",
+    "state_variables_involved": ["TractorStorage.activePublisher"],
+    "mutating_functions": ["LibTractor._setPublisher", "LibTractor._resetPublisher", "TractorFacet.tractor"],
+    "violation_consequence": "If a tractor call reverts after _setPublisher but the reset is not in a finally-equivalent path, a stuck activePublisher could let a later caller act as that publisher. Needs TractorFacet trace.",
+    "suspicion_score": 4
+  },
+  {
+    "invariant_id": "CC-004",
+    "category": "CROSS-CONTRACT",
+    "statement": "Pipeline/Farm arbitrary external calls cannot re-enter Beanstalk to mutate silo/field state mid-operation.",
+    "formal_expression": "no untrusted external call occurs while silo invariants are temporarily false",
+    "state_variables_involved": ["s.accts[*].deposits", "s.sys.silo.balances", "activePublisher"],
+    "mutating_functions": ["FarmFacet.farm", "DepotFacet.pipe", "Pipeline.pipe", "PipelineConvertFacet.pipelineConvert"],
+    "violation_consequence": "Pipeline executes arbitrary user-supplied calls; if invoked while a convert/withdraw leaves balances mid-update and nonReentrant is scoped per-facet only, cross-facet reentrancy could corrupt accounting.",
+    "suspicion_score": 4
+  },
+  {
+    "invariant_id": "ARITH-004",
+    "category": "ARITHMETIC",
+    "statement": "Convert operations preserve BDV: BDV out <= BDV in for non-favorable converts (no stalk minting via convert).",
+    "formal_expression": "bdvOut <= bdvIn unless converting toward peg per whitelist rules",
+    "state_variables_involved": ["deposit.bdv", "s.accts[a].stalk"],
+    "mutating_functions": ["ConvertFacet.convert", "LibConvert.convert", "LibPipelineConvert"],
+    "violation_consequence": "Mispriced convert (e.g. via manipulated well reserves during pipelineConvert) could mint BDV/stalk, inflating governance and Bean earnings.",
+    "suspicion_score": 4
+  },
+  {
+    "invariant_id": "ACC-010",
+    "category": "ACCOUNTING",
+    "statement": "Sum of all account stalk equals s.sys.silo.stalk (total stalk).",
+    "formal_expression": "SUM(s.accts[a].stalk) == s.sys.silo.stalk",
+    "state_variables_involved": ["s.accts[a].stalk", "s.sys.silo.stalk"],
+    "mutating_functions": ["ReseedSilo.reseedSiloDeposit", "LibSilo.mintStalk", "LibSilo.burnStalk"],
+    "violation_consequence": "ReseedSilo never sets the global s.sys.silo.stalk to the sum of issued account stalk (and ACC-001 overwrites per-account stalk), so global vs summed stalk diverge — breaking earned-Bean distribution and governance quorum.",
+    "suspicion_score": 4
+  },
+  {
+    "invariant_id": "ARITH-005",
+    "category": "ARITHMETIC",
+    "statement": "Germinating stalk/roots transitions correctly across the 2-season germination window.",
+    "formal_expression": "germinating deposits do not earn Bean/vote until fully germinated",
+    "state_variables_involved": ["s.accts[a].germinatingStalk", "s.sys.silo.unclaimedGerminating"],
+    "mutating_functions": ["LibGerminate.germinate", "LibSilo.mintGerminatingStalk"],
+    "violation_consequence": "Migrated deposits set stalk directly via reseed; if germination state is not initialized consistently, freshly migrated stalk could vote/earn immediately or be double-counted.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "STATE-005",
+    "category": "STATE_MACHINE",
+    "statement": "sunrise/season advancement is monotonic and cannot be triggered while paused.",
+    "formal_expression": "season strictly increases; gated on !paused",
+    "state_variables_involved": ["s.sys.season.current", "s.paused"],
+    "mutating_functions": ["SeasonFacet.sunrise", "Sun.stepSun", "Weather.calcCaseId"],
+    "violation_consequence": "If pause flag interaction with migration leaves season state inconsistent post-reseed, first sunrise on L2 could mint based on stale deltaB.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "ARITH-006",
+    "category": "ARITHMETIC",
+    "statement": "Flood (sop) distribution does not over-allocate Bean beyond the excess above peg.",
+    "formal_expression": "sopBeans <= deltaB_excess; per-account share sums to total",
+    "state_variables_involved": ["s.sys.season.sop", "s.accts[a].sop"],
+    "mutating_functions": ["LibFlood.handleRain", "LibFlood.sop"],
+    "violation_consequence": "Rounding or share-accumulation error in flood could over-mint Bean to plenty holders, diluting peg.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "ACCESS-003",
+    "category": "ACCESS",
+    "statement": "Only Beanstalk diamond can call Fertilizer.beanstalkMint.",
+    "formal_expression": "msg.sender == beanstalk (owner) for beanstalkMint",
+    "state_variables_involved": ["Fertilizer balances"],
+    "mutating_functions": ["ReseedBarn.mintFertilizers", "Fertilizer.beanstalkMint"],
+    "violation_consequence": "ReseedBarn deploys the Fertilizer proxy with admin=address(this) (the diamond); if beanstalkMint auth is mis-set, fertilizer can be minted by others.",
+    "suspicion_score": 2
+  },
+  {
+    "invariant_id": "ARITH-007",
+    "category": "ARITHMETIC",
+    "statement": "Dibbler sow: pods issued = beans sown * (1 + temperature/SCALE), with no rounding-up favoring the sower beyond soil.",
+    "formal_expression": "pods == beans * (1+temp); soil decremented by beans",
+    "state_variables_involved": ["s.sys.field.soil", "plot pods"],
+    "mutating_functions": ["FieldFacet.sow", "LibDibbler.sow", "LibDibbler.sowNoSoil"],
+    "violation_consequence": "Rounding in morning-auction temperature scaling could let a sower mint excess pods or sow beyond available soil.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "CC-005",
+    "category": "CROSS-CONTRACT",
+    "statement": "Well minting deltaB used for sunrise mint equals the manipulation-resistant pump reserves, not spot reserves.",
+    "formal_expression": "deltaB from cumulative pump TWAP, not instantaneous getReserves",
+    "state_variables_involved": ["well pump reserves", "s.sys.season mint"],
+    "mutating_functions": ["LibWellMinting.capture", "LibDeltaB.currentDeltaB", "Oracle.stepOracle"],
+    "violation_consequence": "If deltaB reads instantaneous reserves anywhere in the mint path (cf. ARITH-001 inverted TWAP), sunrise Bean mint can be manipulated by a flash-loan reserve skew.",
+    "suspicion_score": 4
+  },
+  {
+    "invariant_id": "ACC-011",
+    "category": "ACCOUNTING",
+    "statement": "internalTokenBalanceTotal[token] equals sum of all account internal balances for that token at all times.",
+    "formal_expression": "s.sys.internalTokenBalanceTotal[t] == SUM(s.accts[a].internalTokenBalance[t])",
+    "state_variables_involved": ["s.sys.internalTokenBalanceTotal", "s.accts[a].internalTokenBalance"],
+    "mutating_functions": ["ReseedInternalBalances.setInternalBalances", "LibBalance.increaseInternalBalance", "LibBalance.decreaseInternalBalance"],
+    "violation_consequence": "Reseed sets total = sum within one token but does not reconcile with possibly pre-existing balances; if state is non-empty pre-reseed, totals drift.",
+    "suspicion_score": 2
+  },
+  {
+    "invariant_id": "ACCESS-004",
+    "category": "ACCESS",
+    "statement": "DiamondCut (facet upgrade) requires contract owner.",
+    "formal_expression": "onlyOwner on diamondCut",
+    "state_variables_involved": ["ds.facets", "ds.selectorToFacet"],
+    "mutating_functions": ["DiamondCutFacet.diamondCut", "LibDiamond.diamondCut"],
+    "violation_consequence": "If ownership transfer during reseed leaves owner unset/zero, an attacker could cut in a malicious facet and drain the diamond.",
+    "suspicion_score": 3
+  },
+  {
+    "invariant_id": "ARITH-008",
+    "category": "ARITHMETIC",
+    "statement": "uint128 narrowing of migrated deposit amounts/bdv does not silently truncate values exceeding 2^128.",
+    "formal_expression": "amount,bdv fit in uint128",
+    "state_variables_involved": ["deposit.amount", "deposit.bdv"],
+    "mutating_functions": ["L2ContractMigrationFacet.addMigratedDepositsToAccount"],
+    "violation_consequence": "amounts/bdvs are uint128 in the struct; if real balances exceed uint128 they wrap, but Bean amounts are well below 2^128 — low risk.",
+    "suspicion_score": 1
+  }
+]

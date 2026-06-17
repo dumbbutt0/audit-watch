@@ -1,0 +1,82 @@
+{
+  "agent": "reentrancy",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts (Beanstalk diamond, EIP-2535)",
+  "timestamp": "2026-05-29T00:00:00Z",
+  "findings": [
+    {
+      "id": "RE-001",
+      "title": "Arbitrary-call facets (Farm/Depot/Tractor) lack nonReentrant guard",
+      "severity": "Medium",
+      "vuln_type": "reentrancy",
+      "description": "Beanstalk's reentrancy defense is a hybrid model: a diamond-wide ReentrancyGuard (shared storage slot s.sys.reentrantStatus) applied to the genuinely sensitive Silo/Convert functions (SiloFacet deposit/withdraw/transfer, ConvertFacet.convert, PipelineConvertFacet.pipelineConvert, EnrootFacet, ClaimFacet, MarketplaceFacet, UnripeFacet.chop) PLUS the Invariable balance/stalk/supply modifiers (fundsSafu, noNetFlow, noOutFlow, oneOutFlow, noSupplyChange/Increase) on everything else. The four general-purpose ARBITRARY EXTERNAL CALL entrypoints that the attack-surface map flags as the prime reentrancy surface -- FarmFacet.farm/advancedFarm, DepotFacet.pipe/multiPipe/advancedPipe/etherPipe, TractorFacet.tractor, and the executeAdvancedFarmCalls window inside LibPipelineConvert -- carry NO nonReentrant modifier (FarmFacet nonReentrant=0, DepotFacet nonReentrant=0, TractorFacet nonReentrant=0). They depend entirely on (a) the shared guard being already set by an outer guarded caller, and (b) the Invariable post-conditions. The architectural consequence: when a user enters through one of these unguarded entrypoints (e.g. FarmFacet.farm or DepotFacet.advancedPipe), the shared reentrant flag is NOT set, so an external call made through Pipeline can re-enter the diamond and reach OTHER unguarded state-mutating functions (FieldFacet.sow/harvest -- 0 guards, SeasonFacet.sunrise/gm -- 0 guards, FertilizerFacet.mintFertilizer/claimFertilized -- 0 guards) while the outer batch is mid-execution. Reentry into a nonReentrant function (any Silo/Convert op) IS correctly blocked by the shared flag once one is active; the gap is the unguarded<->unguarded reentry surface, where the only backstop is the Invariable balance equality/inequality checks evaluated at each modifier's closing brace. Those checks defend token *custody* (balances cannot net-decrease) but do NOT defend internal accounting consistency (stalk attribution, deltaB snapshots, soil/temperature, season state) read mid-batch. This is the structural seam that the economic/oracle reserve-skew vectors (see cross_agent_refs) ride on; on its own it is a Medium reentrancy-surface exposure pending a traced consumer that converts the mid-batch state read into fund loss.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/farm/FarmFacet.sol",
+        "function": "farm / advancedFarm (also DepotFacet.advancedPipe, TractorFacet.tractor, LibPipelineConvert.executeAdvancedFarmCalls)",
+        "line_start": 29,
+        "line_end": 51,
+        "code_snippet": "function farm(bytes[] calldata data) external payable fundsSafu withEth returns (bytes[] memory results) { ... }  // no nonReentrant; LibFarm._farm -> facet.delegatecall(data)"
+      },
+      "impact": "An external call routed through Pipeline/Farm/Depot can re-enter the diamond and reach unguarded state-mutating functions (sow, harvest, sunrise, mintFertilizer) while an outer arbitrary-call batch is mid-execution and internal accounting (stalk/deltaB/season) is transiently inconsistent. Token custody is protected by the Invariable balance modifiers, so direct theft is not demonstrated by reentrancy alone; the realized impact is the enabling seam for the reserve-skew/oracle economic exploits tracked by the flash_loan/oracle/economic agents. Standalone severity Medium (state-read inconsistency, no traced direct drain).",
+      "proof_of_concept": "// L1 entry: EOA calls DepotFacet.advancedPipe([... attacker PipeCall ...]) or FarmFacet.farm.\n// No shared guard is set on entry (Depot/Farm are not nonReentrant).\n// L2 state flip: attacker PipeCall target re-enters Beanstalk (e.g. SeasonFacet.sunrise via FarmFacet.farm delegatecall),\n//   mutating deltaB/season mid-batch; vm.load(s.sys.season.current) and well getReserves() asserted changed across the callback.\n// L3 outcome: the outer batch's subsequent read of instantaneous deltaB (LibDeltaB.currentDeltaB -> IWell.getReserves)\n//   reflects the reentrancy-mutated state. PoC must show this converts to mispriced BDV/stalk or reward -- consumer NOT yet traced here.\nfunction test_reentrancy_unguarded_arbitrary_call_window() public {\n    // Setup: deploy attacker contract implementing the Pipeline callback target\n    // Action: DepotFacet.advancedPipe / FarmFacet.farm with a PipeCall that re-enters sunrise/sow\n    // Assert: inner reentry succeeds (no revert) AND outer batch observes mutated season/deltaB state\n}",
+      "recommendation": "Apply the diamond-wide nonReentrant modifier to all general-purpose arbitrary-external-call entrypoints (FarmFacet.farm/advancedFarm, DepotFacet.pipe/multiPipe/advancedPipe/etherPipe, TractorFacet.tractor). This closes the unguarded<->unguarded reentry surface so that no Beanstalk state-mutating function can be re-entered while a Farm/Depot/Tractor/pipelineConvert batch is in flight, regardless of whether the reentered function individually carries the guard. Do not rely solely on Invariable balance checks for reentrancy safety, since they validate custody, not transient internal-accounting consistency.",
+      "references": [
+        {
+          "title": "balanceOf() can be circumvented via reentrancy and two pairs (Sudoswap LSSVM2, Spearbit)",
+          "url": "https://github.com/spearbit/portfolio/blob/master/pdfs/SudoswapLSSVM2-Spearbit-Security-Review.pdf",
+          "source": "solodit"
+        },
+        {
+          "title": "Variation of OpenZeppelin ReentrancyGuard (EIP-2535 shared-storage guard)",
+          "url": "https://eips.ethereum.org/EIPS/eip-2535",
+          "source": "eip"
+        }
+      ],
+      "confidence": "Medium",
+      "attack_surface_rank": 5,
+      "invariant_violated": "CC-004",
+      "ite": {
+        "intent": "Re-enter Beanstalk through an unguarded arbitrary-call entrypoint to read/act on transiently inconsistent internal accounting (stalk/deltaB/season) before the outer batch finalizes.",
+        "technique": "Enter via DepotFacet.advancedPipe or FarmFacet.farm (neither sets s.sys.reentrantStatus). Inside Pipeline, craft a PipeCall whose target calls back into FarmFacet.farm -> delegatecall sunrise/sow/mintFertilizer (also unguarded). The shared guard is not active, so the reentry is not blocked; LibFarm._farm executes the reentered function in diamond context.",
+        "evasion": "Developer intent: Invariable balance modifiers + diamond-wide guard. The gap: the guard is NOT applied to the arbitrary-call entrypoints, so unguarded->unguarded reentry is unblocked; Invariable checks custody (balances) at modifier exit, not transient stalk/deltaB/season accounting consumed mid-batch."
+      },
+      "cross_agent_refs": [
+        "CC-004",
+        "CC-005",
+        "ARITH-004",
+        "ARITH-001"
+      ],
+      "cross_agent_note": "This reentrancy seam is the structural enabler for the reserve-skew economic exploits owned by flash_loan/oracle/economic agents: PipelineConvertFacet.pipelineConvert and SeasonFacet.sunrise read INSTANTANEOUS reserves (LibDeltaB.currentDeltaB -> IWell.getReserves), and the convert stalk-penalty compares before/after deltaB snapshots taken within the same tx (LibPipelineConvert.populatePipelineConvertData vs prepareStalkPenaltyCalculation). The fund-loss consumer lives in those agents' findings (mispriced BDV/stalk mint, over-mint of sunrise reward), not in reentrancy state corruption per se.",
+      "assumption_count": 2,
+      "critical_assumptions": [
+        "A reachable consumer converts the mid-batch state read into fund loss (NOT yet traced end-to-end by this agent; owned by oracle/economic agents).",
+        "An unguarded state-mutating function reentered mid-batch alters state that a later step in the same batch consumes before Invariable re-validation."
+      ],
+      "ice_chain": {
+        "corrupted_state": "Transient internal accounting read during an arbitrary-call batch: well reserves / LibDeltaB.currentDeltaB, s.sys.season state, stalk attribution -- none are persistently corrupted, but they are readable in an inconsistent mid-batch state.",
+        "consumer_found": false,
+        "consumer_function": "PipelineConvertFacet.pipelineConvert stalk-penalty / SeasonFacet.sunrise mint (candidate consumers; manual trace required)",
+        "consumer_action": "Could mint mispriced BDV/stalk or over-issue sunrise reward Beans if the mid-batch reserve/deltaB read is attacker-skewed.",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      },
+      "soft_thread_match": [
+        {
+          "invariant_id": "STATE-005",
+          "note": "score-3 invariant covers same state vars (s.sys.season.current, s.paused); not traced \u2014 consider manual review"
+        }
+      ]
+    }
+  ],
+  "scan_notes": {
+    "guard_consistency_assessment": "The diamond-wide ReentrancyGuard (shared slot s.sys.reentrantStatus) is consistently applied to the genuinely sensitive functions: SiloFacet deposit/withdraw/transfer/safeTransferFrom (nonReentrant=5), ConvertFacet.convert, PipelineConvertFacet.pipelineConvert, EnrootFacet (2), ClaimFacet (2), MarketplaceFacet (3), UnripeFacet.chop/addUnripeToken/addMigratedUnderlying (3), TokenFacet (5), ApprovalFacet (5), L1TokenFacet (4). Cross-facet reentry into ANY guarded function is correctly blocked because the flag is shared diamond-wide (verified: LibFarm._farm uses facet.delegatecall in diamond context, so the same s.sys.reentrantStatus is observed). The gap is that the general-purpose arbitrary-call entrypoints (Farm/Depot/Tractor) and several unguarded mutators (FieldFacet sow/harvest, SeasonFacet sunrise/gm, FertilizerFacet mint/claim) carry no guard and rely on Invariable balance modifiers -- see RE-001.",
+    "false_positives_excluded": [
+      "FertilizerFacet.mintFertilizer -> Fertilizer.beanstalkMint -> _safeMint -> onERC1155Received(buyer) callback: EXCLUDED. The ERC1155 receiver hook fires AFTER all Beanstalk state is finalized (LibFertilizer.addFertilizer and balance writes complete before the callback). Proper CEI; the callback cannot observe half-updated state. Matches agent exclusion 'calls that happen after ALL state is finalised'.",
+      "FertilizerFacet.claimFertilized -> Fertilizer.beanstalkUpdate: EXCLUDED. beanstalkUpdate calls __update directly (no payFertilizer callback; only _update triggers the payFertilizer re-entry, and _update is reached via _beforeTokenTransfer on transfers, not via beanstalkUpdate). claimFertilized then does fertilizedPaidIndex += amount and LibTransfer.sendToken(Bean,...). Bean is a standard ERC20 (no ERC777 hook), so EXTERNAL-mode send has no attacker callback; INTERNAL-mode has no external call at all. No reentrancy.",
+      "FertilizerFacet.payFertilizer callback into Beanstalk: EXCLUDED. Gated by require(msg.sender == C.fertilizerAddress()); only the trusted Fertilizer contract can call it, and it only increments fertilizedPaidIndex + sends Beans INTERNAL. Not an attacker-controlled reentry.",
+      "ConvertFacet.convert / PipelineConvertFacet.pipelineConvert direct reentry: EXCLUDED as a reentrancy bug. Both hold the shared nonReentrant guard, so any reentry into a guarded function reverts. The deposit-withdrawn-then-redeposited window (LibConvert._withdrawTokens -> executeAdvancedFarmCalls -> _depositTokensForConvert) does NOT permit reentry into guarded Silo functions. The reserve-skew between the before/after deltaB snapshots is an oracle/economic price-manipulation issue (ARITH-001/ARITH-004/CC-005), NOT reentrancy state corruption -- referred to those agents.",
+      "TractorFacet.tractor nested reentry: EXCLUDED. LibTractor._setPublisher requires activePublisher <= 1 (unset); a blueprint AdvancedFarmCall that re-enters tractor hits that require and reverts. The publisher latch self-prevents nested tractor calls. Note STATE-004 (reset-on-revert) is handled by whole-tx rollback. Publisher-impersonation/replay concerns are access_control's scope (STATE-002/STATE-004).",
+      "Pipeline.sol (external sandbox): not a reentrancy finding on its own -- it is a permissionless arbitrary-call executor by design ('any assets left in Pipeline can be transferred out by any account'). Beanstalk's safety depends on always sweeping Pipeline within the same tx (LibPipelineConvert.transferTokensFromPipeline) and on the guard/Invariable model on the Beanstalk side."
+    ],
+    "read_only_reentrancy": "Beanstalk exposes many unguarded view getters (SiloGettersFacet 28 views, SeasonGettersFacet 39 views, ConvertGettersFacet 5, OracleFacet 3) and price/value sources (deltaB, BDV, getLockedBeans via TWA reserves). View functions cannot carry nonReentrant. If an EXTERNAL protocol consumes a Beanstalk view (e.g. deltaB, BDV, getLockedBeans, getUnderlyingPerUnripeToken) inside a callback fired while a Beanstalk arbitrary-call batch holds transiently inconsistent state, it could read a skewed value (classic read-only reentrancy). No in-scope Beanstalk consumer of such a stale read was identified; this is an integration risk for third parties rather than an in-protocol drain. Logged here for completeness; not escalated as a standalone in-scope finding."
+  }
+}

@@ -1,0 +1,366 @@
+{
+  "research_only": true,
+  "review_only": true,
+  "is_gate": false,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "phase": "P85",
+  "subject": "munchables-2024-07",
+  "commit": "e9056afd7dbdc3b2c6a25602231af87da6da4bc7",
+  "detector_family": "surface_recall_lens",
+  "lens_machinery_hash": "29a7b915d98a0257",
+  "key_blind": "repo-key-blind + web-blind (residual training contamination acknowledged)",
+  "selection_rule": "FIXED, pre-investigation: single in-scope contract (LandManager.sol) is small -> FULL coverage of all 8 lens-enumerated external entrypoints; ordered by surface_score desc, ties by candidate_id asc. role_expectation is SURFACE-derived (privileged-modifier functions = controls), NOT key-derived.",
+  "controls": [
+    "LandManager.configUpdated",
+    "LandManager.updatePlotMetadata"
+  ],
+  "partial_rule": "complete >=4 conversion leads fully (priority by surface_score); mark rest NOT RUN; NOT-RUN excluded from denominators.",
+  "lead_count": 8,
+  "leads": [
+    {
+      "candidate_id": "LandManager.configUpdated",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "LandManager",
+      "trigger_function": "configUpdated",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function configUpdated() external override onlyConfigStorage",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_reconfigure"
+        ]
+      },
+      "file": "/tmp/p85-munchables/src/managers/LandManager.sol",
+      "visibility": "external",
+      "p85_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "LandManager.stakeMunchable",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "LandManager",
+      "trigger_function": "stakeMunchable",
+      "trigger_lines": null,
+      "suspicious_pattern": "value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function stakeMunchable(\n        address landlord,\n        uint256 tokenId,\n        uint256 plotId\n    ) external override forceFarmPlots(msg.sender) notPaused",
+      "required_followup_questions": [
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "CantStakeToSelfError",
+          "FarmPlotTaken",
+          "InvalidOwnerError",
+          "NotApprovedError",
+          "OccupiedPlotError",
+          "Plot",
+          "PlotTooHighError",
+          "ToilerState"
+        ]
+      },
+      "file": "/tmp/p85-munchables/src/managers/LandManager.sol",
+      "visibility": "external",
+      "p85_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "LandManager.transferToUnoccupiedPlot",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "LandManager",
+      "trigger_function": "transferToUnoccupiedPlot",
+      "trigger_lines": null,
+      "suspicious_pattern": "value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function transferToUnoccupiedPlot(\n        uint256 tokenId,\n        uint256 plotId\n    ) external override forceFarmPlots(msg.sender) notPaused",
+      "required_followup_questions": [
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "FarmPlotLeave",
+          "FarmPlotTaken",
+          "InvalidOwnerError",
+          "NotStakedError",
+          "OccupiedPlotError",
+          "Plot",
+          "PlotTooHighError",
+          "_getMainAccountRequireRegistered"
+        ]
+      },
+      "file": "/tmp/p85-munchables/src/managers/LandManager.sol",
+      "visibility": "external",
+      "p85_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "LandManager.unstakeMunchable",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "LandManager",
+      "trigger_function": "unstakeMunchable",
+      "trigger_lines": null,
+      "suspicious_pattern": "value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function unstakeMunchable(\n        uint256 tokenId\n    ) external override forceFarmPlots(msg.sender) notPaused",
+      "required_followup_questions": [
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "FarmPlotLeave",
+          "InvalidOwnerError",
+          "NotStakedError",
+          "Plot",
+          "ToilerState",
+          "_getMainAccountRequireRegistered",
+          "_removeTokenIdFromStakedList",
+          "transferFrom"
+        ]
+      },
+      "file": "/tmp/p85-munchables/src/managers/LandManager.sol",
+      "visibility": "external",
+      "p85_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "LandManager.updatePlotMetadata",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "LandManager",
+      "trigger_function": "updatePlotMetadata",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function updatePlotMetadata(\n        address landlord\n    ) external override onlyConfiguredContract(StorageKey.AccountManager)",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "PlotMetadata",
+          "UpdatePlotsMeta"
+        ]
+      },
+      "file": "/tmp/p85-munchables/src/managers/LandManager.sol",
+      "visibility": "external",
+      "p85_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "LandManager.updateTaxRate",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "LandManager",
+      "trigger_function": "updateTaxRate",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function updateTaxRate(uint256 newTaxRate) external override notPaused",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "InvalidTaxRateError",
+          "PlotMetadataNotUpdatedError",
+          "TaxRateChanged",
+          "_getMainAccountRequireRegistered"
+        ]
+      },
+      "file": "/tmp/p85-munchables/src/managers/LandManager.sol",
+      "visibility": "external",
+      "p85_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "LandManager.farmPlots",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "LandManager",
+      "trigger_function": "farmPlots",
+      "trigger_lines": null,
+      "suspicious_pattern": "auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function farmPlots() external override notPaused",
+      "required_followup_questions": [
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "auth_boundary"
+      ],
+      "surface_score": 1,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_farmPlots"
+        ]
+      },
+      "file": "/tmp/p85-munchables/src/managers/LandManager.sol",
+      "visibility": "external",
+      "p85_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "LandManager.triggerPlotMetadata",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "LandManager",
+      "trigger_function": "triggerPlotMetadata",
+      "trigger_lines": null,
+      "suspicious_pattern": "auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function triggerPlotMetadata() external override notPaused",
+      "required_followup_questions": [
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "auth_boundary"
+      ],
+      "surface_score": 1,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "PlotMetadata",
+          "PlotMetadataTriggeredError",
+          "UpdatePlotsMeta",
+          "_getMainAccountRequireRegistered"
+        ]
+      },
+      "file": "/tmp/p85-munchables/src/managers/LandManager.sol",
+      "visibility": "external",
+      "p85_role_expectation": "conversion"
+    }
+  ]
+}

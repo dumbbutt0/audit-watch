@@ -1,0 +1,201 @@
+{
+  "phase": "P215",
+  "target": "zetachain-2023-10-holdout",
+  "generated_blind": true,
+  "answer_key_read": false,
+  "cap": {
+    "candidates": 12,
+    "deep_traces": 5,
+    "harnesses": 3
+  },
+  "candidates": [
+    {
+      "id": "ZETA-01",
+      "contract": "ERC20Custody",
+      "function": "withdraw",
+      "file": "contracts/evm/ERC20Custody.sol",
+      "lines": "193-199",
+      "threat_ceiling": "HIGH_THREAD",
+      "claimed_severity": "High",
+      "impact_class": "accounting",
+      "attacker_model": "conditional",
+      "confidence": "High",
+      "title": "ERC20Custody.withdraw transfers exact amount, ignoring fee-on-transfer tokens (custody insolvency)"
+    },
+    {
+      "id": "ZETA-02",
+      "contract": "ERC20Custody",
+      "function": "deposit",
+      "file": "contracts/evm/ERC20Custody.sol",
+      "lines": "165-185",
+      "threat_ceiling": "MEDIUM_THREAD",
+      "claimed_severity": "Medium",
+      "impact_class": "accounting",
+      "attacker_model": "conditional",
+      "confidence": "Medium",
+      "title": "ERC20Custody.deposit zetaFee transfer not balance-checked (fee accounting drift for FoT zeta)"
+    },
+    {
+      "id": "ZETA-03",
+      "contract": "ERC20Custody/ZetaConnectorBase/ZetaNonEth",
+      "function": "updateTSSAddress/updateTssAddress/updateTssAndConnectorAddresses",
+      "file": "contracts/evm/ERC20Custody.sol",
+      "lines": "80-113",
+      "threat_ceiling": "CRITICAL_THREAD",
+      "claimed_severity": "Critical",
+      "impact_class": "access_control",
+      "attacker_model": "privileged",
+      "confidence": "High",
+      "title": "TSS trust-root rotation has no timelock/two-step; single privileged key can redirect custody/mint authority"
+    },
+    {
+      "id": "ZETA-04",
+      "contract": "ZetaConnectorEth/NonEth",
+      "function": "onReceive",
+      "file": "contracts/evm/ZetaConnector.eth.sol",
+      "lines": "52-69",
+      "threat_ceiling": "HIGH_THREAD",
+      "claimed_severity": "High",
+      "impact_class": "access_control",
+      "attacker_model": "conditional",
+      "confidence": "High",
+      "title": "onReceive lacks whenNotPaused (pause does not halt inbound delivery); onRevert has it"
+    },
+    {
+      "id": "ZETA-05",
+      "contract": "ZetaConnectorEth/NonEth",
+      "function": "onReceive/onRevert",
+      "file": "contracts/evm/ZetaConnector.eth.sol",
+      "lines": "52-111",
+      "threat_ceiling": "HIGH_THREAD",
+      "claimed_severity": "High",
+      "impact_class": "theft",
+      "attacker_model": "privileged",
+      "confidence": "High",
+      "title": "No internalSendHash replay/dedup tracking in connectors (double-delivery if TSS replays)"
+    },
+    {
+      "id": "ZETA-06",
+      "contract": "ZetaInteractor",
+      "function": "isValidMessageCall",
+      "file": "contracts/evm/tools/ZetaInteractor.sol",
+      "lines": "23-28",
+      "threat_ceiling": "HIGH_THREAD",
+      "claimed_severity": "High",
+      "impact_class": "cross_chain_auth",
+      "attacker_model": "conditional",
+      "confidence": "Medium",
+      "title": "Uninitialized interactorsByChainId[chain] (empty bytes) lets empty zetaTxSenderAddress pass sender check"
+    },
+    {
+      "id": "ZETA-07",
+      "contract": "ZRC20",
+      "function": "withdrawGasFee/withdraw",
+      "file": "contracts/zevm/ZRC20.sol",
+      "lines": "236-260",
+      "threat_ceiling": "MEDIUM_THREAD",
+      "claimed_severity": "Medium",
+      "impact_class": "accounting",
+      "attacker_model": "conditional",
+      "confidence": "High",
+      "title": "withdrawGasFee has no GAS_LIMIT==0 / gasFee==0 guard (zero gas fee withdrawal)"
+    },
+    {
+      "id": "ZETA-08",
+      "contract": "ZRC20",
+      "function": "deposit/updateSystemContractAddress",
+      "file": "contracts/zevm/ZRC20.sol",
+      "lines": "225-272",
+      "threat_ceiling": "HIGH_THREAD",
+      "claimed_severity": "High",
+      "impact_class": "access_control",
+      "attacker_model": "privileged",
+      "confidence": "High",
+      "title": "Mint authority tied to mutable SYSTEM_CONTRACT_ADDRESS updated with no zero-address guard"
+    },
+    {
+      "id": "ZETA-09",
+      "contract": "ZetaConnectorZEVM",
+      "function": "constructor",
+      "file": "contracts/zevm/ZetaConnectorZEVM.sol",
+      "lines": "79-86",
+      "threat_ceiling": "MEDIUM_THREAD",
+      "claimed_severity": "Medium",
+      "impact_class": "cross_chain_auth",
+      "attacker_model": "permissionless",
+      "confidence": "Medium",
+      "title": "ZetaConnectorZEVM constructor has no FUNGIBLE_MODULE guard (anyone can deploy a connector instance)"
+    },
+    {
+      "id": "ZETA-10",
+      "contract": "ZetaTokenConsumerUniV3/PancakeV3",
+      "function": "getEthFromZeta",
+      "file": "contracts/evm/tools/ZetaTokenConsumerUniV3.strategy.sol",
+      "lines": "124-156",
+      "threat_ceiling": "HIGH_THREAD",
+      "claimed_severity": "High",
+      "impact_class": "theft",
+      "attacker_model": "permissionless",
+      "confidence": "Medium",
+      "title": "getEthFromZeta lacks nonReentrant while sending ETH to caller-controlled destinationAddress (cross-fn reentrancy)"
+    },
+    {
+      "id": "ZETA-11",
+      "contract": "ZetaTokenConsumerTrident",
+      "function": "getZetaFromEth/getZetaFromToken/getEthFromZeta",
+      "file": "contracts/evm/tools/ZetaTokenConsumerTrident.strategy.sol",
+      "lines": "82-115",
+      "threat_ceiling": "HIGH_THREAD",
+      "claimed_severity": "High",
+      "impact_class": "theft",
+      "attacker_model": "conditional",
+      "confidence": "Medium",
+      "title": "Trident strategy uses poolFactory.getPools(...)[0] with no length/zero/legitimacy validation"
+    },
+    {
+      "id": "ZETA-12",
+      "contract": "ZetaTokenConsumer*",
+      "function": "get*Zeta*/get*From*",
+      "file": "contracts/evm/tools/ZetaTokenConsumerUniV2.strategy.sol",
+      "lines": "45-154",
+      "threat_ceiling": "MEDIUM_THREAD",
+      "claimed_severity": "Medium",
+      "impact_class": "griefing",
+      "attacker_model": "permissionless",
+      "confidence": "High",
+      "title": "Swap deadline computed as block.timestamp+MAX_DEADLINE(200s); Trident path has no deadline (weak MEV protection)"
+    }
+  ],
+  "refuted_or_rejected": [
+    {
+      "id": "ZETA-R1",
+      "surface": "ERC20Custody.deposit reentrancy",
+      "reason": "nonReentrant modifier present + balance-delta pattern"
+    },
+    {
+      "id": "ZETA-R2",
+      "surface": "ERC20Custody.whitelist/unwhitelist bypass",
+      "reason": "both guarded by onlyTSS"
+    },
+    {
+      "id": "ZETA-R3",
+      "surface": "ZRC20.transferFrom CEI ordering",
+      "reason": "EVM atomic revert; no token hooks -> not exploitable"
+    },
+    {
+      "id": "ZETA-R4",
+      "surface": "WZETA uint(-1) infinite-allowance no-decrement",
+      "reason": "canonical WETH-by-design; owner explicitly approved max"
+    },
+    {
+      "id": "ZETA-R5",
+      "surface": "ZRC20 Deposit event always emits FUNGIBLE_MODULE as from",
+      "reason": "informational event-attribution only; no fund/state impact"
+    },
+    {
+      "id": "ZETA-R6",
+      "surface": "ZetaNonEth no supply cap (cross-chain)",
+      "reason": "folded into ZETA-03; relies on out-of-scope connector trust"
+    }
+  ]
+}

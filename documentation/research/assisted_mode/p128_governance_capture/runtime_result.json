@@ -1,0 +1,44 @@
+{
+  "phase": "P128",
+  "subject": "forced premature graduation (P126-F) -> governance capture / agent-alive exploitation?",
+  "resolves": "P127 C2 (downstream harm of premature graduation)",
+  "terminal_state": "KILLED_RUNTIME",
+  "primary_question": "After attacker-funded premature graduation, can the attacker use the newly-alive agent/governance state for unauthorized control, value movement, or harm?",
+  "answer": "No. Forced graduation makes the agent alive and lets a >=0.01% holder PROPOSE, but EXECUTING any governance/agent action requires the measured 4% quorum (4,000,000e18). Forced graduation is funded by a currency donation, granting the attacker 0 AIToken and 0 voting power; the attacker's power is graduation-mode-independent (only buying >=4% of supply meets quorum). The only stage-gated Agent functions are governance-owned (revert for the attacker directly) and setProxyImplementation is whitelist-restricted. No downstream capture/value path from forced graduation.",
+  "measured": {
+    "supply": "100000000e18",
+    "quorum_tokens": "4000000e18 (4% of supply)",
+    "proposal_threshold_tokens": "10000e18 (0.01%)",
+    "quorum_comment_discrepancy": "TokenGovernor inline comment says 25%; measured 4% (GovernorVotesQuorumFraction(4)/denominator 100). Incidental; recorded neutrally; not the P128 question; no severity assigned."
+  },
+  "harness": {
+    "type": "iq-ai Foundry project, test-only file under test/audit/, no fork, REAL governance trio",
+    "path": "/tmp/p102-iqai/test/audit/GovernanceCaptureRuntime.t.sol",
+    "command": "forge test --match-contract GovernanceCaptureRuntime --evm-version cancun -vvv",
+    "solc": "0.8.25", "evm": "cancun",
+    "real": ["AIToken (ERC20Votes)", "TokenGovernor (OZ Governor)", "Agent"],
+    "factory_standin": "the test contract (mints/distributes AIToken, implements default/allowedProxyImplementation, drives setStage)"
+  },
+  "scenarios": [
+    {"id": "A", "name": "pre-graduation blocked", "result": "PASS", "evidence": "threshold==max; propose reverts"},
+    {"id": "BC", "name": "graduation state + voting power", "result": "PASS", "evidence": "forced attacker voting power 0; small holder << quorum"},
+    {"id": "D1", "name": "forced attacker capture attempt", "result": "PASS", "evidence": "proposal Defeated (quorum fail); execute reverts; power unchanged"},
+    {"id": "D2", "name": "quorum-holder control (positive)", "result": "PASS", "evidence": "30% holder Succeeds + executes agent.setTokenURI -> CAPTURED (mechanism works only at >=quorum)"},
+    {"id": "E", "name": "agent-alive direct calls", "result": "PASS", "evidence": "setTokenURI/setProxyImplementation revert OwnableUnauthorizedAccount"}
+  ],
+  "governance_path_executed": true,
+  "all_scenarios_pass": true,
+  "runtime_proven": true,
+  "source_only_proof_used": false,
+  "C2_resolution": "BENIGN (no governance-capture / agent-alive exploit enabled by forced graduation)",
+  "feeds_back_to_P127": "C2 benign -> P127 escalation: ACCEPTABLE_SELF-FUNDED_CONTROL if C1 (cost credibility) also benign; otherwise GRIEFING/REPORT_CANDIDATE remains on C1 alone",
+  "awarded": false,
+  "severity_assigned": null,
+  "exploitability_claimed": false,
+  "report_ready": false,
+  "submission_ready": false,
+  "production_wiring": false,
+  "research_only": true,
+  "src_mutated": false,
+  "iqai_src": "unmutated (AIToken d964be8a, TokenGovernor 0c2ad785, Agent ba6d1e29; harness test/audit/ only)"
+}

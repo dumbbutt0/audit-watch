@@ -1,0 +1,418 @@
+{
+  "research_only": true,
+  "review_only": true,
+  "phase": "P81d",
+  "subject": "decent-2024-01-holdout",
+  "source_commit": "decent-bridge 7f90fd4 (audited 2024-01) + UTB-side as cloned",
+  "key_blind": false,
+  "key_seen_in": "P81a (conversion = capability ceiling, not blind proof)",
+  "selection": "conversion-focused, key-informed (disclosed); P81b proved blind surface recall (corrected 8/9 audited)",
+  "excluded_lens_recall_miss": [
+    "DcntEth.setRouter (H-01) \u2014 unguarded setter, lens admin_config_setter requires_auth_modifier; reported as lens-recall miss, NOT a conversion lead"
+  ],
+  "count": 9,
+  "awarded_leads": 6,
+  "control_leads": 3,
+  "leads": [
+    {
+      "candidate_id": "DecentEthRouter.bridge",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "DecentEthRouter",
+      "trigger_function": "bridge",
+      "trigger_lines": null,
+      "suspicious_pattern": "value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function bridge(\n        uint16 _dstChainId,\n        address _toAddress,\n        uint _amount,\n        uint64 _dstGasForCall,\n        bool deliverEth  \n    ) public payable",
+      "required_followup_questions": [
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "value_exit"
+      ],
+      "surface_score": 2,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "_bridgeWithPayload"
+        ]
+      },
+      "file": "audits/decent-2024-01-holdout/contracts/lib/decent-bridge/src/DecentEthRouter.sol",
+      "visibility": "public",
+      "p81d_role": "awarded",
+      "p81d_note": "H-02/H-04/M-02"
+    },
+    {
+      "candidate_id": "DecentBridgeExecutor.execute",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "DecentBridgeExecutor",
+      "trigger_function": "execute",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function execute(\n        address from,\n        address target,\n        bool deliverEth,\n        uint256 amount,\n        bytes memory callPayload\n    ) public onlyOwner",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 6,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": [
+          "_executeEth",
+          "_executeWeth",
+          "transferFrom"
+        ]
+      },
+      "file": "audits/decent-2024-01-holdout/contracts/lib/decent-bridge/src/DecentBridgeExecutor.sol",
+      "visibility": "public",
+      "p81d_role": "awarded",
+      "p81d_note": "H-03"
+    },
+    {
+      "candidate_id": "DecentEthRouter.redeemEth",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "DecentEthRouter",
+      "trigger_function": "redeemEth",
+      "trigger_lines": null,
+      "suspicious_pattern": "fee_path,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function redeemEth(\n        uint256 amount\n    ) public onlyIfWeHaveEnoughReserves(amount)",
+      "required_followup_questions": [
+        "is the fee_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "fee_path",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "payable",
+          "transfer",
+          "transferFrom",
+          "withdraw"
+        ]
+      },
+      "file": "audits/decent-2024-01-holdout/contracts/lib/decent-bridge/src/DecentEthRouter.sol",
+      "visibility": "public",
+      "p81d_role": "awarded",
+      "p81d_note": "M-05"
+    },
+    {
+      "candidate_id": "UTB.receiveFromBridge",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "UTB",
+      "trigger_function": "receiveFromBridge",
+      "trigger_lines": null,
+      "suspicious_pattern": "bridge_receive,refund_path,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function receiveFromBridge(\n        SwapInstructions memory postBridge,\n        address target,\n        address paymentOperator,\n        bytes memory payload,\n        address payable refund\n    ) publ",
+      "required_followup_questions": [
+        "is the bridge_receive surface adequately guarded?",
+        "is the refund_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "bridge_receive",
+        "refund_path",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 8,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": false,
+        "calls": [
+          "_swapAndExecute"
+        ]
+      },
+      "file": "audits/decent-2024-01-holdout/contracts/src/UTB.sol",
+      "visibility": "public",
+      "p81d_role": "awarded",
+      "p81d_note": "M-03"
+    },
+    {
+      "candidate_id": "StargateBridgeAdapter.bridge",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "StargateBridgeAdapter",
+      "trigger_function": "bridge",
+      "trigger_lines": null,
+      "suspicious_pattern": "refund_path,value_exit,calldata_forward,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function bridge(\n        uint256 amt2Bridge,\n        SwapInstructions memory postBridge,\n        uint256 dstChainId,\n        address target,\n        address paymentOperator,\n        bytes memory paylo",
+      "required_followup_questions": [
+        "is the refund_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the calldata_forward surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "refund_path",
+        "value_exit",
+        "calldata_forward",
+        "auth_boundary"
+      ],
+      "surface_score": 7,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": [
+          "IERC20",
+          "approve",
+          "callBridge",
+          "decode",
+          "encode",
+          "transferFrom"
+        ]
+      },
+      "file": "audits/decent-2024-01-holdout/contracts/src/bridge_adapters/StargateBridgeAdapter.sol",
+      "visibility": "public",
+      "p81d_role": "awarded",
+      "p81d_note": "M-04"
+    },
+    {
+      "candidate_id": "UniSwapper.swap",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "UniSwapper",
+      "trigger_function": "swap",
+      "trigger_lines": null,
+      "suspicious_pattern": "refund_path,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function swap(\n        bytes memory swapPayload\n    ) external\n        onlyUtb\n        returns (address tokenOut, uint256 amountOut)",
+      "required_followup_questions": [
+        "is the refund_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "refund_path",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": true,
+        "calls": [
+          "decode",
+          "swapExactIn",
+          "swapExactOut",
+          "swapNoPath"
+        ]
+      },
+      "file": "audits/decent-2024-01-holdout/contracts/src/swappers/UniSwapper.sol",
+      "visibility": "external",
+      "p81d_role": "awarded",
+      "p81d_note": "M-01"
+    },
+    {
+      "candidate_id": "UniSwapper.swapNoPath",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "UniSwapper",
+      "trigger_function": "swapNoPath",
+      "trigger_lines": null,
+      "suspicious_pattern": "refund_path,value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function swapNoPath(\n        SwapParams memory swapParams,\n        address receiver,\n        address refund\n    ) public payable returns (address tokenOut, uint256 amountOut)",
+      "required_followup_questions": [
+        "is the refund_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "refund_path",
+        "value_exit"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "_receiveAndWrapIfNeeded",
+          "_refundUser",
+          "_sendToRecipient"
+        ]
+      },
+      "file": "audits/decent-2024-01-holdout/contracts/src/swappers/UniSwapper.sol",
+      "visibility": "public",
+      "p81d_role": "control",
+      "p81d_note": "P81a-D2 dust"
+    },
+    {
+      "candidate_id": "DcntEth.mintByOwner",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "DcntEth",
+      "trigger_function": "mintByOwner",
+      "trigger_lines": null,
+      "suspicious_pattern": "value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function mintByOwner(address _to, uint256 _amount) public onlyOwner",
+      "required_followup_questions": [
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 3,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_mint"
+        ]
+      },
+      "file": "audits/decent-2024-01-holdout/contracts/lib/decent-bridge/src/DcntEth.sol",
+      "visibility": "public",
+      "p81d_role": "control",
+      "p81d_note": "privileged"
+    },
+    {
+      "candidate_id": "UTB.swapAndExecute",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "UTB",
+      "trigger_function": "swapAndExecute",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,refund_path,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function swapAndExecute(\n        SwapAndExecuteInstructions calldata instructions,\n        FeeStructure calldata fees,\n        bytes calldata signature\n    ) public\n        payable\n        retrieveAnd",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the refund_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "refund_path",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 8,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": false,
+        "calls": [
+          "_swapAndExecute"
+        ]
+      },
+      "file": "audits/decent-2024-01-holdout/contracts/src/UTB.sol",
+      "visibility": "public",
+      "p81d_role": "control",
+      "p81d_note": "defended-entry"
+    }
+  ]
+}

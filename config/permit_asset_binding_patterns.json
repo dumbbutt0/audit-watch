@@ -1,0 +1,25 @@
+{
+  "lens": "permit_asset_binding",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Shape A ONLY: a permit/Permit2-authorized transfer is consumed by protocol logic that has a SINGLE expected asset, but the code never binds permitted.token == expectedAsset (asset/token mismatch). Three-signal AND gate (permit-consume + bound-asset + missing-binding) with router / library / explicit-validation / param-token (asset-agnostic) suppressions. Seed/anchor: Revert Lend H-01 (#368) V3Vault permit2.permitTransferFrom never checks permit.permitted.token == asset. Does NOT detect replay / front-run / recipient / witness / approval-reuse / ERC2771 / msg.value / multicall.",
+
+  "s1_permit_consume": ["permittransferfrom", "permitwitnesstransferfrom", ".permit("],
+  "s1_permit_token_ref": ["permitted.token", "permit.permitted", ".permitted.token", "permittransferfrom"],
+
+  "s2_bound_asset": ["asset", "underlying", "want", "stable", "lendingtoken", "collateraltoken", "asset()", "_asset", "i_asset"],
+  "s2_strong_asset": ["immutable", "asset()", "ierc4626", "vault"],
+
+  "s3_binding_present": ["permitted.token ==", "permitted.token!=", "permitted.token !=", ".token == asset", ".token != asset", "token == asset", "token != asset", "invalidtoken", "wrongtoken", "tokenmismatch", "== address(asset)", "require(permit"],
+
+  "suppress_router_names": ["router", "aggregator", "aggregat", "swaprouter", "zap", "bridge", "periphery", "universalrouter", "dexrouter"],
+  "suppress_library_contracts": ["permit2", "signaturetransfer", "allowancetransfer", "safeerc20", "permit", "selfpermit", "erc20permit", "permithelper", "permit2lib"],
+  "suppress_param_token_terms": ["address tokenin", "address tokenout", "address[] ", "address[] calldata", "tokens[", "route[", "path", "address token,", "address _token,", "address token)", "ierc20 token", "currency"],
+
+  "fp_controls": {
+    "three_signal_required": "S1 permit-consume AND S2 single-bound-asset AND S3 missing-binding; bare 'asset' never fires without S1+S3",
+    "router_suppression": "multi-asset router/aggregator/bridge (by contract/file name OR an arbitrary token/path/tokens[] parameter that flows to the transfer) -> suppressed (intentionally asset-agnostic)",
+    "library_suppression": "the permit primitive itself (Permit2/SignatureTransfer/AllowanceTransfer/SafeERC20/SelfPermit/ERC20Permit) is not an integrator -> suppressed",
+    "explicit_validation_suppression": "an observed equality/inequality binding permit token to the expected asset (or an InvalidToken/TokenMismatch revert) -> S3 fails -> no candidate",
+    "asset_agnostic_suppression": "function whose transferred token comes from a caller-supplied token/path parameter (no single protocol-bound asset) -> suppressed"
+  }
+}

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Candidate Validation — review surface</title>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a; --txt:#dfe3ea; --muted:#8b93a3;
+    --accent:#5b9dff; --good:#36b37e; --warn:#e2b341; --bad:#e5707e; --info:#9a7dff;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.55 system-ui,Segoe UI,Roboto,sans-serif; }
+  header { padding:12px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  a { color:var(--accent); }
+  .badge { font-size:11px; padding:2px 8px; border-radius:10px; border:1px solid var(--line); color:var(--muted); }
+  .badge.ok { color:var(--good); border-color:var(--good); }
+  .wrap { display:grid; grid-template-columns:380px 1fr; height:calc(100vh - 52px); }
+  .col { overflow:auto; }
+  .col.left { border-right:1px solid var(--line); padding:12px; }
+  .col.right { padding:16px 22px; }
+  .group { margin-bottom:14px; }
+  .group h3 { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:6px 0; border-bottom:1px solid var(--line); padding-bottom:4px; }
+  .grp-POC_READY h3 { color:var(--good); } .grp-KILLED h3 { color:var(--bad); }
+  .grp-VALIDATION_READY h3, .grp-REPORT_READY h3 { color:var(--info); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin:6px 0; cursor:pointer; }
+  .card:hover { background:var(--panel2); } .card.sel { border-color:var(--accent); background:#1d2740; }
+  .card .surf { font-weight:600; font-size:13px; } .card .meta { font-size:11px; color:var(--muted); }
+  .card .row2 { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+  .chip { font-size:10px; padding:1px 6px; border-radius:8px; border:1px solid var(--line); color:var(--muted); }
+  .chip.lock { color:var(--good); border-color:var(--good); }
+  .ill { color:var(--warn); border-color:var(--warn); }
+  h2.sec { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); margin:20px 0 6px; border-bottom:1px solid var(--line); padding-bottom:4px; }
+  .summary { background:var(--panel2); border-left:3px solid var(--accent); padding:8px 12px; margin:6px 0; font-size:13px; }
+  .kv { display:flex; gap:8px; margin:3px 0; font-size:13px; } .kv .k { color:var(--muted); min-width:170px; }
+  .kv .v { font-family:var(--mono); word-break:break-word; }
+  table.ev { width:100%; border-collapse:collapse; font-size:12px; margin:6px 0; }
+  table.ev th,table.ev td { text-align:left; padding:4px 7px; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.ev th { color:var(--muted); }
+  pre { background:#0b0d11; border:1px solid var(--line); border-radius:8px; padding:10px; overflow:auto; font-family:var(--mono); font-size:12px; white-space:pre-wrap; max-height:360px; }
+  details { margin:6px 0; } summary { cursor:pointer; color:var(--muted); font-size:12px; }
+  .missing { color:var(--warn); font-size:12px; font-style:italic; }
+  .banner { padding:8px 12px; border-radius:8px; margin:8px 0; font-size:13px; }
+  .banner.ill { background:#3a2a16; color:var(--warn); border:1px solid var(--warn); }
+  .banner.poc { background:#10231a; color:var(--good); border:1px solid var(--good); }
+  .banner.kill { background:#2a1416; color:var(--bad); border:1px solid var(--bad); }
+  .confgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:8px 0; }
+  .confcard { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px; }
+  .confcard .l { font-size:10px; text-transform:uppercase; color:var(--muted); } .confcard .v { font-size:17px; font-weight:700; }
+  .step { border:1px solid var(--line); border-left:3px solid var(--info); border-radius:6px; padding:6px 10px; margin:5px 0; background:var(--panel); }
+  .step .n { font-weight:700; color:var(--info); } .step .m { font-size:11px; color:var(--muted); font-family:var(--mono); }
+  .defense { display:flex; justify-content:space-between; border-bottom:1px dotted var(--line); padding:3px 0; }
+  .cov-covers { color:var(--good); } .cov-partially_covers { color:var(--warn); } .cov-does_not_cover,.cov-unknown { color:var(--muted); }
+  .btn { background:var(--accent); color:#06101f; border:none; border-radius:7px; padding:5px 10px; font-weight:600; cursor:pointer; font-size:12px; }
+  .btn.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .src { font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .nextbox { background:#10231a; border:1px solid var(--good); border-radius:8px; padding:10px 12px; margin:8px 0; }
+  .timeline { list-style:none; padding-left:0; } .timeline li { padding:2px 0; font-size:13px; }
+  .timeline .done::before { content:"● "; color:var(--good); } .timeline .todo::before { content:"○ "; color:var(--muted); }
+  .toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--panel2); border:1px solid var(--line); padding:8px 14px; border-radius:8px; display:none; }
+  .toast.show { display:block; }
+  /* unified track/state badges + synced banner */
+  .filterbar { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:8px; }
+  .filterbar select, .filterbar input { background:var(--panel2); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:4px 6px; font-size:11px; }
+  .tbadge { font-size:9px; padding:1px 6px; border-radius:8px; border:1px solid var(--line); color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .tbadge.runtime { color:var(--info); border-color:var(--info); }
+  .tbadge.funnel { color:var(--accent); border-color:var(--accent); }
+  .tbadge.detector { color:var(--muted); }
+  .tbadge.option_a_campaign { color:#c9a227; border-color:#c9a227; }
+  .sbadge.STATIC_FALSE_POSITIVE, .sbadge.NOT_RUN_TOO_HEAVY { color:var(--muted); border-color:var(--line); }
+  .sbadge { font-size:9px; padding:1px 6px; border-radius:8px; border:1px solid var(--line); color:var(--muted); font-weight:600; }
+  .sbadge.REPORTABLE_CANDIDATE { color:#06101f; background:var(--accent); border-color:var(--accent); }
+  .sbadge.READY_FOR_HUMAN_REVIEW, .sbadge.REPRODUCED, .sbadge.RUNTIME_CONFIRMED { color:var(--good); border-color:var(--good); }
+  .sbadge.PRIVILEGED_ONLY, .sbadge.NEEDS_CONTEXT { color:var(--warn); border-color:var(--warn); }
+  .sbadge.RUNTIME_REFUTED { color:var(--bad); border-color:var(--bad); }
+  .banner.synced { background:#10182a; color:var(--info); border:1px solid var(--info); }
+  .statustext { font-size:12px; color:var(--good); margin:4px 0 2px; }
+  .safetycopy { font-size:11px; color:var(--muted); font-style:italic; border-left:3px solid var(--warn); padding:4px 10px; margin:4px 0; }
+  .rbadge { font-size:10px; padding:1px 7px; border-radius:9px; border:1px solid var(--line); }
+  .rbadge.rdy-ok { color:var(--good); border-color:var(--good); }
+  .rbadge.rdy-block { color:var(--bad); border-color:var(--bad); }
+  .rbadge.rdy-warn { color:var(--warn); border-color:var(--warn); }
+  .rdy-block { color:var(--bad); }
+  select, textarea, input { background:var(--panel2); color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:4px 6px; font-size:12px; }
+  /* verifier template */
+  .vq { font-size:12px; color:var(--accent); margin:4px 0 6px; }
+  .hint { font-size:11px; color:var(--muted); font-style:italic; margin:4px 0 2px; }
+  .keylinks { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin:8px 0; font-size:12px; }
+  .keylinks .kl { display:inline-block; margin:2px 0; }
+  ul.redflags { list-style:none; padding-left:0; margin:4px 0; } ul.redflags li { font-size:12px; color:var(--muted); padding:2px 0; }
+  ul.vlist { margin:2px 0; padding-left:18px; } ul.vlist li { font-size:12px; margin:2px 0; }
+  ol.vsteps { margin:4px 0; padding-left:20px; } ol.vsteps li { font-size:13px; margin:3px 0; }
+  /* classified-status tokens for blank verifier fields (display hint only) */
+  .tok { font-weight:700; font-size:11px; letter-spacing:.02em; }
+  .tok-MISSING_EVIDENCE, .tok-INCOMPLETE_EVIDENCE { color:var(--warn); }
+  .tok-HUMAN_PENDING, .tok-PENDING { color:var(--info); }
+  .tok-NOT_APPLICABLE { color:var(--muted); }
+  .tok-SOURCE_REFUTED { color:var(--bad); }
+  .tok-EXTRACTED { color:var(--good); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Candidate Validation — review surface</h1>
+  <span class="badge">research_only:true</span>
+  <span class="badge">routing_allowed:false</span>
+  <span class="badge ok">read-only</span>
+  <label style="font-size:11px;color:var(--muted)">editor
+    <select id="editorScheme" style="width:auto;padding:2px 4px;font-size:11px">
+      <option value="wsl-unc">VS Code (\\wsl.localhost)</option>
+      <option value="wsl-remote">VS Code (WSL remote)</option>
+      <option value="cursor-wsl">Cursor (WSL remote)</option>
+      <option value="local">local path</option>
+    </select></label>
+  <span style="flex:1"></span>
+  <a href="/funnel">funnel →</a>
+  <a href="/validation">← validation console</a>
+</header>
+<details style="border:1px solid var(--line); border-radius:8px; padding:8px 12px; margin:8px 12px; font-size:12px;">
+  <summary style="cursor:pointer; font-weight:700;">What this page is (and is not)</summary>
+  <ul style="margin:8px 0 4px; padding-left:18px; line-height:1.5;">
+    <li>This is a <b>research-detector candidate browser</b> (lifecycle: RAW → CONTEXT_MAPPED → VALIDATION_READY → POC_READY → REPORT_READY → KILLED).</li>
+    <li>It shows <b>no submission, bounty, accepted, or SUBMITTED state</b> — <code>routing_allowed:false</code>. POC_READY/REPORT_READY are research lifecycle states, <b>not</b> a submission approval.</li>
+    <li><b>The authoritative assisted-mode submission, PoC-handoff, human-gate, and outcome state lives on <a href="/funnel">/funnel</a></b>. This page is a separate domain; seeing no funnel metrics here is correct.</li>
+  </ul>
+  <p style="margin:6px 0 0; color:var(--muted); font-size:11px;">Operational: after code changes, restart <code>python scripts/dashboard.py</code> and hard-refresh to clear stale server modules and cached JS.</p>
+</details>
+<div class="wrap">
+  <div class="col left" id="listCol"><p style="color:var(--muted)">Loading candidates…</p></div>
+  <div class="col right" id="detailCol"><p style="color:var(--muted)">Select a candidate to see its full validation packet.</p></div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="/static/candidates.js?v=pkgstatus"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "research_only": true, "is_gate": false, "emits_findings": false, "severity": null, "reportable": false,
+  "submission_ready": false, "concluded": false,
+  "candidate": "StakingRewards._increaseUserShare", "pattern": "FIRST_DEPOSITOR_ZERO_SUPPLY",
+  "recommended_poc_tier": "Tier-C faithful reproduction (verbatim _increaseUserShare/_decreaseUserShare/userRewardForPool control-flow + mock SALT; forge-std only)",
+  "initial_state": "pool with totalShares==0 and totalRewards[poolID] seeded > 0 (rewards added before any share exists)",
+  "sequence": [
+    "L1: attacker EOA calls a public entry that reaches _increaseUserShare at totalShares==0 (first depositor) -> virtualRewards snapshot SKIPPED (existingTotalShares==0 branch)",
+    "L2: a second user increases share at totalShares>0 -> their virtualRewards is snapshotted via ceilDiv(totalRewards*amount, existingTotalShares)",
+    "L3: compare userRewardForPool(firstDepositor) vs a control where the first depositor's virtualRewards is checkpointed to the current ratio"
+  ],
+  "expected_delta": "the zero-supply first depositor's claimable (rewardsShare - virtualRewards, virtualRewards==0) diverges from the checkpointed-control claimable -> captures/avoids reward value relative to later depositors",
+  "assertion": "assert userRewardForPool(firstDepositor) != userRewardForPool_controlCheckpointed(firstDepositor) for the same global reward/share state",
+  "control_refutation": "if the first depositor's virtualRewards were initialized to the same ratio as later depositors, the divergence vanishes",
+  "source_anchors": {"snapshot_skip": "StakingRewards.sol:78 if (existingTotalShares != 0)", "snapshot": "StakingRewards.sol:83 user.virtualRewards += ...", "pending_formula": "StakingRewards.sol:243-251 userRewardForPool"}
+}

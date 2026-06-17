@@ -1,0 +1,19 @@
+{
+  "_doc": "P304 in-session adjudication of each AWARDED centrifuge finding vs the COLD-surfaced set. Mechanism-based, P287/P295 vocabulary; key not seen before discovery froze. P303-class annotations included.",
+  "M-01": {"match_level": "SUBSYSTEM_ONLY_RECALL", "surfaced_id": "CC-01",
+    "evidence": "Awarded: Axelar Router onlyCentrifugeChainOrigin can't verify msg.sender==axelarGateway. Surfaced CC-01 flagged the inbound cross-chain message-auth/router-trust subsystem (Gateway.handle/incomingRouters) generically, but not the specific Axelar Router modifier bug (axelar/Router.sol was not deep-read). Same subsystem, different contract/mechanism."},
+  "M-02": {"match_level": "SAME_AREA_WRONG_MECHANISM", "surfaced_id": "DT-01/TI-01",
+    "evidence": "Awarded: requestRedeemWithPermit can be front-run via a different liquidity pool (permit not bound to pool). Surfaced flagged the SAME functions (requestDeposit/RedeemWithPermit) but for the non-standard-permit-DoS mechanism (P303 class), not the cross-pool front-run. Same locus, different mechanism. P303 permit-class awareness is why the permit functions were flagged at all."},
+  "M-03": {"match_level": "MISSED", "surfaced_id": null,
+    "evidence": "Cached DOMAIN_SEPARATOR computed at ERC20 construction with the (then-empty) tranche name, which is set later via file('name') -> permit digest mismatch. Not surfaced: a cross-contract EIP-712 lifecycle bug (token name set post-deploy). New class."},
+  "M-04": {"match_level": "MISSED", "surfaced_id": null,
+    "evidence": "Griefing: depositing a tiny amount for another user to DoS their claim. Not surfaced: a deposit-for-others griefing/DoS mechanism. New class."},
+  "M-05": {"match_level": "SUBSYSTEM_ONLY_RECALL", "surfaced_id": "DT-02/E46-01",
+    "evidence": "Awarded: claiming maxDeposit via deposit() can leave other investors unable to claim their maxDeposit/maxMint (shared-escrow / per-user orderbook depletion). Surfaced examined the processDeposit/orderbook/escrow flow (and flagged convert/price issues there) but did not name the cross-user shared-escrow depletion. Same subsystem, mechanism not isolated."},
+  "M-06": {"match_level": "MISSED", "surfaced_id": null,
+    "evidence": "DelayedAdmin cannot call PauseAdmin.removePauser (admin wiring/permission gap). Not surfaced: admins/DelayedAdmin.sol + PauseAdmin.sol were not deep-read. New class (admin wiring)."},
+  "M-07": {"match_level": "SAME_AREA_WRONG_MECHANISM", "surfaced_id": "AR-01",
+    "evidence": "Awarded: trancheTokenAmount should be rounded UP on withdraw/previewWithdraw (currently Rounding.Down everywhere). Surfaced AR-01 flagged the same _calculate*/price-decimal math but for an overflow mechanism, not the rounding-direction bug. Same functions, different mechanism."},
+  "M-08": {"match_level": "STRONG_MECHANISM_MATCH", "surfaced_id": "DT-04/LG-01",
+    "evidence": "Awarded: RestrictionManager does not fully implement ERC1404 -> restricted accounts retain access. Surfaced DT-04/LG-01: detectTransferRestriction only checks hasMember(to) (no sender gating) and members cannot be immediately frozen. Same root cause and locus."}
+}

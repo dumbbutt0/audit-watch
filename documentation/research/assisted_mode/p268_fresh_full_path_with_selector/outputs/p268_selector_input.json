@@ -1,0 +1,44 @@
+{
+  "_doc": "P268 B/C top-2 pairs -> frozen P267 selector. Dimensions assigned BLIND from karak source (pre-reveal), NOT award labels.",
+  "pairs": [
+    {
+      "case": "C1_redeem",
+      "M1": {"id": "C1_finishRedeem_accounting", "label": "permissionless finishRedeem + spot/donation accounting manipulation",
+             "impact_class": "accounting_corruption", "value_at_risk": "multi_user", "victim_gainer_clarity": "partial",
+             "intent_violation": "invariant_or_comparand", "attacker_control": "permissionless", "persistence": "permanent",
+             "refutation_resistance": "conditional", "poc_feasibility": "hard",
+             "falsifier": "virtual shares / snapshot rate at startRedeem neutralizes finish-time manipulation"},
+      "M2": {"id": "C1_startRedeem_approval_revert", "label": "startRedeem self-approval requirement -> griefing revert",
+             "impact_class": "griefing_minor", "value_at_risk": "single_op", "victim_gainer_clarity": "weak",
+             "intent_violation": "none", "attacker_control": "conditional", "persistence": "one_off",
+             "refutation_resistance": "conditional", "poc_feasibility": "easy",
+             "falsifier": "vault auto-approves or solady treats self-transfer specially"}
+    },
+    {
+      "case": "C2_mint_inflation",
+      "M1": {"id": "C2_first_depositor_inflation", "label": "first-depositor share-inflation via donation",
+             "impact_class": "stranded_funds", "value_at_risk": "multi_user", "victim_gainer_clarity": "clear",
+             "intent_violation": "invariant_or_comparand", "attacker_control": "permissionless", "persistence": "repeatable",
+             "refutation_resistance": "conditional", "poc_feasibility": "moderate",
+             "falsifier": "solady _useVirtualShares()=true neutralizes inflation"},
+      "M2": {"id": "C2_dust_zero_share", "label": "tiny-deposit zero-share rounding",
+             "impact_class": "dust_rounding", "value_at_risk": "dust", "victim_gainer_clarity": "weak",
+             "intent_violation": "none", "attacker_control": "conditional", "persistence": "one_off",
+             "refutation_resistance": "conditional", "poc_feasibility": "easy",
+             "falsifier": "rounding favors the vault harmlessly"}
+    },
+    {
+      "case": "Cneg_slashing",
+      "M1": {"id": "Cneg_slashing_accounting", "label": "slashing manipulates vault accounting",
+             "impact_class": "accounting_corruption", "value_at_risk": "multi_user", "victim_gainer_clarity": "partial",
+             "intent_violation": "documented_intent", "attacker_control": "privileged", "persistence": "permanent",
+             "refutation_resistance": "refuted", "poc_feasibility": "hard",
+             "falsifier": "requestSlashing is Core/operator-gated -> no unprivileged path"},
+      "M2": {"id": "Cneg_no_path", "label": "gated, no permissionless path",
+             "impact_class": "griefing_minor", "value_at_risk": "single_op", "victim_gainer_clarity": "weak",
+             "intent_violation": "none", "attacker_control": "none", "persistence": "one_off",
+             "refutation_resistance": "refuted", "poc_feasibility": "easy",
+             "falsifier": "n/a"}
+    }
+  ]
+}

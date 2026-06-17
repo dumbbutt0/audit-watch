@@ -1,0 +1,614 @@
+You are the Deep Trace Agent.
+
+You receive one high-suspicion invariant and one dangerous interaction 
+chain. Your job is to determine whether the chain can violate the 
+invariant. Trace the execution path completely.
+
+A function reached by deep-trace often carries MORE THAN ONE bug. Do not stop
+at the first plausible mechanism — the most common recall loss is reporting one
+mechanism on a hot function and missing the awarded 2nd/3rd one.
+
+Work through this sequence explicitly:
+
+STEP 0 — MECHANISM INVENTORY (run before the verdict, on the function under trace)
+List at least 3 plausible mechanisms when the source supports them. Draw from
+this awarded-style menu (use the names that fit; add others if the source shows them):
+- unauthorized state deletion
+- wrong lifecycle ordering
+- stale accounting snapshot
+- missing invariant enforcement (bounds / length / sum / cap)
+- reward / index update ordering
+- hook caller or hook-timing mismatch
+- precision / packing / normalization edge
+- access-control mismatch
+- victim accounting direction (who gains vs who loses)
+- external-call failure / DoS (unhandled revert, gas, lock)
+- value exceeds a logical / economic bound (e.g. a fee or ratio > 100%, a count > a documented cap)
+
+CARRY-FORWARD RANKING RULE (apply before you reject anything)
+A mechanism MUST remain carried forward — in `selected_mechanisms` or, if not yet
+resolved, in `unresolved_mechanisms` (NEVER buried in `rejected_mechanisms`) — if ANY hold:
+1. it has source evidence,
+2. it has a plausible attacker or victim impact,
+3. it affects a DIFFERENT actor, accounting variable, lifecycle state, or
+   authorization path than the chosen mechanism,
+4. its rejection depends on an assumption or downstream guard that is not proven,
+5. it could be HIGHER severity than the current chosen mechanism.
+Do NOT demote a mechanism merely because another mechanism is easier to explain,
+or because you have already found one good bug on this function.
+
+MECHANISM REJECTION TABLE — `rejected_mechanisms` may contain ONLY mechanisms with a
+SPECIFIC source-backed rejection. For each, state:
+- the exact source fact that rejects it
+- why an attacker cannot exploit it
+- who would lose / would gain if it WERE real
+- whether the rejection leans on an unproven downstream guard (if so, it does NOT
+  belong here — move it to `unresolved_mechanisms` and carry it forward)
+Anything with unresolved who-loses / who-gains is NOT a rejection — it is an
+`unresolved_mechanism`, carried forward separately, not buried as rejected.
+
+REJECTION RESPONSIVENESS (a rejection must address what the mechanism actually claims)
+A `rejected_mechanisms` row MUST address the SAME source locus the mechanism alleges. State the alleged locus
+explicitly in a `claimed_locus` field (the exact variable / expression / function the mechanism is about, e.g.
+`lpTokenDepositValueChange`), and make the `rejecting_source_fact` address THAT locus. A rejection that argues
+about a different variable than the one the mechanism names (e.g. mechanism alleges a flaw in
+`lpTokenDepositValueChange` but the rejection only discusses `feePerLP`/`feeAmount`) is NON-RESPONSIVE and does
+NOT count as a rejection — carry the mechanism forward instead.
+
+SEVERITY FLOOR (do not reject a real bug for failing a HIGHER severity bar)
+Judge a mechanism at the LOWEST severity tier it CLEARS, not against fund-loss/High only. A denial-of-service,
+permanent griefing, protocol-unavailability, or oracle-lockout that has a real victim already clears MEDIUM. Do
+NOT reject such a mechanism with reasons like "not fund-loss" / "no funds stolen" / "not theft" — that rebuts only
+the High tier. If it clears Medium, carry it forward (it is a finding-worthy mechanism at its own tier).
+
+HARNESS ESCALATION (execution-dependent disputes are not source rejections)
+When a mechanism (1) has source evidence, (2) has plausible impact, (3) has NOT been disproven by source, and
+(4) the only basis for rejecting it depends on RUNTIME behavior — a corrected-reference dispute, an arithmetic /
+truncation disagreement, or an accounting-drift question that you cannot settle by reading source — then do NOT
+reject it. Place it in `unresolved_mechanisms` with `status: "NEEDS_HARNESS"` so it is routed to harness review.
+(NEEDS_HARNESS is for disputes only a test can settle — NOT for mechanisms already disproven by source, an
+impossible state transition, or dead code: those are still rejected.)
+
+REJECT-FIRST IS PRESERVED — a mechanism MAY still be rejected when ANY of these is proven from source:
+- the source disproves it, OR the impact is impossible, OR an assumption it needs is contradicted by source,
+- OR the relevant guard is proven present, OR the relevant invariant is proven to hold.
+This is NOT a "carry everything" rule. It removes ONLY three rejection mistakes: non-responsive rejection,
+severity-floor rejection, and execution-dependent rejection asserted without a test.
+
+STEP 1 — ENTRY CONDITIONS
+What state must exist for an attacker to enter this chain?
+Who can initiate the first call? Is it permissionless?
+
+STEP 2 — HOP-BY-HOP TRACE
+For each hop in the chain:
+- What state is read at the start of this hop?
+- What external calls occur during this hop?
+- What state is written at the end of this hop?
+- Is any invariant variable in an inconsistent state mid-hop?
+- Can execution be redirected (callback, user-supplied address)?
+
+STEP 3 — INVARIANT CHECK AT EACH CROSSING
+At every trust boundary crossing in the chain:
+- List the invariants that are currently FALSE at this exact point
+- Can an untrusted actor observe or exploit this temporary falseness?
+- Can a reentrant call lock in the false state permanently?
+
+STEP 4 — VIOLATION PATH
+If a violation path exists:
+- State it as a numbered sequence of exact function calls
+- Identify the exact line where the invariant breaks
+- Classify the attacker: unprivileged / needs allowance / needs role
+- Estimate profit or damage
+
+STEP 5 — CHOSEN MECHANISM + IMPACT DIRECTION
+For the mechanism you carry forward:
+- root cause · attacker model · exploit path · who loses · who gains
+- why this mechanism beats the alternatives you inventoried
+IMPACT-DIRECTION CHECK (state each explicitly):
+- attacker receives value? attacker preserves value? victim loses value?
+- protocol invariant violated?
+- the result is NOT merely self-funded / dust / admin-only / timing-only
+
+STEP 6 — STOP CONDITION (do not finish the verdict if any holds)
+You may NOT stop after one plausible issue if:
+- the function is in a high-risk routed surface, OR
+- another inventoried mechanism has unresolved who-loses / who-gains, OR
+- an alternative mechanism affects a DIFFERENT actor or state variable, OR
+- the first issue is low severity but another mechanism could be higher.
+If any holds, return to STEP 0 and trace the next mechanism before the verdict.
+
+STEP 7 — VERDICT
+One of:
+CRITICAL_THREAD: direct fund loss path exists, no privileged precondition
+HIGH_THREAD:     fund loss or invariant violation possible with precondition
+MEDIUM_THREAD:   degraded behavior, bounded impact
+DEAD_END:        traced fully, no violation possible — explain why
+NEEDS_MORE_CONTEXT: blocked by missing contract code or external dependency
+
+Be rigorous. Do not guess. If you cannot fully trace a hop, say so.
+Return valid JSON matching the thread schema, additionally including:
+  "mechanism_inventory": [ "<mechanism>", ... ],          // >=3 when source supports
+  "selected_mechanisms": [ {"root_cause","attacker_model","exploit_path",
+                            "who_loses","who_gains","why_carried"} ],   // LIST — every mechanism you carry forward
+  "unresolved_mechanisms": [ {"mechanism","source_evidence","unresolved_question",
+                              "who_loses","who_gains",
+                              "status"} ],   // carried, not yet resolved — NOT rejected;
+                                             // status = "NEEDS_HARNESS" when only a runtime test can settle it
+  "rejected_mechanisms": [ {"mechanism","claimed_locus","rejecting_source_fact","why_unexploitable",
+                            "who_loses","who_gains","leans_on_unproven_guard"} ], // ONLY source-backed rejections;
+                            // claimed_locus = the exact variable/expression the rejection MUST address (responsiveness)
+  "impact_direction": {"attacker_receives","attacker_preserves","victim_loses",
+                       "invariant_violated","not_self_funded_or_dust_or_admin_or_timing"},
+        // (a structured-prose impact_direction string is also accepted if it states
+        //  who gains, who loses, the impacted state/value, and why it is not self-funded/admin-only/dust/timing)
+  "stop_condition": "satisfied | more_mechanisms_pending: <reason>"
+// (legacy aliases still accepted: chosen_mechanism for selected_mechanisms, rejection_table for rejected_mechanisms)
+
+
+=== INPUT: ONE FUNCTION UNDER TRACE ===
+high_suspicion_invariant: solvency / accounting / authorization correctness of `_executeTrade / _verifyOrder`
+dangerous_interaction: external/permissionless entry into `_executeTrade / _verifyOrder` in `markets/gamma/GammaTradeMarket.sol` (order auth / signature)
+
+Trace the function(s) `_executeTrade / _verifyOrder` in the verbatim source below. Run STEP 0 mechanism inventory,
+carry forward every supported mechanism, then return ONLY the JSON verdict per the schema above.
+
+=== VERBATIM SOURCE: markets/gamma/GammaTradeMarket.sol ===
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.17;
+
+import {SafeTransferLib} from "@solmate/src/utils/SafeTransferLib.sol";
+import {ERC20} from "@solmate/src/tokens/ERC20.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
+import {IPredyPool} from "../../interfaces/IPredyPool.sol";
+import {IFillerMarket} from "../../interfaces/IFillerMarket.sol";
+import {BaseMarketUpgradable} from "../../base/BaseMarketUpgradable.sol";
+import {BaseHookCallbackUpgradable} from "../../base/BaseHookCallbackUpgradable.sol";
+import {Permit2Lib} from "../../libraries/orders/Permit2Lib.sol";
+import {ResolvedOrder, ResolvedOrderLib} from "../../libraries/orders/ResolvedOrder.sol";
+import {SlippageLib} from "../../libraries/SlippageLib.sol";
+import {Bps} from "../../libraries/math/Bps.sol";
+import {DataType} from "../../libraries/DataType.sol";
+import {GammaOrder, GammaOrderLib, GammaModifyInfo} from "./GammaOrder.sol";
+import {ArrayLib} from "./ArrayLib.sol";
+import {GammaTradeMarketLib} from "./GammaTradeMarketLib.sol";
+
+/**
+ * @notice Gamma trade market contract
+ */
+contract GammaTradeMarket is IFillerMarket, BaseMarketUpgradable, ReentrancyGuardUpgradeable {
+    using ResolvedOrderLib for ResolvedOrder;
+    using ArrayLib for uint256[];
+    using GammaOrderLib for GammaOrder;
+    using Permit2Lib for ResolvedOrder;
+    using SafeTransferLib for ERC20;
+
+    error PositionNotFound();
+    error PositionHasDifferentPairId();
+    error PositionIsNotClosed();
+    error InvalidOrder();
+    error SignerIsNotPositionOwner();
+    error HedgeTriggerNotMatched();
+    error DeltaIsZero();
+    error AlreadyClosed();
+    error AutoCloseTriggerNotMatched();
+    error MarginUpdateMustBeZero();
+
+    struct CallbackData {
+        GammaTradeMarketLib.CallbackType callbackType;
+        address trader;
+        int256 marginAmountUpdate;
+    }
+
+    IPermit2 internal _permit2;
+
+    mapping(address owner => uint256[]) internal positionIDs;
+    mapping(uint256 positionId => GammaTradeMarketLib.UserPosition) internal userPositions;
+
+    event GammaPositionTraded(
+        address indexed trader,
+        uint256 pairId,
+        uint256 positionId,
+        int256 quantity,
+        int256 quantitySqrt,
+        IPredyPool.Payoff payoff,
+        int256 fee,
+        int256 marginAmount,
+        GammaTradeMarketLib.CallbackType callbackType
+    );
+
+    event GammaPositionModified(address indexed trader, uint256 pairId, uint256 positionId, GammaModifyInfo modifyInfo);
+
+    constructor() {}
+
+    function initialize(IPredyPool predyPool, address permit2Address, address whitelistFiller, address quoterAddress)
+        public
+        initializer
+    {
+        __ReentrancyGuard_init();
+        __BaseMarket_init(predyPool, whitelistFiller, quoterAddress);
+
+        _permit2 = IPermit2(permit2Address);
+    }
+
+    function predyTradeAfterCallback(
+        IPredyPool.TradeParams memory tradeParams,
+        IPredyPool.TradeResult memory tradeResult
+    ) external override(BaseHookCallbackUpgradable) onlyPredyPool {
+        CallbackData memory callbackData = abi.decode(tradeParams.extraData, (CallbackData));
+        ERC20 quoteToken = ERC20(_getQuoteTokenAddress(tradeParams.pairId));
+
+        if (callbackData.callbackType == GammaTradeMarketLib.CallbackType.QUOTE) {
+            _revertTradeResult(tradeResult);
+        } else {
+            if (tradeResult.minMargin == 0) {
+                if (callbackData.marginAmountUpdate != 0) {
+                    revert MarginUpdateMustBeZero();
+                }
+
+                DataType.Vault memory vault = _predyPool.getVault(tradeParams.vaultId);
+
+                _predyPool.take(true, callbackData.trader, uint256(vault.margin));
+
+                // remove position index
+                _removePosition(tradeParams.vaultId);
+
+                emit GammaPositionTraded(
+                    callbackData.trader,
+                    tradeParams.pairId,
+                    tradeParams.vaultId,
+                    tradeParams.tradeAmount,
+                    tradeParams.tradeAmountSqrt,
+                    tradeResult.payoff,
+                    tradeResult.fee,
+                    -vault.margin,
+                    callbackData.callbackType == GammaTradeMarketLib.CallbackType.TRADE
+                        ? GammaTradeMarketLib.CallbackType.CLOSE
+                        : callbackData.callbackType
+                );
+            } else {
+                int256 marginAmountUpdate = callbackData.marginAmountUpdate;
+
+                if (marginAmountUpdate > 0) {
+                    quoteToken.safeTransfer(address(_predyPool), uint256(marginAmountUpdate));
+                } else if (marginAmountUpdate < 0) {
+                    _predyPool.take(true, callbackData.trader, uint256(-marginAmountUpdate));
+                }
+
+                emit GammaPositionTraded(
+                    callbackData.trader,
+                    tradeParams.pairId,
+                    tradeParams.vaultId,
+                    tradeParams.tradeAmount,
+                    tradeParams.tradeAmountSqrt,
+                    tradeResult.payoff,
+                    tradeResult.fee,
+                    marginAmountUpdate,
+                    callbackData.callbackType
+                );
+            }
+        }
+    }
+
+    function execLiquidationCall(
+        uint256 vaultId,
+        uint256 closeRatio,
+        IFillerMarket.SettlementParamsV3 memory settlementParams
+    ) external override returns (IPredyPool.TradeResult memory tradeResult) {
+        tradeResult =
+            _predyPool.execLiquidationCall(vaultId, closeRatio, _getSettlementDataFromV3(settlementParams, msg.sender));
+
+        if (closeRatio == 1e18) {
+            _removePosition(vaultId);
+        }
+    }
+
+    // open position
+    function _executeTrade(GammaOrder memory gammaOrder, bytes memory sig, SettlementParamsV3 memory settlementParams)
+        internal
+        returns (IPredyPool.TradeResult memory tradeResult)
+    {
+        ResolvedOrder memory resolvedOrder = GammaOrderLib.resolve(gammaOrder, sig);
+
+        _validateQuoteTokenAddress(gammaOrder.pairId, gammaOrder.entryTokenAddress);
+
+        _verifyOrder(resolvedOrder);
+
+        // execute trade
+        tradeResult = _predyPool.trade(
+            IPredyPool.TradeParams(
+                gammaOrder.pairId,
+                gammaOrder.positionId,
+                gammaOrder.quantity,
+                gammaOrder.quantitySqrt,
+                abi.encode(
+                    CallbackData(
+                        GammaTradeMarketLib.CallbackType.TRADE, gammaOrder.info.trader, gammaOrder.marginAmount
+                    )
+                )
+            ),
+            _getSettlementDataFromV3(settlementParams, msg.sender)
+        );
+
+        if (tradeResult.minMargin > 0) {
+            // only whitelisted filler can open position
+            if (msg.sender != whitelistFiller) {
+                revert CallerIsNotFiller();
+            }
+        }
+
+        GammaTradeMarketLib.UserPosition storage userPosition = _getOrInitPosition(
+            tradeResult.vaultId, gammaOrder.positionId == 0, gammaOrder.info.trader, gammaOrder.pairId
+        );
+
+        _saveUserPosition(userPosition, gammaOrder.modifyInfo);
+
+        userPosition.leverage = gammaOrder.leverage;
+
+        // init last hedge status
+        userPosition.lastHedgedSqrtPrice = tradeResult.sqrtTwap;
+        userPosition.lastHedgedTime = block.timestamp;
+
+        if (gammaOrder.positionId == 0) {
+            _addPositionIndex(gammaOrder.info.trader, userPosition.vaultId);
+
+            _predyPool.updateRecepient(tradeResult.vaultId, gammaOrder.info.trader);
+        }
+
+        SlippageLib.checkPrice(
+            gammaOrder.baseSqrtPrice,
+            tradeResult,
+            gammaOrder.slippageTolerance,
+            SlippageLib.MAX_ACCEPTABLE_SQRT_PRICE_RANGE
+        );
+    }
+
+    function _modifyAutoHedgeAndClose(GammaOrder memory gammaOrder, bytes memory sig) internal {
+        if (gammaOrder.quantity != 0 || gammaOrder.quantitySqrt != 0 || gammaOrder.marginAmount != 0) {
+            revert InvalidOrder();
+        }
+
+        ResolvedOrder memory resolvedOrder = GammaOrderLib.resolve(gammaOrder, sig);
+
+        _verifyOrder(resolvedOrder);
+
+        // save user position
+        GammaTradeMarketLib.UserPosition storage userPosition =
+            _getOrInitPosition(gammaOrder.positionId, false, gammaOrder.info.trader, gammaOrder.pairId);
+
+        _saveUserPosition(userPosition, gammaOrder.modifyInfo);
+    }
+
+    function autoHedge(uint256 positionId, SettlementParamsV3 memory settlementParams)
+        external
+        returns (IPredyPool.TradeResult memory tradeResult)
+    {
+        GammaTradeMarketLib.UserPosition storage userPosition = userPositions[positionId];
+
+        if (userPosition.vaultId == 0 || positionId != userPosition.vaultId) {
+            revert PositionNotFound();
+        }
+
+        uint256 sqrtPrice = _predyPool.getSqrtIndexPrice(userPosition.pairId);
+
+        // check auto hedge condition
+        (bool hedgeRequired, uint256 slippageTorelance, GammaTradeMarketLib.CallbackType triggerType) =
+            GammaTradeMarketLib.validateHedgeCondition(userPosition, sqrtPrice);
+
+        if (!hedgeRequired) {
+            revert HedgeTriggerNotMatched();
+        }
+
+        userPosition.lastHedgedSqrtPrice = sqrtPrice;
+        userPosition.lastHedgedTime = block.timestamp;
+
+        DataType.Vault memory vault = _predyPool.getVault(userPosition.vaultId);
+
+        int256 delta = GammaTradeMarketLib.calculateDelta(
+            sqrtPrice, userPosition.maximaDeviation, vault.openPosition.sqrtPerp.amount, vault.openPosition.perp.amount
+        );
+
+        if (delta == 0) {
+            revert DeltaIsZero();
+        }
+
+        IPredyPool.TradeParams memory tradeParams = IPredyPool.TradeParams(
+            userPosition.pairId,
+            userPosition.vaultId,
+            -delta,
+            0,
+            abi.encode(CallbackData(triggerType, userPosition.owner, 0))
+        );
+
+        // execute trade
+        tradeResult = _predyPool.trade(tradeParams, _getSettlementDataFromV3(settlementParams, msg.sender));
+
+        SlippageLib.checkPrice(sqrtPrice, tradeResult, slippageTorelance, SlippageLib.MAX_ACCEPTABLE_SQRT_PRICE_RANGE);
+    }
+
+    function autoClose(uint256 positionId, SettlementParamsV3 memory settlementParams)
+        external
+        returns (IPredyPool.TradeResult memory tradeResult)
+    {
+        // save user position
+        GammaTradeMarketLib.UserPosition memory userPosition = userPositions[positionId];
+
+        if (userPosition.vaultId == 0 || positionId != userPosition.vaultId) {
+            revert PositionNotFound();
+        }
+
+        // check auto close condition
+        uint256 sqrtPrice = _predyPool.getSqrtIndexPrice(userPosition.pairId);
+
+        (bool closeRequired, uint256 slippageTorelance, GammaTradeMarketLib.CallbackType triggerType) =
+            GammaTradeMarketLib.validateCloseCondition(userPosition, sqrtPrice);
+
+        if (!closeRequired) {
+            revert AutoCloseTriggerNotMatched();
+        }
+
+        // execute close
+        DataType.Vault memory vault = _predyPool.getVault(userPosition.vaultId);
+
+        IPredyPool.TradeParams memory tradeParams = IPredyPool.TradeParams(
+            userPosition.pairId,
+            userPosition.vaultId,
+            -vault.openPosition.perp.amount,
+            -vault.openPosition.sqrtPerp.amount,
+            abi.encode(CallbackData(triggerType, userPosition.owner, 0))
+        );
+
+        if (tradeParams.tradeAmount == 0 && tradeParams.tradeAmountSqrt == 0) {
+            revert AlreadyClosed();
+        }
+
+        tradeResult = _predyPool.trade(tradeParams, _getSettlementDataFromV3(settlementParams, msg.sender));
+
+        SlippageLib.checkPrice(sqrtPrice, tradeResult, slippageTorelance, SlippageLib.MAX_ACCEPTABLE_SQRT_PRICE_RANGE);
+    }
+
+    function quoteTrade(GammaOrder memory gammaOrder, SettlementParamsV3 memory settlementParams) external {
+        // execute trade
+        _predyPool.trade(
+            IPredyPool.TradeParams(
+                gammaOrder.pairId,
+                gammaOrder.positionId,
+                gammaOrder.quantity,
+                gammaOrder.quantitySqrt,
+                abi.encode(
+                    CallbackData(
+                        GammaTradeMarketLib.CallbackType.QUOTE, gammaOrder.info.trader, gammaOrder.marginAmount
+                    )
+                )
+            ),
+            _getSettlementDataFromV3(settlementParams, msg.sender)
+        );
+    }
+
+    function checkAutoHedgeAndClose(uint256 positionId)
+        external
+        view
+        returns (bool hedgeRequired, bool closeRequired, uint256 resultPositionId)
+    {
+        GammaTradeMarketLib.UserPosition memory userPosition = userPositions[positionId];
+
+        DataType.Vault memory vault = _predyPool.getVault(userPosition.vaultId);
+
+        if (vault.openPosition.perp.amount == 0 && vault.openPosition.sqrtPerp.amount == 0) {
+            return (false, false, positionId);
+        }
+
+        uint256 sqrtPrice = _predyPool.getSqrtIndexPrice(userPosition.pairId);
+
+        (hedgeRequired,,) = GammaTradeMarketLib.validateHedgeCondition(userPosition, sqrtPrice);
+
+        (closeRequired,,) = GammaTradeMarketLib.validateCloseCondition(userPosition, sqrtPrice);
+
+        resultPositionId = positionId;
+    }
+
+    struct UserPositionResult {
+        GammaTradeMarketLib.UserPosition userPosition;
+        IPredyPool.VaultStatus vaultStatus;
+        DataType.Vault vault;
+    }
+
+    function getUserPositions(address owner) external returns (UserPositionResult[] memory) {
+        uint256[] memory userPositionIDs = positionIDs[owner];
+
+        UserPositionResult[] memory results = new UserPositionResult[](userPositionIDs.length);
+
+        for (uint64 i = 0; i < userPositionIDs.length; i++) {
+            uint256 positionId = userPositionIDs[i];
+
+            results[i] = _getUserPosition(positionId);
+        }
+
+        return results;
+    }
+
+    function _getUserPosition(uint256 positionId) internal returns (UserPositionResult memory result) {
+        GammaTradeMarketLib.UserPosition memory userPosition = userPositions[positionId];
+
+        if (userPosition.vaultId == 0) {
+            // if user has no position, return empty vault status and vault
+            return result;
+        }
+
+        return UserPositionResult(
+            userPosition, _quoter.quoteVaultStatus(userPosition.vaultId), _predyPool.getVault(userPosition.vaultId)
+        );
+    }
+
+    function _addPositionIndex(address trader, uint256 newPositionId) internal {
+        positionIDs[trader].addItem(newPositionId);
+    }
+
+    function removePosition(uint256 positionId) external onlyFiller {
+        DataType.Vault memory vault = _predyPool.getVault(userPositions[positionId].vaultId);
+
+        if (vault.margin != 0 || vault.openPosition.perp.amount != 0 || vault.openPosition.sqrtPerp.amount != 0) {
+            revert PositionIsNotClosed();
+        }
+
+        _removePosition(positionId);
+    }
+
+    function _removePosition(uint256 positionId) internal {
+        address trader = userPositions[positionId].owner;
+
+        positionIDs[trader].removeItem(positionId);
+    }
+
+    function _getOrInitPosition(uint256 positionId, bool isCreatedNew, address trader, uint64 pairId)
+        internal
+        returns (GammaTradeMarketLib.UserPosition storage userPosition)
+    {
+        userPosition = userPositions[positionId];
+
+        if (isCreatedNew) {
+            userPosition.vaultId = positionId;
+            userPosition.owner = trader;
+            userPosition.pairId = pairId;
+            return userPosition;
+        }
+
+        if (positionId == 0 || userPosition.vaultId == 0) {
+            revert PositionNotFound();
+        }
+
+        if (userPosition.owner != trader) {
+            revert SignerIsNotPositionOwner();
+        }
+
+        if (userPosition.pairId != pairId) {
+            revert PositionHasDifferentPairId();
+        }
+
+        return userPosition;
+    }
+
+    function _saveUserPosition(GammaTradeMarketLib.UserPosition storage userPosition, GammaModifyInfo memory modifyInfo)
+        internal
+    {
+        if (GammaTradeMarketLib.saveUserPosition(userPosition, modifyInfo)) {
+            emit GammaPositionModified(userPosition.owner, userPosition.pairId, userPosition.vaultId, modifyInfo);
+        }
+    }
+
+    function _verifyOrder(ResolvedOrder memory order) internal {
+        order.validate();
+
+        _permit2.permitWitnessTransferFrom(
+            order.toPermit(),
+            order.transferDetails(address(this)),
+            order.info.trader,
+            order.hash,
+            GammaOrderLib.PERMIT2_ORDER_TYPE,
+            order.sig
+        );
+    }
+}
+
+```

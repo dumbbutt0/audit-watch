@@ -1,0 +1,894 @@
+{
+  "label": "CAPABILITY_DRIVE_STATE",
+  "mode": "oracle-assisted training (NOT blind)",
+  "iterations": [
+    {
+      "iter": 1,
+      "target": "fluid-dex-v2-2026-02-blind",
+      "call_chain_covered": "operate(main+helpers) -> other/helpers cap resolver -> callbackModule settle wrappers -> dexV2 base/core/main settle() store-fallback (settle->store call chain END-TO-END)",
+      "true_coverage_files": "~7/77 files (full chain for settle/withdraw/fee path; NOT the whole contest)",
+      "candidates": [
+        {
+          "id": "M-1",
+          "status": "CAUGHT_BY_MECHANISM",
+          "resolver_quoted": "base/core/main.sol:189 _userStoredTokenAmount[BASE_SLOT][to_][token_] += uint256(-netAmount_)",
+          "mechanism": "liquidity-layer-failure fallback stores owed payout keyed by caller-supplied to_, not the claimable principal -> stuck"
+        }
+      ],
+      "oracle": {
+        "awarded_in_chain": [
+          "H-1 supply-withdraw (EXCLUDED-contaminated)",
+          "M-1 (CAUGHT)"
+        ],
+        "awarded_out_of_chain_this_iter": [
+          "M-2 liquidation",
+          "M-3 liquidation"
+        ]
+      },
+      "metrics": {
+        "TP_by_mechanism": 1,
+        "FP_count": 0,
+        "self_caught_FP": 0,
+        "absence_claims_made": 0
+      },
+      "durable_artifact": "logic.md \u00a719 + p321 proposal (recall class: payout-failure pull-fallback wrong-principal key)",
+      "regression": "n/a (iter1)",
+      "vs_prior_fluid": "prior bounded pass = 0 TP / 3 FP; this chain-complete pass = 1 TP (M-1, resolver-quoted) / 0 FP -> discipline fix WORKS",
+      "success_bar": "MET (>=1 awarded caught by-mechanism w/ resolver quoted, 0 unretracted FP)",
+      "graded": [
+        {
+          "id": "M-1",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 1.0
+    },
+    {
+      "iter": 2,
+      "target": "fluid-dex-v2-2026-02-blind (liquidateModule)",
+      "call_chain_covered": "liquidate() -> _getD3SupplyAmounts(AT_POOL_PRICE) + oracle _getPrice + supplyValue-weighted penalty (M-2) ; post-liquidation HF bound check _getHfInfo vs hfLimit_ (M-3)",
+      "true_coverage_files": "~9/77 (added liquidateModule/main chain)",
+      "candidates": [
+        {
+          "id": "M-2",
+          "status": "CAUGHT_BY_MECHANISM",
+          "resolver_quoted": "liquidateModule/main.sol:369-381 sqrtPriceX96:AT_POOL_PRICE feeding _getD3SupplyAmounts + :413 supplyValue-weighted penalty",
+          "mechanism": "spot-price composition is flash-manipulable -> skewed weighted valuation/penalty -> MEV"
+        },
+        {
+          "id": "M-3",
+          "status": "CAUGHT_BY_MECHANISM",
+          "resolver_quoted": "liquidateModule/main.sol:626 if(_getHfInfo(nftId).hf > hfLimit_) revert",
+          "mechanism": "no-debt HF=type(uint256).max > hfLimit_ -> full-debt-repay liquidation always reverts -> final debt unliquidatable"
+        }
+      ],
+      "metrics": {
+        "TP_by_mechanism": 2,
+        "FP_count": 0,
+        "self_caught_FP": 0,
+        "absence_claims_made": 0
+      },
+      "regression": "PASS (logic \u00a719 + p321-fluid-m1 present; absence-gate held -> 0 FP again)",
+      "durable_artifact": "oracle.md spot-composition class + logic.md \u00a720 sentinel-max-vs-bound + p321 m2/m3 proposals",
+      "cumulative": "Fluid cleanly-scoreable findings M-1+M-2+M-3 ALL caught by-mechanism across iter1-2, 0 FP (vs original bounded pass 0 TP/3 FP). H-1 excluded (contaminated).",
+      "success_bar": "MET",
+      "graded": [
+        {
+          "id": "M-2",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0
+        },
+        {
+          "id": "M-3",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0
+        }
+      ],
+      "iteration_progress": 2.0,
+      "progress_score_cumulative": 3.0
+    },
+    {
+      "iter": 3,
+      "target": "predy-2024-05-holdout (UniHelper TWAP chain)",
+      "mode": "cron */15m now owns recurrence (job 7ed5cd33)",
+      "call_chain_covered": "getSqrtTWAP -> callUniswapObserve (full, lines 35-75) -> TickMath.getSqrtRatioAtTick",
+      "true_coverage_files": "~1/68 this iter (UniHelper chain); predy is a multi-iter target",
+      "candidates": [
+        {
+          "id": "M-03",
+          "status": "CAUGHT_BY_MECHANISM",
+          "resolver_quoted": "UniHelper.sol:70 tick=(cumDelta)/ago with NO tick-- for negative delta (verified absent across whole callUniswapObserve)",
+          "mechanism": "int div truncates toward zero; negative ticks 1 too high -> wrong price"
+        }
+      ],
+      "metrics": {
+        "TP_by_mechanism": 1,
+        "FP_count": 0,
+        "self_caught_FP": 0,
+        "absence_claims_made": 1,
+        "absence_claims_VERIFIED": 1
+      },
+      "regression": "PASS (Fluid \u00a719/\u00a720/oracle-spot-composition all present; absence-gate upheld even for an absence-type finding by reading the whole fn)",
+      "durable_artifact": "oracle.md twap-negative-tick class + p321-predy-m03",
+      "new_target_first_catch": "yes (predy) -> not plateaued",
+      "success_bar": "MET",
+      "graded": [
+        {
+          "id": "M-03",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 4.0
+    },
+    {
+      "iter": 4,
+      "target": "predy-2024-05-holdout (LiquidationLogic + ReallocationLogic)",
+      "call_chain_covered": "PredyPool.execLiquidationCall:313 -> LiquidationLogic.liquidate:106 ; PredyPool.reallocate:251 -> ReallocationLogic.reallocate:69 ; settlement callback at :54",
+      "candidates": [
+        {
+          "id": "H-04",
+          "status": "UNCONFIRMED_BY_TRACE",
+          "note": "line 106 safeTransferFrom(msg.sender) = direct caller (liquidator); awarded 'from Market' needs callback-context msg.sender \u2014 not resolved in budget; NOT recorded as catch (anti-fabrication)"
+        },
+        {
+          "id": "M-07",
+          "status": "UNCONFIRMED_BY_TRACE",
+          "note": "line 69 safeTransfer(msg.sender) = reallocator; same msg.sender-resolution gap"
+        }
+      ],
+      "metrics": {
+        "TP_by_mechanism": 0,
+        "FP_count": 0,
+        "self_caught_FP": 0,
+        "fabricated_catches_avoided": 2
+      },
+      "regression": "PASS (M-03 still catchable in same source -> source is as-audited, not post-fix; Fluid classes present)",
+      "durable_artifact": "access_control.md msg.sender-resolution-across-delegatecall-callback method guard + p321 proposal (PRECISION/method, not a new TP class)",
+      "plateau_contribution": "NO new TP class this iter -> plateau_counter=1 (honest)",
+      "lesson": "anti-FP gate cuts BOTH ways: don't fabricate a catch just because the oracle confirms it; if trace can't substantiate the mechanism, record UNCONFIRMED not TP",
+      "graded": [
+        {
+          "id": "H-04",
+          "match_level": "DEFERRED_LEAD",
+          "graded_credit": 0.1
+        },
+        {
+          "id": "M-07",
+          "match_level": "DEFERRED_LEAD",
+          "graded_credit": 0.1
+        }
+      ],
+      "iteration_progress": 0.2,
+      "progress_score_cumulative": 4.2
+    },
+    {
+      "iter": 5,
+      "target": "predy-2024-05-holdout (market->PredyPool caller resolution)",
+      "call_chain_covered": "GammaTradeMarket:144 / BaseMarket:52,44 / BaseMarketUpgradable:102,93 -> PredyPool.execLiquidationCall:313 / reallocate:251 -> LiquidationLogic:106 / ReallocationLogic:69 (msg.sender=Market RESOLVED)",
+      "candidates": [
+        {
+          "id": "H-04",
+          "status": "CAUGHT_BY_MECHANISM",
+          "resolver_quoted": "GammaTradeMarket:144/BaseMarket:52 call execLiquidationCall -> LiquidationLogic:106 safeTransferFrom(msg.sender=Market) shortfall",
+          "mechanism": "negative-margin shortfall pulled from Market intermediary, not liquidator"
+        },
+        {
+          "id": "M-07",
+          "status": "CAUGHT_BY_MECHANISM",
+          "resolver_quoted": "BaseMarket:44/BaseMarketUpgradable:93 call reallocate -> ReallocationLogic:69 safeTransfer(msg.sender=Market) excess",
+          "mechanism": "excess quote sent to Market intermediary, not reallocator"
+        }
+      ],
+      "metrics": {
+        "TP_by_mechanism": 2,
+        "FP_count": 0,
+        "self_caught_FP": 0
+      },
+      "regression": "PASS \u2014 iter4 msg.sender-resolution GUARD directly enabled this catch (guard->TP); Fluid + M-03 classes present",
+      "durable_artifact": "access_control.md upgraded to CONFIRMED intermediary-msg.sender-fund-misrouting TP class + p321 confirmed proposal",
+      "new_TP_class": "intermediary_msgsender_fund_misrouting (CONFIRMED) -> plateau_counter RESET to 0",
+      "highlight": "the loop's own iter4 precision discipline (refuse-to-fabricate + method guard) produced the iter5 TP \u2014 recall+precision compounding as designed",
+      "success_bar": "MET (2 TP by mechanism, 0 FP)",
+      "graded": [
+        {
+          "id": "H-04",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "note": "converted from DEFERRED_LEAD (delta +0.9)"
+        },
+        {
+          "id": "M-07",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "note": "converted (delta +0.9)"
+        }
+      ],
+      "iteration_progress": 1.8,
+      "progress_score_cumulative": 6.0
+    },
+    {
+      "iter": 6,
+      "target": "silo-finance-2025-03-strict-eval (SiloVault meta-vault)",
+      "call_chain_covered": "deposit/mint/withdraw/redeem (569/586/603/625) -> _accrueFee:942 -> _accruedFeeShares:953 ; _update:976 -> _claimRewards/_afterTokenTransfer",
+      "candidates": [
+        {
+          "id": "M-4",
+          "status": "CAUGHT_BY_MECHANISM",
+          "resolver_quoted": "SiloVault.sol:569/586/603/625 bare ERC4626 sigs; grep minShares/minAssets/deadline = NONE (verified absence)",
+          "mechanism": "meta-vault share price moves w/ market interest + reallocation -> sandwichable, no deadline"
+        }
+      ],
+      "considered_not_claimed": [
+        "M-3 feeShares minting order (needs incentive-index math, deferred not fabricated)",
+        "M-2 reward accrual unsynced totalSupply (same, deferred)"
+      ],
+      "metrics": {
+        "TP_by_mechanism": 1,
+        "FP_count": 0,
+        "self_caught_FP": 0,
+        "absence_claims_VERIFIED": 1
+      },
+      "regression": "PASS (iter5 intermediary-msgsender + predy twap + fluid sentinel classes all present)",
+      "durable_artifact": "erc4626/economic_attack meta-vault slippage+deadline class + p321-silo-m4",
+      "new_TP_class": "metavault_erc4626_missing_slippage_deadline -> plateau_counter stays 0",
+      "success_bar": "MET",
+      "graded": [
+        {
+          "id": "M-4",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0
+        },
+        {
+          "id": "M-2",
+          "match_level": "DEFERRED_LEAD",
+          "graded_credit": 0.1
+        },
+        {
+          "id": "M-3",
+          "match_level": "DEFERRED_LEAD",
+          "graded_credit": 0.1
+        }
+      ],
+      "iteration_progress": 1.2,
+      "progress_score_cumulative": 7.2
+    },
+    {
+      "iter": 7,
+      "target": "silo-finance (SiloVault supply loop)",
+      "scheduler_note": "cron 7ed5cd33 owns recurrence; did NOT stack a dynamic wakeup (avoid double-loop)",
+      "call_chain_covered": "deposit:569 -> _deposit:775 -> _supplyERC4626:868 (full) ; vs maxDeposit view _maxDeposit:675-683",
+      "candidates": [
+        {
+          "id": "M-6",
+          "status": "CAUGHT_BY_MECHANISM",
+          "resolver_quoted": "SiloVault.sol:879 toSupply=min(cap-supplyAssets,assets) NO market.maxDeposit term; contrast :683 view DOES use market.maxDeposit -> view/loop bound asymmetry",
+          "mechanism": "market full at maxDeposit but cap-room -> deposit reverts -> try/catch skips whole market -> advertised-feasible deposit fails"
+        }
+      ],
+      "metrics": {
+        "TP_by_mechanism": 1,
+        "FP_count": 0,
+        "absence_claims_VERIFIED": 1
+      },
+      "regression": "PASS (iter6 metavault-slippage + iter5 intermediary-msgsender present)",
+      "durable_artifact": "erc4626 view-vs-loop bound-asymmetry class + p321-silo-m6",
+      "new_TP_class": "metavault_supply_loop_omits_maxdeposit_view_asymmetry -> plateau_counter 0",
+      "success_bar": "MET",
+      "graded": [
+        {
+          "id": "M-6",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 8.2
+    },
+    {
+      "iter": 8,
+      "target": "silo-finance (SiloVaultActionsLib.setCap removal path)",
+      "call_chain_covered": "SiloVault._setCap:850 -> SiloVaultActionsLib.setCap:29-65 (full)",
+      "candidates": [
+        {
+          "id": "M-5",
+          "status": "CAUGHT_BY_MECHANISM",
+          "resolver_quoted": "SiloVaultActionsLib.sol:38 approveValue=0 default; :56 max only if cap>0; :60 forceApprove(market, approveValue=0 on removal)",
+          "mechanism": "zero-approval-reverting token makes setCap-to-0 revert -> market un-removable, stays approved for max"
+        }
+      ],
+      "metrics": {
+        "TP_by_mechanism": 1,
+        "FP_count": 0
+      },
+      "regression": "PASS (iter7 M-6 + iter5 intermediary present)",
+      "durable_artifact": "token_integration zero-approval-revoke-bricks-removal class + p321-silo-m5",
+      "new_TP_class": "zero_approval_revoke_bricks_removal -> plateau 0",
+      "success_bar": "MET",
+      "graded": [
+        {
+          "id": "M-5",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 9.2
+    },
+    {
+      "iter": 9,
+      "target": "silo-finance (incentives index \u2014 DEFERRED_LEAD conversion)",
+      "call_chain_covered": "SiloVault._update:976 (super._update first) -> _afterTokenTransfer:997 (post-change totalSupply) -> BaseIncentivesController.afterTokenTransfer:202 -> DistributionManager._updateUserAssetInternal:184 -> _updateAssetStateInternal:147 (emission*dt/totalStaked)",
+      "graded": [
+        {
+          "id": "M-2",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "note": "converted from DEFERRED_LEAD (delta +0.9): transfer/mint accrues elapsed index at POST-change totalSupply -> existing holders under-credited",
+          "resolver": "SiloVault.sol:976/997 + DistributionManager.sol:147"
+        },
+        {
+          "id": "M-3",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "note": "converted from DEFERRED_LEAD (delta +0.9): feeShares mint via _accrueFee->_mint->_update accrues at inflated post-mint supply (minting-order manifestation of same root)"
+        }
+      ],
+      "iteration_progress": 1.8,
+      "progress_score_cumulative": 11.0,
+      "metrics": {
+        "conversions_DEFERRED_to_STRONG": 2,
+        "FP_count": 0
+      },
+      "regression": "PASS (iter8 M-5 + iter5 intermediary classes present)",
+      "durable_artifact": "behavioral_state_analysis reward-index-post-change-supply STRONG class + p321-silo-m2m3",
+      "graded_model_validation": "2nd live deferred->strong conversion (after predy iter4->iter5): proves partial-credit leads convert to full hits",
+      "success_bar": "MET"
+    },
+    {
+      "iter": 10,
+      "target": "silo-finance (SiloVault backing tracker)",
+      "call_chain_covered": "deposit:569->_deposit:775->_supplyERC4626:868 (balanceTracker+=assets:412, suppliedShares:419 ignored) ; _updateInternalBalanceForMarket:807-814 (up-only:810) ; _supplyBalance:819-822 (_previewRedeem true value)",
+      "graded": [
+        {
+          "id": "M-1",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "resolver": "SiloVault.sol:412/419 + 810 (up-only tracker) + 822 (previewRedeem)",
+          "mechanism": "up-only balanceTracker never deducts deposit share-rounding loss -> backing over-stated -> deflation over cycles"
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 12.0,
+      "metrics": {
+        "STRONG": 1,
+        "FP_count": 0,
+        "absence_discipline": "verified _updateInternalBalanceForMarket has no downward branch by reading full fn"
+      },
+      "regression": "PASS (iter9 reward-index + iter7 metavault classes present)",
+      "durable_artifact": "erc4626 up-only-position-tracker-ignores-rounding-loss class + p321-silo-m1",
+      "milestone": "SILO FULLY CLEARED: all 6 awarded Mediums (M-1..M-6) caught by mechanism, 0 FP",
+      "success_bar": "MET"
+    },
+    {
+      "iter": 11,
+      "target": "panoptic-2025-12-strict-eval (oracle EMA-packed slot)",
+      "note": "hardest target (28.8k LOC, LeftRight/bit-packed)",
+      "graded": [
+        {
+          "id": "M(EMA-mask 118-vs-138)",
+          "match_level": "SUBSYSTEM_ONLY_RECALL",
+          "graded_credit": 0.25,
+          "localized": "PanopticPool oracle slot bits 120-207 EMAs; corruption region bits 118-137 (top reference+spotEMA+lock)",
+          "not_confirmed": "mask leaf is computed not literal; not quoted within budget"
+        }
+      ],
+      "iteration_progress": 0.25,
+      "progress_score_cumulative": 12.25,
+      "metrics": {
+        "STRONG": 0,
+        "SUBSYSTEM": 1,
+        "FP_count": 0,
+        "fabricated": 0
+      },
+      "navigation_hint": "RESUME: open OraclePackLibrary.packEMAs (PanopticPool:322) + the rebase/lock slot-clear masking; count the preserve-mask set bits; confirm it covers bit 137 (138-bit region) not 117 (118-bit); corrupted fields = spotEMA + lockMode. Convert to STRONG next iter.",
+      "regression": "PASS (iter10 up-only-tracker + iter9 reward-index classes present)",
+      "durable_artifact": "arithmetic.md packed-slot-clear-mask-width discipline class + p321-panoptic-maskwidth + navigation hint (this resume pointer)",
+      "graded_model_demo": "FIRST non-STRONG grade since model install: panoptic too dense for a 1-iter full hit -> SUBSYSTEM 0.25 + nav hint banked (NOT a zero, NOT a fabrication). plateau_counter stays 0 (progress>0).",
+      "success_bar": "PARTIAL (graded progress + mandated artifact; honest non-fabrication on the hardest target)"
+    },
+    {
+      "iter": 12,
+      "target": "panoptic (OraclePack.rebaseOraclePack \u2014 SUBSYSTEM->STRONG conversion)",
+      "call_chain_covered": "PanopticPool oracle slot -> OraclePack.rebaseOraclePack:613-633 -> & UPPER_118BITS_MASK:630 (def :64) ; lockMode@118 (:67/:282), EMAs@120-207 (:94/:153)",
+      "graded": [
+        {
+          "id": "M(EMA-mask 118-vs-138)",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "note": "converted from SUBSYSTEM_ONLY_RECALL (delta +0.75)",
+          "resolver": "OraclePack.sol:630 unwrap & UPPER_118BITS_MASK preserves only upper ~118 bits; rebase re-adds only referenceTick(96-117)+residuals(0-95); bits 118-137 (lockMode+low spotEMA) zeroed -> must-preserve needs 138 bits down to bit 118"
+        }
+      ],
+      "iteration_progress": 0.75,
+      "progress_score_cumulative": 13.0,
+      "metrics": {
+        "conversions_SUBSYSTEM_to_STRONG": 1,
+        "FP_count": 0
+      },
+      "regression": "PASS (iter11 mask-width + iter10 up-only-tracker classes present)",
+      "durable_artifact": "arithmetic.md CONFIRMED packed-slot mask-width class (resolved anchor) + p321 confirmed proposal",
+      "graded_model_demo": "THIRD partial->STRONG conversion (predy iter4->5, silo iter6->9, panoptic iter11->12): banked navigation hints reliably convert to full hits \u2014 partial-credit model validated 3x on different targets",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    },
+    {
+      "iter": 13,
+      "target": "panoptic (RiskEngine EMA destructure)",
+      "call_chain_covered": "OraclePack.getEMAs:209-225 (returns spot,fast,slow,eons,median) -> RiskEngine.sol:838 destructure (eonsEMA,slowEMA,fastEMA,,) [WRONG] vs :913 (spotEMA,fastEMA,slowEMA,,median) [correct]",
+      "graded": [
+        {
+          "id": "M(TWAP-EMA-order)",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "resolver": "OraclePack.sol:214 return order vs RiskEngine.sol:838 scrambled destructure (eonsEMA<-spot,slowEMA<-fast,fastEMA<-slow); :913 sibling correct",
+          "mechanism": "liquidation/solvency path uses wrong EMA -> anchored to wrong/slow EMA"
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 14.0,
+      "metrics": {
+        "STRONG": 1,
+        "FP_count": 0,
+        "detection_tell": "sibling-parity divergent destructure of same callee"
+      },
+      "regression": "PASS (iter11/12 mask + iter9 reward-index classes present)",
+      "durable_artifact": "logic.md \u00a721 tuple-destructure-order-mismatch (sibling-parity tell) + p321-panoptic-twap (lens-candidate)",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    },
+    {
+      "iter": 14,
+      "target": "panoptic (RiskEngine long-leg collateral)",
+      "call_chain_covered": "_getRequiredCollateralSingleLegNoPartner:1386 -> long OTM branch :1505-1545 (positionWidth:1506, distanceFromStrike:1508, /(distanceFromStrike*expValue):1541)",
+      "graded": [
+        {
+          "id": "M(long-leg div-by-zero)",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "resolver": "RiskEngine.sol:1506/1508/1541: positionWidth=1 -> positionWidth/2=0; at strike |atTick-strike|=0 -> distanceFromStrike=0 -> /(0*expValue) reverts",
+          "mechanism": "1-tick-wide long leg at tick-spacing-1, at strike -> div-by-zero bricks collateral/solvency check"
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 15.0,
+      "metrics": {
+        "STRONG": 1,
+        "FP_count": 0
+      },
+      "regression": "PASS (iter13 destructure + iter11/12 mask classes present)",
+      "durable_artifact": "arithmetic.md integer-floor-rounds-to-zero-denominator class + p321-panoptic-divzero",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    },
+    {
+      "iter": 15,
+      "target": "quantamm-2024-12-strict-eval (UpdateWeightRunner.setRuleForPool)",
+      "note": "FRESH target rotation (TFMM/Balancer) \u2014 tests generalization",
+      "graded": [
+        {
+          "id": "H-08",
+          "match_level": "SAME_AREA_WRONG_MECHANISM",
+          "graded_credit": 0.5,
+          "locus_confirmed": "UpdateWeightRunner.sol:235 setRuleForPool external, no admin gate (siblings all require quantammAdmin), self-keyed rules[msg.sender]",
+          "mechanism_uncertain": "self-keyed setter only writes caller's slot; victim-harm path (admin-vet vs rule-validation vs cross-pool) NOT confirmed without reading the rule consumer"
+        }
+      ],
+      "iteration_progress": 0.5,
+      "progress_score_cumulative": 15.5,
+      "metrics": {
+        "SAME_AREA": 1,
+        "STRONG": 0,
+        "FP_count": 0,
+        "forced_strong_avoided": 1
+      },
+      "regression": "PASS (iter14 div-zero + iter13 destructure classes present)",
+      "durable_artifact": "access_control.md self-registration-setter mechanism-fidelity note (read-the-consumer before STRONG) + p321-quantamm-h08",
+      "graded_model_demo": "SAME_AREA on a FRESH target: locus nailed, exact mechanism honestly deferred -> 0.5 + fidelity note (not a forced STRONG, not a zero). Resume pointer set to convert next iter.",
+      "success_bar": "PARTIAL (graded 0.5 + mandated mechanism-fidelity artifact; honest non-over-claim on fresh target)"
+    },
+    {
+      "iter": 16,
+      "target": "noya-2024-04 (AerodromeConnector._getPositionTVL)",
+      "note": "cron 71579ad1; targets the cold-discovery connector-TVL gap",
+      "graded": [
+        {
+          "id": "H-06",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "resolver": "AerodromeConnector.sol:128 _getPositionTVL reads only pool.balanceOf(this); stake():103 IGauge(gauge).deposit moves LP to gauge; full body 125-134 never reads gauge.balanceOf -> staked LP omitted from TVL",
+          "mechanism": "TVL undercount once LP staked -> share-price/withdrawal accounting broken"
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 16.5,
+      "metrics": {
+        "STRONG": 1,
+        "FP_count": 0,
+        "absence_verified": "read full _getPositionTVL body, confirmed no gauge.balanceOf"
+      },
+      "regression": "PASS (hybra-M02 + quantamm-H08 artifacts present)",
+      "durable_artifact": "logic.md \u00a722 tvl-getter-omits-secondary-location class (lens-candidate) + p321-noya-h06",
+      "closes_cold_discovery_gap": "opening the connector file (p322) + per-fn depth -> caught the connector-TVL family the noya cold pass missed; demonstrates the two fixes (coverage+depth) work",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    },
+    {
+      "iter": 17,
+      "target": "noya-2024-04 (AccountingManager.executeWithdraw)",
+      "note": "REDEEMS cold-discovery depth miss (H-04 was in an opened file, skimmed not deep-read)",
+      "graded": [
+        {
+          "id": "H-04",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "resolver": "executeWithdraw:428 baseToken.safeTransfer(data.receiver,amt) in FIFO loop (first idx :401/:434/:441), no try/catch -> one blacklisted receiver reverts whole batch + head-of-line blocks all behind",
+          "mechanism": "single bad recipient DoSes the entire withdraw queue"
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 17.5,
+      "metrics": {
+        "STRONG": 1,
+        "FP_count": 0,
+        "depth_miss_redeemed": true
+      },
+      "regression": "PASS (iter16 connector-TVL class + p322 depth corollary present)",
+      "durable_artifact": "dos.md \u00a713 batch-payout-FIFO-headofline-DoS class (lens-candidate) + p321-noya-h04",
+      "validates": "per-function-depth corollary: deep-reading executeWithdraw body (not the fn map) caught the H-04 the cold pass missed -> the p322 depth fix works on its own autopsy case",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    },
+    {
+      "iter": 18,
+      "target": "noya-2024-04 (BaseConnector.sendTokensToTrustedAddress)",
+      "graded": [
+        {
+          "id": "H-08",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "resolver": "BaseConnector.sol:84 external no onlyManager; :98-99 msg.sender==registry.flashLoan() (SHARED across vaults) -> safeTransfer(msg.sender, any token/amount); sibling :98 isAnActiveConnector(vaultId,...) IS vault-scoped",
+          "mechanism": "shared flashLoan singleton lets a flashloan in vault B drain vault A's connector -> cross-vault theft"
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 18.5,
+      "metrics": {
+        "STRONG": 1,
+        "FP_count": 0
+      },
+      "regression": "PASS (iter17 batch-DoS + iter16 connector-TVL classes present)",
+      "durable_artifact": "access_control.md shared-singleton-trust-cross-context class (lens-candidate) + p321-noya-h08",
+      "p322_validation": "3rd cold-discovery coverage-gap file (BaseConnector) caught via open-connector discipline (after H-06 connector + H-04 depth)",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    },
+    {
+      "iter": 19,
+      "target": "quantamm-2024-12 (UpdateWeightRunner \u2014 H-08 SAME_AREA->STRONG conversion)",
+      "graded": [
+        {
+          "id": "H-08",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "note": "converted from SAME_AREA_WRONG_MECHANISM (delta +0.5)",
+          "resolver": "setRuleForPool:235 no admin gate (siblings 127/142/207/221/228/305/320 all require quantammAdmin); sets rule+oracles+epsilonMax+absoluteWeightGuardRail+poolManager; performUpdate:279 public applies it",
+          "mechanism": "unvetted rule+guardrails govern public weight updates -> unauthorized weight manipulation"
+        }
+      ],
+      "iteration_progress": 0.5,
+      "progress_score_cumulative": 19.0,
+      "metrics": {
+        "conversions_SAME_AREA_to_STRONG": 1,
+        "FP_count": 0
+      },
+      "regression": "PASS (iter18 shared-singleton class present)",
+      "durable_artifact": "access_control.md CONFIRMED critical-setter-missing-sibling-admin-gate class + p321 confirmed proposal",
+      "graded_model_demo": "4TH partial->STRONG conversion (predy iter4->5, silo iter6->9, panoptic iter11->12, quantamm iter15->19): the graded leads reliably convert across all 5 architectures",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    },
+    {
+      "iter": 20,
+      "target": "zaros-2025-01-part-2 (VaultRouterBranch.stake + Distribution) \u2014 FRESH 6th target",
+      "graded": [
+        {
+          "id": "H-02",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "resolver": "Distribution.accumulateActor:61-63 returns valueChange + _updateLastValuePerShare:101-103 resets lastValuePerShare WITHOUT persisting; VaultRouterBranch.stake:404 discards the return -> prior accumulated reward erased on re-stake",
+          "mechanism": "checkpoint returns pending value, caller discards it while reset fires -> accumulated reward lost"
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 20.0,
+      "metrics": {
+        "STRONG": 1,
+        "FP_count": 0,
+        "new_class": true,
+        "new_target": true
+      },
+      "regression": "PASS (iter19 quantamm + iter18 shared-singleton classes present)",
+      "durable_artifact": "behavioral_state_analysis discarded-pending-return class (lens-candidate) + p321-zaros-h02",
+      "generalization": "reward-accrual class now confirmed across 6 architectures (silo/hybra/zaros + others); new sub-class (discarded-return-of-pending) -> NEW novelty, plateau stays 0",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    },
+    {
+      "iter": 21,
+      "target": "zaros-2025-01-part-2 (CreditDelegationBranch.withdrawUsdTokenFromMarket)",
+      "graded": [
+        {
+          "id": "H-06",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "resolver": "withdrawUsdTokenFromMarket:246 only guards creditCapacity.lte(0); amountToMint=amount minted with no amount<=creditCapacity cap (verified full body to usdToken.mint)",
+          "mechanism": "checks capacity EXISTENCE (>0) not SUFFICIENCY -> registered engine mints any amount of usdz with $1 capacity"
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 21.0,
+      "metrics": {
+        "STRONG": 1,
+        "FP_count": 0,
+        "new_class": true,
+        "absence_verified": "read full fn body, no requested<=available check"
+      },
+      "regression": "PASS (iter20 discarded-pending class present)",
+      "durable_artifact": "arithmetic.md existence-vs-sufficiency class (lens-candidate) + p321-zaros-h06",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    },
+    {
+      "iter": 22,
+      "target": "zaros-2025-01-part-2 (usdcAvailableForEngine)",
+      "graded": [
+        {
+          "id": "H-16",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "resolver": "all usages grepped: only += CreditDelegationBranch:469 + view getter MMECfgBranch:727; NO decrement/consumer -> USDC locked",
+          "mechanism": "write-only accumulator with no spend path -> backing USDC permanently locked"
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 22.0,
+      "metrics": {
+        "STRONG": 1,
+        "FP_count": 0,
+        "absence_verified": "enumerated ALL usages before claiming never-used (absence-gate done right)"
+      },
+      "regression": "PASS (iter21 + iter20 classes present)",
+      "durable_artifact": "logic.md \u00a723 write-only-accumulator-no-consumer class (lens-candidate) + p321-zaros-h16",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP, absence verified by full usage grep)"
+    },
+    {
+      "iter": 23,
+      "target": "zaros-2025-01-part-2 (SettlementBranch._fillOrder)",
+      "graded": [
+        {
+          "id": "H-08",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "resolver": "_fillOrder:498 marginToAddX18=getAdjustedProfitForMarketId(pnl) [ADL once]; :501 deposit(marginToAddX18); :505 withdrawUsdTokenFromMarket(marketId,marginToAddX18) re-applies ADL (CreditDelegationBranch:246) -> mint=ADL*marginToAddX18 < deposit",
+          "mechanism": "ADL adjustment applied twice across call boundary -> account credited more than usdToken minted to back it"
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 23.0,
+      "metrics": {
+        "STRONG": 1,
+        "FP_count": 0,
+        "cross_function": "traced the value through the callee (iter21 knowledge) \u2014 depth corollary"
+      },
+      "regression": "PASS (iter22 write-only-accumulator class present)",
+      "durable_artifact": "logic.md \u00a724 double-adjustment-across-call-boundary class (lens-candidate) + p321-zaros-h08",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    },
+    {
+      "iter": 24,
+      "target": "zaros-2025-01-part-2 (CreditDelegationBranch.rebalanceVaultsAssets)",
+      "graded": [
+        {
+          "id": "H-09",
+          "match_level": "SAME_AREA_WRONG_MECHANISM",
+          "graded_credit": 0.5,
+          "localized": "rebalanceVaultsAssets sign-checks ~626-628 inCreditVault.lte(0)/inDebtVault.gte(0) appear inverted vs comment",
+          "mechanism_uncertain": "downstream depositAmount logic assumes inCreditVaultDebt>0 -> guard may be internally consistent; need the debt sign convention to confirm always-revert vs misnamed"
+        }
+      ],
+      "iteration_progress": 0.5,
+      "progress_score_cumulative": 23.5,
+      "metrics": {
+        "SAME_AREA": 1,
+        "STRONG": 0,
+        "FP_count": 0,
+        "forced_strong_avoided": 1
+      },
+      "regression": "PASS (iter23 double-adjustment class present)",
+      "durable_artifact": "logic.md vault-debt-sign-check mechanism-fidelity note + p321-zaros-h09 (resume pointer)",
+      "honest_note": "2nd SAME_AREA of the run (after quantamm H-08 which later converted): discipline held, did not force STRONG on an uncertain always-revert. Conversion path set.",
+      "success_bar": "PARTIAL (graded 0.5 + mandated fidelity artifact; honest non-over-claim)"
+    },
+    {
+      "iter": 25,
+      "target": "zaros-2025-01-part-2 (rebalanceVaultsAssets \u2014 H-09 SAME_AREA->STRONG conversion)",
+      "graded": [
+        {
+          "id": "H-09",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "note": "converted from SAME_AREA (delta +0.5)",
+          "resolver": "Vault.getUnsettledRealizedDebt=realizedDebt-depositedUsdc (positive=in-debt); guard reverts inCreditVault.lte(0) but comment says vaultsIds[0]=in-credit (negative) -> documented usage always reverts",
+          "mechanism": "sign guard inverted vs confirmed convention + function's own comment"
+        }
+      ],
+      "iteration_progress": 0.5,
+      "progress_score_cumulative": 24.0,
+      "metrics": {
+        "conversions_SAME_AREA_to_STRONG": 1,
+        "FP_count": 0
+      },
+      "regression": "PASS (iter24 lead present)",
+      "durable_artifact": "logic.md CONFIRMED inverted-sign-guard-always-revert class + p321 confirmed proposal",
+      "graded_model_demo": "5TH partial->STRONG conversion (predy/silo/panoptic/quantamm/zaros): the graded leads convert reliably across all targets",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    },
+    {
+      "iter": 26,
+      "target": "noya-2024-04 (ChainlinkOracleConnector.getValueFromChainlinkFeed)",
+      "graded": [
+        {
+          "id": "H-01",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "resolver": "getValueFromChainlinkFeed returns (amountIn*uintprice)/sourceTokenUnit; sourceTokenUnit=token decimals only; source.decimals() never applied (full body read) -> USD feed 8-dec vs ETH feed 18-dec -> 1e10 on multi-hop",
+          "mechanism": "feed decimals not normalized -> cross-feed 10^delta valuation error"
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 25.0,
+      "metrics": {
+        "STRONG": 1,
+        "FP_count": 0,
+        "absence_verified": "read full conversion, no feed.decimals() term"
+      },
+      "regression": "PASS (iter25 inverted-sign class present)",
+      "durable_artifact": "oracle.md feed-decimals-normalization class (lens-candidate) + p321-noya-h01",
+      "fills_cold_discovery_gap": "noya oracle-decimals cluster (H-01/02/03) \u2014 cold pass missed (unopened oracle file); caught via open-oracle + reading the math",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    },
+    {
+      "iter": 27,
+      "target": "noya-2024-04 (Registry.updateHoldingPosition swap-remove)",
+      "graded": [
+        {
+          "id": "H-12",
+          "match_level": "STRONG_MECHANISM_MATCH",
+          "graded_credit": 1.0,
+          "resolver": "insert keys isPositionUsed by keccak(msg.sender,positionId,data) Registry:345; remove-swap re-keys moved elem by keccak(.calculatorConnector,...) Registry:353 -> owner vs calculator mismatch corrupts index",
+          "mechanism": "swap-pop reverse-index recomputed from wrong identity field"
+        }
+      ],
+      "iteration_progress": 1.0,
+      "progress_score_cumulative": 26.0,
+      "metrics": {
+        "STRONG": 1,
+        "FP_count": 0
+      },
+      "regression": "PASS (iter26 oracle-feed-decimals class present)",
+      "durable_artifact": "logic.md \u00a725 swap-pop-reverse-index-key-mismatch class (lens-candidate) + p321-noya-h12",
+      "diminishing_returns_note": "corpus largely mined: 7 targets characterized, remaining findings sparse/duplicative; recommend stopping manual grind",
+      "success_bar": "MET (STRONG, resolver quoted, 0 FP)"
+    }
+  ],
+  "done_set": [
+    "predy(chain:UniHelper-TWAP)",
+    "fluid-dex-v2(chain:settle)"
+  ],
+  "next_target": "DIMINISHING RETURNS \u2014 remaining are duplicative/sparse; recommend plateau-stop or fresh post-cutoff targets",
+  "updated_at": "2026-06-11T11:40:00Z",
+  "plateau_counter": 0,
+  "cumulative": {
+    "STRONG_findings": 26,
+    "FP": 0,
+    "durable_classes": 28,
+    "progress_score": 26.0,
+    "partial_to_strong_conversions": 5,
+    "forced_strong_avoided": 2,
+    "targets": [
+      "fluid",
+      "predy",
+      "silo",
+      "panoptic",
+      "quantamm",
+      "noya",
+      "zaros"
+    ]
+  },
+  "grading_rubric": "documentation/research/assisted_mode/p302_blind_reach_test/grading_rubric.md",
+  "progress_score": 26.0,
+  "progress_model": "graded partial-credit (STRONG 1.0 / SAME_AREA 0.5 / SUBSYSTEM 0.25 / DEFERRED_LEAD 0.1); conversions credit delta; plateau on iteration_progress==0 x3",
+  "open_deferred_leads": [],
+  "semiblind_validation_hybra": {
+    "target": "hybra-finance-2025-10-strict-eval",
+    "mode": "SEMI-BLIND (pre-cutoff; classes ACTIVE; committed cold-read before reveal)",
+    "awarded": {
+      "high": 1,
+      "medium": 9,
+      "total": 10
+    },
+    "cold_read_coverage": "~1/11 files (Bribes.sol \u2014 happened to be clean)",
+    "candidates_committed": 0,
+    "FP": 0,
+    "blind_recall_this_pass": "0 confirmed (COVERAGE-bound: read the one clean file; bugs are in GovernanceHYBR/GaugeV2/CLFactory/VotingEscrow \u2014 unread)",
+    "class_relevance": "~6/10 awarded map to BANKED classes: M-02 reward-accrual-ordering(silo), H-01 deposit-before-share inflation(erc4626), M-09 createGauge bypasses factory verification(create-frontrun/factory-verify), M-08 _checkpoint epoch dup(inclusive-epoch-boundary), M-06 _claimFees over-sweep(up-only/over-sweep), M-01 fee silently clamped(fee-clamp)",
+    "class_fired_on_locus_CONFIRMED": "M-02: GaugeV2.emergencyWithdraw:270/283 omit updateReward modifier that _deposit:228/_withdraw:253 carry -> sibling-parity tell catches it (post-reveal confirmation)",
+    "validation_verdict": "CLASSES OPERATIONAL (fired on cold Bribes read) + RELEVANT (6/10 awarded map to them) + CONFIRMED-firing on M-02 locus. Blind recall this pass = 0 ONLY due to COVERAGE (1 clean file read). The binding gap to multi-contract confidence is COVERAGE + blind file-triage, NOT the class knowledge.",
+    "answers_how_much_further": "recall-knowledge (classes) = validated; remaining gap = run full-coverage to 100% so the right files are opened + blind triage. i.e. the coverage lever (P309/P315), not more classes.",
+    "durable_artifact": "behavioral_state_analysis emergency-skips-updateReward sibling-parity class (lens-candidate) + p321-hybra-m02-validated"
+  },
+  "p322_coverage_lift_validation_hybra": {
+    "mode": "POST-REVEAL coverage-lift validation of the p322 fix (open all in-scope files) \u2014 NOT a blind number",
+    "question": "does opening the previously-skipped flagged files let the classes catch the findings the original cold pass missed?",
+    "original_cold_pass": "read 1 file (Bribes, clean) -> 0 catches (coverage-bound)",
+    "with_p322_open_all_files": [
+      {
+        "id": "M-02",
+        "file": "GaugeV2.sol",
+        "class": "emergency-skips-updateReward sibling-parity",
+        "resolver": "emergencyWithdraw:270/283 omit updateReward modifier _deposit:228/_withdraw:253 carry",
+        "verdict": "CAUGHT by mechanism"
+      },
+      {
+        "id": "H-01",
+        "file": "GovernanceHYBR.sol",
+        "class": "ERC4626 deposit-before-share inflation",
+        "resolver": "deposit:129 transferFrom + :137 deposit_for BEFORE :144 calculateShares(totalAssets already inflated)",
+        "verdict": "CAUGHT by mechanism"
+      },
+      {
+        "id": "M-01",
+        "file": "CLFactory.sol",
+        "class": "fee silent-clamp",
+        "resolver": "getSwapFee:183 if(fee<=100_000) return fee; else falls through to default -> >10% dynamic fee silently dropped",
+        "verdict": "CAUGHT by mechanism"
+      }
+    ],
+    "recall_lift": "0 (1 file read) -> 3 caught by mechanism (flagged files opened); remaining class-relevant in flagged files (M-06 over-sweep, M-08 epoch-dup, M-09 factory-verify) also openable -> ~6/10 ceiling",
+    "FP": 0,
+    "validates": "p322 end-to-end: check flags specialty files -> opening them -> banked classes fire -> findings caught. Confirms the hybra 0-recall was COVERAGE-delivery, and the fix converts it to catches.",
+    "caveat": "post-reveal (awarded list seen) -> coverage-lift/mechanism proof, not blind recall. A clean blind number still needs a fresh target."
+  },
+  "cold_discovery_noya": {
+    "mode": "COLD-DISCOVERY (no oracle during discovery; prior knowledge allowed; committed before key)",
+    "target": "noya-2024-04 (multi-contract omnichain vault, 84 files)",
+    "coverage": "~2/84 files (AccountingManager core) \u2014 budget-bounded, NOT full p322 enforcement this pass",
+    "awarded_focused_high": 19,
+    "result": {
+      "STRONG": 0,
+      "SAME_AREA": 1,
+      "unmatched": 1,
+      "missed_depth": [
+        "H-04 executeWithdraw batch-griefing (in OPENED file, read map not body)"
+      ],
+      "missed_coverage": [
+        "H-08 sendTokensToTrustedAddress + connector-TVL family H-06/11/13/15/19/20/22 + oracle-decimals H-01/02/03 specifics (unread files)"
+      ]
+    },
+    "my_candidates": {
+      "F-2": "SAME_AREA to oracle-valuation family (right family, didn't pin decimal/multi-hop bugs in unread oracle connectors)",
+      "F-1": "burnShares public \u2014 unmatched to focused High set (possibly lower-sev among 67 unscored)"
+    },
+    "honest_number": "cold discovery without a hint on a large multi-contract target = ~0 STRONG / 1 SAME_AREA this pass",
+    "two_gaps_isolated": [
+      "COVERAGE: most Highs in connector/oracle files not opened -> p322 fix targets this",
+      "PER-FUNCTION DEPTH: H-04 missed despite opening the file (read map not body) -> p322 sharpened with depth corollary"
+    ],
+    "verdict": "This is the realistic discovery-without-hint baseline. Classes fired (F-2 valuation, F-1 access-control) but cold recall on a big target is coverage+depth bound. Readiness stays ~6/10: find-and-prove WHEN POINTED is strong; cold discovery+triage on large multi-contract is the remaining work, now with both gaps (coverage, per-fn depth) addressed in the skill."
+  }
+}

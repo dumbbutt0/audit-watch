@@ -1,0 +1,46 @@
+{
+  "label": "BLIND_EVAL",
+  "mode": "FRESH_BLIND_POC",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "severity": null,
+  "reportable": false,
+  "submission_ready": false,
+  "concluded": false,
+  "production_routing": false,
+  "target": "kelp-2023-11-holdout",
+  "pocs": [
+    {
+      "candidate": "LRTDepositPool.getRsETHAmountToMint",
+      "tier": "C",
+      "mechanism": "oracle_missing_staleness_normalization",
+      "flaw_locus": "ChainlinkPriceOracle.getAssetPrice (latestAnswer, no staleness/normalization) consumed by getRsETHAmountToMint",
+      "classification": "PASS_SUPPORTED",
+      "all_pass": true,
+      "layers": {
+        "L1_entry": {
+          "pass": true,
+          "note": "EOA depositor, no privilege"
+        },
+        "L2_state_flip": {
+          "pass": true,
+          "note": "stale latestAnswer() consumed with NO revert; mint value differs from true-price reference (100e18 stale vs 150e18 true)"
+        },
+        "L3_outcome": {
+          "pass": true,
+          "note": "mint mis-valued from stale price; guarded control reverts on stale"
+        }
+      },
+      "tests": {
+        "test_fresh_price_mints_correctly_PASS_SUPPORTED": "pass",
+        "test_stale_price_silently_misvalues_mint_PASS_SUPPORTED": "pass",
+        "test_control_guarded_oracle_reverts_on_stale": "pass"
+      },
+      "poc_path": "pocs/p287/kelp/getRsETHAmountToMint/test/P287_KelpOracleStaleness.t.sol"
+    }
+  ],
+  "pre_reveal_poc_supported": 1,
+  "fabricated_pass": 0,
+  "severe_concluded_or_reportable_fp": 0
+}

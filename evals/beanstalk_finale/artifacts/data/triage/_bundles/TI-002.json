@@ -1,0 +1,99 @@
+{
+  "finding_id": "TI-002",
+  "title": "Fee-on-transfer / rebasing token incompatibility across Silo and convert accounting is gated by privileged whitelist (latent, not permissionlessly reachable)",
+  "agent": "",
+  "claimed_severity": "Info",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/WhitelistFacet/WhitelistFacet.sol",
+    "function": "whitelistToken",
+    "line_start": 56,
+    "line_end": 80
+  },
+  "description": "Several non-Silo token sinks use argument-based accounting and/or raw (non-SafeERC20) transfers that would mis-account for fee-on-transfer or rebasing tokens: UnripeFacet.addMigratedUnderlying (incrementUnderlying(amount) on the argument; owner-only), LibPipelineConvert.executePipelineConvert (IERC20(inputToken).transfer(C.PIPELINE, fromAmount) raw, then re-measures via transferTokensFromPipeline so the convert leg is partially balance-checked), LibWellConvert (C.bean().transfer raw), LibFlood/LibFertilizer raw approve. None of these tracks a balanceOf delta for the credited amount. However, every token that can flow through these paths is constrained to the governance-managed whitelist / unripe-underlying / Barn-Raise set, and whitelistToken/whitelistTokenWithEncodeType/whitelistTokenWithExternalImplementation are owner-or-Beanstalk gated. The current set (BEAN, BEAN-LP wells, WETH, wstETH) is entirely standard, non-FOT and non-rebasing, so the FOT/rebasing drain class is not reachable by an unprivileged attacker in this deployment. Recorded as Info to flag the latent assumption rather than an exploitable bug.",
+  "impact": "No present impact: requires a privileged whitelist/underlying/barn-raise change to introduce an FOT or rebasing token. Documents the systemic 'records argument, not received amount' assumption that holds protocol-wide outside SiloFacet.deposit.",
+  "ite": {
+    "intent": "Ensure protocol-wide token accounting matches delivered amounts for any handled token",
+    "technique": "Argument-based credit + raw ERC20 calls assume standard transfer semantics",
+    "evasion": "Privileged whitelist is the only entry for a non-standard token; standard tokens give no drift"
+  },
+  "ice_chain": {
+    "corrupted_state": "balanceOfUnderlying / convert BDV / recapitalization for an FOT or rebasing token",
+    "impact": "Accounting drift / potential withdraw underflow only after a non-standard token is privileged-whitelisted",
+    "consumer_found": true,
+    "consumer_function": "LibUnripe / LibConvert / Silo withdraw read the underlying and BDV totals",
+    "exploit_path": "owner whitelists FOT token -> users deposit/convert -> recorded > received -> later withdrawals drain residual; blocked today by token set + privileged gate"
+  },
+  "source_slice": "26:     event UpdatedSeedGaugeSettings(SeedGaugeSettings);\n27: \n28:     /**\n29:      * @notice Removes a token from the Silo Whitelist.\n30:      * @dev Can only be called by Beanstalk or Beanstalk owner.\n31:      */\n32:     function dewhitelistToken(address token) external payable fundsSafu noNetFlow noSupplyChange {\n33:         LibDiamond.enforceIsOwnerOrContract();\n34:         LibWhitelist.dewhitelistToken(token);\n35:     }\n36: \n37:     /**\n38:      * @notice Adds a token to the Silo Whitelist.\n39:      * @param token Address of the token that is being Whitelisted.\n40:      * @param selector The function selector that is used to calculate the BDV of the token.\n41:      * @param stalkIssuedPerBdv The amount of Stalk issued per BDV on Deposit.\n42:      * @param stalkEarnedPerSeason The amount of Stalk earned per Season for each Deposited BDV.\n43:      * @param gaugePointSelector The function selector that is used to calculate the Gauge Points of the token.\n44:      * @param liquidityWeightSelector The function selector that outputs the liquidity weight of the token.\n45:      * @param gaugePoints The initial gauge points allocated to the token.\n46:      * @param optimalPercentDepositedBdv The target percentage\n47:      * of the total LP deposited BDV for this token. Only used if the token is an LP token.\n48:      * @dev\n49:      * Can only be called by Beanstalk or Beanstalk owner.\n50:      * Assumes an `encodeType` of 0.\n51:      * Assumes the token uses a gaugePoint, LiquidityWeight, and oracle implementation in the beanstalk contract.\n52:      * Non standard implementations should use {whitelistTokenWithExternalImplementation}\n53:      * Note: The Beanstalk DAO should not whitelist Fee-on-transfer or rebasing tokens,\n54:      * as the Silo is not compatible with these tokens.\n55:      */\n56:     function whitelistToken(\n57:         address token,\n58:         bytes4 selector,\n59:         uint32 stalkIssuedPerBdv,\n60:         uint32 stalkEarnedPerSeason,\n61:         bytes4 gaugePointSelector,\n62:         bytes4 liquidityWeightSelector,\n63:         uint128 gaugePoints,\n64:         uint64 optimalPercentDepositedBdv,\n65:         Implementation memory oracleImplementation\n66:     ) external payable fundsSafu noNetFlow noSupplyChange {\n67:         LibDiamond.enforceIsOwnerOrContract();\n68:         LibWhitelist.whitelistToken(\n69:             token,\n70:             selector,\n71:             stalkIssuedPerBdv,\n72:             stalkEarnedPerSeason,\n73:             0x00,\n74:             gaugePointSelector,\n75:             liquidityWeightSelector,\n76:             gaugePoints,\n77:             optimalPercentDepositedBdv,\n78:             oracleImplementation\n79:         );\n80:     }\n81: \n82:     /**\n83:      * @notice Adds a token to the Silo Whitelist with an `encodeType`\n84:      * @param token Address of the token that is being Whitelisted.\n85:      * @param selector The function selector that is used to calculate the BDV of the token.\n86:      * @param stalkIssuedPerBdv The amount of Stalk issued per BDV on Deposit.\n87:      * @param stalkEarnedPerSeason The amount of Stalk earned per Season for each Deposited BDV.\n88:      * @param encodeType The encode type that should be used to encode the BDV function call. See {LibTokenSilo.beanDenominatedValue}.\n89:      * @param gaugePointSelector The function selector that is used to calculate the Gauge Points of the token.\n90:      * @param gaugePoints The initial gauge points allocated to the token.\n91:      * @param optimalPercentDepositedBdv The target percentage\n92:      * of the total LP deposited BDV for this token. Only used if the token is an LP token.\n93:      *\n94:      * @dev Can only be called by Beanstalk or Beanstalk owner.\n95:      * Note: The Beanstalk DAO should not whitelist Fee-on-transfer or rebasing tokens,\n96:      * as the Silo is not compatible with these tokens.\n97:      */\n98:     function whitelistTokenWithEncodeType(\n99:         address token,\n100:         bytes4 selector,\n101:         uint32 stalkIssuedPerBdv,\n102:         uint32 stalkEarnedPerSeason,\n103:         bytes1 encodeType,\n104:         bytes4 gaugePointSelector,\n105:         bytes4 liquidityWeightSelector,\n106:         uint128 gaugePoints,\n107:         uint64 optimalPercentDepositedBdv,\n108:         Implementation memory oracleImplementation\n109:     ) external payable fundsSafu noNetFlow noSupplyChange {\n110:         LibDiamond.enforceIsOwnerOrContract();",
+  "gate_verdict": {
+    "finding_id": "TI-002",
+    "severity": "Info",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.546769+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": false
+}

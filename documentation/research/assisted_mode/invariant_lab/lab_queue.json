@@ -1,0 +1,250 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "subject": "secondswap-2024-12",
+  "contract": "SecondSwap_VestingManager",
+  "function": "listVesting",
+  "headline": "Generated hypotheses are not findings. Rejections are precision wins. Only validated candidates move to PoC (human-confirmed).",
+  "counts": {
+    "generated": 6,
+    "rejected_defense_covers": 0,
+    "rejected_source_safe": 0,
+    "needs_context": 5,
+    "needs_execution": 0,
+    "blocked_unsupported": 0,
+    "validated_for_poc": 1,
+    "human_actionable": 1
+  },
+  "generated_invariants": [
+    {
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "invariant_type": "value_conservation",
+      "invariant_statement": "the total of all balances/amounts tracked by SecondSwap_VestingManager.listVesting is conserved across the operation (sum in == sum out)",
+      "affected_actor": "issuer/honest market",
+      "trigger_actor": "self-purchasing holder",
+      "entrypoint": "Marketplace.listVesting + Marketplace.spotPurchase",
+      "source_refs": [],
+      "state_variables": [
+        "bought",
+        "sold",
+        "maxSellPercent",
+        "allocation"
+      ],
+      "suspected_break": "an actor receives more than was funded / a rounding or denominator change lets totals diverge",
+      "why_this_invariant_matters": "value_conservation is a security-relevant property of SecondSwap_VestingManager.listVesting; if it fails the break above is the mechanism to validate from source.",
+      "confidence": "low",
+      "precision_gate_required": true,
+      "validation_required": true,
+      "poc_required_before_submission": true,
+      "human_final_gate_required": true,
+      "status": "HYPOTHESIS_ONLY"
+    },
+    {
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "invariant_type": "per_user_accounting",
+      "invariant_statement": "each user's individual accounting in SecondSwap_VestingManager.listVesting (bought, sold, maxSellPercent, allocation) matches the assets/schedule they are actually entitled to",
+      "affected_actor": "issuer/honest market",
+      "trigger_actor": "self-purchasing holder",
+      "entrypoint": "Marketplace.listVesting + Marketplace.spotPurchase",
+      "source_refs": [],
+      "state_variables": [
+        "bought",
+        "sold",
+        "maxSellPercent",
+        "allocation"
+      ],
+      "suspected_break": "a per-user counter is credited/inherited from the wrong source so one user over- or under-accounts (P97 class)",
+      "why_this_invariant_matters": "per_user_accounting is a security-relevant property of SecondSwap_VestingManager.listVesting; if it fails the break above is the mechanism to validate from source.",
+      "confidence": "low",
+      "precision_gate_required": true,
+      "validation_required": true,
+      "poc_required_before_submission": true,
+      "human_final_gate_required": true,
+      "status": "HYPOTHESIS_ONLY"
+    },
+    {
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "invariant_type": "lifecycle_state_transition",
+      "invariant_statement": "SecondSwap_VestingManager.listVesting behaves correctly across every lifecycle/phase ordering (open/closed, active/expired, pre/post-settle)",
+      "affected_actor": "issuer/honest market",
+      "trigger_actor": "self-purchasing holder",
+      "entrypoint": "Marketplace.listVesting + Marketplace.spotPurchase",
+      "source_refs": [],
+      "state_variables": [
+        "bought",
+        "sold",
+        "maxSellPercent",
+        "allocation"
+      ],
+      "suspected_break": "a closed/expired/early-execution ordering breaks an accounting or liveness assumption (P95 class)",
+      "why_this_invariant_matters": "lifecycle_state_transition is a security-relevant property of SecondSwap_VestingManager.listVesting; if it fails the break above is the mechanism to validate from source.",
+      "confidence": "low",
+      "precision_gate_required": true,
+      "validation_required": true,
+      "poc_required_before_submission": true,
+      "human_final_gate_required": true,
+      "status": "HYPOTHESIS_ONLY"
+    },
+    {
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "invariant_type": "role_access",
+      "invariant_statement": "only the intended privileged principal may take the protected action in SecondSwap_VestingManager.listVesting",
+      "affected_actor": "issuer/honest market",
+      "trigger_actor": "self-purchasing holder",
+      "entrypoint": "Marketplace.listVesting + Marketplace.spotPurchase",
+      "source_refs": [],
+      "state_variables": [
+        "bought",
+        "sold",
+        "maxSellPercent",
+        "allocation"
+      ],
+      "suspected_break": "missing buyer!=seller / role / auth check, or an inter-principal boundary is bypassable",
+      "why_this_invariant_matters": "role_access is a security-relevant property of SecondSwap_VestingManager.listVesting; if it fails the break above is the mechanism to validate from source.",
+      "confidence": "low",
+      "precision_gate_required": true,
+      "validation_required": true,
+      "poc_required_before_submission": true,
+      "human_final_gate_required": true,
+      "status": "HYPOTHESIS_ONLY"
+    },
+    {
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "invariant_type": "cap_limit",
+      "invariant_statement": "SecondSwap_VestingManager.listVesting cannot let a holder exceed the intended cap/limit (bought, sold, maxSellPercent, allocation)",
+      "affected_actor": "issuer/honest market",
+      "trigger_actor": "self-purchasing holder",
+      "entrypoint": "Marketplace.listVesting + Marketplace.spotPurchase",
+      "source_refs": [],
+      "state_variables": [
+        "bought",
+        "sold",
+        "maxSellPercent",
+        "allocation"
+      ],
+      "suspected_break": "the cap is computed from an inflatable counter or wrong basis, so repeated/ordered calls exceed it",
+      "why_this_invariant_matters": "cap_limit is a security-relevant property of SecondSwap_VestingManager.listVesting; if it fails the break above is the mechanism to validate from source.",
+      "confidence": "low",
+      "precision_gate_required": true,
+      "validation_required": true,
+      "poc_required_before_submission": true,
+      "human_final_gate_required": true,
+      "status": "HYPOTHESIS_ONLY"
+    },
+    {
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "invariant_type": "cross_contract_consistency",
+      "invariant_statement": "SecondSwap_VestingManager.listVesting and the in-scope contracts it calls agree on the value/state across the boundary",
+      "affected_actor": "issuer/honest market",
+      "trigger_actor": "self-purchasing holder",
+      "entrypoint": "Marketplace.listVesting + Marketplace.spotPurchase",
+      "source_refs": [],
+      "state_variables": [
+        "bought",
+        "sold",
+        "maxSellPercent",
+        "allocation"
+      ],
+      "suspected_break": "an in-scope callee returns a value {fn} mis-reads; exact arithmetic must be traced (P93 class)",
+      "why_this_invariant_matters": "cross_contract_consistency is a security-relevant property of SecondSwap_VestingManager.listVesting; if it fails the break above is the mechanism to validate from source.",
+      "confidence": "low",
+      "precision_gate_required": true,
+      "validation_required": true,
+      "poc_required_before_submission": true,
+      "human_final_gate_required": true,
+      "status": "HYPOTHESIS_ONLY"
+    }
+  ],
+  "validated_candidates": [
+    {
+      "invariant_type": "cap_limit",
+      "invariant_statement": "SecondSwap_VestingManager.listVesting cannot let a holder exceed the intended cap/limit (bought, sold, maxSellPercent, allocation)",
+      "decision": "VALIDATED_FOR_POC_HANDOFF",
+      "reason": "PASS_CANDIDATE survived depth trace + adversarial ordering + maximal consequence + severity gate + hygiene \u2014 recommend PoC handoff (human-gated)",
+      "defense_coverage": "COVERS",
+      "status": "HYPOTHESIS_ONLY",
+      "rank_score": 8
+    }
+  ],
+  "human_actionable_candidates": [
+    {
+      "invariant_type": "cap_limit",
+      "invariant_statement": "SecondSwap_VestingManager.listVesting cannot let a holder exceed the intended cap/limit (bought, sold, maxSellPercent, allocation)",
+      "decision": "VALIDATED_FOR_POC_HANDOFF",
+      "reason": "PASS_CANDIDATE survived depth trace + adversarial ordering + maximal consequence + severity gate + hygiene \u2014 recommend PoC handoff (human-gated)",
+      "defense_coverage": "COVERS",
+      "status": "HYPOTHESIS_ONLY",
+      "rank_score": 8
+    }
+  ],
+  "rejected": [],
+  "needs": [
+    {
+      "invariant_type": "value_conservation",
+      "invariant_statement": "the total of all balances/amounts tracked by SecondSwap_VestingManager.listVesting is conserved across the operation (sum in == sum out)",
+      "decision": "NEEDS_MORE_CONTEXT",
+      "reason": "no depth_trace evidence supplied \u2014 provide the 5-step localized trace (localized_mechanism, controlled_inputs, pre_state, operation_trace, boundary_cases, post_state, concrete_outcome)",
+      "defense_coverage": "DOES_NOT_COVER",
+      "status": "HYPOTHESIS_ONLY"
+    },
+    {
+      "invariant_type": "per_user_accounting",
+      "invariant_statement": "each user's individual accounting in SecondSwap_VestingManager.listVesting (bought, sold, maxSellPercent, allocation) matches the assets/schedule they are actually entitled to",
+      "decision": "NEEDS_MORE_CONTEXT",
+      "reason": "no depth_trace evidence supplied \u2014 provide the 5-step localized trace (localized_mechanism, controlled_inputs, pre_state, operation_trace, boundary_cases, post_state, concrete_outcome)",
+      "defense_coverage": "DOES_NOT_COVER",
+      "status": "HYPOTHESIS_ONLY"
+    },
+    {
+      "invariant_type": "lifecycle_state_transition",
+      "invariant_statement": "SecondSwap_VestingManager.listVesting behaves correctly across every lifecycle/phase ordering (open/closed, active/expired, pre/post-settle)",
+      "decision": "NEEDS_MORE_CONTEXT",
+      "reason": "no depth_trace evidence supplied \u2014 provide the 5-step localized trace (localized_mechanism, controlled_inputs, pre_state, operation_trace, boundary_cases, post_state, concrete_outcome)",
+      "defense_coverage": "PARTIALLY_COVERS",
+      "status": "HYPOTHESIS_ONLY"
+    },
+    {
+      "invariant_type": "role_access",
+      "invariant_statement": "only the intended privileged principal may take the protected action in SecondSwap_VestingManager.listVesting",
+      "decision": "NEEDS_MORE_CONTEXT",
+      "reason": "no depth_trace evidence supplied \u2014 provide the 5-step localized trace (localized_mechanism, controlled_inputs, pre_state, operation_trace, boundary_cases, post_state, concrete_outcome)",
+      "defense_coverage": "PARTIALLY_COVERS",
+      "status": "HYPOTHESIS_ONLY"
+    },
+    {
+      "invariant_type": "cross_contract_consistency",
+      "invariant_statement": "SecondSwap_VestingManager.listVesting and the in-scope contracts it calls agree on the value/state across the boundary",
+      "decision": "NEEDS_MORE_CONTEXT",
+      "reason": "no depth_trace evidence supplied \u2014 provide the 5-step localized trace (localized_mechanism, controlled_inputs, pre_state, operation_trace, boundary_cases, post_state, concrete_outcome)",
+      "defense_coverage": "DOES_NOT_COVER",
+      "status": "HYPOTHESIS_ONLY"
+    }
+  ]
+}

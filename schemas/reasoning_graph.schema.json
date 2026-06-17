@@ -1,0 +1,278 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ReasoningGraph",
+  "description": "In-memory reasoning graph for one audit session — tracks hypotheses, branches, evidence, and confidence evolution",
+  "type": "object",
+  "required": ["session_id", "nodes", "edges", "metrics"],
+  "properties": {
+    "session_id": { "type": "string" },
+    "audit_target": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/GraphNode" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/GraphEdge" }
+    },
+    "metrics": { "$ref": "#/definitions/GraphMetrics" }
+  },
+  "definitions": {
+    "GraphNode": {
+      "oneOf": [
+        { "$ref": "#/definitions/HypothesisNode" },
+        { "$ref": "#/definitions/BranchNode" },
+        { "$ref": "#/definitions/EvidenceNode" }
+      ]
+    },
+    "HypothesisNode": {
+      "type": "object",
+      "required": ["id", "node_type", "label", "hypothesis_text", "agent_origin", "born_at", "status", "confidence"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "e.g. HYP-001",
+          "pattern": "^HYP-[0-9]{3,}$"
+        },
+        "node_type": { "type": "string", "enum": ["hypothesis"] },
+        "label": {
+          "type": "string",
+          "description": "Human-readable one-line hypothesis title",
+          "maxLength": 80
+        },
+        "hypothesis_text": {
+          "type": "string",
+          "description": "Full statement of the hypothesis"
+        },
+        "agent_origin": {
+          "type": "string",
+          "description": "Which agent created this hypothesis"
+        },
+        "born_at": { "type": "string", "format": "date-time" },
+        "status": {
+          "type": "string",
+          "enum": ["LIVE", "INVALIDATED", "CONVERGED", "PRUNED", "ESCALATED"]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Current confidence score, updated over time"
+        },
+        "severity_ceiling": {
+          "type": "string",
+          "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO", "UNKNOWN"]
+        },
+        "attacker_reachable": {
+          "type": ["boolean", "null"],
+          "default": null
+        },
+        "exploit_class": {
+          "type": "string",
+          "description": "e.g. reentrancy, storage_shadow, arithmetic"
+        },
+        "linked_contracts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/AssumptionNode" }
+        },
+        "blockers": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/BlockerNode" }
+        },
+        "kb_matches": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/KBMatch" }
+        },
+        "invalidation_reason": {
+          "type": ["string", "null"],
+          "default": null
+        },
+        "confidence_history": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/ConfidenceEvent" }
+        },
+        "annotation": {
+          "type": ["string", "null"],
+          "description": "Human auditor annotation added via POST /api/.../annotate"
+        }
+      }
+    },
+    "BranchNode": {
+      "type": "object",
+      "required": ["id", "node_type", "parent_hypothesis", "branch_trigger", "branch_type", "status", "depth", "spawned_by"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "e.g. BR-001-A"
+        },
+        "node_type": { "type": "string", "enum": ["branch"] },
+        "parent_hypothesis": {
+          "type": "string",
+          "description": "HypothesisNode.id"
+        },
+        "branch_trigger": {
+          "type": "string",
+          "description": "What caused this branch to spawn"
+        },
+        "branch_type": {
+          "type": "string",
+          "enum": ["EXPLOIT_PATH", "CONSTRAINT_RELAXATION", "VARIANT", "COUNTERFACTUAL"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["LIVE", "PRUNED", "CONVERGED"]
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many levels deep from root hypothesis"
+        },
+        "spawned_by": {
+          "type": "string",
+          "description": "Agent name that spawned this branch"
+        },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/BranchNode" }
+        },
+        "label": { "type": "string" },
+        "born_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "EvidenceNode": {
+      "type": "object",
+      "required": ["id", "node_type", "attached_to", "evidence_type", "content", "source", "timestamp"],
+      "properties": {
+        "id": { "type": "string" },
+        "node_type": { "type": "string", "enum": ["evidence"] },
+        "attached_to": {
+          "type": "string",
+          "description": "HypothesisNode.id or BranchNode.id"
+        },
+        "evidence_type": {
+          "type": "string",
+          "enum": ["CODE_REF", "SOLODIT_MATCH", "STATIC_ANALYSIS", "POC_RESULT", "AGENT_REASONING"]
+        },
+        "content": { "type": "string" },
+        "source": { "type": "string" },
+        "confidence_delta": {
+          "type": "number",
+          "description": "How much this shifted confidence (+/-)"
+        },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "AssumptionNode": {
+      "type": "object",
+      "required": ["id", "text", "is_blocking"],
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "validated": { "type": ["boolean", "null"], "default": null },
+        "validation_agent": { "type": ["string", "null"], "default": null },
+        "is_blocking": {
+          "type": "boolean",
+          "description": "If false, branch is unprovable without this assumption being resolved"
+        }
+      }
+    },
+    "BlockerNode": {
+      "type": "object",
+      "required": ["id", "description", "blocker_type"],
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" },
+        "blocker_type": {
+          "type": "string",
+          "enum": ["ACCESS_CONTROL", "GAS", "LOGIC", "GOVERNANCE", "EXTERNAL_DEP"]
+        },
+        "breakable": {
+          "type": "boolean",
+          "description": "Can a counterfactual agent relax this blocker?"
+        },
+        "counterfactual_spawned": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "KBMatch": {
+      "type": "object",
+      "required": ["solodit_id", "title", "similarity_score"],
+      "properties": {
+        "solodit_id": { "type": "string" },
+        "title": { "type": "string" },
+        "similarity_score": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "exploit_pattern": { "type": "string" },
+        "historical_severity": { "type": "string" },
+        "protocol_type": { "type": "string" }
+      }
+    },
+    "ConfidenceEvent": {
+      "type": "object",
+      "required": ["timestamp", "old_confidence", "new_confidence", "reason", "triggered_by"],
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "old_confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "new_confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "reason": { "type": "string" },
+        "triggered_by": {
+          "type": "string",
+          "description": "Agent name or event type that triggered this shift"
+        }
+      }
+    },
+    "GraphEdge": {
+      "type": "object",
+      "required": ["id", "source", "target", "edge_type"],
+      "properties": {
+        "id": { "type": "string" },
+        "source": { "type": "string", "description": "node id" },
+        "target": { "type": "string", "description": "node id" },
+        "edge_type": {
+          "type": "string",
+          "enum": ["SPAWNED", "EVIDENCE", "KB_MATCH", "BLOCKS", "COMPOUND"]
+        },
+        "strength": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Relationship strength / similarity score",
+          "default": 0.5
+        }
+      }
+    },
+    "GraphMetrics": {
+      "type": "object",
+      "properties": {
+        "total_hypotheses": { "type": "integer" },
+        "active_branches": { "type": "integer" },
+        "pruned_branches": { "type": "integer" },
+        "proved_exploits": { "type": "integer" },
+        "live_count": { "type": "integer" },
+        "invalidated_count": { "type": "integer" },
+        "converged_count": { "type": "integer" },
+        "escalated_count": { "type": "integer" },
+        "confidence_distribution": {
+          "type": "object",
+          "properties": {
+            "high": { "type": "integer", "description": "confidence >= 0.7" },
+            "medium": { "type": "integer", "description": "0.4 <= confidence < 0.7" },
+            "low": { "type": "integer", "description": "confidence < 0.4" }
+          }
+        },
+        "kb_matches_total": { "type": "integer" },
+        "total_events_processed": { "type": "integer" }
+      }
+    }
+  }
+}

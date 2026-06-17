@@ -1,0 +1,32 @@
+{
+  "bug_class": "validation_liveness_counter_scope",
+  "description": "An incorrect validation DOMAIN/SCOPE permanently or indefinitely bricks a user-facing path: a global counter checked against a local/per-generation/per-user limit (or a wrong validation domain) blocks an intended mint/claim/withdraw/settle/forge/buy/sell action, or prevents a lifecycle phase from completing. Anchored on TraitForge 2024-07 H-01 (mintWithBudget loop guard `_tokenIds < maxTokensPerGen` uses the global token id vs the per-generation cap, bricking budget-minting from generation 2 onward).",
+  "required_for_medium": [
+    "wrong_validation_scope_proven",
+    "user_facing_path_blocked_proven"
+  ],
+  "required_for_high": [
+    "wrong_validation_scope_proven",
+    "user_facing_path_blocked_proven",
+    "permanent_or_indefinite_brick_proven",
+    "core_phase_or_many_users_affected_proven"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "show the validation uses the wrong domain (global counter vs per-scope limit / wrong validation set)",
+    "L3B": "drive the system to the boundary where the wrong-scope check trips and assert the user-facing path (mint/claim/withdraw/settle/forge/buy/sell) is blocked for a normal user",
+    "L3C": "assert the brick is permanent/indefinite (no setter / no self-recovery; recovers only via privileged intervention, migration, or upgrade) and that it affects a core phase or many/all users"
+  },
+  "poc_level_requirements": {
+    "L3A": ["wrong_validation_scope_proven"],
+    "L3B": ["wrong_validation_scope_proven", "user_facing_path_blocked_proven"],
+    "L3C": ["wrong_validation_scope_proven", "user_facing_path_blocked_proven", "permanent_or_indefinite_brick_proven", "core_phase_or_many_users_affected_proven"]
+  },
+  "proof_signatures": {
+    "wrong_validation_scope_proven": ["global counter", "_tokenIds", "vs per-generation", "wrong limit", "per-user limit", "validation domain"],
+    "user_facing_path_blocked_proven": ["mints 0", "loop never runs", "reverts", "cannot mint", "cannot claim", "path blocked", "refunded full"],
+    "permanent_or_indefinite_brick_proven": ["never reset", "no setter", "permanent", "from gen2 onward", "indefinitely", "only via upgrade"],
+    "core_phase_or_many_users_affected_proven": ["all users", "every user", "core", "entire generation", "whole phase"]
+  },
+  "high_severity_rationale": "High requires proving the wrong-scope validation PERMANENTLY/indefinitely bricks a CORE user-facing path for many/all users with no self-recovery (recovers only via privileged intervention / migration / upgrade). Medium is proven by showing the validation scope is wrong and a user-facing path is materially blocked, without a permanence + core/all-users proof. This is a LIVENESS / denial-of-asset-movement class -> per the P88 severity gate it must NOT be under-rated below Medium when source-backed; it is NOT a bounded/lazy accounting issue.",
+  "negative_control_template": "Replace the wrong-domain check with the correct scope (e.g. `generationMintCounts[currentGeneration] < maxTokensPerGen` instead of `_tokenIds < maxTokensPerGen`, or the per-user/per-scope counter). Assert the user-facing path works again at and beyond the boundary, with no other change."
+}

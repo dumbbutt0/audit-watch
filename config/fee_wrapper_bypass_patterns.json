@@ -1,0 +1,20 @@
+{
+  "lens": "fee_wrapper_bypass",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). CONSERVATIVE / lowest-precision lens. Generalized CLASS of the P306 decent M-02 miss: a fee/validation layer (UTB + UTBFeeCollector) wraps an underlying cross-chain action (DecentEthRouter.bridge/bridgeWithPayload), but that underlying action is itself PUBLIC with no caller restriction, so users bypass the fee layer by calling the router directly. Two-signal: S1 the codebase has a fee layer (a *FeeCollector* contract or a collectFees/chargeFee function); S2 a router/adapter exposes a PUBLIC cross-chain action (bridge/send/sendAndCall/swap) with no onlyX/auth modifier AND that does not itself invoke the fee layer. Fire LOW confidence. Suppress: action fns carrying an access modifier or that collect fees; codebases with no fee layer; views.",
+
+  "fee_layer_contract_terms": ["feecollector", "feemanager", "feevault", "feetreasury"],
+  "fee_layer_fn_terms": ["collectfees", "chargefee", "takefee", "_collectfee", "applyfee", "deductfee", "retrieveandcollectfees"],
+  "fee_invocation_terms": ["collectfees", "feecollector", "retrieveandcollectfees", "collectfee", "retrievefee", "chargefee"],
+  "action_verbs": ["bridge", "bridgewithpayload", "send", "sendandcall", "swap", "sendmessage", "crosschain", "deposittoken"],
+  "send_primitives": ["sendandcall", "lzsend", "_lzsend", "router.swap{", "nonblockinglzsend", "_lzsend(", ".bridge(", "_bridgewithpayload"],
+  "access_modifiers": ["only", "auth", "restricted", "canpause", "onlyrole"],
+
+  "fp_controls": {
+    "two_signal_required": "S1 a fee layer exists in scope AND S2 a public unguarded cross-chain action that does NOT itself collect fees.",
+    "no_fee_layer_suppression": "codebase with no FeeCollector/collectFees -> silent.",
+    "access_modifier_suppression": "action fns carrying onlyX/auth -> suppressed.",
+    "fee_invoker_suppression": "the fee-charging entrypoint itself (invokes collectFees/retrieveAndCollectFees) -> suppressed.",
+    "low_confidence": "this lens is advisory/low-precision; a public entrypoint may be intended."
+  }
+}

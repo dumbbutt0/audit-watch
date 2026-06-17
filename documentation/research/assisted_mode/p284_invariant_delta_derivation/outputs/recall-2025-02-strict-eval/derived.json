@@ -1,0 +1,1520 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "SUPERVISED_EVAL_DERIVED_EVIDENCE",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "packages": [
+    {
+      "candidate_id": "coverage_manifest:LibStaking:depositWithConfirm:0",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "LibStaking.depositWithConfirm",
+      "source_refs": "LibStaking.depositWithConfirm function depositWithConfirm(address validator, uint256 amount) internal {",
+      "mechanism_hypothesis": "[T8] LibStaking.depositWithConfirm: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "LibStaking.depositWithConfirm function depositWithConfirm(address validator, uint256 amount) internal {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "LibStaking.depositWithConfirm is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function depositWithConfirm(address validator, uint256 amount) internal {",
+      "victim_gainer": "victim = users/LPs of LibStaking (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in LibStaking via depositWithConfirm (value-moving op)",
+      "invariant_expected": "share<->asset conversion in LibStaking.depositWithConfirm conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "LibStaking.depositWithConfirm rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls LibStaking.depositWithConfirm with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through LibStaking.depositWithConfirm nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "collateral"
+        ],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/lib/LibStaking.sol",
+        "source_span": [
+          483,
+          515
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "collateral"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [483, 515] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/lib/LibStaking.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "LibStaking.depositWithConfirm",
+            "callee": "LibValidatorSet.recordDeposit",
+            "edge": "library_or_inherited",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "LibStaking.depositWithConfirm",
+            "callee": "LibValidatorSet.confirmDeposit",
+            "edge": "library_or_inherited",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "LibValidatorSet.confirmDeposit",
+            "callee": "LibValidatorSet.increaseReshuffle",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "LibValidatorSet.recordDeposit",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 3,
+        "unresolved_callees": [
+          "Validator",
+          "appStorage"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from LibStaking.depositWithConfirm",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LibStakingReleaseQueue:claim:5",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "LibStakingReleaseQueue.claim",
+      "source_refs": "LibStakingReleaseQueue.claim function claim(StakingReleaseQueue storage self, address validator) internal returns (uint256) {",
+      "mechanism_hypothesis": "[T2] LibStakingReleaseQueue.claim: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "LibStakingReleaseQueue.claim function claim(StakingReleaseQueue storage self, address validator) internal returns (uint256) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "LibStakingReleaseQueue.claim is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function claim(StakingReleaseQueue storage self, address validator) internal ret",
+      "victim_gainer": "victim = users/LPs of LibStakingReleaseQueue (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in LibStakingReleaseQueue via claim (value-moving op)",
+      "invariant_expected": "rewards via LibStakingReleaseQueue.claim go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "LibStakingReleaseQueue.claim mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls LibStakingReleaseQueue.claim with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert LibStakingReleaseQueue.claim pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/lib/LibStaking.sol",
+        "source_span": [
+          84,
+          92
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [84, 92] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/lib/LibStaking.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "LibStakingReleaseQueue.claim",
+            "callee": "LibAddressStakingReleases.compact",
+            "edge": "library_or_inherited",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "LibAddressStakingReleases.compact",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "NoCollateralToWithdraw",
+          "returns"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from LibStakingReleaseQueue.claim",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LibValidatorSet:confirmWithdraw:6",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "LibValidatorSet.confirmWithdraw",
+      "source_refs": "LibValidatorSet.confirmWithdraw function confirmWithdraw(ValidatorSet storage self, address validator, uint256 amount) internal {",
+      "mechanism_hypothesis": "[T2] LibValidatorSet.confirmWithdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "LibValidatorSet.confirmWithdraw function confirmWithdraw(ValidatorSet storage self, address validator, uint256 amount) internal {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "LibValidatorSet.confirmWithdraw is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function confirmWithdraw(ValidatorSet storage self, address validator, uint256 a",
+      "victim_gainer": "victim = users/LPs of LibValidatorSet (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in LibValidatorSet via confirmWithdraw (value-moving op)",
+      "invariant_expected": "LibValidatorSet.confirmWithdraw preserves the relevant protocol invariant",
+      "invariant_broken": "LibValidatorSet.confirmWithdraw violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls LibValidatorSet.confirmWithdraw with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert LibValidatorSet.confirmWithdraw produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "-=",
+          "collateral"
+        ],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/lib/LibStaking.sol",
+        "source_span": [
+          257,
+          270
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "-=",
+          "collateral"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [257, 270] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/lib/LibStaking.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_PARTIAL",
+        "trace_path": [
+          {
+            "caller": "LibValidatorSet.confirmWithdraw",
+            "callee": "LibValidatorSet.reduceReshuffle",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "WaitingValidatorLeft",
+          "contains",
+          "decreaseReheapify",
+          "deleteReheapify"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from LibValidatorSet.confirmWithdraw",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [
+          "totalCollateral",
+          "totalConfirmedCollateral"
+        ],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": "totalCollateralAfter - totalCollateralBefore == minted/burned amount",
+        "confidence": "LOW",
+        "source_basis": "local conservation equation extracted (assertion scaffold only; no deviation)",
+        "unresolved_assumptions": [
+          "before/after equation present but no deviation detector corroborates"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SubnetActorActivityFacet:batchSubnetClaim:7",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "SubnetActorActivityFacet.batchSubnetClaim",
+      "source_refs": "SubnetActorActivityFacet.batchSubnetClaim function batchSubnetClaim( SubnetID calldata subnet, uint64[] calldata checkpointHeights, Consensus.ValidatorClaim[] calldata claims ) external nonReentrant whenNotPaused {",
+      "mechanism_hypothesis": "[T2] SubnetActorActivityFacet.batchSubnetClaim: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "SubnetActorActivityFacet.batchSubnetClaim function batchSubnetClaim( SubnetID calldata subnet, uint64[] calldata checkpointHeights, Consensus.ValidatorClaim[] calldata claims ) external nonReentrant whenNotPaused {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls SubnetActorActivityFacet.batchSubnetClaim with chosen inputs (function batchSubnetClaim( SubnetID calldata subnet, uint64[)",
+      "attacker_controlled_inputs": "msg.sender + args of function batchSubnetClaim( SubnetID calldata subnet, uint64[] calldata checkpoin",
+      "victim_gainer": "victim = users/LPs of SubnetActorActivityFacet (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in SubnetActorActivityFacet via batchSubnetClaim (value-moving op)",
+      "invariant_expected": "rewards via SubnetActorActivityFacet.batchSubnetClaim go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "SubnetActorActivityFacet.batchSubnetClaim mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls SubnetActorActivityFacet.batchSubnetClaim with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert SubnetActorActivityFacet.batchSubnetClaim pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant', 'whenNotPaused'], external_calls=False, has_loop=False, tags=['permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant', 'whenNotPaused'], external_calls=False, has_loop=False, tags=['permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "notpaused",
+          "whennotpaused"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/subnet/SubnetActorActivityFacet.sol",
+        "source_span": [
+          19,
+          32
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [19, 32] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/subnet/SubnetActorActivityFacet.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_PARTIAL",
+        "trace_path": [
+          {
+            "caller": "SubnetActorActivityFacet.batchSubnetClaim",
+            "callee": "SubnetActorActivityFacet._claim",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "SubnetActorActivityFacet._claim",
+            "callee": "LibActivity.processConsensusClaim",
+            "edge": "library_or_inherited",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 2,
+        "unresolved_callees": [
+          "NotAuthorized"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from SubnetActorActivityFacet.batchSubnetClaim",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LibStakingReleaseQueue:setLockDuration:8",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "LibStakingReleaseQueue.setLockDuration",
+      "source_refs": "LibStakingReleaseQueue.setLockDuration function setLockDuration(StakingReleaseQueue storage self, uint256 blocks) internal {",
+      "mechanism_hypothesis": "[T5] LibStakingReleaseQueue.setLockDuration: A state transition may make a required later operation impossible, stuck, delayed, or incorrectly successful.",
+      "root_cause": "LibStakingReleaseQueue.setLockDuration function setLockDuration(StakingReleaseQueue storage self, uint256 blocks) internal {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "LibStakingReleaseQueue.setLockDuration is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function setLockDuration(StakingReleaseQueue storage self, uint256 blocks) inter",
+      "victim_gainer": "unclear from manifest signals",
+      "state_value_liveness_delta": "state mutation in LibStakingReleaseQueue.setLockDuration",
+      "invariant_expected": "LibStakingReleaseQueue.setLockDuration preserves the relevant protocol invariant",
+      "invariant_broken": "LibStakingReleaseQueue.setLockDuration violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls LibStakingReleaseQueue.setLockDuration with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "After this transition, can a needed later step (claim/finalize/withdraw) still complete correctly?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert LibStakingReleaseQueue.setLockDuration produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=[]"
+        },
+        "victim_gainer": {
+          "confidence": "LOW",
+          "source_basis": "no value-movement signal"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/lib/LibStaking.sol",
+        "source_span": [
+          69,
+          71
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [69, 71] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/lib/LibStaking.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_UNRESOLVED",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from LibStakingReleaseQueue.setLockDuration",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:GatewayManagerFacet:register:10",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "GatewayManagerFacet.register",
+      "source_refs": "GatewayManagerFacet.register function register(uint256 genesisCircSupply, uint256 collateral) external payable {",
+      "mechanism_hypothesis": "[T7] GatewayManagerFacet.register: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+      "root_cause": "GatewayManagerFacet.register function register(uint256 genesisCircSupply, uint256 collateral) external payable {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls GatewayManagerFacet.register with chosen inputs (function register(uint256 genesisCircSupply, uint256 collate)",
+      "attacker_controlled_inputs": "msg.sender + args of function register(uint256 genesisCircSupply, uint256 collateral) external payabl",
+      "victim_gainer": "victim = users/LPs of GatewayManagerFacet (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GatewayManagerFacet via register (value-moving op)",
+      "invariant_expected": "post-GatewayManagerFacet.register accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "GatewayManagerFacet.register leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls GatewayManagerFacet.register with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-GatewayManagerFacet.register accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=payable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=payable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "+=",
+          "collateral"
+        ],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/gateway/GatewayManagerFacet.sol",
+        "source_span": [
+          35,
+          63
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "+=",
+          "collateral"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [35, 63] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/gateway/GatewayManagerFacet.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_TOO_DYNAMIC",
+        "trace_path": [
+          {
+            "caller": "GatewayManagerFacet.register",
+            "callee": "SubnetIDHelper.createSubnetId",
+            "edge": "library_or_inherited",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "AlreadyRegisteredSubnet",
+          "MethodNotAllowed",
+          "getSubnet",
+          "returns"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from GatewayManagerFacet.register",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [
+          "totalSubnets"
+        ],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": "totalSubnetsAfter - totalSubnetsBefore == minted/burned amount",
+        "confidence": "LOW",
+        "source_basis": "local conservation equation extracted (assertion scaffold only; no deviation)",
+        "unresolved_assumptions": [
+          "before/after equation present but no deviation detector corroborates"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:CheckpointingFacet:commitCheckpoint:11",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "CheckpointingFacet.commitCheckpoint",
+      "source_refs": "CheckpointingFacet.commitCheckpoint function commitCheckpoint(BottomUpCheckpoint calldata checkpoint) external {",
+      "mechanism_hypothesis": "[T6] CheckpointingFacet.commitCheckpoint: Separate txs/epochs/delayed checkpoints may create a stale or double-counted accounting view.",
+      "root_cause": "CheckpointingFacet.commitCheckpoint function commitCheckpoint(BottomUpCheckpoint calldata checkpoint) external {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls CheckpointingFacet.commitCheckpoint with chosen inputs (function commitCheckpoint(BottomUpCheckpoint calldata checkp)",
+      "attacker_controlled_inputs": "msg.sender + args of function commitCheckpoint(BottomUpCheckpoint calldata checkpoint) external {",
+      "victim_gainer": "unclear from manifest signals",
+      "state_value_liveness_delta": "state mutation in CheckpointingFacet.commitCheckpoint",
+      "invariant_expected": "post-CheckpointingFacet.commitCheckpoint accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "CheckpointingFacet.commitCheckpoint leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls CheckpointingFacet.commitCheckpoint with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Across two transactions/epochs, can an index/accrual be applied twice or skipped?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-CheckpointingFacet.commitCheckpoint accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=[]"
+        },
+        "victim_gainer": {
+          "confidence": "LOW",
+          "source_basis": "no value-movement signal"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "msg.sender==/!= (either side)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": false,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/gateway/router/CheckpointingFacet.sol",
+        "source_span": [
+          33,
+          51
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": false,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [33, 51] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/gateway/router/CheckpointingFacet.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_PARTIAL",
+        "trace_path": [
+          {
+            "caller": "CheckpointingFacet.commitCheckpoint",
+            "callee": "SubnetIDHelper.getActor",
+            "edge": "library_or_inherited",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "InvalidCheckpointSource",
+          "SubnetNotFound",
+          "getSubnet",
+          "returns"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from CheckpointingFacet.commitCheckpoint",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SubnetActorGetterFacet:powerScale:17",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "SubnetActorGetterFacet.powerScale",
+      "source_refs": "SubnetActorGetterFacet.powerScale function powerScale() external view returns (int8) {",
+      "mechanism_hypothesis": "[T9] SubnetActorGetterFacet.powerScale: Math/units/convergence boundary: decimal/scale/unit mismatch, iterative convergence failure, silent zero/fallback, rounding-direction or precision loss across token decimals.",
+      "root_cause": "SubnetActorGetterFacet.powerScale function powerScale() external view returns (int8) {",
+      "affected_state_vars": "operator-to-derive (decimals/scale/precision/convergence)",
+      "attacker_model": "SubnetActorGetterFacet.powerScale is external/view - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function powerScale() external view returns (int8) {",
+      "victim_gainer": "unclear from manifest signals",
+      "state_value_liveness_delta": "read-only - no state delta",
+      "invariant_expected": "share<->asset conversion in SubnetActorGetterFacet.powerScale conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "SubnetActorGetterFacet.powerScale rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls SubnetActorGetterFacet.powerScale with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable",
+      "runner_up_mechanism": null,
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Are all decimal/scale conversions exact and does the iterative solver always converge or revert (never silently return 0/stale)?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through SubnetActorGetterFacet.powerScale nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "runner_up_mechanism",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=view, modifiers=[], external_calls=False, has_loop=False, tags=['decimals']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "LOW",
+          "source_basis": "mutability is view/pure"
+        },
+        "victim_gainer": {
+          "confidence": "LOW",
+          "source_basis": "no value-movement signal"
+        },
+        "terminality_or_amplification": {
+          "confidence": "LOW",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": false,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/subnet/SubnetActorGetterFacet.sol",
+        "source_span": [
+          196,
+          198
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": false,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [196, 198] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/recall-2025-02-strict-eval/contracts/foundry/src_inscope/contracts/subnet/SubnetActorGetterFacet.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_UNRESOLVED",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "returns"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from SubnetActorGetterFacet.powerScale",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

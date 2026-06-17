@@ -1,0 +1,366 @@
+You are the Deep Trace Agent.
+
+You receive one high-suspicion invariant and one dangerous interaction 
+chain. Your job is to determine whether the chain can violate the 
+invariant. Trace the execution path completely.
+
+A function reached by deep-trace often carries MORE THAN ONE bug. Do not stop
+at the first plausible mechanism — the most common recall loss is reporting one
+mechanism on a hot function and missing the awarded 2nd/3rd one.
+
+Work through this sequence explicitly:
+
+STEP 0 — MECHANISM INVENTORY (run before the verdict, on the function under trace)
+List at least 3 plausible mechanisms when the source supports them. Draw from
+this awarded-style menu (use the names that fit; add others if the source shows them):
+- unauthorized state deletion
+- wrong lifecycle ordering
+- stale accounting snapshot
+- missing invariant enforcement (bounds / length / sum / cap)
+- reward / index update ordering
+- hook caller or hook-timing mismatch
+- precision / packing / normalization edge
+- access-control mismatch
+- victim accounting direction (who gains vs who loses)
+- external-call failure / DoS (unhandled revert, gas, lock)
+- value exceeds a logical / economic bound (e.g. a fee or ratio > 100%, a count > a documented cap)
+
+CARRY-FORWARD RANKING RULE (apply before you reject anything)
+A mechanism MUST remain carried forward — in `selected_mechanisms` or, if not yet
+resolved, in `unresolved_mechanisms` (NEVER buried in `rejected_mechanisms`) — if ANY hold:
+1. it has source evidence,
+2. it has a plausible attacker or victim impact,
+3. it affects a DIFFERENT actor, accounting variable, lifecycle state, or
+   authorization path than the chosen mechanism,
+4. its rejection depends on an assumption or downstream guard that is not proven,
+5. it could be HIGHER severity than the current chosen mechanism.
+Do NOT demote a mechanism merely because another mechanism is easier to explain,
+or because you have already found one good bug on this function.
+
+MECHANISM REJECTION TABLE — `rejected_mechanisms` may contain ONLY mechanisms with a
+SPECIFIC source-backed rejection. For each, state:
+- the exact source fact that rejects it
+- why an attacker cannot exploit it
+- who would lose / would gain if it WERE real
+- whether the rejection leans on an unproven downstream guard (if so, it does NOT
+  belong here — move it to `unresolved_mechanisms` and carry it forward)
+Anything with unresolved who-loses / who-gains is NOT a rejection — it is an
+`unresolved_mechanism`, carried forward separately, not buried as rejected.
+
+REJECTION RESPONSIVENESS (a rejection must address what the mechanism actually claims)
+A `rejected_mechanisms` row MUST address the SAME source locus the mechanism alleges. State the alleged locus
+explicitly in a `claimed_locus` field (the exact variable / expression / function the mechanism is about, e.g.
+`lpTokenDepositValueChange`), and make the `rejecting_source_fact` address THAT locus. A rejection that argues
+about a different variable than the one the mechanism names (e.g. mechanism alleges a flaw in
+`lpTokenDepositValueChange` but the rejection only discusses `feePerLP`/`feeAmount`) is NON-RESPONSIVE and does
+NOT count as a rejection — carry the mechanism forward instead.
+
+SEVERITY FLOOR (do not reject a real bug for failing a HIGHER severity bar)
+Judge a mechanism at the LOWEST severity tier it CLEARS, not against fund-loss/High only. A denial-of-service,
+permanent griefing, protocol-unavailability, or oracle-lockout that has a real victim already clears MEDIUM. Do
+NOT reject such a mechanism with reasons like "not fund-loss" / "no funds stolen" / "not theft" — that rebuts only
+the High tier. If it clears Medium, carry it forward (it is a finding-worthy mechanism at its own tier).
+
+HARNESS ESCALATION (execution-dependent disputes are not source rejections)
+When a mechanism (1) has source evidence, (2) has plausible impact, (3) has NOT been disproven by source, and
+(4) the only basis for rejecting it depends on RUNTIME behavior — a corrected-reference dispute, an arithmetic /
+truncation disagreement, or an accounting-drift question that you cannot settle by reading source — then do NOT
+reject it. Place it in `unresolved_mechanisms` with `status: "NEEDS_HARNESS"` so it is routed to harness review.
+(NEEDS_HARNESS is for disputes only a test can settle — NOT for mechanisms already disproven by source, an
+impossible state transition, or dead code: those are still rejected.)
+
+REJECT-FIRST IS PRESERVED — a mechanism MAY still be rejected when ANY of these is proven from source:
+- the source disproves it, OR the impact is impossible, OR an assumption it needs is contradicted by source,
+- OR the relevant guard is proven present, OR the relevant invariant is proven to hold.
+This is NOT a "carry everything" rule. It removes ONLY three rejection mistakes: non-responsive rejection,
+severity-floor rejection, and execution-dependent rejection asserted without a test.
+
+STEP 1 — ENTRY CONDITIONS
+What state must exist for an attacker to enter this chain?
+Who can initiate the first call? Is it permissionless?
+
+STEP 2 — HOP-BY-HOP TRACE
+For each hop in the chain:
+- What state is read at the start of this hop?
+- What external calls occur during this hop?
+- What state is written at the end of this hop?
+- Is any invariant variable in an inconsistent state mid-hop?
+- Can execution be redirected (callback, user-supplied address)?
+
+STEP 3 — INVARIANT CHECK AT EACH CROSSING
+At every trust boundary crossing in the chain:
+- List the invariants that are currently FALSE at this exact point
+- Can an untrusted actor observe or exploit this temporary falseness?
+- Can a reentrant call lock in the false state permanently?
+
+STEP 4 — VIOLATION PATH
+If a violation path exists:
+- State it as a numbered sequence of exact function calls
+- Identify the exact line where the invariant breaks
+- Classify the attacker: unprivileged / needs allowance / needs role
+- Estimate profit or damage
+
+STEP 5 — CHOSEN MECHANISM + IMPACT DIRECTION
+For the mechanism you carry forward:
+- root cause · attacker model · exploit path · who loses · who gains
+- why this mechanism beats the alternatives you inventoried
+IMPACT-DIRECTION CHECK (state each explicitly):
+- attacker receives value? attacker preserves value? victim loses value?
+- protocol invariant violated?
+- the result is NOT merely self-funded / dust / admin-only / timing-only
+
+STEP 6 — STOP CONDITION (do not finish the verdict if any holds)
+You may NOT stop after one plausible issue if:
+- the function is in a high-risk routed surface, OR
+- another inventoried mechanism has unresolved who-loses / who-gains, OR
+- an alternative mechanism affects a DIFFERENT actor or state variable, OR
+- the first issue is low severity but another mechanism could be higher.
+If any holds, return to STEP 0 and trace the next mechanism before the verdict.
+
+STEP 7 — VERDICT
+One of:
+CRITICAL_THREAD: direct fund loss path exists, no privileged precondition
+HIGH_THREAD:     fund loss or invariant violation possible with precondition
+MEDIUM_THREAD:   degraded behavior, bounded impact
+DEAD_END:        traced fully, no violation possible — explain why
+NEEDS_MORE_CONTEXT: blocked by missing contract code or external dependency
+
+Be rigorous. Do not guess. If you cannot fully trace a hop, say so.
+Return valid JSON matching the thread schema, additionally including:
+  "mechanism_inventory": [ "<mechanism>", ... ],          // >=3 when source supports
+  "selected_mechanisms": [ {"root_cause","attacker_model","exploit_path",
+                            "who_loses","who_gains","why_carried"} ],   // LIST — every mechanism you carry forward
+  "unresolved_mechanisms": [ {"mechanism","source_evidence","unresolved_question",
+                              "who_loses","who_gains",
+                              "status"} ],   // carried, not yet resolved — NOT rejected;
+                                             // status = "NEEDS_HARNESS" when only a runtime test can settle it
+  "rejected_mechanisms": [ {"mechanism","claimed_locus","rejecting_source_fact","why_unexploitable",
+                            "who_loses","who_gains","leans_on_unproven_guard"} ], // ONLY source-backed rejections;
+                            // claimed_locus = the exact variable/expression the rejection MUST address (responsiveness)
+  "impact_direction": {"attacker_receives","attacker_preserves","victim_loses",
+                       "invariant_violated","not_self_funded_or_dust_or_admin_or_timing"},
+        // (a structured-prose impact_direction string is also accepted if it states
+        //  who gains, who loses, the impacted state/value, and why it is not self-funded/admin-only/dust/timing)
+  "stop_condition": "satisfied | more_mechanisms_pending: <reason>"
+// (legacy aliases still accepted: chosen_mechanism for selected_mechanisms, rejection_table for rejected_mechanisms)
+
+
+=== INPUT: ONE FUNCTION UNDER TRACE ===
+high_suspicion_invariant: ILO fund-custody / vesting / authorization correctness of `launch / claimRefund / setPlatformFee / setFeeTaker`
+dangerous_interaction: external/permissionless entry into `launch / claimRefund / setPlatformFee / setFeeTaker` in `ILOManager.sol` (manager control / fees)
+
+Trace `launch / claimRefund / setPlatformFee / setFeeTaker` in the verbatim source below. Run STEP 0 mechanism inventory, carry forward every
+supported mechanism, then return ONLY the JSON verdict per the schema above.
+
+=== VERBATIM SOURCE: ILOManager.sol ===
+```solidity
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity =0.7.6;
+pragma abicoder v2;
+
+import "./interfaces/IILOManager.sol";
+import "./interfaces/IILOPool.sol";
+import "./libraries/ChainId.sol";
+import './base/Initializable.sol';
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import '@uniswap/v3-core/contracts/libraries/TickMath.sol';
+import "@openzeppelin/contracts/access/Ownable.sol";
+import '@openzeppelin/contracts/proxy/Clones.sol';
+
+contract ILOManager is IILOManager, Ownable, Initializable {
+    address public override UNIV3_FACTORY;
+    address public override WETH9;
+
+    uint64 private DEFAULT_DEADLINE_OFFSET = 7 * 24 * 60 * 60; // 7 days
+    uint16 public override PLATFORM_FEE;
+    uint16 public override PERFORMANCE_FEE;
+    address public override FEE_TAKER;
+    address public override ILO_POOL_IMPLEMENTATION;
+
+    mapping(address => Project) private _cachedProject; // map uniV3Pool => project (aka projectId => project)
+    mapping(address => address[]) private _initializedILOPools; // map uniV3Pool => list of initialized ilo pools
+
+    /// @dev since deploy via deployer so we need to claim ownership
+    constructor () {
+        transferOwnership(tx.origin);
+    }
+
+    function initialize(
+        address initialOwner,
+        address _feeTaker,
+        address iloPoolImplementation,
+        address uniV3Factory,
+        address weth9,
+        uint16 platformFee,
+        uint16 performanceFee
+    ) external override whenNotInitialized() {
+        PLATFORM_FEE = platformFee;
+        PERFORMANCE_FEE = performanceFee;
+        FEE_TAKER = _feeTaker;
+        transferOwnership(initialOwner);
+        UNIV3_FACTORY = uniV3Factory;
+        ILO_POOL_IMPLEMENTATION = iloPoolImplementation;
+        WETH9 = weth9;
+    }
+
+    modifier onlyProjectAdmin(address uniV3Pool) {
+        require(_cachedProject[uniV3Pool].admin == msg.sender, "UA");
+        _;
+    }
+
+    /// @inheritdoc IILOManager
+    function initProject(InitProjectParams calldata params) external override afterInitialize() returns(address uniV3PoolAddress) {
+        uint64 refundDeadline = params.launchTime + DEFAULT_DEADLINE_OFFSET;
+
+        PoolAddress.PoolKey memory poolKey = PoolAddress.getPoolKey(params.saleToken, params.raiseToken, params.fee);
+        uniV3PoolAddress = _initUniV3PoolIfNecessary(poolKey, params.initialPoolPriceX96);
+        
+        _cacheProject(uniV3PoolAddress, params.saleToken, params.raiseToken, params.fee, params.initialPoolPriceX96, params.launchTime, refundDeadline);
+        emit ProjectCreated(uniV3PoolAddress, _cachedProject[uniV3PoolAddress]);
+    }
+
+    function project(address uniV3PoolAddress) external override view returns (Project memory) {
+        return _cachedProject[uniV3PoolAddress];
+    }
+
+    /// @inheritdoc IILOManager
+    function initILOPool(InitPoolParams calldata params) external override onlyProjectAdmin(params.uniV3Pool) returns (address iloPoolAddress) {
+        Project storage _project = _cachedProject[params.uniV3Pool];
+        {
+            require(_project.uniV3PoolAddress != address(0), "NI");
+            // validate time for sale start and end compared to launch time
+            require(params.start < params.end && params.end < _project.launchTime, "PT");
+            // this salt make sure that pool address can not be represented in any other chains
+            bytes32 salt = keccak256(abi.encodePacked(
+                ChainId.get(),
+                params.uniV3Pool,
+                _initializedILOPools[params.uniV3Pool].length
+            ));
+            iloPoolAddress = Clones.cloneDeterministic(ILO_POOL_IMPLEMENTATION, salt);
+            emit ILOPoolCreated(_project.uniV3PoolAddress, iloPoolAddress, _initializedILOPools[params.uniV3Pool].length);
+        }
+
+        uint160 sqrtRatioLowerX96 = TickMath.getSqrtRatioAtTick(params.tickLower);
+        uint160 sqrtRatioUpperX96 = TickMath.getSqrtRatioAtTick(params.tickUpper);
+        require(sqrtRatioLowerX96 < _project.initialPoolPriceX96 && sqrtRatioLowerX96 < sqrtRatioUpperX96, "RANGE");
+
+        IILOPool.InitPoolParams memory initParams = IILOPool.InitPoolParams({
+            uniV3Pool: params.uniV3Pool,
+            tickLower: params.tickLower,
+            tickUpper: params.tickUpper,
+            sqrtRatioLowerX96: sqrtRatioLowerX96,
+            sqrtRatioUpperX96: sqrtRatioUpperX96,
+            hardCap: params.hardCap,
+            softCap: params.softCap,
+            maxCapPerUser: params.maxCapPerUser,
+            start: params.start,
+            end: params.end,
+            vestingConfigs: params.vestingConfigs
+        });
+        IILOPool(iloPoolAddress).initialize(initParams);
+        _initializedILOPools[params.uniV3Pool].push(iloPoolAddress);
+    }
+
+    function _initUniV3PoolIfNecessary(PoolAddress.PoolKey memory poolKey, uint160 sqrtPriceX96) internal returns (address pool) {
+        pool = IUniswapV3Factory(UNIV3_FACTORY).getPool(poolKey.token0, poolKey.token1, poolKey.fee);
+        if (pool == address(0)) {
+            pool = IUniswapV3Factory(UNIV3_FACTORY).createPool(poolKey.token0, poolKey.token1, poolKey.fee);
+            IUniswapV3Pool(pool).initialize(sqrtPriceX96);
+        } else {
+            (uint160 sqrtPriceX96Existing, , , , , , ) = IUniswapV3Pool(pool).slot0();
+            if (sqrtPriceX96Existing == 0) {
+                IUniswapV3Pool(pool).initialize(sqrtPriceX96);
+            } else {
+                require(sqrtPriceX96Existing == sqrtPriceX96, "UV3P");
+            }
+        }
+    }
+
+    function _cacheProject(
+        address uniV3PoolAddress,
+        address saleToken,
+        address raiseToken,
+        uint24 fee,
+        uint160 initialPoolPriceX96,
+        uint64 launchTime,
+        uint64 refundDeadline
+    ) internal {
+        Project storage _project = _cachedProject[uniV3PoolAddress];
+        require(_project.uniV3PoolAddress == address(0), "RE");
+
+        _project.platformFee = PLATFORM_FEE;
+        _project.performanceFee = PERFORMANCE_FEE;
+        _project.admin = msg.sender;
+        _project.saleToken = saleToken;
+        _project.raiseToken = raiseToken;
+        _project.fee = fee;
+        _project.initialPoolPriceX96 = initialPoolPriceX96;
+        _project.launchTime = launchTime;
+        _project.refundDeadline = refundDeadline;
+        _project.uniV3PoolAddress = uniV3PoolAddress;
+        _project._cachedPoolKey = PoolAddress.getPoolKey(saleToken, raiseToken, fee);
+    }
+
+    /// @notice set platform fee for decrease liquidity. Platform fee is imutable among all project's pools
+    function setPlatformFee(uint16 _platformFee) external onlyOwner() {
+        PLATFORM_FEE = _platformFee;
+    }
+
+    /// @notice set platform fee for decrease liquidity. Platform fee is imutable among all project's pools
+    function setPerformanceFee(uint16 _performanceFee) external onlyOwner() {
+        PERFORMANCE_FEE = _performanceFee;
+    }
+
+    /// @notice set platform fee for decrease liquidity. Platform fee is imutable among all project's pools
+    function setFeeTaker(address _feeTaker) external override onlyOwner() {
+        FEE_TAKER = _feeTaker;
+    }
+
+    function setILOPoolImplementation(address iloPoolImplementation) external override onlyOwner() {
+        emit PoolImplementationChanged(ILO_POOL_IMPLEMENTATION, iloPoolImplementation);
+        ILO_POOL_IMPLEMENTATION = iloPoolImplementation;
+    }
+
+    function transferAdminProject(address admin, address uniV3Pool) external override onlyProjectAdmin(uniV3Pool) {
+        Project storage _project = _cachedProject[uniV3Pool];
+        _project.admin = admin;
+        emit ProjectAdminChanged(uniV3Pool, msg.sender, admin);
+    }
+
+    function setDefaultDeadlineOffset(uint64 defaultDeadlineOffset) external override onlyOwner() {
+        emit DefaultDeadlineOffsetChanged(owner(), DEFAULT_DEADLINE_OFFSET, defaultDeadlineOffset);
+        DEFAULT_DEADLINE_OFFSET = defaultDeadlineOffset;
+    }
+
+    function setRefundDeadlineForProject(address uniV3Pool, uint64 refundDeadline) external override onlyOwner() {
+        Project storage _project = _cachedProject[uniV3Pool];
+        emit RefundDeadlineChanged(uniV3Pool, _project.refundDeadline, refundDeadline);
+        _project.refundDeadline = refundDeadline;
+    }
+
+    /// @inheritdoc IILOManager
+    function launch(address uniV3PoolAddress) external override {
+        require(block.timestamp > _cachedProject[uniV3PoolAddress].launchTime, "LT");
+        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(uniV3PoolAddress).slot0();
+        require(_cachedProject[uniV3PoolAddress].initialPoolPriceX96 == sqrtPriceX96, "UV3P");
+        address[] memory initializedPools = _initializedILOPools[uniV3PoolAddress];
+        require(initializedPools.length > 0, "NP");
+        for (uint256 i = 0; i < initializedPools.length; i++) {
+            IILOPool(initializedPools[i]).launch();
+        }
+
+        emit ProjectLaunch(uniV3PoolAddress);
+    }
+
+    /// @inheritdoc IILOManager
+    function claimRefund(address uniV3PoolAddress) external override onlyProjectAdmin(uniV3PoolAddress) returns(uint256 totalRefundAmount) {
+        require(_cachedProject[uniV3PoolAddress].refundDeadline < block.timestamp, "RFT");
+        address[] memory initializedPools = _initializedILOPools[uniV3PoolAddress];
+        for (uint256 i = 0; i < initializedPools.length; i++) {
+            totalRefundAmount += IILOPool(initializedPools[i]).claimProjectRefund(_cachedProject[uniV3PoolAddress].admin);
+        }
+    }
+}
+
+```

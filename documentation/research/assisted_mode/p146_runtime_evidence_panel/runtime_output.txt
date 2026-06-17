@@ -1,0 +1,39 @@
+P146 — runtime output (research-only; no production code changed)
+
+=== harness all (panel + scorecard) ===
+$ python scripts/research/value_provenance_eval_harness.py all
+[all] totals={'queued': 11, 'completed': 11, 'finding': 3, 'likely_exploitable': 0, 'needs_human': 1,
+      'strong_clear': 7, 'error': 0, 'clean_strong_clear': 6, 'clean_false_finding': 0, 'buggy': 5, 'clean': 6,
+      'buggy_useful': 4, 'buggy_strict': 3, 'rejected': 0, 'useful_recall': 0.8, 'strict_recall': 0.6,
+      'clean_false_finding_rate': 0.0}                                  # == P142 baseline (value-for-value)
+
+runtime_panel.summary = {'rows': 11, 'by_status': {'runtime_confirmed': 2, 'not_run': 9}}
+runtime_panel.integrity = {'supplemental_only': True, 'production_source_modified': False,
+  'routing_allowed_all_false': True, 'submission_ready_all_false': True,
+  'prompt_metrics_keys': ['per_arch','totals','runs'], 'prompt_metrics_mutated_by_panel': False,
+  'backfilled': ['B1','B5']}
+confirmed rows:
+  B1 noya       runtime_confirmed high duplicate_known routing=False sub=False
+  B5 blackhole  runtime_confirmed high duplicate_known routing=False sub=False
+all routing_allowed false: True ; all submission_ready false: True ; rows: 11
+
+=== research tests ===
+$ python -m pytest tests/research/test_value_provenance_eval_harness.py -q
+....................                                                      [100%]
+20 passed in 0.17s
+
+=== un-wired ===
+$ grep -rn value_provenance_eval_harness run_pipeline.sh config/agent_policy.json
+UN-WIRED (no match)
+
+=== integrity ===
+$ bash -n run_pipeline.sh -> OK
+$ python scripts/assisted/rank_signal_probe.py --self-test -> SELF-TEST: OK
+$ readlink output -> audits/quantamm-2024-12-eval/output   (unchanged)
+
+=== full suite ===
+$ python -m pytest -q
+2 failed, 1657 passed, 4 skipped in 79.49s
+  (1657 = 1651 baseline + 6 new; 2 failures = pre-existing deep_solidity frozen-snapshot tests)
+
+DECISION: ACCEPT_RUNTIME_PANEL

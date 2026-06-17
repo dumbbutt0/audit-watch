@@ -1,0 +1,57 @@
+{
+  "bug_class": "strict_equality_dos",
+  "description": "Strict equality check on floating-point/fixed-point value permanently bricks operations",
+  "required_for_medium": [
+    "rounding_produces_nonzero_proven",
+    "strict_check_fails_shown"
+  ],
+  "required_for_high": [
+    "rounding_produces_nonzero_proven",
+    "strict_check_fails_shown",
+    "operations_permanently_blocked_shown"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "fixed-point arithmetic operation shown producing nonzero value when zero expected",
+    "L3B": "strategy deposit/withdraw/rebalance reverts with nonzero _wethAmount",
+    "L3C": "strategy bricked: all user withdrawal attempts fail until governance intervention"
+  },
+  "poc_level_requirements": {
+    "L3A": [
+      "rounding_produces_nonzero_proven"
+    ],
+    "L3B": [
+      "rounding_produces_nonzero_proven",
+      "strict_check_fails_shown"
+    ],
+    "L3C": [
+      "rounding_produces_nonzero_proven",
+      "strict_check_fails_shown",
+      "operations_permanently_blocked_shown"
+    ]
+  },
+  "proof_signatures": {
+    "rounding_produces_nonzero_proven": [
+      "weth_amount == 1",
+      "rounding",
+      "1 wei",
+      "non-zero",
+      "sqrtPriceX96",
+      "Q64.96"
+    ],
+    "strict_check_fails_shown": [
+      "require(_wethAmount == 0",
+      "Non zero wethAmount",
+      "revert",
+      "_wethAmount != 0"
+    ],
+    "operations_permanently_blocked_shown": [
+      "bricked",
+      "DoS",
+      "all operations blocked",
+      "withdrawal_fails",
+      "deposit_fails"
+    ]
+  },
+  "high_severity_rationale": "This bug permanently bricks all strategy operations (deposit, withdraw, rebalance) whenever rounding produces 1 wei. Medium applies because the probability of the rounding condition is dependent on pool state and governance can upgrade the contract.",
+  "negative_control_template": "Change strict equality to range check: require(_wethAmount <= MAX_DUST_WEI). Verify that 1-wei WETH amounts pass the check and operations proceed normally."
+}

@@ -1,0 +1,42 @@
+{
+  "phase": "P125",
+  "candidate": "iq-ai-2025-01::BootstrapPool",
+  "type": "cross-contract pricing harness (real curve math; first in the arc)",
+  "novel": true,
+  "terminal_state": "KILLED_RUNTIME",
+  "question": "Does BootstrapPool uphold its economic invariants under permissionless trading (constant-product k non-decreasing, no round-trip profit, solvency, reserve-neutral sweepFees, donation-safety) or can a permissionless actor extract value?",
+  "answer": "All five invariants hold under the real curve math. The pool is an arbitrage-free, constant-product-conserving, solvent, donation-safe CPMM; the phantom virtual reserve inflates the quote but never the payout; permissionless sweepFees is reserve-neutral. The pricing AgentRouter (P123/P124) delegated to holds up.",
+  "harness": {
+    "type": "iq-ai Foundry project, test-only file under test/audit/, no fork, REAL pool math (only ERC20s mocked)",
+    "path": "/tmp/p102-iqai/test/audit/BootstrapPoolInvariantRuntime.t.sol",
+    "command": "forge test --match-contract BootstrapPoolInvariantRuntime --evm-version cancun -vvv",
+    "solc": "0.8.25",
+    "evm": "cancun",
+    "contract_under_test": "real BootstrapPool (iq-ai), unmutated",
+    "mocks": ["MockERC20 x2 (standard tokens)", "MockLiquidityManager (deployer + owner() for sweepFees fee-routing)"]
+  },
+  "probes": [
+    {"id": "A", "invariant": "round-trip strictly lossy", "result": "PASS"},
+    {"id": "B", "invariant": "constant-product k non-decreasing", "result": "PASS"},
+    {"id": "C", "invariant": "solvency (no insolvent payout; large sell reverts)", "result": "PASS"},
+    {"id": "D", "invariant": "permissionless sweepFees reserve-neutral + exact", "result": "PASS"},
+    {"id": "E", "invariant": "donation not profitable (donor net loss)", "result": "PASS"}
+  ],
+  "all_probes_pass": true,
+  "runtime_proven": true,
+  "source_only_proof_used": false,
+  "out_of_scope_needs_context": [
+    "reserve carryover at kill() -> moveLiquidity migration (the awarded IQ-M-01 Fraxswap pair-adoption area)"
+  ],
+  "awarded": false,
+  "submittable": false,
+  "severity_assigned": null,
+  "report_written": false,
+  "submission_package": false,
+  "ready_for_human_review": false,
+  "production_wiring": false,
+  "research_only": true,
+  "src_mutated": false,
+  "iqai_src": "unmutated (BootstrapPool.sol sha 6bd9e4bc; harness is a test-only file under test/audit/)",
+  "milestone": "first cross-contract pricing harness in the arc — exercises real curve math, beyond the P120-124 thin-router KILLs; breaks the recurring NEEDS_CONTEXT ceiling for the per-trade pool invariants"
+}

@@ -1,0 +1,55 @@
+{
+  "mechanism_inventory": [
+    "precision / packing / normalization edge — integer division truncation in (6*fastEMA+3*slowEMA+eonsEMA)/10",
+    "value exceeds a logical / economic bound — weighted sum overflow / int24 cast out of range",
+    "stale accounting snapshot — getEMAs() on caller-supplied oraclePack manipulable",
+    "missing invariant enforcement — no bounds check on int24 cast (silent wrap)",
+    "access-control mismatch — external pure, any caller, arbitrary oraclePack"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "(6*fastEMA+3*slowEMA+eonsEMA)/10 is int256 cast to int24 with no range check; if result exceeds int24 range Solidity silently truncates high bits -> wildly wrong tick.",
+      "attacker_model": "Any caller supplying a crafted OraclePack with large EMA values.",
+      "exploit_path": "twapEMA(craftedPack) -> getEMAs large -> weighted sum overflows int24 -> silent wrap -> wrong tick used downstream (pricing/collateral/liquidation).",
+      "who_loses": "Protocol/users relying on the tick (under-collateralization, mispriced options, improper liquidation).",
+      "who_gains": "Attacker crafting a favorable tick.",
+      "why_carried": "No bounds check before int24 cast; int256 division not guaranteed to fit int24; silent wrap with material downstream impact."
+    },
+    {
+      "root_cause": "Integer floor-division (.../10) rounds toward zero -> systematic tick bias up to 1 unit.",
+      "attacker_model": "Passive; structural bias affects all users.",
+      "exploit_path": "twapEMA -> division truncates -> tick up to 1 unit off -> downstream tick math accumulates error.",
+      "who_loses": "LPs/options participants priced against biased tick.",
+      "who_gains": "Counterparties on favored side.",
+      "why_carried": "Integer division with no rounding correction; carry-forward (source evidence, plausible impact, different severity tier than wrap)."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "stale/attacker-controlled OraclePack input",
+      "source_evidence": "twapEMA(OraclePack oraclePack) external pure; oraclePack unvalidated parameter; getEMAs() called on it.",
+      "unresolved_question": "Is OraclePack a trusted immutable struct or an attacker-implementable interface? If interface, attacker controls all EMA values.",
+      "who_loses": "Protocol/users relying on returned tick.",
+      "who_gains": "Attacker supplying malicious OraclePack.",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [
+    {
+      "mechanism": "access-control mismatch — external with no role restriction",
+      "claimed_locus": "function visibility external pure with no access guard",
+      "rejecting_source_fact": "Function is pure — reads/writes no state; calling cannot alter protocol state.",
+      "why_unexploitable": "Pure function with no side effects; exploitability depends on return-value misuse, captured by wrap/truncation mechanisms.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    }
+  ],
+  "impact_direction": {
+    "attacker_receives": "Favorable tick enabling mispriced positions or avoided liquidation.",
+    "attacker_preserves": "Collateral/position that should be liquidated.",
+    "victim_loses": "LPs/counterparties lose value via mispriced risk parameters.",
+    "invariant_violated": "Returned int24 must faithfully represent weighted EMA; silent overflow breaks it.",
+    "not_self_funded_or_dust_or_admin_or_timing": "Scales with position size/EMA magnitude; external pure; not dust."
+  },
+  "stop_condition": "more_mechanisms_pending: OraclePack fabrication NEEDS_HARNESS; division-truncation lower severity tier than int24 wrap.",
+  "verdict": "HIGH_THREAD"
+}

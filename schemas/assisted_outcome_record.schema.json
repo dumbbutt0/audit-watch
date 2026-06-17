@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AssistedOutcomeRecord",
+  "description": "P99 human-recorded outcome for an assisted-mode (or blind) finding AFTER human review/submission. RESEARCH-ONLY, advisory, UN-WIRED. Recorded by a human via scripts/assisted/record_assisted_outcome.py; never created by an automated submission. Cross-field invariants (enforced by the recorder, not just the schema): submitted=true requires human_final_gate=APPROVED_TO_SUBMIT; outcome in {accepted,duplicate,rejected} requires submitted=true. submission_id/submitted_at/payout_amount are optional until submitted. Nothing here submits anything.",
+  "type": "object",
+  "required": ["candidate_id", "subject", "source_mode", "human_final_gate", "submitted", "outcome"],
+  "properties": {
+    "candidate_id": {"type": "string", "minLength": 1, "description": "Stable id joining to the funnel record_id."},
+    "subject": {"type": "string", "minLength": 1},
+    "finding_title": {"type": "string"},
+    "source_mode": {"type": "string", "enum": ["blind", "assisted", "static_tool", "fuzz", "human_review"]},
+    "package_path": {"type": "string", "description": "Path to the submission package dir (read-only reference)."},
+    "poc_status": {"type": "string", "enum": ["NOT_STARTED", "IN_PROGRESS", "REPRODUCED", "PARTIAL_REPRO", "NOT_REPRODUCED"]},
+    "submission_status": {"type": "string", "enum": ["NOT_STARTED", "DRAFTING", "READY_FOR_HUMAN_REVIEW", "BLOCKED", "SUBMITTED"]},
+    "human_final_gate": {
+      "type": "string",
+      "enum": ["PENDING", "APPROVED_TO_SUBMIT", "DO_NOT_SUBMIT_SCOPE", "DO_NOT_SUBMIT_DUPLICATE",
+               "DO_NOT_SUBMIT_SEVERITY_UNSUPPORTED", "DO_NOT_SUBMIT_WEAK_POC", "NEEDS_REPORT_EDIT", "NEEDS_MORE_EVIDENCE"]
+    },
+    "submitted": {"type": "boolean"},
+    "platform": {"type": ["string", "null"]},
+    "submission_id": {"type": ["string", "null"], "description": "Optional until submitted; never fabricated."},
+    "submitted_at": {"type": ["string", "null"], "description": "ISO-8601; optional until submitted."},
+    "outcome": {
+      "type": "string",
+      "enum": ["pending", "accepted", "duplicate", "informative", "rejected", "invalid", "withdrawn", "needs_revision"]
+    },
+    "awarded_severity": {"type": ["string", "null"]},
+    "claimed_severity": {"type": ["string", "null"]},
+    "payout_amount": {"type": ["number", "string", "null"], "description": "Optional."},
+    "rejection_reason": {"type": ["string", "null"]},
+    "duplicate_of": {"type": ["string", "null"]},
+    "lessons_learned": {"type": ["string", "array", "null"], "items": {"type": "string"}},
+    "followup_actions": {"type": ["string", "array", "null"], "items": {"type": "string"}},
+    "final_notes": {"type": ["string", "null"]},
+
+    "is_gate": {"type": "boolean", "const": false},
+    "research_only": {"type": "boolean", "const": true},
+    "review_only": {"type": "boolean", "const": true},
+    "routes_in_production": {"type": "boolean", "const": false},
+    "routed_manifest_ids": {"type": "array", "maxItems": 0}
+  },
+  "additionalProperties": true
+}

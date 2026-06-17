@@ -1,0 +1,48 @@
+{
+  "lens": "hostile_token_settlement",
+  "generated_at": "2026-06-08T22:26:25.656365+00:00",
+  "manifest": "audits/predy-2024-05-holdout/output/coverage_manifest.json",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "raw_candidates": 1,
+  "by_confidence": {
+    "high": 1
+  },
+  "high": 1,
+  "medium": 0,
+  "low": 0,
+  "candidates": [
+    {
+      "finding_shape": "hostile_token_settlement_dos",
+      "confidence": "high",
+      "cleanup_verb": "liquidat",
+      "transfer_primitive": "safetransferfrom",
+      "token_source": "order/array/struct-selected token (item.token / consideration / items[])",
+      "explanation": "LiquidationLogic.liquidate is a must-succeed liquidat settlement/cleanup flow that pushes a order/array/struct-selected token (item.token / consideration / items[]) via safetransferfrom to a counterparty with NO containment (no try/catch, pull-payment, or allowlist). A hostile token (revert / blacklist / false-return / reentrancy) blocks the cleanup, permanently locking assets or denying service to another user (reNFT H-01 / #64 / #605 class).",
+      "signals": {
+        "S1_cleanup_verb": [
+          "liquidat"
+        ],
+        "S2_transfer": [
+          "safetransferfrom",
+          "safetransfer(",
+          "transferfrom("
+        ],
+        "S3_attacker_sourced": true,
+        "S3_param_token": false,
+        "S4_no_containment": true,
+        "S5_counterparty": true
+      },
+      "contract": "LiquidationLogic",
+      "function": "liquidate",
+      "file": "audits/predy-2024-05-holdout/contracts/src/libraries/logic/LiquidationLogic.sol",
+      "lens_id": "LiquidationLogic:hostile_token_settlement_dos",
+      "in_scope": true,
+      "manifest_id": "function:LiquidationLogic:liquidate#bf0983fb",
+      "file_line_refs": "audits/predy-2024-05-holdout/contracts/src/libraries/logic/LiquidationLogic.sol:39",
+      "false_positive_controls": "five-signal (cleanup-verb fn + must-succeed token push + attacker/order-sourced token + missing containment + counterparty recipient); caller-own-asset / try-catch / pull-payment / allowlist / trusted-asset suppressed; admin-only downgraded"
+    }
+  ]
+}

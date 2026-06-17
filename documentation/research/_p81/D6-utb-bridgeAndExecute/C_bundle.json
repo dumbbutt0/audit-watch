@@ -1,0 +1,71 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "D6-utb-bridgeAndExecute",
+  "detector_family": "value_flow",
+  "status": "NEEDS_CONTEXT",
+  "status_reason": "critical defense unknown/source-unavailable: accounting_invariant",
+  "trigger_summary": {
+    "contract": "UTB",
+    "function": "bridgeAndExecute",
+    "lines": "bridgeAndExecute/performSwap",
+    "suspicious_pattern": "main entry composes fee collection + swap + bridge; fee/amount validation across steps",
+    "detector_claim": "fee/amount mismatch or value leak across composed steps"
+  },
+  "context_summary": {
+    "source_resolved": true,
+    "reachability": "external"
+  },
+  "attacker_reachability": "external",
+  "defense_ledger": {
+    "accounting_invariant": {
+      "classification": "unknown",
+      "evidence": "fee/amount binding across collectFees+swap+bridge unresolved without deeper trace"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "fee bound to composed amounts",
+    "why_defenses_do_not_block": "see ledger"
+  },
+  "exploit_path": {
+    "attacker_profile": "EOA",
+    "entrypoint": "bridgeAndExecute",
+    "preconditions": "reachable",
+    "transaction_sequence": "fee not bound to swap/bridge amounts across composed steps -> value leak",
+    "state_before": "s0",
+    "state_after": "s1",
+    "rejection_case": "considered defenses/falsifiers from source",
+    "source_evidence": "bridgeAndExecute"
+  },
+  "impact_analysis": {
+    "impact_category": "fee_or_value_leak",
+    "minimum_profit_or_damage_condition": "leak value"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": "resolve the classification (with source) of: accounting_invariant",
+  "poc_needed": null,
+  "human_review_notes": null,
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "NEEDS_CONTEXT"
+  ],
+  "final_decision": "NEEDS_CONTEXT",
+  "arm": "C",
+  "claimed_mechanism": null
+}

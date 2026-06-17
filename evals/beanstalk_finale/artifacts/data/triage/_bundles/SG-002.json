@@ -1,0 +1,98 @@
+{
+  "finding_id": "SG-002",
+  "title": "SiloFacet safeTransferFrom/safeBatchTransferFrom omit sibling's nonReentrant",
+  "agent": "",
+  "claimed_severity": "Low",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/SiloFacet/SiloFacet.sol",
+    "function": "safeTransferFrom / safeBatchTransferFrom",
+    "line_start": 211,
+    "line_end": 256
+  },
+  "description": "Within SiloFacet the deposit-transfer group has asymmetric reentrancy guarding. `transferDeposit` (public, L140) and `transferDeposits` (external, L173) carry `fundsSafu noNetFlow noSupplyChange nonReentrant`. The ERC1155-standard siblings `safeTransferFrom` (L211) and `safeBatchTransferFrom` (L237) carry `fundsSafu noNetFlow noSupplyChange` but OMIT `nonReentrant`. They are in the same semantic group (move deposits/stalk between accounts).",
+  "impact": "None exploitable. Both functions immediately route to `transferDeposit(...)`, which is itself `nonReentrant` and backed by the SHARED diamond reentrancy slot (s.sys.reentrantStatus). Any reentry attempt during the transfer is caught by the inner guard. The functions perform no external token transfer or callback of their own (deposits are internal accounting; no ERC1155 acceptance-hook callback to the recipient is invoked). The omission is a guard-consistency blemish, not a reachable reentrancy.",
+  "ite": {
+    "intent": "Apply the same nonReentrant guard to every external deposit-transfer entrypoint",
+    "technique": "safe* variants rely on the callee transferDeposit's guard rather than declaring their own; the asymmetry is cosmetic because the shared reentrant slot is set by the inner call",
+    "evasion": "No viable evasion: no external callback path exists in safe* before/after the guarded inner call"
+  },
+  "ice_chain": {
+    "corrupted_state": "none (reentry blocked by inner transferDeposit nonReentrant on the shared s.sys.reentrantStatus slot)",
+    "impact": "none",
+    "consumer_found": false,
+    "exploit_path": "n/a"
+  },
+  "source_slice": "181:         require(amounts.length > 0, \"Silo: amounts array is empty\");\n182:         uint256 totalAmount;\n183:         for (uint256 i = 0; i < amounts.length; ++i) {\n184:             require(amounts[i] > 0, \"Silo: amount in array is 0\");\n185: \n186:             totalAmount = totalAmount.add(amounts[i]);\n187:         }\n188: \n189:         // Tractor operator does not use allowance.\n190:         if (sender != LibTractor._user()) {\n191:             LibSiloPermit._spendDepositAllowance(sender, LibTractor._user(), token, totalAmount);\n192:         }\n193: \n194:         LibSilo._mow(sender, token);\n195:         // Need to update the recipient's Silo as well.\n196:         LibSilo._mow(recipient, token);\n197:         bdvs = _transferDeposits(sender, recipient, token, stem, amounts);\n198:     }\n199: \n200:     /**\n201:      * @notice Transfer a single Deposit, conforming to the ERC1155 standard.\n202:      * @param sender Source of Deposit.\n203:      * @param recipient Destination of Deposit.\n204:      * @param depositId ID of Deposit to Transfer.\n205:      * @param amount Amount of `token` to Transfer.\n206:      *\n207:      * @dev the depositID is the token address and stem of a deposit,\n208:      * concatinated into a single uint256.\n209:      *\n210:      */\n211:     function safeTransferFrom(\n212:         address sender,\n213:         address recipient,\n214:         uint256 depositId,\n215:         uint256 amount,\n216:         bytes calldata\n217:     ) external fundsSafu noNetFlow noSupplyChange {\n218:         require(recipient != address(0), \"ERC1155: transfer to the zero address\");\n219:         // allowance requirements are checked in transferDeposit\n220:         (address token, int96 cumulativeGrownStalkPerBDV) = LibBytes.unpackAddressAndStem(\n221:             depositId\n222:         );\n223:         transferDeposit(sender, recipient, token, cumulativeGrownStalkPerBDV, amount);\n224:     }\n225: \n226:     /**\n227:      * @notice Transfer a multiple Deposits, conforming to the ERC1155 standard.\n228:      * @param sender Source of Deposit.\n229:      * @param recipient Destination of Deposit.\n230:      * @param depositIds list of ID of deposits to Transfer.\n231:      * @param amounts list of amounts of `token` to Transfer.\n232:      *\n233:      * @dev {transferDeposits} can be used to transfer multiple deposits, but only\n234:      * if they are all of the same token. Since the ERC1155 standard requires the abilty\n235:      * to transfer any set of depositIDs, the {transferDeposits} function cannot be used here.\n236:      */\n237:     function safeBatchTransferFrom(\n238:         address sender,\n239:         address recipient,\n240:         uint256[] calldata depositIds,\n241:         uint256[] calldata amounts,\n242:         bytes calldata\n243:     ) external fundsSafu noNetFlow noSupplyChange {\n244:         require(\n245:             depositIds.length == amounts.length,\n246:             \"Silo: depositIDs and amounts arrays must be the same length\"\n247:         );\n248:         require(recipient != address(0), \"ERC1155: transfer to the zero address\");\n249:         // allowance requirements are checked in transferDeposit\n250:         address token;\n251:         int96 stem;\n252:         for (uint i; i < depositIds.length; ++i) {\n253:             (token, stem) = LibBytes.unpackAddressAndStem(depositIds[i]);\n254:             transferDeposit(sender, recipient, token, stem, amounts[i]);\n255:         }\n256:     }\n257: }",
+  "gate_verdict": {
+    "finding_id": "SG-002",
+    "severity": "Low",
+    "vuln_type": "reentrancy",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.545322+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": false
+}

@@ -1,0 +1,2 @@
+# Uninitialized Storage Pointers
+The smart contract declares several storage variables, but it's not clear whether these variables are properly initialized before they're used. If these variables are used before they're initialized, it could lead to unexpected behavior

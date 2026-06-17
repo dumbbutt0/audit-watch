@@ -1,0 +1,666 @@
+{
+  "schema_version": 1,
+  "description": "Field-DoS / griefing taxonomy modeling attacker-controlled COST ASYMMETRY: an attacker cheaply creates/fragments state (a tiny/dust/zero plot/deposit pushed to a victim's index set) so someone else's later required path (transfer/enumerate/claim/harvest/settlement) becomes expensive, reverting, or unusable. Drives griefing_dos_audit.py via griefing_dos_taxonomy.classify(). The class behind eval misses #379 (plot-spam transfer DoS), #485 (duplicate plotIndexes via sow), #491 (transferDeposit amount==0 recipient DoS).",
+  "_fp_note": "NOT a flag-all-loops sweep. A loop is a signal only when bounded by USER-INPUT / STORAGE-LENGTH / EXTERNAL-ARRAY (a fixed small loop or a pure helper is not tagged). A storage write is a signal only when REPEATABLE-CHEAP or FRAGMENTING (.push / per-id entry), not a single balance update. Admin-only cleanup/config loops are not attacker-griefing unless the attacker influences the stored state. Pure/read-only loops are not high-risk unless on a transfer/claim/required path. HIGH-RISK requires attacker-controllable creation/growth AND a later-cost (consumer) signal \u2014 the asymmetry. Comments stripped before matching.",
+  "creation_signals": [
+    ".push(",
+    "appenddeposit",
+    "addplot",
+    "plotindexes[",
+    "depositidlist",
+    "addtodepositlist",
+    "addmigrated",
+    "createorder",
+    "createpodorder"
+  ],
+  "consumer_signals": [
+    "for (",
+    "for(",
+    "while (",
+    "while(",
+    ".length",
+    "getplotindexes",
+    "transferplots",
+    "batchtransfer"
+  ],
+  "state_growth_surfaces": [
+    "plots",
+    "pods",
+    "deposits",
+    "token_ids",
+    "orders",
+    "fertilizer_ids",
+    "internal_balances"
+  ],
+  "high_risk_categories": [
+    "plot_spam",
+    "pod_fragmentation",
+    "deposit_fragmentation",
+    "token_id_fragmentation",
+    "storage_growth",
+    "unbounded_loop",
+    "user_controlled_loop",
+    "transfer_blocking",
+    "recipient_revert_dos",
+    "array_bloat",
+    "claim_path_dos",
+    "low_cost_high_cost_asymmetry",
+    "lifecycle_lock",
+    "zero_amount_edge"
+  ],
+  "categories": {
+    "plot_spam": {
+      "role": "both",
+      "state_growth_surface": "plots",
+      "name_patterns": [
+        "transferplot",
+        "transferplots",
+        "sow",
+        "_sow",
+        "createplot",
+        "addplot"
+      ],
+      "file_patterns": [
+        "field",
+        "marketplace",
+        "podtransfer",
+        "/market/"
+      ],
+      "call_patterns": [
+        "plotindexes"
+      ],
+      "loop_patterns": [
+        "plotindexes\\["
+      ],
+      "state_var_patterns": [
+        "plotindexes"
+      ],
+      "arithmetic_patterns": [
+        "plotindexes.*\\.push\\(",
+        "\\.push\\(.*plot"
+      ],
+      "risk_tags": [
+        "cost_asymmetry",
+        "state_growth",
+        "transfer_dos"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Plots can be transferred/sown to a victim's plotIndexes set at low cost. If a later required path (transferPlots, enumeration, harvest) iterates plotIndexes, an attacker can spam many tiny plots to make the victim's path revert/OOG (#379).",
+      "examples": [
+        "transferPlots iterating ids/starts/ends",
+        "sow pushing to plotIndexes"
+      ]
+    },
+    "pod_fragmentation": {
+      "role": "creator",
+      "state_growth_surface": "pods",
+      "name_patterns": [
+        "splitplot",
+        "fragment",
+        "transferplot",
+        "createpodorder",
+        "fillpodorder",
+        "fillpodlisting"
+      ],
+      "file_patterns": [
+        "marketplace",
+        "/market/",
+        "podtransfer",
+        "listing",
+        "order"
+      ],
+      "call_patterns": [],
+      "loop_patterns": [],
+      "state_var_patterns": [
+        "podlistings",
+        "podorders"
+      ],
+      "arithmetic_patterns": [
+        "\\.push\\("
+      ],
+      "risk_tags": [
+        "fragmentation",
+        "state_growth"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Pod/plot splitting or partial fills create many small fragments. Confirm fragmentation is bounded/charged and downstream enumeration isn't unbounded.",
+      "examples": [
+        "partial fill creating a remainder plot each time"
+      ]
+    },
+    "deposit_fragmentation": {
+      "role": "creator",
+      "state_growth_surface": "deposits",
+      "name_patterns": [
+        "transferdeposit",
+        "transferdeposits",
+        "adddeposit",
+        "deposit"
+      ],
+      "file_patterns": [
+        "silo",
+        "tokensilo"
+      ],
+      "call_patterns": [
+        "adddeposittoaccount",
+        "addtodepositlist"
+      ],
+      "loop_patterns": [],
+      "state_var_patterns": [
+        "depositidlist",
+        "deposits["
+      ],
+      "arithmetic_patterns": [
+        "\\.push\\(",
+        "depositidlist"
+      ],
+      "risk_tags": [
+        "fragmentation",
+        "state_growth"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Deposits can be transferred to a recipient's deposit-id list. Many dust deposits bloat the list and can make withdraw/enumeration expensive; pairs with zero_amount_edge (#491).",
+      "examples": [
+        "transferDeposit adding a dust deposit to recipient list"
+      ]
+    },
+    "token_id_fragmentation": {
+      "role": "creator",
+      "state_growth_surface": "token_ids",
+      "name_patterns": [
+        "_mintbatch",
+        "mintbatch"
+      ],
+      "file_patterns": [
+        "fertilizer",
+        "1155"
+      ],
+      "call_patterns": [],
+      "loop_patterns": [],
+      "state_var_patterns": [
+        "balances[",
+        "_idlist"
+      ],
+      "arithmetic_patterns": [
+        "\\.push\\("
+      ],
+      "risk_tags": [
+        "fragmentation",
+        "state_growth"
+      ],
+      "severity_ceiling_hint": "Low",
+      "review_hint": "Many distinct token ids created cheaply can bloat per-account id enumeration.",
+      "examples": [
+        "minting many fertilizer ids"
+      ]
+    },
+    "storage_growth": {
+      "role": "creator",
+      "state_growth_surface": "generic",
+      "name_patterns": [],
+      "file_patterns": [],
+      "call_patterns": [],
+      "loop_patterns": [],
+      "state_var_patterns": [
+        "plotindexes",
+        "depositidlist",
+        "idlist",
+        "podorders"
+      ],
+      "arithmetic_patterns": [
+        "\\.push\\("
+      ],
+      "risk_tags": [
+        "state_growth",
+        "cost_asymmetry"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Appends to a per-account/global array that an attacker can grow cheaply. Confirm a cap or per-entry cost, and that consumers of the array are bounded.",
+      "examples": [
+        "array.push(entry) reachable by attacker"
+      ]
+    },
+    "unbounded_loop": {
+      "role": "consumer",
+      "state_growth_surface": "generic",
+      "name_patterns": [
+        "transferplots",
+        "batch",
+        "getplotindexes",
+        "claimall",
+        "mowmultiple"
+      ],
+      "file_patterns": [],
+      "call_patterns": [],
+      "loop_patterns": [
+        "for\\s*\\([^;]*;[^;]*\\.length",
+        "for\\s*\\([^;]*;[^;]*<\\s*\\w+\\.length",
+        "while\\s*\\("
+      ],
+      "state_var_patterns": [],
+      "arithmetic_patterns": [],
+      "risk_tags": [
+        "unbounded_loop",
+        "gas_dos"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Loop bounded by an array/storage length that an attacker can grow. If on a required transfer/claim path, growth \u2192 OOG/revert DoS.",
+      "examples": [
+        "for (i; i < account.plotIndexes.length; ++i)"
+      ]
+    },
+    "user_controlled_loop": {
+      "role": "consumer",
+      "state_growth_surface": "generic",
+      "name_patterns": [
+        "batch",
+        "multi",
+        "transferdeposits",
+        "transferplots",
+        "claimall",
+        "mowmultiple",
+        "fillpodorders"
+      ],
+      "file_patterns": [],
+      "call_patterns": [],
+      "loop_patterns": [
+        "for\\s*\\([^;]*;[^;]*<\\s*\\w*(ids|amounts|plots|accounts|tokens)\\w*\\.length",
+        "for\\s*\\([^;]*ids"
+      ],
+      "state_var_patterns": [],
+      "arithmetic_patterns": [],
+      "risk_tags": [
+        "unbounded_loop",
+        "gas_dos"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Loop bounded by a caller-supplied array length. Confirm a sane cap; combined with per-iteration external calls or storage writes it is a gas/DoS surface.",
+      "examples": [
+        "for (i; i < ids.length; ++i) over a calldata array"
+      ]
+    },
+    "transfer_blocking": {
+      "role": "consumer",
+      "state_growth_surface": "generic",
+      "name_patterns": [
+        "transfer",
+        "transferplots",
+        "transferdeposit",
+        "send"
+      ],
+      "file_patterns": [],
+      "call_patterns": [],
+      "loop_patterns": [
+        "for\\s*\\("
+      ],
+      "state_var_patterns": [
+        "plotindexes",
+        "depositidlist"
+      ],
+      "arithmetic_patterns": [],
+      "risk_tags": [
+        "transfer_dos",
+        "cost_asymmetry"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "A transfer path that iterates attacker-growable state can be blocked (revert/OOG) for the victim. The canonical #379 consumer side.",
+      "examples": [
+        "transferPlots looping over the victim's plot set"
+      ]
+    },
+    "recipient_revert_dos": {
+      "role": "consumer",
+      "state_growth_surface": "generic",
+      "name_patterns": [
+        "safetransfer",
+        "send",
+        "call"
+      ],
+      "file_patterns": [],
+      "call_patterns": [
+        ".call{",
+        "safetransfer",
+        "sendvalue",
+        ".call("
+      ],
+      "loop_patterns": [],
+      "state_var_patterns": [],
+      "arithmetic_patterns": [],
+      "risk_tags": [
+        "recipient_dos",
+        "external_call"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "A recipient/user-controlled external call/hook on a required path can revert or consume gas to block progress (settlement/claim/transfer). NOTE: pure ERC1155/721 receiver DoS is owned by the token lens unless it touches field/plot/deposit state.",
+      "examples": [
+        "push payment to a contract that reverts"
+      ]
+    },
+    "approval_griefing": {
+      "role": "creator",
+      "state_growth_surface": "generic",
+      "name_patterns": [
+        "approve",
+        "allowance",
+        "setapproval",
+        "permit",
+        "increaseallowance"
+      ],
+      "file_patterns": [],
+      "call_patterns": [],
+      "loop_patterns": [],
+      "state_var_patterns": [],
+      "arithmetic_patterns": [],
+      "risk_tags": [
+        "approval_grief"
+      ],
+      "severity_ceiling_hint": "Low",
+      "review_hint": "Approval/allowance behavior usable to grief (front-run approve, allowance reset to block, operator self-grant). Confirm it cannot block a victim's legitimate flow.",
+      "examples": [
+        "approval race blocking a transferFrom"
+      ]
+    },
+    "zero_amount_edge": {
+      "role": "creator",
+      "state_growth_surface": "deposits",
+      "name_patterns": [
+        "transferdeposit",
+        "transferdeposits",
+        "adddeposit",
+        "deposit",
+        "transfer",
+        "sow"
+      ],
+      "file_patterns": [],
+      "call_patterns": [],
+      "loop_patterns": [],
+      "state_var_patterns": [],
+      "arithmetic_patterns": [
+        "amount\\s*==\\s*0",
+        "require\\([^)]*amount\\s*>\\s*0",
+        "amount\\s*>\\s*0"
+      ],
+      "risk_tags": [
+        "zero_amount",
+        "state_growth",
+        "cost_asymmetry"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Missing amount>0 check lets an attacker create zero/dust entries cheaply (a recipient-DoS / list-bloat primitive). #491: transferDeposit doesn't check amount==0 \u2192 recipient gets unbounded zero deposits. Tag when a create/transfer path lacks a positive-amount guard.",
+      "examples": [
+        "transferDeposit with no require(amount > 0)"
+      ]
+    },
+    "dust_rounding": {
+      "role": "creator",
+      "state_growth_surface": "generic",
+      "name_patterns": [
+        "dust",
+        "remainder",
+        "sweep"
+      ],
+      "file_patterns": [
+        "marketplace",
+        "listing",
+        "order"
+      ],
+      "call_patterns": [],
+      "loop_patterns": [],
+      "state_var_patterns": [],
+      "arithmetic_patterns": [],
+      "risk_tags": [
+        "dust",
+        "rounding"
+      ],
+      "severity_ceiling_hint": "Low",
+      "review_hint": "Rounding/partial-fill leaves dust remainders that accumulate as fragments. Confirm dust is swept or bounded.",
+      "examples": [
+        "partial listing fill leaving a dust plot"
+      ]
+    },
+    "array_bloat": {
+      "role": "both",
+      "state_growth_surface": "generic",
+      "name_patterns": [],
+      "file_patterns": [],
+      "call_patterns": [],
+      "loop_patterns": [
+        "\\.length"
+      ],
+      "state_var_patterns": [
+        "plotindexes",
+        "depositidlist",
+        "podorders",
+        "podlistings",
+        "idlist"
+      ],
+      "arithmetic_patterns": [
+        "\\.push\\("
+      ],
+      "risk_tags": [
+        "array_bloat",
+        "state_growth"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "An unbounded per-account/global array grown by attacker actions. Confirm a cap and that all consumers are bounded; removal keeps the array compact.",
+      "examples": [
+        "account.depositIdList / plotIndexes growth"
+      ]
+    },
+    "mapping_bloat": {
+      "role": "creator",
+      "state_growth_surface": "generic",
+      "name_patterns": [],
+      "file_patterns": [],
+      "call_patterns": [],
+      "loop_patterns": [],
+      "state_var_patterns": [],
+      "arithmetic_patterns": [],
+      "risk_tags": [
+        "state_growth"
+      ],
+      "severity_ceiling_hint": "Low",
+      "review_hint": "Per-key mapping entries created cheaply. Only a concern when something later iterates the keys (mappings aren't iterable in Solidity, so usually paired with an index array \u2014 check the array).",
+      "examples": [
+        "nested mapping entry per attacker key with a parallel index array"
+      ]
+    },
+    "batch_size_dos": {
+      "role": "consumer",
+      "state_growth_surface": "generic",
+      "name_patterns": [
+        "batch",
+        "multi",
+        "transferdeposits",
+        "transferplots",
+        "fillpodorders",
+        "claimall",
+        "mowmultiple"
+      ],
+      "file_patterns": [],
+      "call_patterns": [],
+      "loop_patterns": [
+        "for\\s*\\("
+      ],
+      "state_var_patterns": [],
+      "arithmetic_patterns": [],
+      "risk_tags": [
+        "batch_dos",
+        "unbounded_loop"
+      ],
+      "severity_ceiling_hint": "Low",
+      "review_hint": "Batch op with no array-length cap. Usually self-DoS (caller pays) \u2014 only attacker-griefing if the batch iterates victim/shared state.",
+      "examples": [
+        "batch transfer with no max length"
+      ]
+    },
+    "gas_griefing": {
+      "role": "consumer",
+      "state_growth_surface": "generic",
+      "name_patterns": [
+        "transfer",
+        "claim",
+        "harvest",
+        "settle",
+        "mow"
+      ],
+      "file_patterns": [],
+      "call_patterns": [
+        ".call(",
+        "sendvalue",
+        "safetransfer"
+      ],
+      "loop_patterns": [
+        "for\\s*\\("
+      ],
+      "state_var_patterns": [],
+      "arithmetic_patterns": [],
+      "risk_tags": [
+        "gas_dos"
+      ],
+      "severity_ceiling_hint": "Low",
+      "review_hint": "External call inside a loop on a required path \u2192 a single griefing target can inflate gas / revert the whole operation.",
+      "examples": [
+        "loop with an external transfer per element"
+      ]
+    },
+    "state_cleanup_missing": {
+      "role": "creator",
+      "state_growth_surface": "generic",
+      "name_patterns": [
+        "remove",
+        "delete",
+        "pop",
+        "clear",
+        "withdraw",
+        "harvest",
+        "burn"
+      ],
+      "file_patterns": [],
+      "call_patterns": [],
+      "loop_patterns": [],
+      "state_var_patterns": [
+        "indexes",
+        "idlist",
+        "list["
+      ],
+      "arithmetic_patterns": [
+        "delete\\s",
+        "\\.pop\\("
+      ],
+      "risk_tags": [
+        "cleanup_missing",
+        "state_growth"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "A create path with no matching cleanup/removal lets state grow monotonically. Confirm consumed/emptied entries are removed so the array/list does not bloat permanently.",
+      "examples": [
+        "fully-withdrawn deposit not removed from depositIdList"
+      ]
+    },
+    "claim_path_dos": {
+      "role": "consumer",
+      "state_growth_surface": "generic",
+      "name_patterns": [
+        "claim",
+        "claimall",
+        "harvest",
+        "rinse",
+        "plenty",
+        "mow",
+        "mowmultiple"
+      ],
+      "file_patterns": [],
+      "call_patterns": [],
+      "loop_patterns": [
+        "for\\s*\\("
+      ],
+      "state_var_patterns": [
+        "indexes",
+        "idlist"
+      ],
+      "arithmetic_patterns": [],
+      "risk_tags": [
+        "claim_dos",
+        "unbounded_loop"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "A claim/harvest/rinse path that iterates attacker-growable per-account state can be made too expensive to ever claim (funds locked).",
+      "examples": [
+        "claimAll looping over a bloated deposit/plot set"
+      ]
+    },
+    "lifecycle_lock": {
+      "role": "consumer",
+      "state_growth_surface": "generic",
+      "name_patterns": [
+        "sunrise",
+        "gm",
+        "step",
+        "migrate",
+        "settle",
+        "finalize"
+      ],
+      "file_patterns": [
+        "season",
+        "sun"
+      ],
+      "call_patterns": [],
+      "loop_patterns": [
+        "for\\s*\\("
+      ],
+      "state_var_patterns": [],
+      "arithmetic_patterns": [],
+      "risk_tags": [
+        "liveness_dos"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "A protocol-heartbeat / lifecycle step that iterates attacker-growable state \u2014 growth can brick the whole protocol (sunrise/settlement liveness).",
+      "examples": [
+        "sunrise looping over a whitelist/well set an attacker can grow"
+      ]
+    },
+    "low_cost_high_cost_asymmetry": {
+      "role": "both",
+      "state_growth_surface": "generic",
+      "name_patterns": [],
+      "file_patterns": [],
+      "call_patterns": [],
+      "loop_patterns": [
+        "for\\s*\\("
+      ],
+      "state_var_patterns": [
+        "plotindexes",
+        "depositidlist",
+        "indexes",
+        "idlist"
+      ],
+      "arithmetic_patterns": [
+        "\\.push\\("
+      ],
+      "risk_tags": [
+        "cost_asymmetry",
+        "state_growth",
+        "unbounded_loop"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Generic cost-asymmetry: the same function both grows a per-account array AND loops over it (or a paired consumer does). Quantify create-cost vs later-path-cost and who pays.",
+      "examples": [
+        "a function that pushes to and later iterates the same index array"
+      ]
+    }
+  },
+  "griefing_primitive_patterns": [
+    "\\.push\\(",
+    "\\.call[\\(\\{]",
+    "sendvalue",
+    "safetransfer\\(",
+    "amount\\s*==\\s*0",
+    "require\\([^)]*amount\\s*>\\s*0",
+    "plotindexes",
+    "depositidlist",
+    "podorders",
+    "podlistings",
+    "plotindex"
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "description": "Reachability-truth confirmation taxonomy. Drives confirm_reachability.py + confirm_gate.py. The precision lever: not 'could this be a bug in theory' but 'can an UNPRIVILEGED attacker drive the claimed path to the claimed impact in the relevant deployed lifecycle state?'. Targets the eval2 residual FP classes (AR-001/DS-004/RE-001 speculative reachability; SG-004/DT-011/BSA-005 lifecycle/init misreads; OR-005 severity overclaim).",
+  "_honesty_note": "Deterministic checks only DOWNGRADE or FLAG. mark_false_positive is reserved for a clear deterministic kill (dead_path / guard provably blocks). A speculative finding (public entrypoint but unproven precondition/impact) routes to uncertain + needs_runtime_poc — NEVER auto-FP and NEVER auto-confirm. We do not overclaim confirmation in either direction.",
+  "privileged_modifier_terms": ["onlyowner", "onlyrole", "enforceisowner", "enforceiscontractowner",
+    "enforceisfarmer", "onlygovernance", "governance", "onlyadmin", "admin", "onlydiamondowner", "ownable"],
+  "lifecycle_file_terms": ["/reseed/", "reseed", "/init/", "initdiamond", "/migration/", "l2migration",
+    "l1reciever", "beanl1", "beanl2"],
+  "lifecycle_name_terms": ["init", "initialize", "reseed", "migrate", "setupinitial"],
+  "reachability_status_order": ["confirmed_reachable", "likely_reachable", "uncertain", "needs_runtime_poc",
+    "privileged_only", "lifecycle_only", "duplicate", "insufficient_evidence", "dead_path"],
+  "categories": {
+    "external_entrypoint_missing": {
+      "detection_hints": ["no affected/consumer function is external|public state-changing"],
+      "required_evidence": "an external/public attacker-callable entrypoint that reaches the sink",
+      "downgrade_action": "mark_false_positive", "review_prompt_hint": "Name the external entrypoint an EOA calls; if none, the finding is not attacker-reachable.",
+      "examples": ["a bug only in an internal helper with no public caller"]
+    },
+    "no_call_chain_to_sink": {
+      "detection_hints": ["affected fn internal/private; no public caller surfaced in manifest/ice_chain"],
+      "required_evidence": "a traced public->...->sink call chain",
+      "downgrade_action": "needs_manual_review", "review_prompt_hint": "Trace entrypoint -> sink; if the chain can't be built, downgrade.",
+      "examples": ["internal sink, consumer_found=false"]
+    },
+    "privileged_only": {
+      "detection_hints": ["the fn or all callers carry a privileged modifier"],
+      "required_evidence": "an unprivileged caller path, OR an argument that the privileged actor is untrusted",
+      "downgrade_action": "downgrade", "review_prompt_hint": "Is every path gated by onlyOwner/role/governance? If so it is not an unprivileged-attacker finding.",
+      "examples": ["onlyOwner setter flagged as attacker bug"]
+    },
+    "governance_only": {"detection_hints": ["governance/timelock modifier or caller"], "required_evidence": "non-governance path",
+      "downgrade_action": "downgrade", "review_prompt_hint": "Governance-only? then severity/exploitability is privileged.", "examples": ["DAO-only param change"]},
+    "admin_only": {"detection_hints": ["admin role gate"], "required_evidence": "non-admin path",
+      "downgrade_action": "downgrade", "review_prompt_hint": "Admin-only path.", "examples": ["proxy admin function"]},
+    "owner_only": {"detection_hints": ["onlyOwner / Ownable"], "required_evidence": "non-owner path",
+      "downgrade_action": "downgrade", "review_prompt_hint": "Owner-only path.", "examples": ["Ownable setter"]},
+    "lifecycle_only": {
+      "detection_hints": ["fn kind initializer OR file in reseed/init/migration; reachable only during a one-time lifecycle step"],
+      "required_evidence": "an in-normal-operation reachable path, OR an accepted impact for the lifecycle window",
+      "downgrade_action": "downgrade", "review_prompt_hint": "Only reachable during reseed/init/migration (owner-gated diamondCut)? then it is not a permissionless steady-state finding.",
+      "examples": ["SG-004 reseed init 'no access modifier' — owner-gated via diamondCut", "DT-011 ReseedInternalBalances", "BSA-005 ReseedBarn"]
+    },
+    "initializer_only": {"detection_hints": ["kind==initializer / name init"], "required_evidence": "post-init reachable path",
+      "downgrade_action": "downgrade", "review_prompt_hint": "Initializer-only; one-shot owner action.", "examples": ["Reseed*.init"]},
+    "migration_only": {"detection_hints": ["migration/L1/L2 file"], "required_evidence": "steady-state reachable path",
+      "downgrade_action": "downgrade", "review_prompt_hint": "Migration-window only.", "examples": ["recieveL1Beans"]},
+    "dead_path": {
+      "detection_hints": ["disposition deferred_out_of_scope; zero callers; unreachable"],
+      "required_evidence": "any live caller",
+      "downgrade_action": "mark_false_positive", "review_prompt_hint": "Dead code with zero callers — not exploitable.",
+      "examples": ["interface stub / unused helper"]
+    },
+    "zero_callers": {"detection_hints": ["no caller in manifest/ice_chain; consumer_found=false; internal"], "required_evidence": "a caller",
+      "downgrade_action": "needs_manual_review", "review_prompt_hint": "No caller surfaced — confirm one exists.", "examples": ["orphan internal fn"]},
+    "deployment_context_mismatch": {"detection_hints": ["assumes a chain/deploy that doesn't hold"], "required_evidence": "the actual deployment context",
+      "downgrade_action": "needs_manual_review", "review_prompt_hint": "Does the assumed chain/deploy match the target?", "examples": ["L1-only assumption on an L2 deploy"]},
+    "impossible_state": {"detection_hints": ["impact requires a state the invariants forbid"], "required_evidence": "a path that reaches the required state",
+      "downgrade_action": "needs_runtime_poc", "review_prompt_hint": "Can the required precondition state actually be reached?", "examples": ["needs ratio < 1e4 with no path shown"]},
+    "guard_blocks_attack": {"detection_hints": ["a require/guard in the path provably blocks the attacker input"], "required_evidence": "why the guard is bypassable",
+      "downgrade_action": "mark_false_positive", "review_prompt_hint": "Does an explicit guard stop the claimed input?", "examples": ["require(msg.sender==owner) on the path"]},
+    "modifier_blocks_attack": {"detection_hints": ["a modifier blocks the attacker"], "required_evidence": "modifier bypass",
+      "downgrade_action": "downgrade", "review_prompt_hint": "Does a modifier block it?", "examples": ["nonReentrant on the only path"]},
+    "role_check_blocks_attack": {"detection_hints": ["explicit role check blocks attacker"], "required_evidence": "role bypass",
+      "downgrade_action": "downgrade", "review_prompt_hint": "Does a role check block it?", "examples": ["hasRole gate"]},
+    "non_attacker_controlled_input": {"detection_hints": ["the vulnerable input is not attacker-controlled"], "required_evidence": "attacker control of the input",
+      "downgrade_action": "downgrade", "review_prompt_hint": "Is the dangerous input attacker-controlled?", "examples": ["value set only by trusted oracle/keeper"]},
+    "impact_not_reached": {"detection_hints": ["the claimed impact does not follow from the corrupted state"], "required_evidence": "the state->impact link",
+      "downgrade_action": "needs_runtime_poc", "review_prompt_hint": "Does the corrupted state actually cause the claimed loss/DoS?", "examples": ["revert that is caught / has no consequence"]},
+    "duplicate_root_cause": {"detection_hints": ["duplicate_of set; shares a dispositions finding_ref; dup-map"], "required_evidence": "a distinct root cause or entrypoint",
+      "downgrade_action": "merge_duplicate", "review_prompt_hint": "Same root cause as another finding? merge.", "examples": ["two findings on the same underflow site"]},
+    "severity_overclaim": {"detection_hints": ["Low/Info impact labeled High; best-practice"], "required_evidence": "a concrete higher-severity impact path",
+      "downgrade_action": "downgrade", "review_prompt_hint": "Is the severity justified by a concrete impact, or is it best-practice?", "examples": ["OR-005 missing answeredInRound check (best-practice/Low)"]},
+    "needs_runtime_poc": {
+      "detection_hints": ["public entrypoint exists but the precondition/impact is unproven; speculative reachability"],
+      "required_evidence": "a runtime PoC reaching the precondition state and the impact",
+      "downgrade_action": "needs_runtime_poc", "review_prompt_hint": "The mechanism is plausible but reachability of the precondition/impact is unproven — a fork PoC is required before confirming.",
+      "examples": ["AR-001 needs stalk/BDV ratio < 1e4", "DS-004 needs the SOP div-by-zero state", "RE-001 needs a concrete reentrant exploit"]
+    }
+  }
+}

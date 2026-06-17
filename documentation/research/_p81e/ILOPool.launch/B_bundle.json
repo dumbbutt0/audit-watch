@@ -1,0 +1,77 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "ILOPool.launch",
+  "detector_family": "surface_recall_lens",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "ILOPool",
+    "function": "launch",
+    "lines": null,
+    "suspicious_pattern": "refund_path,value_exit,auth_boundary",
+    "detector_claim": "security-relevant surface; mechanism uncertain"
+  },
+  "context_summary": {
+    "source_available": true,
+    "source_resolved": true,
+    "reachability": "external"
+  },
+  "attacker_reachability": "external",
+  "defense_ledger": {
+    "access_control": {
+      "classification": "bypassed",
+      "evidence": "ILOPool.launch is OnlyManager but ILOManager.launch is PERMISSIONLESS (no access control) -> effectively anyone can trigger after launchTime"
+    },
+    "slippage_or_price_bound": {
+      "classification": "bypassed",
+      "evidence": "addLiquidity amount0Min/amount1Min set ONLY on the RAISE side; the SALE side Min stays 0"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "launch liquidity deployment must enforce slippage on BOTH token sides",
+    "why_defenses_do_not_block": null
+  },
+  "exploit_path": {
+    "attacker_profile": "EOA",
+    "entrypoint": "see trigger",
+    "preconditions": null,
+    "transaction_sequence": "anyone calls ILOManager.launch(pool) at launchTime; addLiquidity deploys with 0 min on the sale side; an attacker can move the pool within the allowed band / sandwich the liquidity add to skim value (sale-side has no slippage floor)",
+    "state_before": null,
+    "state_after": null,
+    "rejection_case": "maybe Manager.launch is gated / maybe price check protects \u2014 but ILOManager.launch() has NO access modifier (only requires now>launchTime and pool price==initial), and in ILOPool.launch the addLiquidity Min is set on the RAISE side only; the SALE side amountMin=0",
+    "source_evidence": "vultisig befb1b1170"
+  },
+  "impact_analysis": {
+    "impact_category": "protocol_value_loss_via_slippage",
+    "minimum_profit_or_damage_condition": "permissionless launch + 0 min on sale side"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED"
+}

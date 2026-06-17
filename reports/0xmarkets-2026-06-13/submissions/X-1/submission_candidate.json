@@ -1,0 +1,90 @@
+{
+  "finding_id": "X-1",
+  "title": "getMarketTokenPrice can return <= 0 (confirms Cartha C-1 reachability)",
+  "root_cause": "getMarketTokenPrice returns 0 when poolValue==0 and negative when poolValue<0 (signed int256 poolValue = pool USD +- impact - capped pending trader PnL). Cross-protocol: this is the precondition for Cartha C-1 (gmPrice<=0 -> Cartha gmValueInUsdc=0 -> TVL reads 0).",
+  "affected_contracts": [
+    "contracts/market/MarketUtils.sol"
+  ],
+  "affected_functions": [
+    "MarketUtils.getMarketTokenPrice"
+  ],
+  "attacker_entrypoint": "traders accumulate capped pending profit >= pool token value",
+  "attacker_capabilities": [
+    "no attacker on 0xM; deeply-in-profit traders / MAX_PNL_FACTOR path drive poolValue<=0 (a market state)"
+  ],
+  "privilege_required": "none",
+  "scope_status": "uncertain",
+  "in_scope_asset": "MarketUtils (getMarketTokenPrice)",
+  "out_of_scope_risks": [
+    "GMX-inherited behavior; not a 0xMarkets-specific bug"
+  ],
+  "impact_category": "info",
+  "severity_claim": "Informational",
+  "severity_justification": {
+    "worst_case": "Integrators treating GM price as always-positive inherit a mispricing surface (e.g. Cartha C-1, High).",
+    "realistic_case": "GMX-inherited / by design for 0xM; informational here, confirms Cartha C-1.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "0xMarkets",
+    "platform": "contest",
+    "impact_in_scope": false,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "0xMarkets contest (0xMarkets_contract-main @ e94daee); GMX Synthetics fork (ships GMX audits)."
+  },
+  "call_trace": [
+    "traders accumulate capped pending profit >= pool token value",
+    "poolValue <= 0; getMarketTokenPrice returns 0 (poolValue==0) or negative (poolValue<0)",
+    "an integrator mapping <=0 -> 0 (Cartha) reads TVL==0 while real GM value exists"
+  ],
+  "state_transition": {
+    "before": "pool with capped pending trader PnL approaching pool token value",
+    "after": "getMarketTokenPrice returns <= 0",
+    "slots_or_balances": []
+  },
+  "asset_delta": "No direct 0xM loss (GMX-inherited, by design). Confirms Cartha C-1 (High) is reachable.",
+  "proof_type": "static_proof",
+  "poc_path": "",
+  "poc_status": "none",
+  "reproduction_steps": [
+    "code analysis \u2014 see report.md + vulnerable/ source (no standalone PoC: source-confirmed; a runnable PoC needs the full GMX build to drive getPoolValueInfo. Reported as a code-confirmed fact.)"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [
+    "GMX core is audited (ABDK/Certora/Dedaub/Guardian); this is the 0xMarkets delta / a GMX-inherited fact"
+  ],
+  "false_positive_risks": [
+    "GMX-inherited / by design for 0xM; informational here, confirms Cartha C-1."
+  ],
+  "invalidating_conditions": [
+    "source-confirmed; a runnable PoC needs the full GMX build to drive getPoolValueInfo. Reported as a code-confirmed fact."
+  ],
+  "defense_analysis": [
+    {
+      "defense": "integrators assuming GM price > 0",
+      "blocks_path": false,
+      "why_it_fails": "price is signed int256 and <=0 by design under the MAX_PNL_FACTOR path"
+    }
+  ],
+  "assumptions": [
+    "GMX Synthetics fork; insurance module is the 0xMarkets delta"
+  ],
+  "evidence_links": [
+    "contracts/market/MarketUtils.sol:getMarketTokenPrice (poolValue==0 -> return 0; signed mulDiv)",
+    "reports/cartha-2026-06-13/cartha-C1-reachability.md",
+    "reports/0xmarkets-2026-06-13/submissions/X-1/vulnerable/MarketUtils.sol"
+  ],
+  "triager_summary": "getMarketTokenPrice can return <= 0 (confirms Cartha C-1 reachability) \u2014 source-confirmed (no runnable PoC)",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Business Logic Errors (signed `getMarketTokenPrice` can return \u2264 0 by design \u2014 int256, 0 when poolValue==0, negative when poolValue<0)",
+  "cvss": [
+    {
+      "aspect": "GMX-inherited signed price \u2264 0",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:N",
+      "score": 0.0,
+      "severity": "None"
+    }
+  ]
+}

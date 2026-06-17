@@ -1,0 +1,43 @@
+{
+  "research_only": true,
+  "phase": "P93",
+  "subject": "ramses-exchange-2024-10",
+  "commit": "1ba89267cc7c010f13c4d405476090641d18b146",
+  "purpose": "Confirmation run: P91 selection + P92 depth-trace v3, holding 0 severity FP (gate frozen 193abf9f).",
+  "blindness": "repo-key-blind (findings cloned only AFTER prekey_freeze.json) + web-blind; training contamination acknowledged.",
+  "answer_key": {"high": 0, "medium": 2, "note": "hardened UniV3-fork+gauge; low density; M-01 in GaugeV3/pool reward math, M-02 in RamsesV3Pool.flash"},
+  "metrics": {
+    "blind_surface_recall": {"lens_total": 43, "selected": 21, "policy": "top-16 ∪ per-contract top-2 floor + 3 controls",
+      "per_contract_floor_added": ["ClGaugeFactory.createGauge","NonfungiblePositionManager.burn","NonfungiblePositionManager.collect","RamsesV3PoolDeployer.deploy"],
+      "per_contract_floor_contribution_to_hits": "0 — both awarded Mediums are in top-surface contracts (GaugeV3/RamsesV3Pool), not the floor-added low-scoring ones"},
+    "selected_lead_recall": "M-01 GaugeV3 (cachePeriodEarned/notifyRewardAmount SELECTED, depth-traced->REJECT) ; M-02 RamsesV3Pool.flash (SELECTED, well-formed NEEDS_CONTEXT naming the exact function + next step)",
+    "NOT_RUN": 0,
+    "investigation_safety": {"C_SOURCE_FALSE": 0, "C_unsupported_READY": 0, "C_HARD_FAIL": 0, "C_detector_to_finding": 0},
+    "severity_FP_after_gate": 0,
+    "false_demotions": "0 gate false-demotions (gate never saw a promotion). NOTE: M-01 (GaugeV3, a surfaced true Medium) was FALSE-REJECTED at deep_pass via an incomplete cross-contract trace (stopped at the pool staticcall boundary positionPeriodSecondsInRange; the bug is across it in periodCumulativesInside).",
+    "under_ratings": "none promoted.",
+    "mechanism_correctness": "0 promotions.",
+    "conversion": {"clean_or_strong": 0, "CLEAN_HIT": [],
+      "near_miss": ["M-02 flash: v3 NEEDS_CONTEXT named the EXACT awarded function (RamsesV3Pool.flash) + next step 'read flash body' — the awarded bug is `pFees0 = paid0 / feeProtocol` (should be *feeProtocol/100); v3 pointed right at it but I abstained instead of executing the in-scope next-step read",
+                    "M-01 GaugeV3: localized + traced but the trace stopped at the in-scope pool staticcall boundary and REJECTED, missing the pool-side periodCumulativesInside skipped-period inflation"]},
+    "controls": {"privileged_rejected": "3/3 (setFeeCollector, setTreasury, enableTickSpacing) + the governance setters rejected", "controls_promoted_incorrectly": 0},
+    "depth_trace_measurement": {
+      "leads_with_localized_mechanism": "all 21 dispositioned; 3 explicit localized_depth_trace records (GaugeV3.cachePeriodEarned REJECT, GaugeV3.notifyRewardAmount REJECT, FeeCollector.collectProtocolFees well-formed NEEDS_CONTEXT)",
+      "bare_abstains": 0, "needs_context_all_wellformed": true, "insufficient_trace_count": 0,
+      "depth_trace_false_escalations": 0,
+      "useful_localizations": "M-02: the well-formed NEEDS_CONTEXT named the exact awarded function + next step (RamsesV3Pool.flash, read body) — v3 process pointed at the awarded finding",
+      "incomplete_trace_false_reject": "M-01: cross-contract trace stopped at the in-scope pool staticcall boundary -> false-REJECT (the trace's quality is bounded by boundary-case + cross-contract enumeration)"
+    },
+    "p84_taxonomy_coverage": "no promotion -> no handoff bundle. M-02 is a precision/rate arithmetic miscalc (precision_rounding_rate_computation class, already a depth-trace target); M-01 is counter/lifecycle period-skip.",
+    "p84_generator_behavior": "n/a (no candidate reached POC_HANDOFF_STARTED)"
+  },
+  "verdict": "SAFETY-ONLY PASS. Safety clean (0 SOURCE_FALSE/unsupported-READY/HARD_FAIL/detector->finding), 0 severity FP, controls clean, NOT_RUN=0, localized_depth_trace caused NO false escalation and emitted 0 bare abstains — BUT conversion = 0 (no CLEAN_HIT/STRONG_PARTIAL). Per rubric: Safety-only PASS.",
+  "p92_validation_conclusion": "MIXED / still inconclusive for the conversion-improvement claim. POSITIVE: v3 eliminated bare abstains (7/7 NEEDS_CONTEXT well-formed with named dependency + next step), 0 false escalations, 0 severity FP; and v3's process named the EXACT awarded function for M-02 ('read flash body'). NEGATIVE: conversion still 0 (3rd low-density subject in a row); two instructive misses expose v3's residual limits -- (1) M-02: a well-formed NEEDS_CONTEXT whose named next-step is an IN-SCOPE read was not executed before freezing (process-completion gap); (2) M-01: the trace stopped at an IN-SCOPE staticcall boundary instead of tracing across it (cross-contract-trace gap). Neither is a calibration regression; the 0-severity-FP discipline held.",
+  "action_per_constraints": "STOP and report. No machinery change (gate frozen 193abf9f). No post-key tuning. No retroactive re-score.",
+  "caveats": [
+    "training-contamination residual (key opened only post-freeze)",
+    "3rd consecutive hardened/low-density subject (kleidi 0H/3M, ramses 0H/2M) -> conversion-improvement claim still unvalidated; eval subject SELECTION should target higher-density subjects",
+    "per-contract floor again added coverage but 0 hits (findings in top-surface contracts)",
+    "v3 residual limits: in-scope NEEDS_CONTEXT next-steps not auto-resolved (M-02); cross-contract staticcall boundaries not traced through (M-01)"
+  ]
+}

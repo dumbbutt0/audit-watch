@@ -1,0 +1,44 @@
+{
+  "version": "bytes-layout-comparand-v1",
+  "description": "Phase-37 RESEARCH-ONLY producer/consumer bytes-layout comparand discovery. Read ONLY by scripts/bytes_layout_comparand.py (un-wired). Links a bytes CONSUMER (decode/slice/mload/shift) to its PRODUCER (abi.encode/encodePacked/bytes.concat/mstore/packed-shift) via generic structural evidence (NOT name-only), extracts both field layouts, and reports a concrete layout_mismatch. A bytes_offset_decode_mismatch reaches STRONG only when both layouts are extracted and concretely conflict, with downstream value/authority use. Generic standard-Solidity vocab only — NO subject-specific (e.g. dittoeth) names. is_gate:false research_only:true routes_in_production:false routed_manifest_ids:[].",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+
+  "consumer_patterns": {
+    "abi_decode": "abi\\.decode\\s*\\(",
+    "slice": "\\.slice\\s*\\(|\\[\\s*\\d+\\s*:\\s*\\d+\\s*\\]",
+    "assembly_mload": "mload\\s*\\(\\s*add\\s*\\(",
+    "shift_mask": "(>>|<<)\\s*\\d+|&\\s*0x"
+  },
+  "producer_patterns": {
+    "abi_encode": "abi\\.encode\\s*\\(",
+    "abi_encodePacked": "abi\\.encodePacked\\s*\\(",
+    "bytes_concat": "bytes\\.concat\\s*\\(|abi\\.encodePacked",
+    "assembly_mstore": "mstore\\s*\\(\\s*add\\s*\\(",
+    "manual_pack": "(<<\\s*\\d+\\s*\\)?\\s*\\|)|(\\|\\s*uint)"
+  },
+
+  "relationship": {
+    "strong_signals": ["caller_callee", "return_flow", "argument_flow", "shared_struct"],
+    "weak_signals": ["shared_stem", "domain_word", "field_count"],
+    "min_strong": 1,
+    "min_weak": 2,
+    "domain_words": ["proposal", "order", "message", "payload", "slate", "bid", "ask", "redemption", "short", "record", "ticket", "receipt", "data"]
+  },
+
+  "abi_type_width": {
+    "address": 20, "bool": 1, "uint8": 1, "uint16": 2, "uint24": 3, "uint32": 4, "uint40": 5,
+    "uint48": 6, "uint56": 7, "uint64": 8, "uint72": 9, "uint80": 10, "uint88": 11, "uint96": 12,
+    "uint104": 13, "uint112": 14, "uint120": 15, "uint128": 16, "uint160": 20, "uint256": 32, "bytes32": 32
+  },
+
+  "value_authority_roles": ["amount", "value", "price", "address", "owner", "recipient", "debt", "collateral", "share", "fee", "reward", "redeemed", "id", "to", "shorter", "redeemer"],
+
+  "support_levels": {
+    "strong_requires": "both layouts extracted with concrete fields AND a concrete conflict (field_count / offset / type / width / field_order)",
+    "medium": "one layout concrete, the other partial, with a plausible conflict",
+    "weak": "relationship found but layouts not concretely extractable"
+  }
+}

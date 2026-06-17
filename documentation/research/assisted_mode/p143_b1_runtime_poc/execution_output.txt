@@ -1,0 +1,28 @@
+P143 — Level-3 runtime PoC execution (real NoyaValueOracle contract)
+
+$ cd audits/noya-2024-04-eval/pocs/p143
+$ forge test -vv
+
+Compiling 39 files with Solc 0.8.20
+Solc 0.8.20 finished
+(natspec @Title warnings from noya IPositionRegistry.sol elided — cosmetic, not from PoC code)
+
+Ran 4 tests for test/NoyaValueOracleMultiHopValueProvenance.t.sol:NoyaValueOracleMultiHopValueProvenance
+[PASS] test_corrected_reference_uses_loop_carried_quote_token() (gas: 386538)
+[PASS] test_equivalent_price_control_no_divergence() (gas: 471253)
+[PASS] test_single_hop_control_matches() (gas: 275289)
+[PASS] test_vulnerable_multi_hop_uses_static_asset_and_misvalues() (gas: 487303)
+Logs:
+  vulnerable_output_wad: 20000000000000000000
+  corrected_output_wad:   6000000000000000000
+  delta_wad:             14000000000000000000
+
+Suite result: ok. 4 passed; 0 failed; 0 skipped
+Ran 1 test suite: 4 tests passed, 0 failed, 0 skipped (4 total tests)
+
+Interpretation:
+- Real NoyaValueOracle.getValue(A, D, 1e18) with route [B, C] returns 20e18 (the static-asset / vulnerable value).
+- Corrected reference (loop-carried quotingToken) returns 6e18.
+- delta = 14e18; ratio 20/6 = 3.333x.
+- Single-hop control: real == corrected == 6e18 (no divergence at one hop).
+- Equal-per-hop-price control: real == corrected == 6e18 (divergence vanishes when paths agree).

@@ -1,0 +1,47 @@
+{
+  "queue": "p266_isolated_poc_queue",
+  "note": "Isolated PoC work queue. Accepts ONLY ADVISORY_RECALL_CANDIDATE records from the frozen advisory feed. Does NOT touch canonical findings / triage / poc_queue.jsonl. No severity / reportable / submission authority.",
+  "is_gate": false, "research_only": true, "routes_in_production": false,
+  "emits_findings": false, "concludes_vulnerability": false,
+  "source_feed_hash": "62275f55f70bd675",
+  "selected": [
+    {
+      "candidate_id": "C1",
+      "advisory_locus": "CuratorRewardsDistributor.distribute",
+      "recall_class": "NARROW_BASELINE",
+      "prioritizer_rank": 2,
+      "templates": ["T6", "T8"],
+      "status_in": "ADVISORY_RECALL_CANDIDATE",
+      "role": "primary + narrow-baseline control",
+      "pre_reveal_mechanism_hypothesis": "distribute() is permissionless and pays royaltyfee + rounding dust to _msgSender() (an arbitrary caller), not to the protocol/owner. The royalty rate is owner-set (updateRoyalty onlyOwner) but the proceeds are captured by whoever calls distribute -> value misallocation / MEV skim of the curator reward pool.",
+      "falsifier": "If sending royalty+dust to msg.sender is the intended keeper incentive (no other keeper reward exists) and the protocol does not expect the royalty to accrue to owner/treasury, this is benign-by-design."
+    },
+    {
+      "candidate_id": "C2",
+      "advisory_locus": "Cred._handleTrade (+ CuratorRewardsDistributor.distribute share basis)",
+      "recall_class": "RECALL_DELTA",
+      "prioritizer_rank": 5,
+      "templates": ["T5", "T8"],
+      "status_in": "ADVISORY_RECALL_CANDIDATE",
+      "role": "primary recall-delta",
+      "pre_reveal_mechanism_hypothesis": "distribute() splits rewards by SPOT curator share (getShareNumber at call time). An attacker buys a large share of a credId that has accumulated rewards, then calls the permissionless distribute() in the same tx to capture distributeAmount*share/totalNum, diluting curators who curated earlier. SHARE_LOCK_PERIOD (10m) blocks same-block resale but not buy->distribute; attacker holds the position through the lock and exits, profiting if accumulated rewards exceed bonding-curve round-trip cost.",
+      "falsifier": "If accumulated rewards can never exceed the marginal bonding-curve cost + fees of acquiring enough share within the lock window, the attack is unprofitable -> benign."
+    },
+    {
+      "candidate_id": "C-neg",
+      "advisory_locus": "RewardControl.withdrawWithSig",
+      "recall_class": "RECALL_DELTA",
+      "prioritizer_rank": 11,
+      "templates": ["T2"],
+      "status_in": "ADVISORY_RECALL_CANDIDATE",
+      "role": "negative control",
+      "pre_reveal_mechanism_hypothesis": "EXPECTED BENIGN: gasless withdraw is EIP-712 signed over (from,to,amount,nonce,deadline), nonce-incremented (replay-safe), deadline-checked, amount<=balance. No obvious flaw -> included as a negative control to test that the gate/PoC layer correctly does NOT manufacture a finding.",
+      "falsifier": "A reproducible signature replay / wrong-account withdraw / balance underflow would refute the benign expectation."
+    }
+  ],
+  "skipped_high_ranked": [
+    {"locus": "PhiFactory.signatureClaim/merkleClaim (narrow rank0/1)", "why_skipped": "claim-flow signature/merkle verification; large external (PhiNFT1155/factory) surface -> heavier PoC harness; deferred to keep the first full-route PoC scope focused on the self-contained reward subsystem."},
+    {"locus": "PhiNFT1155.mint (delta rank8, T8)", "why_skipped": "1155 mint accounting; depends on factory claim path; out of the focused reward-subsystem scope for this run."},
+    {"locus": "PhiRewards.depositRewards/handleRewardsAndGetValueSent (delta rank14/15)", "why_skipped": "reward routing wrappers around RewardControl.deposit; covered indirectly by C1 (distribute -> depositBatch) and the C-neg withdraw path."}
+  ]
+}

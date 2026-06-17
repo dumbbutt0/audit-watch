@@ -1,0 +1,630 @@
+{
+  "schema_version": 1,
+  "description": "Taxonomy of decimals/units/scaling invariant surfaces. Drives units_invariant_audit.py via units_invariant_taxonomy.classify(). Surfaces math where token decimals, oracle decimals, reserve units, BDV units, LP/share units, price precision, or amount scaling can be silently mixed \u2014 the class behind eval miss #184 (LibWell.getBeanTokenPriceFromTwaReserves assumes 18 decimals: reserve0.mul(1e18).div(reserve1)). This is a SEMANTIC math lens, NOT a flag-all-arithmetic sweep.",
+  "_fp_note": "TWO-SIGNAL RULE is the FP backbone: an item is units_sensitive only when a UNIT-CONTEXT term (unit_context_terms below) co-occurs with an ARITHMETIC/DECIMALS SIGNAL (a category call/constant/arithmetic pattern) \u2014 UNLESS the category is itself unambiguous (decimals()/latestRoundData/convertToShares). Bare 1e18, a lone mulDiv, basis-points (100/10000) without amount context, pure Math/PRBMath helpers, and loop-counter division are NOT tagged. Comments and event decls are stripped before matching.",
+  "unit_context_terms": [
+    "price",
+    "reserve",
+    "bdv",
+    "oracle",
+    "shares",
+    "assets",
+    "precision",
+    "decimal",
+    "twa",
+    "wsteth",
+    "steth",
+    "underlying",
+    "deltab",
+    "amountout",
+    "amountin",
+    "pump",
+    "virtualprice",
+    "pricepershare",
+    "exchangerate",
+    "latestround",
+    "lptoken"
+  ],
+  "high_risk_categories": [
+    "assumed_18_decimals",
+    "chainlink_decimals",
+    "oracle_price_decimals",
+    "reserve_units",
+    "twa_reserves",
+    "shares_assets",
+    "mixed_decimal_tokens",
+    "division_before_multiplication",
+    "downcast_after_scaling",
+    "price_per_share",
+    "virtual_price"
+  ],
+  "categories": {
+    "token_decimals": {
+      "name_patterns": [
+        "decimals",
+        "todecimals",
+        "fromdecimals",
+        "scaledecimals",
+        "normalizedecimals"
+      ],
+      "call_patterns": [
+        ".decimals()",
+        "erc20(",
+        "ierc20metadata",
+        "decimals("
+      ],
+      "constant_patterns": [],
+      "arithmetic_patterns": [
+        "10\\s*\\*\\*\\s*\\w*decimals",
+        "decimals\\(\\)"
+      ],
+      "unambiguous": true,
+      "risk_tags": [
+        "decimal_mismatch",
+        "assumed_decimals"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Reads/uses token.decimals(). Confirm the value is actually fetched (not assumed) and applied consistently to BOTH operands of any comparison/division. Tokens with 6 vs 18 decimals must be normalized to a common unit before math.",
+      "examples": [
+        "uint8 d = IERC20Metadata(token).decimals();",
+        "amount * 10**(18 - decimals)"
+      ],
+      "specificity": 1
+    },
+    "assumed_18_decimals": {
+      "name_patterns": [],
+      "call_patterns": [],
+      "constant_patterns": [
+        "1e18",
+        "10\\*\\*18",
+        "1_000_000_000_000_000_000",
+        "wad"
+      ],
+      "arithmetic_patterns": [
+        "mul\\(\\s*1e18\\s*\\)",
+        "\\*\\s*1e18",
+        "1e18\\s*\\)?\\.div",
+        "\\.div\\([^)]*1e18"
+      ],
+      "risk_tags": [
+        "assumed_decimals",
+        "decimal_mismatch",
+        "precision_loss"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Hardcoded 1e18 scaling in amount/price/reserve math ASSUMES 18-decimal operands. If a reserve/token/oracle answer is 6 or 8 decimals, the result is mis-scaled by 10^(18-d). THE #184 SHAPE: reserve0.mul(1e18).div(reserve1) with a non-18-decimal token.",
+      "examples": [
+        "reserve0.mul(1e18).div(reserve1)",
+        "amount * 1e18 / price"
+      ],
+      "specificity": 0
+    },
+    "chainlink_decimals": {
+      "name_patterns": [
+        "latestrounddata",
+        "getchainlinkprice",
+        "chainlinkprice"
+      ],
+      "call_patterns": [
+        "latestrounddata",
+        "aggregatorv3"
+      ],
+      "constant_patterns": [
+        "1e8",
+        "10\\*\\*8"
+      ],
+      "arithmetic_patterns": [],
+      "unambiguous": true,
+      "risk_tags": [
+        "oracle_scale",
+        "decimal_mismatch"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Chainlink answers are feed-specific decimals (often 8, sometimes 18). Confirm aggregator.decimals() is read (not assumed 8/18) and the answer is normalized before combining with token amounts.",
+      "examples": [
+        "(, int256 answer,,,) = feed.latestRoundData(); price = answer * 1e10;"
+      ],
+      "specificity": 3
+    },
+    "oracle_price_decimals": {
+      "name_patterns": [
+        "getusdprice",
+        "getprice",
+        "getethusdprice",
+        "getwstethethprice",
+        "gettokenprice",
+        "getbeanusdprice"
+      ],
+      "call_patterns": [
+        "getusdprice",
+        "getprice("
+      ],
+      "constant_patterns": [
+        "1e6",
+        "1e18",
+        "1e24"
+      ],
+      "arithmetic_patterns": [
+        "price.*\\.(mul|div)",
+        "(mul|div)\\(.*price"
+      ],
+      "risk_tags": [
+        "oracle_scale",
+        "decimal_mismatch",
+        "precision_loss"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Oracle price-decimals. Confirm the returned price's precision (1e6 USD? 1e18 ratio?) matches what every consumer assumes; mixing price precisions silently mis-values.",
+      "examples": [
+        "getUsdPrice(token)",
+        "usdPrice.mul(amount).div(1e6)"
+      ],
+      "specificity": 2
+    },
+    "reserve_units": {
+      "name_patterns": [
+        "getreserves",
+        "reserves",
+        "readreserves",
+        "readinstantaneousreserves"
+      ],
+      "call_patterns": [
+        "getreserves",
+        "readinstantaneousreserves",
+        "readreserves"
+      ],
+      "constant_patterns": [],
+      "arithmetic_patterns": [
+        "reserve\\d?.*\\.(mul|div)",
+        "(mul|div)\\(.*reserve"
+      ],
+      "risk_tags": [
+        "decimal_mismatch",
+        "precision_loss"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Raw pool reserves carry each token's native decimals. Dividing/comparing reserve0 by reserve1 across tokens of different decimals (without normalization) mis-prices. Confirm reserves are decimal-normalized before ratio math.",
+      "examples": [
+        "reserve0 * 1e18 / reserve1",
+        "getReserves()"
+      ],
+      "specificity": 3
+    },
+    "twa_reserves": {
+      "name_patterns": [
+        "twareserves",
+        "gettwareserves",
+        "getbeantokenpricefromtwareserves",
+        "readtwareserves"
+      ],
+      "call_patterns": [
+        "readtwareserves",
+        "twareserves"
+      ],
+      "constant_patterns": [
+        "1e18"
+      ],
+      "arithmetic_patterns": [
+        "twareserves.*\\.(mul|div)",
+        "reserve\\d.*1e18"
+      ],
+      "risk_tags": [
+        "assumed_decimals",
+        "decimal_mismatch",
+        "precision_loss"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "TWA reserve math. Manipulation-resistance (TWA) is ORTHOGONAL to the units invariant \u2014 a manipulation-safe TWA reserve still carries token decimals. The #184 bug: getBeanTokenPriceFromTwaReserves scales by a fixed 1e18, assuming the non-Bean reserve is 18-decimals.",
+      "examples": [
+        "getBeanTokenPriceFromTwaReserves",
+        "twaReserves[0].mul(1e18).div(twaReserves[1])"
+      ],
+      "specificity": 3
+    },
+    "bdv_units": {
+      "name_patterns": [
+        "bdv",
+        "tobdv",
+        "beandenominatedvalue",
+        "beantobdv",
+        "wellbdv",
+        "unripelptobdv",
+        "unripebeantobdv"
+      ],
+      "call_patterns": [
+        "bdv(",
+        "beandenominatedvalue"
+      ],
+      "constant_patterns": [
+        "1e6"
+      ],
+      "arithmetic_patterns": [
+        "bdv.*\\.(mul|div)"
+      ],
+      "risk_tags": [
+        "decimal_mismatch",
+        "precision_loss"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "BDV (Bean-denominated value) is a 6-decimal Bean unit. Confirm token amounts (native decimals) and LP values are normalized to the 6-decimal BDV unit, not mixed with 18-decimal precision.",
+      "examples": [
+        "wellBdv(token, amount)",
+        "amount.mul(price).div(1e6) // -> bdv"
+      ],
+      "specificity": 2
+    },
+    "lp_token_units": {
+      "name_patterns": [
+        "lptokensupply",
+        "lpsupply",
+        "totallptoken",
+        "welltokensupply"
+      ],
+      "call_patterns": [
+        "totalsupply()",
+        "lptokensupply"
+      ],
+      "constant_patterns": [],
+      "arithmetic_patterns": [
+        "lp.*supply.*\\.(mul|div)",
+        "(mul|div)\\(.*lp"
+      ],
+      "risk_tags": [
+        "decimal_mismatch",
+        "precision_loss"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "LP token supply has its own decimals (often 18) distinct from the underlying tokens. Confirm LP-supply-scaled math does not assume the underlying token decimals.",
+      "examples": [
+        "deltaB * lpTokenSupply / totalLp"
+      ],
+      "specificity": 2
+    },
+    "shares_assets": {
+      "name_patterns": [
+        "converttoshares",
+        "converttoassets",
+        "previewdeposit",
+        "previewredeem",
+        "previewmint",
+        "previewwithdraw",
+        "totalassets",
+        "shares",
+        "assets"
+      ],
+      "call_patterns": [
+        "converttoshares",
+        "converttoassets",
+        "totalassets"
+      ],
+      "constant_patterns": [],
+      "arithmetic_patterns": [
+        "shares.*\\.(mul|div)",
+        "assets.*\\.(mul|div)"
+      ],
+      "unambiguous": true,
+      "risk_tags": [
+        "decimal_mismatch",
+        "rounding",
+        "precision_loss"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "ERC4626 shares<->assets conversion. Confirm rounding direction favors the vault, decimals offset is applied, and shares/assets units are never swapped (inflation/precision attacks).",
+      "examples": [
+        "convertToShares(assets)",
+        "assets.mulDiv(totalSupply, totalAssets)"
+      ],
+      "specificity": 3
+    },
+    "amount_in_out": {
+      "name_patterns": [
+        "getamountout",
+        "getamountin",
+        "amountout",
+        "amountin",
+        "getmaxamountin",
+        "quote",
+        "swap"
+      ],
+      "call_patterns": [
+        "getamountout",
+        "getamountin"
+      ],
+      "constant_patterns": [],
+      "arithmetic_patterns": [
+        "amount(in|out).*\\.(mul|div)"
+      ],
+      "risk_tags": [
+        "decimal_mismatch",
+        "precision_loss",
+        "rounding"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Swap/convert amountIn/amountOut. Confirm input and output token decimals are handled distinctly; a cross-decimal pair mis-quotes if a single scale is assumed.",
+      "examples": [
+        "getAmountOut(amountIn, reserveIn, reserveOut)"
+      ],
+      "specificity": 3
+    },
+    "precision_constant": {
+      "name_patterns": [
+        "precision",
+        "_precision",
+        "scalar",
+        "scale"
+      ],
+      "call_patterns": [],
+      "constant_patterns": [
+        "precision",
+        "1e18",
+        "1e6",
+        "1e24",
+        "1e12"
+      ],
+      "arithmetic_patterns": [
+        "precision.*\\.(mul|div)",
+        "(mul|div)\\(.*precision"
+      ],
+      "risk_tags": [
+        "precision_loss",
+        "decimal_mismatch"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "A precision/scalar constant applied to amount/price math. Confirm the constant matches the actual operand decimals (e.g. 1e6 for Bean, 1e18 for ETH) and is not reused across mismatched units.",
+      "examples": [
+        "amount.mul(STALK_BDV_PRECISION)",
+        "x.mul(PRECISION).div(y)"
+      ],
+      "specificity": 0
+    },
+    "rate_precision": {
+      "name_patterns": [
+        "rate",
+        "perbdv",
+        "persecond",
+        "perseason",
+        "gaugepoints",
+        "humidity",
+        "temperature"
+      ],
+      "call_patterns": [],
+      "constant_patterns": [
+        "1e6",
+        "1e18",
+        "gp_precision"
+      ],
+      "arithmetic_patterns": [
+        "rate.*\\.(mul|div)",
+        "perbdv.*\\.(mul|div)"
+      ],
+      "risk_tags": [
+        "precision_loss",
+        "decimal_mismatch"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "A rate/per-unit value (per-BDV, per-season, gauge points). Confirm the rate's fixed-point precision is consistent across producers and consumers.",
+      "examples": [
+        "grownStalkPerGp.mul(gpPerBdv).div(GP_PRECISION)"
+      ],
+      "specificity": 1
+    },
+    "rounding_direction": {
+      "name_patterns": [
+        "roundup",
+        "rounddown",
+        "ceil",
+        "floor",
+        "roundedup",
+        "roundeddiv"
+      ],
+      "call_patterns": [
+        "roundup",
+        "rounddown",
+        "muldivup",
+        "ceildiv"
+      ],
+      "constant_patterns": [],
+      "arithmetic_patterns": [
+        "\\+\\s*1\\s*\\)?\\s*\\.div",
+        "div\\([^)]*\\)\\s*\\+\\s*1"
+      ],
+      "risk_tags": [
+        "rounding"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Explicit rounding. Confirm direction favors the protocol (not the user) and is consistent between paired deposit/withdraw or mint/redeem operations; rounding the wrong way leaks value.",
+      "examples": [
+        "(a + b - 1) / b // round up",
+        "mulDivRoundingUp(...)"
+      ],
+      "specificity": 2
+    },
+    "division_before_multiplication": {
+      "name_patterns": [],
+      "call_patterns": [],
+      "constant_patterns": [],
+      "arithmetic_patterns": [
+        "\\.div\\([^;{}]*\\)\\s*\\.mul\\(",
+        "/\\s*\\w+\\s*\\*\\s*\\w"
+      ],
+      "risk_tags": [
+        "precision_loss",
+        "div_before_mul"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Division performed before multiplication in amount/price math truncates intermediate precision (integer math). Confirm multiplication is done first where the spec requires full precision.",
+      "examples": [
+        "x.div(y).mul(z) // should be x.mul(z).div(y)"
+      ],
+      "specificity": 4
+    },
+    "downcast_after_scaling": {
+      "name_patterns": [],
+      "call_patterns": [
+        "touint128",
+        "touint96",
+        "touint64",
+        "touint32",
+        "safecast"
+      ],
+      "constant_patterns": [],
+      "arithmetic_patterns": [
+        "uint(128|96|64|32)\\([^)]*(mul|div|\\*|/)",
+        "(mul|div)\\([^;]*\\)\\)?\\.touint(128|96|64|32)"
+      ],
+      "risk_tags": [
+        "downcast",
+        "precision_loss"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "A downcast (uint128/uint96/...) applied to the RESULT of scaled amount/price math. Confirm the scaled value provably fits the target width across realistic decimals/amounts; overflow either reverts (DoS) or truncates (silent loss).",
+      "examples": [
+        "uint128(bdv.mul(stalkPerBdv))",
+        "(amount * 1e18).toUint96()"
+      ],
+      "specificity": 4
+    },
+    "mixed_decimal_tokens": {
+      "name_patterns": [
+        "usdc",
+        "usdt",
+        "wbtc",
+        "stable",
+        "sixdecimal"
+      ],
+      "call_patterns": [],
+      "constant_patterns": [
+        "1e6",
+        "1e8"
+      ],
+      "arithmetic_patterns": [
+        "1e6.*1e18",
+        "1e18.*1e6"
+      ],
+      "risk_tags": [
+        "decimal_mismatch",
+        "assumed_decimals"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Math mixing a 6/8-decimal token (USDC/USDT 6, WBTC 8) with 18-decimal assumptions. Confirm each token's decimals are normalized before the cross-token operation.",
+      "examples": [
+        "usdcAmount.mul(1e18).div(ethReserve) // 6 vs 18"
+      ],
+      "specificity": 3
+    },
+    "raw_balance_math": {
+      "name_patterns": [
+        "balanceof",
+        "rawbalance",
+        "tokenbalance"
+      ],
+      "call_patterns": [
+        ".balanceof("
+      ],
+      "constant_patterns": [],
+      "arithmetic_patterns": [
+        "balanceof\\([^)]*\\)\\s*\\.(mul|div)",
+        "(mul|div)\\(.*balanceof"
+      ],
+      "risk_tags": [
+        "decimal_mismatch",
+        "precision_loss"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Raw token balanceOf used directly in cross-token math carries native decimals. Confirm normalization before combining balances of different tokens.",
+      "examples": [
+        "token.balanceOf(this).mul(price).div(otherBalance)"
+      ],
+      "specificity": 1
+    },
+    "price_per_share": {
+      "name_patterns": [
+        "pricepershare",
+        "getpricepershare",
+        "shareprice",
+        "exchangerate",
+        "getexchangerate",
+        "stethpertoken",
+        "tokenspershare"
+      ],
+      "call_patterns": [
+        "pricepershare",
+        "stethpertoken",
+        "exchangerate",
+        "getrate"
+      ],
+      "constant_patterns": [
+        "1e18"
+      ],
+      "arithmetic_patterns": [],
+      "unambiguous": true,
+      "risk_tags": [
+        "oracle_scale",
+        "decimal_mismatch",
+        "precision_loss"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "price-per-share / exchange-rate (e.g. wstETH.stEthPerToken). Confirm the rate's precision (usually 1e18) and that it is applied to a same-decimal amount; mis-scaled rates mis-value the wrapper.",
+      "examples": [
+        "IWsteth(wsteth).stEthPerToken()",
+        "shares.mul(pricePerShare).div(1e18)"
+      ],
+      "specificity": 3
+    },
+    "virtual_price": {
+      "name_patterns": [
+        "virtualprice",
+        "getvirtualprice",
+        "get_virtual_price"
+      ],
+      "call_patterns": [
+        "get_virtual_price",
+        "getvirtualprice"
+      ],
+      "constant_patterns": [
+        "1e18"
+      ],
+      "arithmetic_patterns": [],
+      "unambiguous": true,
+      "risk_tags": [
+        "oracle_scale",
+        "precision_loss"
+      ],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Curve-style virtual price (1e18). Confirm precision and that it is not used as a manipulation-resistant spot price; combine only with correctly-scaled amounts.",
+      "examples": [
+        "ICurvePool(pool).get_virtual_price()"
+      ],
+      "specificity": 3
+    },
+    "pump_or_ema_scale": {
+      "name_patterns": [
+        "pump",
+        "ema",
+        "readinstantaneousreserves",
+        "readcappedreserves",
+        "capreserve"
+      ],
+      "call_patterns": [
+        "readinstantaneousreserves",
+        "readcappedreserves",
+        "ipump"
+      ],
+      "constant_patterns": [
+        "1e18"
+      ],
+      "arithmetic_patterns": [],
+      "risk_tags": [
+        "oracle_scale",
+        "decimal_mismatch",
+        "precision_loss"
+      ],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Pump/EMA reserve source (Basin). Confirm the EMA/instantaneous reserve units match the consumer's decimal expectation (same caveat as raw reserves \u2014 manipulation resistance != unit normalization).",
+      "examples": [
+        "IInstantaneousPump(pump).readInstantaneousReserves(well, data)"
+      ],
+      "specificity": 2
+    }
+  }
+}

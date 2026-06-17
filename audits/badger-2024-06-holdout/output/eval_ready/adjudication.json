@@ -1,0 +1,67 @@
+{
+  "audit_id": "badger-2024-06-holdout",
+  "set": "training",
+  "generated_at": "2026-06-12T14:13:51Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": false,
+  "awarded": [
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Incorrect comparison logic in post-operation checks",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "post-op-invariant-comparison",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "Staking ETH incorrectly assumes revert bubbling",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "external-call-return-check",
+      "read_file": false,
+      "source": "preserved"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "F-001",
+      "title": "ActivePool.flashLoan leaves any collateral balance above systemCollShares permanently stuck",
+      "severity": "Low",
+      "file": "contracts/ActivePool.sol",
+      "contract": "ActivePool",
+      "function": "flashLoan",
+      "description": "After the ERC3156 flashloan repayment, the invariant checks only require balance/shares >= systemCollShares (not equality), so any collateral force-sent to ActivePool above systemCollShares is unrecoverable (sweepToken forbids collateral). Acknowledged in-code as inherited-from-LUSD behavior; noted as a low-severity stuck-funds/accounting observation."
+    },
+    {
+      "id": "F-002",
+      "title": "ActivePool TWAP auto-disables on first setValueAndUpdate revert (try/catch swallows failure)",
+      "severity": "Low",
+      "file": "contracts/ActivePool.sol",
+      "contract": "ActivePool",
+      "function": "increaseSystemDebt/decreaseSystemDebt",
+      "description": "increase/decreaseSystemDebt wrap setValueAndUpdate in try/catch and permanently set twapDisabled=true on any revert. A transient failure (or an induced one) permanently disables the TWAP observer used by redemption fee logic. Documented as an intentional liveness>accuracy tradeoff (@audit annotations in source); flagged as a latent governance/observer-integrity risk."
+    }
+  ],
+  "summary": {
+    "awarded_total": 2,
+    "awarded_source": "report.md",
+    "adjudicated": 2,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 2,
+    "recall_of_surfaced": 0.0,
+    "strong_only": 0.0,
+    "by_label": {
+      "MISSED": 2,
+      "SAME_AREA": 0,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 0,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

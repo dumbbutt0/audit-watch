@@ -1,0 +1,82 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "Cred.batchSellShareCred",
+  "detector_family": "surface_recall_lens",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "Cred",
+    "function": "batchSellShareCred",
+    "lines": null,
+    "suspicious_pattern": "external_executor,value_exit",
+    "detector_claim": "security-relevant surface; mechanism uncertain"
+  },
+  "context_summary": {
+    "source_available": true,
+    "source_resolved": true,
+    "reachability": "public"
+  },
+  "attacker_reachability": "public",
+  "defense_ledger": {
+    "intended_internal_visibility": {
+      "classification": "bypassed",
+      "evidence": "_addCredIdPerAddress (L685) and _removeCredIdPerAddress (L695) are underscore-prefixed helpers but declared `public` with NO access control"
+    },
+    "nonReentrant": {
+      "classification": "irrelevant",
+      "evidence": "orthogonal"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "per-address cred-list mutations must occur ONLY through the internal buy/sell share-balance path; external callers must not add/remove cred ids for arbitrary addresses",
+    "why_defenses_do_not_block": "no access control on the public helpers"
+  },
+  "exploit_path": {
+    "attacker_profile": "any EOA (permissionless)",
+    "entrypoint": "Cred._addCredIdPerAddress / _removeCredIdPerAddress (public)",
+    "preconditions": "none",
+    "transaction_sequence": "attacker calls _addCredIdPerAddress(credId,victim) to push duplicate/spurious entries into _credIdsPerAddress[victim] (+ desync _credIdsPerAddressCredIdIndex/_credIdsPerAddressArrLength), or _removeCredIdPerAddress(credId,victim) to corrupt/underflow the victim's list \u2014 both public, no auth. This corrupts the per-address cred tracking used by share enumeration and consumed by CuratorRewardsDistributor.distribute (getCuratorAddresses).",
+    "state_before": "victim cred-list consistent with real share holdings",
+    "state_after": "arbitrary corruption of victim's cred-list arrays/indices",
+    "rejection_case": "Maybe an external modifier guards them. None: L685/L695 are `public` with no onlyOwner/onlyInternal. Not falsified.",
+    "source_evidence": "Cred.sol L685 `function _addCredIdPerAddress(...) public`, L695 `function _removeCredIdPerAddress(...) public`; consumed by getCuratorAddresses -> CuratorRewardsDistributor.distribute"
+  },
+  "impact_analysis": {
+    "impact_category": "unauthorized state mutation of share/reward accounting (corruption / griefing / reward-distribution DoS)",
+    "minimum_profit_or_damage_condition": "any attacker can desync any address's cred-list, breaking enumeration and curator-reward distribution"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED",
+  "_hygiene": {
+    "ok": true,
+    "violations": [],
+    "recommended": "POC_REQUIRED"
+  }
+}

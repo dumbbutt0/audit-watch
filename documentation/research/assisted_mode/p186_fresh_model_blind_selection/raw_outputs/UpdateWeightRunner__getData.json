@@ -1,0 +1,12 @@
+{
+  "model": "sonnet", "verdict": "HIGH_THREAD",
+  "mechanism_inventory": ["stale accounting snapshot — backup loop no-op when numAssetOracles<=1, stale primary data silently used","precision edge — int216 cast of normalized Chainlink price no overflow check","missing invariant — no guard numAssetOracles>1 before backup fallback","external-call failure/DoS — revert in _getOracleData propagates, can DoS weight updates","wrong lifecycle ordering — oracleResult retains stale primary value after inner loop no-op"],
+  "selected_mechanisms": [
+    {"root_cause":"inner backup loop j=1..<numAssetOracles is a no-op when numAssetOracles<=1; oracleResult holds stale primary; line 163 writes stale data into outputData[i] without revert","who_loses":"pool LPs (mispriced weights, arbitraged)","who_gains":"arbitrageurs","why_carried":"realistic oracle-outage + minimal-backup config; LP fund loss"}],
+  "unresolved_mechanisms": [
+    {"mechanism":"int216 silent overflow in ChainlinkOracle._getData","source_evidence":"data=data*int(10**normalizationFactor); int216(data); comment 'extremely improbable' no revert","unresolved_question":"realistic feed magnitude for 0-decimal feeds","who_loses":"LPs (incorrect price)","who_gains":"arbitrageurs"}],
+  "rejected_mechanisms": [
+    {"mechanism":"external-call failure/DoS on _getOracleData","rejecting_source_fact":"revert propagates and reverts the weight-update; view function, no state mutation before/after","why_unexploitable":"liveness/DoS not fund-loss; no inconsistent state (view)","who_loses":"pool operators/LPs (no timely rebalance)","who_gains":"griefer at best","leans_on_unproven_guard":false}],
+  "impact_direction": {"attacker_receives":"arbitrage profit from stale-weighted pool","attacker_preserves":"no capital at risk","victim_loses":"LPs lose value to arbitrage","invariant_violated":"outputData[i] must contain a fresh oracle value (violated line 163)","not_self_funded_or_dust_or_admin_or_timing":"LP funds -> arbitrageurs; not dust; permissionless once condition exists"},
+  "stop_condition": "more_mechanisms_pending: int216 cast overflow unresolved"
+}

@@ -1,0 +1,21 @@
+{
+  "_doc": "P302 in-session adjudication of each AWARDED finding vs the COLD-surfaced set (merged_findings.json). match_level vocabulary = P287/P295 reveal-score. Honest, mechanism-based; no key seen before discovery froze.",
+  "H-01": {"match_level": "STRONG_MECHANISM_MATCH", "surfaced_id": "DT-01/LG-01",
+    "evidence": "Surfaced: claimYieldFeeShares zeroes the FULL yieldFeeBalance on a partial claim (PrizeVault.sol:617 `yieldFeeBalance -= _yieldFeeBalance` vs `-= _shares`). Identical root cause, locus and fix as the awarded High."},
+  "M-01": {"match_level": "STRONG_MECHANISM_MATCH", "surfaced_id": "DOS-01/DT-02",
+    "evidence": "Surfaced: a winner-controlled hook (permissionless setHooks) invoked in claimPrize griefs the claimer, forcing the claimer to pay gas / denying the reward. Same locus + attacker + primary harm. Nuance: framed as DoS/griefing rather than explicit fee-theft."},
+  "M-02": {"match_level": "STRONG_MECHANISM_MATCH", "surfaced_id": "E46-02",
+    "evidence": "Surfaced: _maxYieldVaultWithdraw() = convertToAssets(maxRedeem) makes maxWithdraw/maxRedeem over-report vs the underlying vault's actual withdraw limit (PrizeVault.sol:921-923). Same function the awarded finding names."},
+  "M-03": {"match_level": "MISSED", "surfaced_id": null,
+    "evidence": "Did not surface the maxDeposit() (yieldVault.maxDeposit) vs _depositAndMint (yieldVault.mint) limit-path mismatch."},
+  "M-04": {"match_level": "SAME_AREA_WRONG_MECHANISM", "surfaced_id": "E46-01",
+    "evidence": "Surfaced withdraw/redeem value-loss in the lossy state as ROUNDING dust (E46-01). Awarded mechanism is missing slippage protection (exchange-rate front-run) on withdraw/redeem — same area, different mechanism."},
+  "M-05": {"match_level": "SUBSYSTEM_ONLY_RECALL", "surfaced_id": "AR-01",
+    "evidence": "Covered the yield-fee subsystem (claimYieldFeeShares bug + liquidation fee rounding AR-01) but not the specific 'yieldFeeBalance becomes unclaimable after transferTokensOut' defect."},
+  "M-06": {"match_level": "STRONG_MECHANISM_MATCH", "surfaced_id": "TI-01",
+    "evidence": "Surfaced: _withdraw uses raw _asset.transfer without checking the return value (PrizeVault.sol:939) -> silent failure / funds locked. Same root cause as the awarded 'missing transfer check'."},
+  "M-07": {"match_level": "MISSED", "surfaced_id": null,
+    "evidence": "Did not surface that maxDeposit() ignores produced (yieldFee) shares in the supply/debt limit."},
+  "M-08": {"match_level": "MISSED", "surfaced_id": null,
+    "evidence": "Did not surface the DAI non-standard (allowed-based) permit incompatibility in depositWithPermit."}
+}

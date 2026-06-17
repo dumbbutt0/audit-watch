@@ -1,0 +1,17 @@
+{
+  "lens": "transferable_position_cap_bypass",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired, STAGED). Generalized CLASS of the vultisig M-03 miss: a contract enforces a per-user cap (maxCapPerUser / per-user purchase or deposit limit) where the user's accumulated amount is keyed on ownership of a TRANSFERABLE position token (ERC721). Because the position NFT can be transferred away (balanceOf -> 0), a user resets the cap and re-buys, bypassing the per-user invariant. Two-signal: S1 a per-user cap term used in a check; S2 position identity derived from transferable-NFT ownership (balanceOf()/tokenOfOwnerByIndex()) in an ERC721 contract that does NOT block transfers (not soulbound). Suppress: views; soulbound/non-transferable token contracts; non-ERC721 contracts. Anchor: vultisig ILOPool.buy (maxCapPerUser + balanceOf(recipient)==0 ? mint : tokenOfOwnerByIndex; ERC721 transferable). Does NOT detect Sybil/whitelist caps.",
+
+  "cap_terms": ["maxcapperuser", "maxperuser", "maxcap", "percap", "maxpurchase", "maxamountperuser", "limitperuser", "maxdepositperuser", "perusercap", "maxallocation"],
+  "identity_markers": ["balanceof(", "tokenofownerbyindex(", "tokenofowner("],
+  "soulbound_markers": ["nontransferable", "soulbound", "transfersdisabled", "_locktransfer", "revert nottransferable", "transfer not allowed", "transfersnotallowed"],
+  "erc721_markers": ["erc721", "is erc721", "_mint(", "_safemint(", "ownerof("],
+
+  "fp_controls": {
+    "two_signal_required": "S1 a per-user cap term in a check AND S2 position identity from transferable-NFT ownership (balanceOf/tokenOfOwnerByIndex).",
+    "soulbound_suppression": "contracts that block transfers (soulbound / nonTransferable / transfer-revert) -> suppressed.",
+    "non_erc721_suppression": "contracts that are not ERC721 -> suppressed.",
+    "view_suppression": "view/pure functions -> suppressed."
+  }
+}

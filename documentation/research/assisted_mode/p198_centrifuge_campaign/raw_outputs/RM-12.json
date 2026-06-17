@@ -1,0 +1,10 @@
+{"surface":"RestrictionManager.detectTransferRestriction",
+ "mechanism_inventory":["access-control mismatch — checks only hasMember(to), IGNORES hasMember(from)","missing invariant — value param accepted but ignored (no zero/min/max guard)","wrong lifecycle/TOCTOU — hasMember(to) at call time; membership can change before transfer executes"],
+ "selected_mechanisms":[
+  {"root_cause":"detectTransferRestriction checks hasMember(to) but NOT hasMember(from); a holder whose membership was revoked (or never admitted) can still be the from of a transfer that passes restriction as long as to is a member","attacker_model":"unprivileged: a non-member/revoked holder of tranche tokens transfers to a valid member","exploit_path":"hold tokens -> membership revoked -> transfer(member, amt) -> detectTransferRestriction(attacker,member,amt) checks only hasMember(member)=true -> SUCCESS -> transfer proceeds; from never validated","who_loses":"protocol RWA compliance (non-member/sanctioned exits restricted position)","who_gains":"non-member from address","why_carried":"from param accepted but never checked; primary restriction-bypass; clear source evidence; permissionless"}],
+ "unresolved_mechanisms":[
+  {"mechanism":"TOCTOU stale membership of to","source_evidence":"view reads hasMember(to) at call time","unresolved_question":"does ERC20 hook re-check atomically at transfer execution?","who_loses":"to may receive after revocation","status":"NEEDS_MORE_CONTEXT"},
+  {"mechanism":"value param ignored (no amount restriction)","source_evidence":"uint256 value in signature, never referenced","unresolved_question":"are value-based caps intended/enforced elsewhere?","who_loses":"compliance if caps intended","status":"NEEDS_MORE_CONTEXT"}],
+ "rejected_mechanisms":[],
+ "impact_direction":"non-member/revoked from can transfer restricted tranche tokens to a member, bypassing compliance; sender+receiver-both-member invariant violated (only receiver checked); permissionless, arbitrary size",
+ "stop_condition":"more_mechanisms_pending: TOCTOU + value-cap NEEDS_MORE_CONTEXT","verdict":"HIGH_THREAD"}

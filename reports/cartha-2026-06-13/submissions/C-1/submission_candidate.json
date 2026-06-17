@@ -1,0 +1,106 @@
+{
+  "finding_id": "C-1",
+  "title": "Stale/zero-TVL share mispricing lets a depositor steal existing holders' PnL",
+  "root_cause": "_convertToShares falls back to the first-deposit 1e12-offset rate whenever _totalValueLocked() reads 0 even when totalSupply>0; _totalValueLocked=idle+gmValueInUsdc and gmValueInUsdc returns 0 when the 0xM market token price is <=0, so idle<=~0 + gmPrice<=0 with real GM value => TVL reads 0 => permissionless depositAndLock mints at the stale rate and dilutes existing holders.",
+  "affected_contracts": [
+    "src/CarthaVault.sol",
+    "src/libraries/PoolDeployLib.sol"
+  ],
+  "affected_functions": [
+    "CarthaVault._convertToShares",
+    "CarthaVault._totalValueLocked",
+    "PoolDeployLib.gmValueInUsdc"
+  ],
+  "attacker_entrypoint": "CarthaVault.depositAndLock (permissionless) during a TVL==0 read",
+  "attacker_capabilities": [
+    "deposit USDC permissionlessly while the 0xM GM price reads <=0 and child idle is deployed"
+  ],
+  "privilege_required": "none",
+  "scope_status": "in_scope",
+  "in_scope_asset": "CarthaVault (_convertToShares)",
+  "out_of_scope_risks": [],
+  "impact_category": "fund_loss",
+  "severity_claim": "High",
+  "severity_justification": {
+    "worst_case": "Permissionless theft of existing holders' accrued PnL during a zero-TVL read.",
+    "realistic_case": "CONFIRMED reachable (0xM getMarketTokenPrice returns <=0 when poolValue<=0, a real market state; Cartha minimize=false makes it more likely); needs the child's idle ~fully deployed (idle~0) at the read.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "Cartha",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "Cartha contest (cartha-vaults-main @ 4c51f2a); official scope list not bundled with PoC package."
+  },
+  "call_trace": [
+    "victim deposits 100k; keeper deploys to 0xM (idle->0); GM grows to 150k",
+    "0xM GM price reads <=0 => gmValueInUsdc returns 0 => _totalValueLocked()==0 (supply>0)",
+    "attacker depositAndLock(100k) mints at 1e12 first-deposit rate (not live price)",
+    "GM price recovers => TVL 250k; attacker claims 125k for 100k; victim 150k->125k"
+  ],
+  "state_transition": {
+    "before": "victim alone worth 150k (GM value, idle drained)",
+    "after": "attacker shares claim 125k (deposited 100k); victim claim 125k (was 150k)",
+    "slots_or_balances": []
+  },
+  "asset_delta": "Attacker claims 125k for a 100k deposit; victim 150k->125k => 25k of existing holders' PnL stolen.",
+  "proof_type": "runnable_poc",
+  "poc_path": "reports/cartha-2026-06-13/submissions/C-1/poc/PoC_StaleTvlMint.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "cd reports/cartha-2026-06-13/harness",
+    "forge test --match-contract PoC_StaleTvlMint -vv"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [],
+  "false_positive_risks": [
+    "CONFIRMED reachable (0xM getMarketTokenPrice returns <=0 when poolValue<=0, a real market state; Cartha minimize=false makes it more likely); needs the child's idle ~fully deployed (idle~0) at the read."
+  ],
+  "invalidating_conditions": [
+    "only if the child's idle USDC is NOT meaningfully deployed (idle large) so TVL never reads 0"
+  ],
+  "defense_analysis": [
+    {
+      "defense": "1e12 decimal offset (classic inflation mitigation)",
+      "blocks_path": false,
+      "why_it_fails": "blunts donation rounding-to-zero, but the TVL==0 first-deposit fallback is the bug here"
+    },
+    {
+      "defense": "lock + cooldown (blocks atomic oracle sandwich)",
+      "blocks_path": false,
+      "why_it_fails": "dilution is locked in at mint time; attacker realizes it after the lock expires"
+    },
+    {
+      "defense": "assumed GM price always > 0",
+      "blocks_path": false,
+      "why_it_fails": "0xMarkets getMarketTokenPrice is signed int256 and returns 0/negative by design when poolValue<=0 (confirmed in 0xM source) -> gmValueInUsdc returns 0 -> TVL==0"
+    }
+  ],
+  "assumptions": [
+    "perp deployment with 0xM pool wired (reader/oracle set)"
+  ],
+  "evidence_links": [
+    "src/CarthaVault.sol:_convertToShares (TVL==0 -> first-deposit 1e12 branch with supply>0)",
+    "src/libraries/PoolDeployLib.sol:gmValueInUsdc (if gmPrice<=0 return 0)",
+    "test/vault/CarthaVaultPool.t.sol::test_TVL_HandlesNegativeGmPrice (repo treats <=0 GM price as expected)",
+    "CONFIRMED reachable: 0xMarkets MarketUtils.getMarketTokenPrice returns 0 when poolValue==0 and negative when poolValue<0 (int256 poolValue = pool USD - capped pending trader PnL); Cartha uses maximize=false (minimize) which makes <=0 more likely",
+    "reports/cartha-2026-06-13/cartha-C1-reachability.md",
+    "reports/0xmarkets-2026-06-13/FINDINGS.md (X-1)",
+    "reports/cartha-2026-06-13/submissions/C-1/poc/PoC_StaleTvlMint.t.sol",
+    "reports/cartha-2026-06-13/submissions/C-1/poc_output.log"
+  ],
+  "triager_summary": "Stale/zero-TVL share mispricing lets a depositor steal existing holders' PnL \u2014 PASS: attacker deposits 100k at stale rate -> claims 125k; victim 150k->125k (25k stolen)",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Business Logic Errors (ERC-4626 share mispricing: `_convertToShares` falls back to the first-deposit 1e12 rate when `_totalValueLocked()` reads 0 while `totalSupply>0` and value exists \u2192 deposit at a stale rate steals existing holders' value)  \u00b7  Blockchain \u2192 Transaction-Ordering Dependence (TOD) / Front Running (JIT deposit timed to the zero-TVL window)",
+  "cvss": [
+    {
+      "aspect": "Stale/zero-TVL share theft",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:N/I:H/A:N",
+      "score": 6.8,
+      "severity": "Medium"
+    }
+  ]
+}

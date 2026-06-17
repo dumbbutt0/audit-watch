@@ -1,0 +1,82 @@
+{
+  "finding_id": "FL-006",
+  "title": "AerodromeAMO _removeLiquidity uses amount0Min/amount1Min = 0 enabling sandwich attacks",
+  "approach": "pure_arithmetic",
+  "test_name": "poc_fl_006_zero_slippage_sandwich",
+  "test_file_path": "tests/unit-tests/src/poc_fl_006_zero_slippage_sandwich.rs",
+  "language": "rust",
+  "framework": "soroban",
+  "setup": {
+    "contracts_deployed": [],
+    "actors": [],
+    "initial_state": {
+      "description": "Pure arithmetic simulation of the _removeLiquidity slippage parameter logic and the impact of zero minimums in a Uniswap V3 style pool when tick moves out of range",
+      "constants": {
+        "WAD": "1_000_000_000_000_000_000",
+        "TICK_IN_RANGE": true,
+        "TICK_OUT_OF_RANGE": false
+      }
+    }
+  },
+  "steps": [
+    {
+      "step": 1,
+      "action": "Define simulate_decrease_liquidity function that mirrors the contract logic: accepts liquidity, tick_in_range flag, and slippage minimums. When tick is out of range and minimums are 0, returns (0, full_oethb) instead of expected (weth, oethb) split.",
+      "expected_outcome": "Function compiles and reproduces the zero-slippage parameter selection"
+    },
+    {
+      "step": 2,
+      "action": "Test baseline case: tick in range, zero minimums. Both tokens returned. No issue visible.",
+      "expected_outcome": "Returns (expected_weth=500, expected_oethb=500)"
+    },
+    {
+      "step": 3,
+      "action": "Test attack case: MEV bot moves tick out of strategy range before _removeLiquidity executes. amount0Min=0, amount1Min=0. The pool returns only OETHb (0 WETH) because position is entirely out of range. No revert occurs because minimums are 0.",
+      "expected_outcome": "Returns (weth_received=0, oethb_received=1000) \u2014 no revert despite 0 WETH received"
+    },
+    {
+      "step": 4,
+      "action": "Show that with proper slippage protection (amount0Min = expected_weth * 99 / 100), the transaction would revert when WETH received is 0.",
+      "expected_outcome": "With min_weth=495 and actual_weth=0, the check fails (0 < 495), demonstrating revert would protect users"
+    },
+    {
+      "step": 5,
+      "action": "Demonstrate withdrawal shortfall: _ensureWETHBalance expects weth_needed=1000 but only receives 0 from _removeLiquidity, resulting in shortfall=1000.",
+      "expected_outcome": "shortfall = weth_needed - weth_received = 1000 - 0 = 1000, confirming vault withdrawal queue failure"
+    }
+  ],
+  "assertions": [
+    {
+      "variable": "weth_received_no_slippage_protection",
+      "expected_value": "500 (fair share of WETH from liquidity position)",
+      "actual_buggy_value": "0 (all liquidity converted to OETHb when tick out of range)",
+      "explanation": "Because amount0Min=0, decreaseLiquidity does not revert when zero WETH is received. An MEV bot can move the tick out of range pre-transaction, causing the strategy to receive only OETHb and zero WETH."
+    },
+    {
+      "variable": "transaction_reverts_without_protection",
+      "expected_value": "true (should revert to protect against sandwich)",
+      "actual_buggy_value": "false (no revert occurs because min=0 always passes)",
+      "explanation": "The zero minimums mean the NonfungiblePositionManager's slippage check (amount0 >= amount0Min) is trivially satisfied for any output including 0, so no protection exists."
+    },
+    {
+      "variable": "weth_shortfall",
+      "expected_value": "0 (vault should receive expected WETH)",
+      "actual_buggy_value": "1000 (entire expected WETH amount missing)",
+      "explanation": "_ensureWETHBalance cannot fulfill withdrawal requests because _removeLiquidity returned 0 WETH instead of expected amount, causing withdrawal queue failures."
+    },
+    {
+      "variable": "slippage_check_with_protection",
+      "expected_value": "revert (weth_received=0 < min_weth=495)",
+      "actual_buggy_value": "no revert with current code (0 >= 0 always true)",
+      "explanation": "A proper 1% slippage floor on amount0Min would catch the attack since actual output (0) would be less than 99% of expected output (495)."
+    }
+  ],
+  "run_command": "cargo test --manifest-path pocs/k2/FL-006/Cargo.toml -- --nocapture",
+  "failure_modes": [
+    "The test file path or Cargo.toml location may differ from expected; may need adjustment to match actual test module structure",
+    "The pure_arithmetic simulation assumes Uniswap V3 tick-range behavior (single-token output when out of range) which is correct by spec but simplified here without actual pool math",
+    "The finding is in a Solidity contract but the repo profile says Rust/Soroban \u2014 the PoC is a standalone arithmetic demonstration without deploying any contract",
+    "Actual mulTruncate and toUint128 conversions are simplified in the simulation; the core zero-minimum behavior is accurately represented",
+    "If the codebase has been patched to add non-zero minimums, the test asserting buggy behavior will need inversion"
+  ]
+}

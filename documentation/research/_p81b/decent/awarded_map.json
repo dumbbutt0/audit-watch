@@ -1,0 +1,16 @@
+{
+  "_doc": "P81b EVAL-ONLY awarded-function map for Decent 2024-01 (derived from the post-freeze-opened C4 answer key). This is an INPUT TO THE SCORER ONLY — it is never read by surface_recall_lens.py. mechanism_class uses the lens's generic surface vocabulary so mechanism-naming can be scored coarsely. alt_functions = directly-adjacent entrypoints in the same flow that count as a recall hit.",
+  "subject": "decent-2024-01-holdout",
+  "source": "_sealed_answer_key/report.md (opened post-P81a-freeze)",
+  "awarded": [
+    {"id": "H-01", "severity": "High", "contract": "DcntEth", "function": "setRouter", "alt_functions": [], "mechanism_class": ["admin_config_setter", "auth_boundary"], "summary": "anyone can update the Router address (no access control)"},
+    {"id": "H-02", "severity": "High", "contract": "DecentEthRouter", "function": "bridge", "alt_functions": ["bridgeWithPayload", "_bridgeWithPayload"], "mechanism_class": ["value_exit", "external_executor"], "summary": "missing min-gas check through LayerZero -> dst execution fails"},
+    {"id": "H-03", "severity": "High", "contract": "DecentBridgeExecutor", "function": "execute", "alt_functions": [], "mechanism_class": ["refund_path", "external_executor"], "summary": "on failed execute, funds sent to a random address"},
+    {"id": "H-04", "severity": "High", "contract": "DecentEthRouter", "function": "bridge", "alt_functions": ["onOFTReceived", "bridgeWithPayload"], "mechanism_class": ["value_exit"], "summary": "dst router lacks WETH reserves -> cross-chain tx lost"},
+    {"id": "M-01", "severity": "Medium", "contract": "UniSwapper", "function": "swap", "alt_functions": ["swapExactIn", "swapExactOut", "swapNoPath", "receiveFromBridge"], "mechanism_class": ["value_exit"], "summary": "permanent token loss if swap data outdated (no fresh slippage/path)"},
+    {"id": "M-02", "severity": "Medium", "contract": "DecentEthRouter", "function": "bridgeWithPayload", "alt_functions": ["bridge"], "mechanism_class": ["auth_boundary", "value_exit"], "summary": "calling bridgeWithPayload directly bypasses fee payment"},
+    {"id": "M-03", "severity": "Medium", "contract": "UTB", "function": "receiveFromBridge", "alt_functions": ["swapAndExecute", "bridgeAndExecute"], "mechanism_class": ["auth_boundary", "bridge_receive"], "summary": "missing access control on receiveFromBridge bypasses fee/signature gate"},
+    {"id": "M-04", "severity": "Medium", "contract": "StargateBridgeAdapter", "function": "bridge", "alt_functions": ["getBridgedAmount", "getBridgeToken"], "mechanism_class": ["fee_path", "value_exit"], "summary": "fixed (0.06%) Stargate fee calc does not account for variable fee"},
+    {"id": "M-05", "severity": "Medium", "contract": "DecentEthRouter", "function": "redeemEth", "alt_functions": ["_bridgeWithPayload", "redeemWeth", "onOFTReceived"], "mechanism_class": ["refund_path", "value_exit"], "summary": "refunded ETH sent to DecentBridgeAdapter where it gets stuck"}
+  ]
+}

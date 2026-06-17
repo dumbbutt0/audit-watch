@@ -1,0 +1,45 @@
+{
+  "phase": "P126",
+  "subject": "iq-ai-2025-01 :: BootstrapPool.kill() -> LiquidityManager.moveLiquidity() lifecycle transition",
+  "type": "cross-contract lifecycle-transition harness (contract A end-state -> transition -> contract B init); clean createPair branch (NOT pair-adoption M-01)",
+  "terminal_state": "KILLED_RUNTIME",
+  "terminal_qualifier": "value-safety invariants all hold (no extraction/DoS/conservation break); one runtime CONTROL fact recorded (forced-early migration via gate-donation) that is profit-less, self-funded, and intent-dependent — no severity/exploitability claimed",
+  "primary_question": "Can attacker-influenced reserve/fee/donation/residual state at kill() materially alter the outcome of moveLiquidity()?",
+  "answer": "Not in value terms. Across A-E the transition is value-conserving, fee-correct, donation-non-extractable, output-faithful, DoS-free, and boundary price-manipulation arb is a NET LOSS for the attacker. The only attacker-influence on the outcome is TIMING (F): the permissionless moveLiquidity + donation-inflatable gate let an attacker force migration before organic bootstrap by self-funding the full gate threshold (recouping nothing) — a control primitive, not an extraction; harm is intent-dependent.",
+  "harness": {
+    "type": "iq-ai Foundry project, test-only file under test/audit/, no fork",
+    "path": "/tmp/p102-iqai/test/audit/LifecycleTransitionRuntime.t.sol",
+    "command": "forge test --match-contract LifecycleTransitionRuntime --evm-version cancun -vvv",
+    "solc": "0.8.25", "evm": "cancun",
+    "real": ["LiquidityManager", "BootstrapPool"],
+    "mocks": ["MockAgentFactory (owner/feeTo: targetCCYLiquidity/shareToBamm=0/setAgentStage)", "MockFraxswapFactory + faithful CPMM MockFraxswapPair (etched at 0xE30521...)", "MockERC20 x2"]
+  },
+  "invariants": {
+    "I1_value_conservation": "HOLDS", "I2_fee_accounting": "HOLDS", "I3_donation_not_extractable": "HOLDS",
+    "I4_output_integrity": "HOLDS", "I5_no_manipulation_profit": "HOLDS (net loss)",
+    "I6a_availability_no_dos": "HOLDS", "I6b_control_no_forced_early": "PARTIAL (forced-early possible but self-funded/profit-less/intent-dependent)"
+  },
+  "scenarios": [
+    {"id": "A", "name": "clean", "result": "PASS"},
+    {"id": "B", "name": "fee-heavy", "result": "PASS"},
+    {"id": "C", "name": "currency-donation", "result": "PASS", "attacker_recouped": 0},
+    {"id": "D", "name": "agent-donation", "result": "PASS", "dos": false, "attacker_recouped": 0},
+    {"id": "E", "name": "manipulate+arb", "result": "PASS", "attacker_spend": "50000e18", "attacker_recovered": "29625.4e18", "net": "loss ~20375e18"},
+    {"id": "F", "name": "forced-early", "result": "PASS", "forced_migration_cost": "10000e18 (gate)", "attacker_recouped": 0, "classification": "timing/control fact, not extraction"}
+  ],
+  "attribution_of_F": "interaction boundary: permissionless moveLiquidity() (no caller restriction) + a gate measured on a donation-inflatable real currency reserve. Not a BootstrapPool bug (donation/accounting is sound, P125) nor a value bug in moveLiquidity; it is a control/timing property of the transition. Harm intent-dependent (= completion-by-self-funding).",
+  "all_scenarios_pass": true,
+  "runtime_proven": true,
+  "source_only_proof_used": false,
+  "rediscovered_M01": false,
+  "out_of_scope": ["pair-adoption M-01 branch", "exact Fraxswap TWAMM/fee (faithful UniV2 mock used)"],
+  "severity_assigned": null,
+  "exploitability_claimed": false,
+  "report_ready": false,
+  "submission_ready": false,
+  "production_wiring": false,
+  "research_only": true,
+  "src_mutated": false,
+  "iqai_src": "unmutated (LiquidityManager 9a68efe4, BootstrapPool 6bd9e4bc; harness test/audit/ only)",
+  "milestone": "first contract-A-state -> transition -> contract-B lifecycle harness; tests timing/control invariants (I6a/I6b) distinct from extraction; new category vs prior isolated-function harnesses"
+}

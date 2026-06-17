@@ -1,0 +1,113 @@
+{
+  "finding_id": "CHAIN-001",
+  "title": "Slot0 price manipulation + zero-slippage liquidity removal enables direct WETH extraction from AerodromeAMO",
+  "approach": "pure_arithmetic",
+  "test_name": "poc_chain_001_slot0_price_manipulation_zero_slippage_weth_extraction",
+  "test_file_path": "pocs/k2/CHAIN-001/src/lib.rs",
+  "manifest_path": "pocs/k2/CHAIN-001/Cargo.toml",
+  "language": "rust",
+  "framework": "soroban",
+  "run_command": "cargo test --manifest-path pocs/k2/CHAIN-001/Cargo.toml -- --nocapture",
+  "setup": {
+    "contracts_needed": [],
+    "initial_state": {
+      "pool_oethb_reserve": "1000000000000000000000",
+      "pool_weth_reserve": "1000000000000000000000",
+      "slot0_sqrtPriceX96_normal": "79228162514264337593543950336",
+      "slot0_sqrtPriceX96_manipulated": "158456325028528675187087900672",
+      "amo_lp_shares": "1000000000000000000000",
+      "min_amounts_out_weth": "0",
+      "min_amounts_out_oethb": "0",
+      "parity_constant": "1000000000000000000"
+    },
+    "actors": [
+      {
+        "name": "attacker",
+        "role": "MEV bot performing sandwich attack"
+      },
+      {
+        "name": "strategist",
+        "role": "Broadcasts rebalance transaction visible in mempool"
+      },
+      {
+        "name": "amo_contract",
+        "role": "AerodromeAMO holding WETH in LP position"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "step": 1,
+      "action": "Establish baseline pool state with 1:1 WETH:OETHb reserves at normal slot0 sqrtPriceX96",
+      "expected_result": "Pool balanced, minted_oethb equals normal_amount"
+    },
+    {
+      "step": 2,
+      "action": "Simulate Phase 1 (FL-003): attacker manipulates slot0 sqrtPriceX96 by 2x (doubling price) before strategist's rebalance mint call",
+      "expected_result": "Manipulated price causes AerodromeAMO to calculate inflated OETHb mint amount using slot0 spot price instead of TWAP"
+    },
+    {
+      "step": 3,
+      "action": "Compute oethb_minted_normal vs oethb_minted_manipulated using the buggy get_mint_amount logic that reads slot0 directly",
+      "expected_result": "oethb_minted_manipulated >> oethb_minted_normal, pool becomes OETHb-heavy (imbalanced)"
+    },
+    {
+      "step": 4,
+      "action": "Simulate Phase 2 (FL-006): with pool already OETHb-heavy, strategist calls _removeLiquidity with zero slippage (min_amounts = 0). Attacker sandwiches the tx.",
+      "expected_result": "Because pool is skewed toward OETHb, removing LP shares yields proportionally less WETH than expected at fair price. Attacker front-runs to push price further, back-runs to capture WETH."
+    },
+    {
+      "step": 5,
+      "action": "Verify _solvencyAssert cannot detect imbalance: it checks oethb_supply against a fixed parity constant (1e18) rather than spot price from pool",
+      "expected_result": "_solvencyAssert passes even when pool is heavily imbalanced because parity_check = oethb_supply / PARITY_CONSTANT does not use pool reserves or slot0"
+    },
+    {
+      "step": 6,
+      "action": "Calculate WETH shortfall for withdrawal queue: weth_received_fair - weth_received_manipulated",
+      "expected_result": "Positive WETH shortfall demonstrating direct fund loss from vault withdrawal queue"
+    }
+  ],
+  "assertions": [
+    {
+      "variable": "oethb_minted_manipulated",
+      "expected_correct_value": "oethb_minted_normal (1x fair amount based on reserves)",
+      "actual_buggy_value": "2 * oethb_minted_normal (inflated due to slot0 2x manipulation)",
+      "reason": "get_mint_amount reads slot0.sqrtPriceX96 directly without TWAP validation, so a 2x price manipulation causes 2x OETHb over-mint"
+    },
+    {
+      "variable": "weth_received_after_removal",
+      "expected_correct_value": "weth_fair_share (proportional to original balanced LP)",
+      "actual_buggy_value": "weth_fair_share * pool_weth_reserve / (pool_weth_reserve + over_minted_oethb_converted_to_weth)",
+      "reason": "Zero slippage (min_amounts=0) allows removal at any price, and pool already skewed OETHb-heavy due to Phase 1, so WETH received is less than fair share"
+    },
+    {
+      "variable": "solvency_check_result",
+      "expected_correct_value": "false (should detect imbalance)",
+      "actual_buggy_value": "true (passes incorrectly)",
+      "reason": "_solvencyAssert uses fixed PARITY_CONSTANT (1e18) not pool spot price, so OETHb over-supply is invisible to the check"
+    },
+    {
+      "variable": "weth_shortfall",
+      "expected_correct_value": "0 (no loss)",
+      "actual_buggy_value": "> 0 (positive loss proportional to manipulation magnitude)",
+      "reason": "Chained exploit: Phase 1 reduces cost of Phase 2 attack; combined they extract WETH from withdrawal queue"
+    }
+  ],
+  "constants": {
+    "WAD": "1000000000000000000",
+    "PARITY_CONSTANT": "1000000000000000000",
+    "NORMAL_SQRT_PRICE_X96": "79228162514264337593543950336",
+    "MANIPULATED_SQRT_PRICE_X96": "158456325028528675187087900672",
+    "Q96": "79228162514264337593543950336",
+    "PRICE_MANIPULATION_FACTOR": 2,
+    "INITIAL_POOL_RESERVES_EACH": "1000000000000000000000"
+  },
+  "failure_modes": [
+    "Compile errors if Soroban-specific integer types are required but standard Rust u128/i128 are used instead",
+    "The actual slot0 reading logic or mint amount formula may differ from what is reconstructed from the description, requiring source code access to copy verbatim",
+    "The _solvencyAssert logic may use a different comparison than assumed; if it does check spot price the assertion about it passing would be wrong",
+    "The exact sqrtPriceX96 to token amount conversion formula (using Q96 fixed point) may have subtle differences from the Aerodrome implementation",
+    "If the bug has already been patched (e.g., TWAP added or slippage parameter enforced), the test would demonstrate the fixed behavior instead",
+    "The chained nature means Phase 2 profit depends on exact Phase 1 parameters; off-by-one in reserve math could make the shortfall zero in pure arithmetic"
+  ]
+}

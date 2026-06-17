@@ -1,0 +1,73 @@
+{
+  "mechanism_inventory": [
+    "wrong lifecycle ordering: shares minted to liquidatee before token transfer (negative-bonus branch)",
+    "stale accounting snapshot: s_depositedAssets increased by bonusAbs but no asset enters vault when poolManager != 0",
+    "missing invariant enforcement (bounds): type(uint248).max sentinel collision zeroes a real balance",
+    "precision / packing / normalization edge: minted shares formula denominator Math.max(1, totalAssets()-bonus) clamps to 1 -> astronomically large mint",
+    "victim accounting direction: bonusShares > liquidateeBalance mints new value to liquidator",
+    "access-control mismatch: onlyPanopticPool but liquidator/liquidatee params unvalidated",
+    "external-call failure / DoS: safeTransferFrom from liquidator can revert (fee-on-transfer, blacklist)"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "When totalAssets() <= bonus in positive-bonus branch, denominator Math.max(1, int256(totalAssets())-bonus)=1, mulDivCapped returns bonus*(_totalSupply-liquidateeBalance)/1, capped to _totalSupply*DECIMALS -> mints _totalSupply*DECIMALS shares to liquidator, destroying share price for all depositors.",
+      "attacker_model": "Unprivileged liquidator able to trigger a liquidation where loss exceeds total vault assets (bonus > totalAssets()).",
+      "exploit_path": "engineer liquidatee positions so bonus>totalAssets() -> liquidate -> denominator=1 -> mint _totalSupply*DECIMALS to liquidator -> redeem all vault assets.",
+      "who_loses": "All existing depositors (diluted to near-zero).",
+      "who_gains": "Liquidator (near-total vault ownership).",
+      "why_carried": "Math.max(1, totalAssets()-bonus) clamp present in source; fund loss for all depositors; different accounting variable than inflation; Critical; rejection requires proof bonus>totalAssets() impossible."
+    },
+    {
+      "root_cause": "Negative-bonus branch with poolManager != 0 mints shares to liquidatee and s_depositedAssets += bonusAbs but no tokens enter vault (_settleCurrencyDelta external) -> inflates recorded asset base, overstating redemption value.",
+      "attacker_model": "Any liquidator triggering negative-bonus liquidation on a Panoptic-managed pool.",
+      "exploit_path": "negative bonus + poolManager set -> safeTransferFrom skipped, _mint + s_depositedAssets += bonusAbs -> phantom assets -> later redeemers undercollateralized.",
+      "who_loses": "Later-redeeming depositors (vault undercollateralized).",
+      "who_gains": "Earlier redeemers + liquidatee (phantom-backed shares).",
+      "why_carried": "s_depositedAssets += uint128(bonusAbs) runs while safeTransferFrom skipped when poolManager != 0; distinct accounting mechanism; rejection requires proof _settleCurrencyDelta makes equivalent deposit."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "type(uint248).max sentinel collision wipes a real balance equal to sentinel",
+      "source_evidence": "else branch sets balance = liquidateeBalance - type(uint248).max = 0 when balance == sentinel.",
+      "unresolved_question": "Can a real user balance reach exactly type(uint248).max? Needs mint path/supply cap.",
+      "who_loses": "Liquidatee whose balance equals sentinel loses entire balance.",
+      "who_gains": "Liquidator indirectly.",
+      "status": "NEEDS_HARNESS"
+    },
+    {
+      "mechanism": "ordering atomicity: _mint after safeTransferFrom; if _mint reverts tokens stuck",
+      "source_evidence": "safeTransferFrom (179) then _mint (186) then s_depositedAssets += (188).",
+      "unresolved_question": "Can convertToShares overflow/revert leaving transfer committed but mint not executed?",
+      "who_loses": "Liquidatee (tokens stuck in PanopticPool).",
+      "who_gains": "No one.",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [
+    {
+      "mechanism": "access-control mismatch via arbitrary liquidator/liquidatee addresses",
+      "claimed_locus": "liquidator and liquidatee parameters to settleLiquidation",
+      "rejecting_source_fact": "onlyPanopticPool modifier; addresses validated upstream in PanopticPool.liquidate().",
+      "why_unexploitable": "Attacker must compromise PanopticPool first; not independently exploitable.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    },
+    {
+      "mechanism": "external-call failure / DoS via token revert in safeTransferFrom",
+      "claimed_locus": "SafeTransferLib.safeTransferFrom at line 179",
+      "rejecting_source_fact": "Balance check precedes transfer; token pre-vetted at pool creation.",
+      "why_unexploitable": "Malicious tokens screened at pool creation; balance check mitigates.",
+      "who_loses": "Liquidation temporarily blocked.", "who_gains": "Liquidatee avoids liquidation temporarily.",
+      "leans_on_unproven_guard": true
+    }
+  ],
+  "impact_direction": {
+    "attacker_receives": "Near-total share of vault (dilution) or phantom-backed shares (inflation).",
+    "attacker_preserves": "Liquidator external capital preserved in dilution path.",
+    "victim_loses": "All depositors lose share value (dilution); later redeemers lose assets (inflation).",
+    "invariant_violated": "totalAssets()/totalSupply() consistency; ERC-4626 redemption invariant.",
+    "not_self_funded_or_dust_or_admin_or_timing": "Real asset loss proportional to TVL; conditions reachable in market stress."
+  },
+  "stop_condition": "more_mechanisms_pending: two selected mechanisms different accounting variables/victims; two unresolved NEEDS_HARNESS.",
+  "verdict": "CRITICAL_THREAD"
+}

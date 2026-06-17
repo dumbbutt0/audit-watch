@@ -1,0 +1,32 @@
+{
+  "bug_class": "signature_replay_authorization",
+  "description": "A signature- or merkle-authorized action can be REPLAYED or its authorized fields RE-BOUND because the signed/verified payload omits a nonce, a per-claim consumed-flag, a deadline, the chainId, or a binding of the sensitive fields — letting an attacker re-execute an authorized action or impersonate the signer/claimant. Anchored on Phi 2024-08 H-01 (signatureClaim replay -> unauthorized reward claiming) and H-02 (createArt signature replay -> impersonate artist, steal royalties).",
+  "required_for_medium": [
+    "signed_payload_missing_replay_guard_proven",
+    "second_execution_or_rebind_accepted_proven"
+  ],
+  "required_for_high": [
+    "signed_payload_missing_replay_guard_proven",
+    "second_execution_or_rebind_accepted_proven",
+    "unauthorized_value_or_rights_obtained_proven",
+    "no_user_action_required_to_be_victimized_proven"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "show the signed/verified payload lacks a nonce / consumed-flag / deadline / chainId / field binding",
+    "L3B": "submit the same signature (or re-bound fields) a second time / from a second context; assert it is accepted (not reverted as replayed)",
+    "L3C": "assert the replay/rebind yields unauthorized value or rights (extra reward claim, stolen royalties, impersonated minter) with the victim taking no action"
+  },
+  "poc_level_requirements": {
+    "L3A": ["signed_payload_missing_replay_guard_proven"],
+    "L3B": ["signed_payload_missing_replay_guard_proven", "second_execution_or_rebind_accepted_proven"],
+    "L3C": ["signed_payload_missing_replay_guard_proven", "second_execution_or_rebind_accepted_proven", "unauthorized_value_or_rights_obtained_proven", "no_user_action_required_to_be_victimized_proven"]
+  },
+  "proof_signatures": {
+    "signed_payload_missing_replay_guard_proven": ["no nonce", "no deadline", "no chainId", "not marked claimed", "no consumed flag", "fields not bound"],
+    "second_execution_or_rebind_accepted_proven": ["replay accepted", "second claim succeeds", "re-submit signature", "rebind ref_/artId/imageURI"],
+    "unauthorized_value_or_rights_obtained_proven": ["extra reward", "stolen royalty", "impersonate", "double claim", "unauthorized mint"],
+    "no_user_action_required_to_be_victimized_proven": ["attacker-only", "victim passive", "front-run", "anyone can submit"]
+  },
+  "high_severity_rationale": "High requires proving the replay/rebind yields unauthorized value or rights (double reward, stolen royalties, impersonation) reachable by the attacker without the victim acting. Medium is proven by an accepted replay/rebind without a quantified value/rights gain. Note chainId binding alone is not sufficient if a nonce/consumed-flag is still missing.",
+  "negative_control_template": "Add a replay guard: per-signature nonce or a consumed mapping keyed by the signature/leaf hash (and a deadline + chainId + binding of ref_/artId/minter). Assert the second submission of the same signature reverts and re-bound fields are rejected."
+}

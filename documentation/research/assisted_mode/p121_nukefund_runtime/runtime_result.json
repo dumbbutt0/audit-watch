@@ -1,0 +1,42 @@
+{
+  "phase": "P121",
+  "candidate": "traitforge-2024-07::NukeFund.nuke",
+  "novel": true,
+  "terminal_state": "KILLED_RUNTIME",
+  "question": "Can a permissionless caller of nuke(tokenId) extract more than the designed cap (<=50%/call), bypass the ownership/approval/maturity guards, re-nuke a burned token, or drive the fund accounting to underflow/insolvency?",
+  "answer": "No. All three guards (ownership, NukeFund-approval, maturity) revert unauthorized calls; the claim is exactly the capped (fund/2) or proportional (fund*factor/MAX_DENOMINATOR) amount and never exceeds fund/2 (no underflow); a burned token cannot be re-nuked; multiple nukes stay bounded and solvent.",
+  "harness": {
+    "type": "standalone Foundry project, no fork",
+    "path": "/tmp/p121-nukefund-harness",
+    "command": "forge test --use 0.8.26 --match-contract NukeFundRuntime -vvv",
+    "solc": "0.8.26",
+    "evm": "cancun",
+    "contract_under_test": "real NukeFund (traitforge), unmutated, imported via remapping",
+    "oz_version": "v4.9.6 (forge install OpenZeppelin/openzeppelin-contracts@v4.9.6)",
+    "mocks": ["MockTraitForgeNft (ITraitForgeNft subset)", "MockAirdrop (airdropStarted/daoFundAllowed for receive())"]
+  },
+  "cases": [
+    {"id": "A", "scenario": "guards: unauthorized / unapproved / immature", "result": "PASS", "evidence": "3 reverts with the contract's own messages"},
+    {"id": "B", "scenario": "high factor -> claim capped at fund/2", "result": "PASS", "claim": "exactly fund/2", "attacker_overclaim": false},
+    {"id": "C", "scenario": "re-nuke burned token", "result": "PASS", "evidence": "reverts (token burned)"},
+    {"id": "D", "scenario": "2-token drain bounded + solvent", "result": "PASS", "underflow": false, "insolvency": false, "note": "each call <=50% of current fund; 25% remains"},
+    {"id": "E", "scenario": "low factor -> proportional claim", "result": "PASS", "claim": "fund*factor/MAX_DENOMINATOR <= fund/2"}
+  ],
+  "all_cases_pass": true,
+  "runtime_proven": true,
+  "source_only_proof_used": false,
+  "out_of_scope_needs_context": [
+    "cross-contract maturity bypass (does TraitForgeNft leave getTokenLastTransferredTimestamp==0 at mint?)",
+    "entropy bounds feeding calculateNukeFactor (real TraitForgeNft mint/entropy machinery)"
+  ],
+  "awarded": false,
+  "submittable": false,
+  "severity_assigned": null,
+  "report_written": false,
+  "submission_package": false,
+  "ready_for_human_review": false,
+  "production_wiring": false,
+  "research_only": true,
+  "src_mutated": false,
+  "traitforge_src": "unmutated (NukeFund.sol imported via remapping; harness lives in /tmp/p121-nukefund-harness)"
+}

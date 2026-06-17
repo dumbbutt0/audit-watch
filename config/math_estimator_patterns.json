@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "description": "Taxonomy of math-ESTIMATOR / guard / formula surfaces whose correctness depends on the INTENDED model (whitepaper/invariant), not on NatSpec/code agreement. Drives math_estimator_audit.py and validate_math_estimator_clears.py via math_estimator_taxonomy.classify(). Motivated by the QuantAMM strict-eval H-11 MISS: the covariance estimator was strong-cleared because 'formulas match NatSpec', yet the implementation deviated from the intended estimator. A clear of these surfaces requires an independent formula re-derivation (math_estimator_proof), not a consistency check.",
+  "_fp_note": "TWO-SIGNAL RULE is the FP backbone: math_estimator_sensitive only when a DOMAIN term (covariance/variance/gradient/momentum/moving-average/normalization/guard-rail/epsilon/clamp/interpolation/estimator/oracle-math/fee-math/price-math/invariant) co-occurs with a STRUCTURAL SIGNAL (a loop, matrix/vector [i][j] indexing, PRBMath .mul/.div/.pow/.log2/.exp2, a scale constant 1e9/1e18/1e36, bit-shift packing, or a clamp/min/max) UNLESS an UNAMBIGUOUS token fires (_guardQuantAMMWeights, _calculateQuantAMM*, pow/log2/exp2 on signed fixed point). Lone constants, single +/- arithmetic, plain balance/transfer math, and pure getters are NOT tagged.",
+  "domain_terms": [
+    "covariance", "variance", "gradient", "momentum", "moving average", "movingaverage", "ewma",
+    "weighted average", "weightedaverage", "normalized weight", "normalizedweight", "normalize",
+    "normalise", "guard rail", "guardrail", "guard-rail", "epsilon", "clamp", "interpolat",
+    "estimator", "oracle", "price", "fee", "uplift", "invariant", "matrix", "lambda", "kappa",
+    "exponent", "pow", "log2", "exp2", "fixed-point", "fixed point", "sd59x18", "prbmath",
+    "multiplier", "rescale", "scale", "precision", "pack", "unpack"
+  ],
+  "structural_signals": [
+    "for\\s*\\(", "while\\s*\\(",
+    "\\[\\s*\\w+\\s*\\]\\s*\\[\\s*\\w+\\s*\\]",
+    "\\.mul\\(", "\\.div\\(", "\\.pow\\(", "\\.log2\\(", "\\.exp2\\(", "\\.sqrt\\(",
+    "\\b1e9\\b", "\\b1e18\\b", "\\b1e36\\b", "10\\s*\\*\\*\\s*18", "10\\s*\\*\\*\\s*36",
+    ">>\\s*\\w", "<<\\s*\\w",
+    "absolutemin", "absolutemax", "rescalefactor", "proportionalremainder"
+  ],
+  "unambiguous_tokens": [
+    "_guardquantammweights", "_clampweights", "_normalizeweightupdates", "_normalizeweight",
+    "_calculatequantammcovariance", "_calculatequantammvariance", "_calculatequantammgradient",
+    "_calculatequantammmovingaverage", "calculateblocknormalisedweight", "_pow"
+  ],
+  "high_risk_domains": ["covariance", "variance", "gradient", "normalization", "guard_rail", "interpolation"],
+  "domains": {
+    "covariance": {
+      "terms": ["covariance", "covar"],
+      "name_patterns": ["covariance", "_calculatequantammcovariance"],
+      "risk_tags": ["estimator_formula", "matrix_math", "model_deviation"],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Covariance estimator A(t)=lambda*A(t-1)+(p-mavg(t-1))(p-mavg(t))'. RE-DERIVE the (1-lambda) placement, the outer-product u_i*v_j scaling, and the diagonal vs off-diagonal terms against the whitepaper — NatSpec matching code is NOT proof (QuantAMM H-11)."
+    },
+    "variance": {
+      "terms": ["variance", "stddev", "std dev"],
+      "name_patterns": ["variance", "_calculatequantammvariance", "minimumvariance"],
+      "risk_tags": ["estimator_formula", "model_deviation", "negative_value"],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Variance estimator and any 1/variance use. RE-DERIVE the (1-lambda)A(t) scaling, confirm variance cannot go negative or zero into a reciprocal, and check the negative-weight guard on BOTH branches."
+    },
+    "gradient": {
+      "terms": ["gradient", "momentum", "channel", "trend"],
+      "name_patterns": ["gradient", "_calculatequantammgradient", "momentum", "channelfollowing", "powerchannel", "antimomentum", "differencemomentum"],
+      "risk_tags": ["estimator_formula", "model_deviation", "packed_index"],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Gradient/momentum recurrence a(t)=lambda*a(t-1)+(p-mavg)/(1-lambda) and the mulFactor. RE-DERIVE the sign/direction and the packed-state storage INDEX (storageArrayIndex vs asset index) — the QuantAMM vector-lambda branch wrote OOB."
+    },
+    "moving_average": {
+      "terms": ["moving average", "movingaverage", "ewma", "mavg"],
+      "name_patterns": ["movingaverage", "_calculatequantammmovingaverage"],
+      "risk_tags": ["estimator_formula", "model_deviation"],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "EWMA mavg(t)=mavg(t-1)+(1-lambda)(p(t)-mavg(t-1)). RE-DERIVE the (1-lambda) factor and the prev-vs-current buffer indexing."
+    },
+    "normalization": {
+      "terms": ["normalize", "normalise", "normalized weight", "normalizedweight", "rescale"],
+      "name_patterns": ["normalize", "normalise", "_normalizeweightupdates", "calculateblocknormalisedweight"],
+      "risk_tags": ["invariant_sum", "model_deviation", "rounding"],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Weight normalization to sum==1e18. RE-DERIVE that the rescale/remainder logic preserves the sum AND keeps every weight within the rails for the min-clamp-only and max-clamp paths — not just that it 'looks consistent'."
+    },
+    "guard_rail": {
+      "terms": ["guard rail", "guardrail", "guard-rail", "clamp", "epsilon", "absolutemin", "absolutemax"],
+      "name_patterns": ["_guardquantammweights", "_clampweights", "clamp", "guard"],
+      "risk_tags": ["bounds", "invariant_sum", "model_deviation"],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Guard-rail clamp + epsilon speed-limit. RE-DERIVE that clamping a subset still renormalizes to sum==1 and respects [absoluteMin, absoluteMax]; 'the guard clamps the output' is NOT a proof of correctness of the guard itself."
+    },
+    "interpolation": {
+      "terms": ["interpolat", "multiplier", "block multiplier", "blockmultiplier"],
+      "name_patterns": ["interpolat", "calculatemultipler", "calculateblocknormalisedweight"],
+      "risk_tags": ["precision", "lifecycle", "model_deviation"],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Per-block weight interpolation/multiplier. RE-DERIVE the multiplier=(delta)/interval scaling, the 9dp pack truncation (multiplier->0), and the lastInterpolationTime freeze boundary."
+    },
+    "oracle_math": {
+      "terms": ["oracle", "chainlink", "multihop", "twa", "deviation"],
+      "name_patterns": ["getdata", "_getdata", "oracle", "multihop", "chainlink"],
+      "risk_tags": ["oracle_scale", "decimal_mismatch"],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Oracle scaling/aggregation math (decimal normalization, multi-hop inversion, staleness fallback control-flow). RE-DERIVE the scaling and the fallback branch selection; in-spec-data MISHANDLING is in scope."
+    },
+    "fee_math": {
+      "terms": ["fee", "uplift", "take", "feeperlp"],
+      "name_patterns": ["fee", "uplift", "onafterswap", "onafterremoveliquidity"],
+      "risk_tags": ["fee_accounting", "rounding", "model_deviation"],
+      "severity_ceiling_hint": "High",
+      "review_hint": "Fee/uplift math (ratio, split, percentage). RE-DERIVE the scaling of feePerLP/feePercentage and the admin/owner split division; integer-division truncation can zero or invert the fee."
+    },
+    "price_math": {
+      "terms": ["price", "lptokenvalue", "pooltokenvalue", "valuation"],
+      "name_patterns": ["getpoollptokenvalue", "price", "value"],
+      "risk_tags": ["price_scale", "model_deviation"],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Price/valuation math (sum of price*balance / supply). RE-DERIVE the scaling and whether the quantity is conserved under the relevant operation (linear sum vs invariant)."
+    },
+    "other": {
+      "terms": [],
+      "name_patterns": [],
+      "risk_tags": ["model_deviation"],
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Math-heavy estimator/guard/formula. RE-DERIVE the intended formula independently and check edge cases; do not clear on NatSpec/code agreement."
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "version": "library-mechanism-extractors-v1",
+  "description": "Phase-36 RESEARCH-ONLY library mechanism extractors. Read ONLY by scripts/library_mechanism_extractors.py (un-wired). Adds source-backed mechanism-extraction DEPTH for the library/value-flow neighborhoods P35 surfaces: bytes/offset/packed decode mismatch, oracle value-derivation/staleness/decimals mismatch, accounting if-check/conditional state-update asymmetry. A candidate may only survive with EXACT source evidence + a downstream value-flow use + a comparand-grounded mismatch (support>=MEDIUM); else it ABSTAINS. Sibling-CALL-delta candidates additionally pass the P34 comparand_parity_gate. Vocab is GENERIC standard-DeFi only — NO subject-specific (e.g. dittoeth) names. is_gate:false research_only:true routes_in_production:false routed_manifest_ids:[].",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+
+  "bytes_offset_decode": {
+    "decode_signals": ["abi.decode", "mload", "calldataload", ".slice", "shr(", "shl(", ">>", "<<", "& 0x", "mask"],
+    "packed_source_signals": ["abi.decode", "calldata", "mload", "calldataload", ".slice", "packed", "bytes(", "bytes32(", ">>", "<<"],
+    "length_check_signals": [".length", "require(", "revert", "<=", ">="],
+    "downcast_re": "uint(8|16|24|32|40|48|56|64|72|80|88|96|104|112|120|128|160|256)\\s*\\(",
+    "reject_bare_cast_without": ["abi.decode", "calldata", "mload", ".slice", ">>", "<<", "& 0x", "packed"]
+  },
+
+  "oracle_value_derivation": {
+    "oracle_call_signals": ["getlatestprice", "getsafelatestprice", "latestrounddata", "latestanswer", "oracle", ".price", "getprice", "spotprice", "twap", "consult"],
+    "staleness_signals": ["maxage", "updatedat", "block.timestamp -", "stale", "getsafe", "heartbeat", "priceoutdated", "timeout"],
+    "decimals_signals": ["decimals", "1e18", "1e8", "* 10 **", "10**", "scale", "normaliz", "precision"],
+    "inversion_signals": ["1e18 /", "1e36 /", "/ price", "wad /", "invert", "reciprocal"],
+    "name_only_signals": ["oracle", "price"]
+  },
+
+  "accounting_condition": {
+    "accounting_state_terms": ["debt", "collateral", "share", "balance", "fee", "reward", "escrowed", "ercdebt", "deth", "principal", "interest", "yield", "ratedebt"],
+    "branch_signals": ["if (", "if(", "else", "return;", "? "],
+    "update_ops": ["+=", "-=", "= "],
+    "exclusion_branch_signals": ["onlyowner", "onlyadmin", "paused", "whennotpaused", "emit ", "event ", "revert ", "require("]
+  },
+
+  "downstream_value_roles": {
+    "transfer": ["transfer", "safetransfer", "send"],
+    "mint": ["mint"], "burn": ["burn"],
+    "debt_update": ["debt", "repay", "borrow"],
+    "collateral_update": ["collateral", "seize"],
+    "settlement": ["settle", "disburse", "redeem", "fill"],
+    "liquidation": ["liquidat"],
+    "invariant": ["require", "assert", "invariant"]
+  },
+
+  "semantic_role_terms": {
+    "amount": ["amount", "amt", "value", "qty", "ercamount"],
+    "price": ["price", "rate", "oracle"],
+    "address": ["address", "owner", "recipient", "to", "shorter", "redeemer"],
+    "debt": ["debt", "ercdebt"], "collateral": ["collateral", "col", "deth"],
+    "share": ["share", "stake"], "fee": ["fee", "penalty", "tapp"],
+    "reward": ["reward", "yield"], "id": ["id", "index", "key", "nonce"],
+    "order_field": ["order", "bid", "ask", "short", "proposal", "slate"]
+  },
+
+  "support_min_to_survive": "strong",
+  "_support_note": "A SELF-CONTAINED mismatch (offset/field/branch) is a hypothesis until STRONG-confirmed (e.g. an encode-site offset comparand, or a computed term explicitly not applied). MEDIUM self-contained candidates are EMITTED for human review but ABSTAIN at the advance bar — branch/offset asymmetry alone is frequently intentional, and advancing it en masse would recreate the P33 noisy-advance class. Sibling-CALL-delta candidates advance only via the P34 comparand_parity_gate, independent of this threshold."
+}

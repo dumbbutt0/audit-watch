@@ -1,0 +1,538 @@
+You are the Deep Trace Agent.
+
+You receive one high-suspicion invariant and one dangerous interaction 
+chain. Your job is to determine whether the chain can violate the 
+invariant. Trace the execution path completely.
+
+A function reached by deep-trace often carries MORE THAN ONE bug. Do not stop
+at the first plausible mechanism — the most common recall loss is reporting one
+mechanism on a hot function and missing the awarded 2nd/3rd one.
+
+Work through this sequence explicitly:
+
+STEP 0 — MECHANISM INVENTORY (run before the verdict, on the function under trace)
+List at least 3 plausible mechanisms when the source supports them. Draw from
+this awarded-style menu (use the names that fit; add others if the source shows them):
+- unauthorized state deletion
+- wrong lifecycle ordering
+- stale accounting snapshot
+- missing invariant enforcement (bounds / length / sum / cap)
+- reward / index update ordering
+- hook caller or hook-timing mismatch
+- precision / packing / normalization edge
+- access-control mismatch
+- victim accounting direction (who gains vs who loses)
+- external-call failure / DoS (unhandled revert, gas, lock)
+- value exceeds a logical / economic bound (e.g. a fee or ratio > 100%, a count > a documented cap)
+
+CARRY-FORWARD RANKING RULE (apply before you reject anything)
+A mechanism MUST remain carried forward — in `selected_mechanisms` or, if not yet
+resolved, in `unresolved_mechanisms` (NEVER buried in `rejected_mechanisms`) — if ANY hold:
+1. it has source evidence,
+2. it has a plausible attacker or victim impact,
+3. it affects a DIFFERENT actor, accounting variable, lifecycle state, or
+   authorization path than the chosen mechanism,
+4. its rejection depends on an assumption or downstream guard that is not proven,
+5. it could be HIGHER severity than the current chosen mechanism.
+Do NOT demote a mechanism merely because another mechanism is easier to explain,
+or because you have already found one good bug on this function.
+
+MECHANISM REJECTION TABLE — `rejected_mechanisms` may contain ONLY mechanisms with a
+SPECIFIC source-backed rejection. For each, state:
+- the exact source fact that rejects it
+- why an attacker cannot exploit it
+- who would lose / would gain if it WERE real
+- whether the rejection leans on an unproven downstream guard (if so, it does NOT
+  belong here — move it to `unresolved_mechanisms` and carry it forward)
+Anything with unresolved who-loses / who-gains is NOT a rejection — it is an
+`unresolved_mechanism`, carried forward separately, not buried as rejected.
+
+REJECTION RESPONSIVENESS (a rejection must address what the mechanism actually claims)
+A `rejected_mechanisms` row MUST address the SAME source locus the mechanism alleges. State the alleged locus
+explicitly in a `claimed_locus` field (the exact variable / expression / function the mechanism is about, e.g.
+`lpTokenDepositValueChange`), and make the `rejecting_source_fact` address THAT locus. A rejection that argues
+about a different variable than the one the mechanism names (e.g. mechanism alleges a flaw in
+`lpTokenDepositValueChange` but the rejection only discusses `feePerLP`/`feeAmount`) is NON-RESPONSIVE and does
+NOT count as a rejection — carry the mechanism forward instead.
+
+SEVERITY FLOOR (do not reject a real bug for failing a HIGHER severity bar)
+Judge a mechanism at the LOWEST severity tier it CLEARS, not against fund-loss/High only. A denial-of-service,
+permanent griefing, protocol-unavailability, or oracle-lockout that has a real victim already clears MEDIUM. Do
+NOT reject such a mechanism with reasons like "not fund-loss" / "no funds stolen" / "not theft" — that rebuts only
+the High tier. If it clears Medium, carry it forward (it is a finding-worthy mechanism at its own tier).
+
+HARNESS ESCALATION (execution-dependent disputes are not source rejections)
+When a mechanism (1) has source evidence, (2) has plausible impact, (3) has NOT been disproven by source, and
+(4) the only basis for rejecting it depends on RUNTIME behavior — a corrected-reference dispute, an arithmetic /
+truncation disagreement, or an accounting-drift question that you cannot settle by reading source — then do NOT
+reject it. Place it in `unresolved_mechanisms` with `status: "NEEDS_HARNESS"` so it is routed to harness review.
+(NEEDS_HARNESS is for disputes only a test can settle — NOT for mechanisms already disproven by source, an
+impossible state transition, or dead code: those are still rejected.)
+
+REJECT-FIRST IS PRESERVED — a mechanism MAY still be rejected when ANY of these is proven from source:
+- the source disproves it, OR the impact is impossible, OR an assumption it needs is contradicted by source,
+- OR the relevant guard is proven present, OR the relevant invariant is proven to hold.
+This is NOT a "carry everything" rule. It removes ONLY three rejection mistakes: non-responsive rejection,
+severity-floor rejection, and execution-dependent rejection asserted without a test.
+
+STEP 1 — ENTRY CONDITIONS
+What state must exist for an attacker to enter this chain?
+Who can initiate the first call? Is it permissionless?
+
+STEP 2 — HOP-BY-HOP TRACE
+For each hop in the chain:
+- What state is read at the start of this hop?
+- What external calls occur during this hop?
+- What state is written at the end of this hop?
+- Is any invariant variable in an inconsistent state mid-hop?
+- Can execution be redirected (callback, user-supplied address)?
+
+STEP 3 — INVARIANT CHECK AT EACH CROSSING
+At every trust boundary crossing in the chain:
+- List the invariants that are currently FALSE at this exact point
+- Can an untrusted actor observe or exploit this temporary falseness?
+- Can a reentrant call lock in the false state permanently?
+
+STEP 4 — VIOLATION PATH
+If a violation path exists:
+- State it as a numbered sequence of exact function calls
+- Identify the exact line where the invariant breaks
+- Classify the attacker: unprivileged / needs allowance / needs role
+- Estimate profit or damage
+
+STEP 5 — CHOSEN MECHANISM + IMPACT DIRECTION
+For the mechanism you carry forward:
+- root cause · attacker model · exploit path · who loses · who gains
+- why this mechanism beats the alternatives you inventoried
+IMPACT-DIRECTION CHECK (state each explicitly):
+- attacker receives value? attacker preserves value? victim loses value?
+- protocol invariant violated?
+- the result is NOT merely self-funded / dust / admin-only / timing-only
+
+STEP 6 — STOP CONDITION (do not finish the verdict if any holds)
+You may NOT stop after one plausible issue if:
+- the function is in a high-risk routed surface, OR
+- another inventoried mechanism has unresolved who-loses / who-gains, OR
+- an alternative mechanism affects a DIFFERENT actor or state variable, OR
+- the first issue is low severity but another mechanism could be higher.
+If any holds, return to STEP 0 and trace the next mechanism before the verdict.
+
+STEP 7 — VERDICT
+One of:
+CRITICAL_THREAD: direct fund loss path exists, no privileged precondition
+HIGH_THREAD:     fund loss or invariant violation possible with precondition
+MEDIUM_THREAD:   degraded behavior, bounded impact
+DEAD_END:        traced fully, no violation possible — explain why
+NEEDS_MORE_CONTEXT: blocked by missing contract code or external dependency
+
+Be rigorous. Do not guess. If you cannot fully trace a hop, say so.
+Return valid JSON matching the thread schema, additionally including:
+  "mechanism_inventory": [ "<mechanism>", ... ],          // >=3 when source supports
+  "selected_mechanisms": [ {"root_cause","attacker_model","exploit_path",
+                            "who_loses","who_gains","why_carried"} ],   // LIST — every mechanism you carry forward
+  "unresolved_mechanisms": [ {"mechanism","source_evidence","unresolved_question",
+                              "who_loses","who_gains",
+                              "status"} ],   // carried, not yet resolved — NOT rejected;
+                                             // status = "NEEDS_HARNESS" when only a runtime test can settle it
+  "rejected_mechanisms": [ {"mechanism","claimed_locus","rejecting_source_fact","why_unexploitable",
+                            "who_loses","who_gains","leans_on_unproven_guard"} ], // ONLY source-backed rejections;
+                            // claimed_locus = the exact variable/expression the rejection MUST address (responsiveness)
+  "impact_direction": {"attacker_receives","attacker_preserves","victim_loses",
+                       "invariant_violated","not_self_funded_or_dust_or_admin_or_timing"},
+        // (a structured-prose impact_direction string is also accepted if it states
+        //  who gains, who loses, the impacted state/value, and why it is not self-funded/admin-only/dust/timing)
+  "stop_condition": "satisfied | more_mechanisms_pending: <reason>"
+// (legacy aliases still accepted: chosen_mechanism for selected_mechanisms, rejection_table for rejected_mechanisms)
+
+
+=== INPUT: ONE FUNCTION UNDER TRACE ===
+high_suspicion_invariant: solvency / accounting / authorization correctness of `reallocate / settleUserBalance`
+dangerous_interaction: external/permissionless entry into `reallocate / settleUserBalance` in `libraries/Perp.sol` (share/interest accounting)
+
+Trace the function(s) `reallocate / settleUserBalance` in the verbatim source below. Run STEP 0 mechanism inventory,
+carry forward every supported mechanism, then return ONLY the JSON verdict per the schema above.
+
+=== VERBATIM SOURCE: libraries/Perp.sol ===
+```solidity
+// SPDX-License-Identifier: agpl-3.0
+pragma solidity ^0.8.17;
+
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-periphery/contracts/libraries/PositionKey.sol";
+import "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
+import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+import "@solmate/src/utils/SafeCastLib.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {IPredyPool} from "../interfaces/IPredyPool.sol";
+import "./ScaledAsset.sol";
+import "./InterestRateModel.sol";
+import "./PremiumCurveModel.sol";
+import "./Constants.sol";
+import {DataType} from "./DataType.sol";
+import "./UniHelper.sol";
+import "./math/LPMath.sol";
+import "./math/Math.sol";
+import "./Reallocation.sol";
+
+/// @title Perp library to calculate perp positions
+library Perp {
+    using ScaledAsset for ScaledAsset.AssetStatus;
+    using SafeCastLib for uint256;
+    using Math for int256;
+
+    /// @notice Thrown when the supply of 2*squart can not cover borrow
+    error SqrtAssetCanNotCoverBorrow();
+
+    /// @notice Thrown when the available liquidity is not enough to withdraw
+    error NoCFMMLiquidityError();
+
+    /// @notice Thrown when the LP position is out of range
+    error OutOfRangeError();
+
+    struct AssetPoolStatus {
+        address token;
+        address supplyTokenAddress;
+        ScaledAsset.AssetStatus tokenStatus;
+        InterestRateModel.IRMParams irmParams;
+        uint256 accumulatedProtocolRevenue;
+        uint256 accumulatedCreatorRevenue;
+    }
+
+    struct AssetRiskParams {
+        uint128 riskRatio;
+        uint128 debtRiskRatio;
+        int24 rangeSize;
+        int24 rebalanceThreshold;
+        uint64 minSlippage;
+        uint64 maxSlippage;
+    }
+
+    struct PositionStatus {
+        int256 amount;
+        int256 entryValue;
+    }
+
+    struct SqrtPositionStatus {
+        int256 amount;
+        int256 entryValue;
+        int256 quoteRebalanceEntryValue;
+        int256 baseRebalanceEntryValue;
+        uint256 entryTradeFee0;
+        uint256 entryTradeFee1;
+    }
+
+    struct UpdatePerpParams {
+        int256 tradeAmount;
+        int256 stableAmount;
+    }
+
+    struct UpdateSqrtPerpParams {
+        int256 tradeSqrtAmount;
+        int256 stableAmount;
+    }
+
+    struct SqrtPerpAssetStatus {
+        address uniswapPool;
+        int24 tickLower;
+        int24 tickUpper;
+        uint64 numRebalance;
+        uint256 totalAmount;
+        uint256 borrowedAmount;
+        uint256 lastRebalanceTotalSquartAmount;
+        uint256 lastFee0Growth;
+        uint256 lastFee1Growth;
+        uint256 borrowPremium0Growth;
+        uint256 borrowPremium1Growth;
+        uint256 fee0Growth;
+        uint256 fee1Growth;
+        ScaledAsset.UserStatus rebalancePositionBase;
+        ScaledAsset.UserStatus rebalancePositionQuote;
+        int256 rebalanceInterestGrowthBase;
+        int256 rebalanceInterestGrowthQuote;
+    }
+
+    struct UserStatus {
+        uint256 pairId;
+        int24 rebalanceLastTickLower;
+        int24 rebalanceLastTickUpper;
+        uint64 lastNumRebalance;
+        PositionStatus perp;
+        SqrtPositionStatus sqrtPerp;
+        ScaledAsset.UserStatus basePosition;
+        ScaledAsset.UserStatus stablePosition;
+    }
+
+    event PremiumGrowthUpdated(
+        uint256 indexed pairId,
+        uint256 totalAmount,
+        uint256 borrowAmount,
+        uint256 fee0Growth,
+        uint256 fee1Growth,
+        uint256 spread
+    );
+    event SqrtPositionUpdated(uint256 indexed pairId, int256 open, int256 close);
+
+    function createAssetStatus(address uniswapPool, int24 tickLower, int24 tickUpper)
+        internal
+        pure
+        returns (SqrtPerpAssetStatus memory)
+    {
+        return SqrtPerpAssetStatus(
+            uniswapPool,
+            tickLower,
+            tickUpper,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            ScaledAsset.createUserStatus(),
+            ScaledAsset.createUserStatus(),
+            0,
+            0
+        );
+    }
+
+    function createPerpUserStatus(uint64 _pairId) internal pure returns (UserStatus memory) {
+        return UserStatus(
+            _pairId,
+            0,
+            0,
+            0,
+            PositionStatus(0, 0),
+            SqrtPositionStatus(0, 0, 0, 0, 0, 0),
+            ScaledAsset.createUserStatus(),
+            ScaledAsset.createUserStatus()
+        );
+    }
+
+    /// @notice Settle the interest on rebalance positions up to this block and update the rebalance fee growth value
+    function updateRebalanceInterestGrowth(
+        DataType.PairStatus memory _pairStatus,
+        SqrtPerpAssetStatus storage _sqrtAssetStatus
+    ) internal {
+        // settle the interest on rebalance position
+        // fee growths are scaled by 1e18
+        if (_sqrtAssetStatus.lastRebalanceTotalSquartAmount > 0) {
+            _sqrtAssetStatus.rebalanceInterestGrowthBase += _pairStatus.basePool.tokenStatus.settleUserFee(
+                _sqrtAssetStatus.rebalancePositionBase
+            ) * 1e18 / int256(_sqrtAssetStatus.lastRebalanceTotalSquartAmount);
+
+            _sqrtAssetStatus.rebalanceInterestGrowthQuote += _pairStatus.quotePool.tokenStatus.settleUserFee(
+                _sqrtAssetStatus.rebalancePositionQuote
+            ) * 1e18 / int256(_sqrtAssetStatus.lastRebalanceTotalSquartAmount);
+        }
+    }
+
+    /**
+     * @notice Reallocates LP position to be in range.
+     * In case of in-range
+     *   token0
+     *     1/sqrt(x) - 1/sqrt(b1) -> 1/sqrt(x) - 1/sqrt(b2)
+     *       1/sqrt(b2) - 1/sqrt(b1)
+     *   token1
+     *     sqrt(x) - sqrt(a1) -> sqrt(x) - sqrt(a2)
+     *       sqrt(a2) - sqrt(a1)
+     *
+     * In case of out-of-range (tick high b1 < x)
+     *   token0
+     *     0 -> 1/sqrt(x) - 1/sqrt(b2)
+     *       1/sqrt(b2) - 1/sqrt(x)
+     *   token1
+     *     sqrt(b1) - sqrt(a1) -> sqrt(x) - sqrt(a2)
+     *       sqrt(b1) - sqrt(a1) - (sqrt(x) - sqrt(a2))
+     *
+     * In case of out-of-range (tick low x < a1)
+     *   token0
+     *     1/sqrt(a1) - 1/sqrt(b1) -> 1/sqrt(x) - 1/sqrt(b2)
+     *       1/sqrt(a1) - 1/sqrt(b1) - (1/sqrt(x) - 1/sqrt(b2))
+     *   token1
+     *     0 -> sqrt(x) - sqrt(a2)
+     *       sqrt(a2) - sqrt(x)
+     */
+    function reallocate(
+        DataType.PairStatus storage _assetStatusUnderlying,
+        SqrtPerpAssetStatus storage _sqrtAssetStatus
+    ) internal returns (bool, bool, int256 deltaPositionBase, int256 deltaPositionQuote) {
+        (uint160 currentSqrtPrice, int24 currentTick,,,,,) = IUniswapV3Pool(_sqrtAssetStatus.uniswapPool).slot0();
+
+        // If the current tick does not reach the threshold, then do nothing
+        if (
+            _sqrtAssetStatus.tickLower + _assetStatusUnderlying.riskParams.rebalanceThreshold < currentTick
+                && currentTick < _sqrtAssetStatus.tickUpper - _assetStatusUnderlying.riskParams.rebalanceThreshold
+        ) {
+            saveLastFeeGrowth(_sqrtAssetStatus);
+
+            return (false, false, 0, 0);
+        }
+
+        // If the total liquidity is 0, then do nothing
+        uint128 totalLiquidityAmount = getAvailableLiquidityAmount(
+            address(this), _sqrtAssetStatus.uniswapPool, _sqrtAssetStatus.tickLower, _sqrtAssetStatus.tickUpper
+        );
+
+        if (totalLiquidityAmount == 0) {
+            (_sqrtAssetStatus.tickLower, _sqrtAssetStatus.tickUpper) =
+                Reallocation.getNewRange(_assetStatusUnderlying, currentTick);
+
+            saveLastFeeGrowth(_sqrtAssetStatus);
+
+            return (false, true, 0, 0);
+        }
+
+        // if the current tick does reach the threshold, then rebalance
+        int24 tick;
+        bool isOutOfRange;
+
+        if (currentTick < _sqrtAssetStatus.tickLower) {
+            // lower out
+            isOutOfRange = true;
+            tick = _sqrtAssetStatus.tickLower;
+        } else if (currentTick < _sqrtAssetStatus.tickUpper) {
+            // in range
+            isOutOfRange = false;
+        } else {
+            // upper out
+            isOutOfRange = true;
+            tick = _sqrtAssetStatus.tickUpper;
+        }
+
+        rebalanceForInRange(_assetStatusUnderlying, _sqrtAssetStatus, currentTick, totalLiquidityAmount);
+
+        saveLastFeeGrowth(_sqrtAssetStatus);
+
+        // if the current tick is out of range, then swap
+        if (isOutOfRange) {
+            (deltaPositionBase, deltaPositionQuote) =
+                swapForOutOfRange(_assetStatusUnderlying, currentSqrtPrice, tick, totalLiquidityAmount);
+        }
+
+        return (true, true, deltaPositionBase, deltaPositionQuote);
+    }
+
+    function rebalanceForInRange(
+        DataType.PairStatus storage _assetStatusUnderlying,
+        SqrtPerpAssetStatus storage _sqrtAssetStatus,
+        int24 _currentTick,
+        uint128 _totalLiquidityAmount
+    ) internal {
+        (uint256 receivedAmount0, uint256 receivedAmount1) = IUniswapV3Pool(_sqrtAssetStatus.uniswapPool).burn(
+            _sqrtAssetStatus.tickLower, _sqrtAssetStatus.tickUpper, _totalLiquidityAmount
+        );
+
+        IUniswapV3Pool(_sqrtAssetStatus.uniswapPool).collect(
+            address(this), _sqrtAssetStatus.tickLower, _sqrtAssetStatus.tickUpper, type(uint128).max, type(uint128).max
+        );
+
+        (_sqrtAssetStatus.tickLower, _sqrtAssetStatus.tickUpper) =
+            Reallocation.getNewRange(_assetStatusUnderlying, _currentTick);
+
+        (uint256 requiredAmount0, uint256 requiredAmount1) = IUniswapV3Pool(_sqrtAssetStatus.uniswapPool).mint(
+            address(this), _sqrtAssetStatus.tickLower, _sqrtAssetStatus.tickUpper, _totalLiquidityAmount, ""
+        );
+
+        // these amounts are originally int256, so we can cast these to int256 safely
+        updateRebalancePosition(
+            _assetStatusUnderlying,
+            int256(receivedAmount0) - int256(requiredAmount0),
+            int256(receivedAmount1) - int256(requiredAmount1)
+        );
+    }
+
+    /**
+     * @notice Swaps additional token amounts for rebalance.
+     * In case of out-of-range (tick high b1 < x)
+     *   token0
+     *       1/sqrt(x)　- 1/sqrt(b1)
+     *   token1
+     *       sqrt(x) - sqrt(b1)
+     *
+     * In case of out-of-range (tick low x < a1)
+     *   token0
+     *       1/sqrt(x) - 1/sqrt(a1)
+     *   token1
+     *       sqrt(x) - sqrt(a1)
+     */
+    function swapForOutOfRange(
+        DataType.PairStatus storage pairStatus,
+        uint160 _currentSqrtPrice,
+        int24 _tick,
+        uint128 _totalLiquidityAmount
+    ) internal returns (int256 deltaPositionBase, int256 deltaPositionQuote) {
+        uint160 tickSqrtPrice = TickMath.getSqrtRatioAtTick(_tick);
+
+        // 1/_currentSqrtPrice - 1/tickSqrtPrice
+        int256 deltaPosition0 =
+            LPMath.calculateAmount0ForLiquidity(_currentSqrtPrice, tickSqrtPrice, _totalLiquidityAmount, true);
+
+        // _currentSqrtPrice - tickSqrtPrice
+        int256 deltaPosition1 =
+            LPMath.calculateAmount1ForLiquidity(_currentSqrtPrice, tickSqrtPrice, _totalLiquidityAmount, true);
+
+        if (pairStatus.isQuoteZero) {
+            deltaPositionQuote = -deltaPosition0;
+            deltaPositionBase = -deltaPosition1;
+        } else {
+            deltaPositionBase = -deltaPosition0;
+            deltaPositionQuote = -deltaPosition1;
+        }
+
+        updateRebalancePosition(pairStatus, deltaPosition0, deltaPosition1);
+    }
+
+    function getAvailableLiquidityAmount(
+        address _controllerAddress,
+        address _uniswapPool,
+        int24 _tickLower,
+        int24 _tickUpper
+    ) internal view returns (uint128) {
+        bytes32 positionKey = PositionKey.compute(_controllerAddress, _tickLower, _tickUpper);
+
+        (uint128 liquidity,,,,) = IUniswapV3Pool(_uniswapPool).positions(positionKey);
+
+        return liquidity;
+    }
+
+    function settleUserBalance(DataType.PairStatus storage _pairStatus, UserStatus storage _userStatus) internal {
+        (int256 deltaPositionUnderlying, int256 deltaPositionStable) =
+            updateRebalanceEntry(_pairStatus.sqrtAssetStatus, _userStatus, _pairStatus.isQuoteZero);
+
+        if (deltaPositionUnderlying == 0 && deltaPositionStable == 0) {
+            return;
+        }
+
+        _userStatus.sqrtPerp.baseRebalanceEntryValue += deltaPositionUnderlying;
+        _userStatus.sqrtPerp.quoteRebalanceEntryValue += deltaPositionStable;
+
+        // already settled fee
+
+        _pairStatus.basePool.tokenStatus.updatePosition(
+            _pairStatus.sqrtAssetStatus.rebalancePositionBase, -deltaPositionUnderlying, _pairStatus.id, false
+        );
+        _pairStatus.quotePool.tokenStatus.updatePosition(
+            _pairStatus.sqrtAssetStatus.rebalancePositionQuote, -deltaPositionStable, _pairStatus.id, true
+        );
+
+        _pairStatus.basePool.tokenStatus.updatePosition(
+            _userStatus.basePosition, deltaPositionUnderlying, _pairStatus.id, false
+        );
+        _pairStatus.quotePool.tokenStatus.updatePosition(
+            _userStatus.stablePosition, deltaPositionStable, _pairStatus.id, true
+        );
+    }
+
+    function updateFeeAndPremiumGrowth(uint256 _pairId, SqrtPerpAssetStatus storage _assetStatus) internal {
+        if (_assetStatus.totalAmount == 0) {
+            return;
+        }
+
+        (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) =
+            UniHelper.getFeeGrowthInside(_assetStatus.uniswapPool, _assetStatus.tickLower, _assetStatus.tickUpper);
+
+
+```

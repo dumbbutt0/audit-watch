@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProtocolInvariants",
+  "description": "Array of protocol invariants extracted by the invariant extractor agent",
+  "type": "array",
+  "items": {
+    "$ref": "#/definitions/Invariant"
+  },
+  "definitions": {
+    "Invariant": {
+      "type": "object",
+      "required": [
+        "invariant_id",
+        "category",
+        "statement",
+        "formal_expression",
+        "state_variables_involved",
+        "mutating_functions",
+        "violation_consequence",
+        "suspicion_score"
+      ],
+      "properties": {
+        "invariant_id": {
+          "type": "string",
+          "description": "Unique identifier e.g. ACC-001, SOL-002, STATE-003",
+          "pattern": "^[A-Z]{2,6}-[0-9]{3}$"
+        },
+        "category": {
+          "type": "string",
+          "description": "Invariant category",
+          "enum": [
+            "ACCOUNTING",
+            "SOLVENCY",
+            "STATE_MACHINE",
+            "ACCESS",
+            "ARITHMETIC",
+            "CROSS_CONTRACT"
+          ]
+        },
+        "statement": {
+          "type": "string",
+          "description": "Human-readable invariant statement"
+        },
+        "formal_expression": {
+          "type": "string",
+          "description": "Pseudocode or Rust-like boolean expression"
+        },
+        "state_variables_involved": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "State variables that must hold this invariant"
+        },
+        "mutating_functions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Functions that can change the state variables involved"
+        },
+        "violation_consequence": {
+          "type": "string",
+          "description": "What breaks if this invariant is false"
+        },
+        "suspicion_score": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "1=enforced by type system, 5=complex multi-contract logic likely missed"
+        }
+      }
+    }
+  }
+}

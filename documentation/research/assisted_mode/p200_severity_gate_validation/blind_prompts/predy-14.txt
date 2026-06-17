@@ -1,0 +1,497 @@
+You are the Deep Trace Agent.
+
+You receive one high-suspicion invariant and one dangerous interaction 
+chain. Your job is to determine whether the chain can violate the 
+invariant. Trace the execution path completely.
+
+A function reached by deep-trace often carries MORE THAN ONE bug. Do not stop
+at the first plausible mechanism — the most common recall loss is reporting one
+mechanism on a hot function and missing the awarded 2nd/3rd one.
+
+Work through this sequence explicitly:
+
+STEP 0 — MECHANISM INVENTORY (run before the verdict, on the function under trace)
+List at least 3 plausible mechanisms when the source supports them. Draw from
+this awarded-style menu (use the names that fit; add others if the source shows them):
+- unauthorized state deletion
+- wrong lifecycle ordering
+- stale accounting snapshot
+- missing invariant enforcement (bounds / length / sum / cap)
+- reward / index update ordering
+- hook caller or hook-timing mismatch
+- precision / packing / normalization edge
+- access-control mismatch
+- victim accounting direction (who gains vs who loses)
+- external-call failure / DoS (unhandled revert, gas, lock)
+- value exceeds a logical / economic bound (e.g. a fee or ratio > 100%, a count > a documented cap)
+
+CARRY-FORWARD RANKING RULE (apply before you reject anything)
+A mechanism MUST remain carried forward — in `selected_mechanisms` or, if not yet
+resolved, in `unresolved_mechanisms` (NEVER buried in `rejected_mechanisms`) — if ANY hold:
+1. it has source evidence,
+2. it has a plausible attacker or victim impact,
+3. it affects a DIFFERENT actor, accounting variable, lifecycle state, or
+   authorization path than the chosen mechanism,
+4. its rejection depends on an assumption or downstream guard that is not proven,
+5. it could be HIGHER severity than the current chosen mechanism.
+Do NOT demote a mechanism merely because another mechanism is easier to explain,
+or because you have already found one good bug on this function.
+
+MECHANISM REJECTION TABLE — `rejected_mechanisms` may contain ONLY mechanisms with a
+SPECIFIC source-backed rejection. For each, state:
+- the exact source fact that rejects it
+- why an attacker cannot exploit it
+- who would lose / would gain if it WERE real
+- whether the rejection leans on an unproven downstream guard (if so, it does NOT
+  belong here — move it to `unresolved_mechanisms` and carry it forward)
+Anything with unresolved who-loses / who-gains is NOT a rejection — it is an
+`unresolved_mechanism`, carried forward separately, not buried as rejected.
+
+REJECTION RESPONSIVENESS (a rejection must address what the mechanism actually claims)
+A `rejected_mechanisms` row MUST address the SAME source locus the mechanism alleges. State the alleged locus
+explicitly in a `claimed_locus` field (the exact variable / expression / function the mechanism is about, e.g.
+`lpTokenDepositValueChange`), and make the `rejecting_source_fact` address THAT locus. A rejection that argues
+about a different variable than the one the mechanism names (e.g. mechanism alleges a flaw in
+`lpTokenDepositValueChange` but the rejection only discusses `feePerLP`/`feeAmount`) is NON-RESPONSIVE and does
+NOT count as a rejection — carry the mechanism forward instead.
+
+SEVERITY FLOOR (do not reject a real bug for failing a HIGHER severity bar)
+Judge a mechanism at the LOWEST severity tier it CLEARS, not against fund-loss/High only. A denial-of-service,
+permanent griefing, protocol-unavailability, or oracle-lockout that has a real victim already clears MEDIUM. Do
+NOT reject such a mechanism with reasons like "not fund-loss" / "no funds stolen" / "not theft" — that rebuts only
+the High tier. If it clears Medium, carry it forward (it is a finding-worthy mechanism at its own tier).
+
+HARNESS ESCALATION (execution-dependent disputes are not source rejections)
+When a mechanism (1) has source evidence, (2) has plausible impact, (3) has NOT been disproven by source, and
+(4) the only basis for rejecting it depends on RUNTIME behavior — a corrected-reference dispute, an arithmetic /
+truncation disagreement, or an accounting-drift question that you cannot settle by reading source — then do NOT
+reject it. Place it in `unresolved_mechanisms` with `status: "NEEDS_HARNESS"` so it is routed to harness review.
+(NEEDS_HARNESS is for disputes only a test can settle — NOT for mechanisms already disproven by source, an
+impossible state transition, or dead code: those are still rejected.)
+
+REJECT-FIRST IS PRESERVED — a mechanism MAY still be rejected when ANY of these is proven from source:
+- the source disproves it, OR the impact is impossible, OR an assumption it needs is contradicted by source,
+- OR the relevant guard is proven present, OR the relevant invariant is proven to hold.
+This is NOT a "carry everything" rule. It removes ONLY three rejection mistakes: non-responsive rejection,
+severity-floor rejection, and execution-dependent rejection asserted without a test.
+
+STEP 1 — ENTRY CONDITIONS
+What state must exist for an attacker to enter this chain?
+Who can initiate the first call? Is it permissionless?
+
+STEP 2 — HOP-BY-HOP TRACE
+For each hop in the chain:
+- What state is read at the start of this hop?
+- What external calls occur during this hop?
+- What state is written at the end of this hop?
+- Is any invariant variable in an inconsistent state mid-hop?
+- Can execution be redirected (callback, user-supplied address)?
+
+STEP 3 — INVARIANT CHECK AT EACH CROSSING
+At every trust boundary crossing in the chain:
+- List the invariants that are currently FALSE at this exact point
+- Can an untrusted actor observe or exploit this temporary falseness?
+- Can a reentrant call lock in the false state permanently?
+
+STEP 4 — VIOLATION PATH
+If a violation path exists:
+- State it as a numbered sequence of exact function calls
+- Identify the exact line where the invariant breaks
+- Classify the attacker: unprivileged / needs allowance / needs role
+- Estimate profit or damage
+
+STEP 5 — CHOSEN MECHANISM + IMPACT DIRECTION
+For the mechanism you carry forward:
+- root cause · attacker model · exploit path · who loses · who gains
+- why this mechanism beats the alternatives you inventoried
+IMPACT-DIRECTION CHECK (state each explicitly):
+- attacker receives value? attacker preserves value? victim loses value?
+- protocol invariant violated?
+- the result is NOT merely self-funded / dust / admin-only / timing-only
+
+STEP 6 — STOP CONDITION (do not finish the verdict if any holds)
+You may NOT stop after one plausible issue if:
+- the function is in a high-risk routed surface, OR
+- another inventoried mechanism has unresolved who-loses / who-gains, OR
+- an alternative mechanism affects a DIFFERENT actor or state variable, OR
+- the first issue is low severity but another mechanism could be higher.
+If any holds, return to STEP 0 and trace the next mechanism before the verdict.
+
+STEP 7 — VERDICT
+One of:
+CRITICAL_THREAD: direct fund loss path exists, no privileged precondition
+HIGH_THREAD:     fund loss or invariant violation possible with precondition
+MEDIUM_THREAD:   degraded behavior, bounded impact
+DEAD_END:        traced fully, no violation possible — explain why
+NEEDS_MORE_CONTEXT: blocked by missing contract code or external dependency
+
+Be rigorous. Do not guess. If you cannot fully trace a hop, say so.
+Return valid JSON matching the thread schema, additionally including:
+  "mechanism_inventory": [ "<mechanism>", ... ],          // >=3 when source supports
+  "selected_mechanisms": [ {"root_cause","attacker_model","exploit_path",
+                            "who_loses","who_gains","why_carried"} ],   // LIST — every mechanism you carry forward
+  "unresolved_mechanisms": [ {"mechanism","source_evidence","unresolved_question",
+                              "who_loses","who_gains",
+                              "status"} ],   // carried, not yet resolved — NOT rejected;
+                                             // status = "NEEDS_HARNESS" when only a runtime test can settle it
+  "rejected_mechanisms": [ {"mechanism","claimed_locus","rejecting_source_fact","why_unexploitable",
+                            "who_loses","who_gains","leans_on_unproven_guard"} ], // ONLY source-backed rejections;
+                            // claimed_locus = the exact variable/expression the rejection MUST address (responsiveness)
+  "impact_direction": {"attacker_receives","attacker_preserves","victim_loses",
+                       "invariant_violated","not_self_funded_or_dust_or_admin_or_timing"},
+        // (a structured-prose impact_direction string is also accepted if it states
+        //  who gains, who loses, the impacted state/value, and why it is not self-funded/admin-only/dust/timing)
+  "stop_condition": "satisfied | more_mechanisms_pending: <reason>"
+// (legacy aliases still accepted: chosen_mechanism for selected_mechanisms, rejection_table for rejected_mechanisms)
+
+
+=== INPUT: ONE FUNCTION UNDER TRACE ===
+high_suspicion_invariant: solvency / accounting / authorization correctness of `executeOrderV3 / _verifyOrderV3`
+dangerous_interaction: external/permissionless entry into `executeOrderV3 / _verifyOrderV3` in `markets/perp/PerpMarketV1.sol` (perp order auth)
+
+Trace the function(s) `executeOrderV3 / _verifyOrderV3` in the verbatim source below. Run STEP 0 mechanism inventory,
+carry forward every supported mechanism, then return ONLY the JSON verdict per the schema above.
+
+=== VERBATIM SOURCE: markets/perp/PerpMarketV1.sol ===
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.17;
+
+import {SafeTransferLib} from "@solmate/src/utils/SafeTransferLib.sol";
+import {ERC20} from "@solmate/src/tokens/ERC20.sol";
+import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+import "../../interfaces/IPredyPool.sol";
+import {BaseMarketUpgradable} from "../../base/BaseMarketUpgradable.sol";
+import {BaseHookCallbackUpgradable} from "../../base/BaseHookCallbackUpgradable.sol";
+import "../../libraries/orders/Permit2Lib.sol";
+import "../../libraries/orders/ResolvedOrder.sol";
+import {SlippageLib} from "../../libraries/SlippageLib.sol";
+import {PositionCalculator} from "../../libraries/PositionCalculator.sol";
+import {Constants} from "../../libraries/Constants.sol";
+import {Perp} from "../../libraries/Perp.sol";
+import {Bps} from "../../libraries/math/Bps.sol";
+import {Math} from "../../libraries/math/Math.sol";
+import "./PerpOrder.sol";
+import "./PerpOrderV3.sol";
+import {PredyPoolQuoter} from "../../lens/PredyPoolQuoter.sol";
+import {SettlementCallbackLib} from "../../base/SettlementCallbackLib.sol";
+import {PerpMarketLib} from "./PerpMarketLib.sol";
+
+/**
+ * @notice Perp market contract
+ */
+contract PerpMarketV1 is BaseMarketUpgradable, ReentrancyGuardUpgradeable {
+    using ResolvedOrderLib for ResolvedOrder;
+    using PerpOrderLib for PerpOrder;
+    using Permit2Lib for ResolvedOrder;
+    using SafeTransferLib for ERC20;
+    using SafeCast for uint256;
+
+    error TPSLConditionDoesNotMatch();
+
+    error UpdateMarginMustNotBePositive();
+
+    error AmountIsZero();
+
+    struct UserPosition {
+        uint256 vaultId;
+        uint256 takeProfitPrice;
+        uint256 stopLossPrice;
+        uint64 slippageTolerance;
+        uint8 lastLeverage;
+    }
+
+    enum CallbackSource {
+        TRADE,
+        TRADE3,
+        QUOTE,
+        QUOTE3
+    }
+
+    struct CallbackData {
+        CallbackSource callbackSource;
+        address trader;
+        int256 marginAmountUpdate;
+        uint8 leverage;
+        ResolvedOrder resolvedOrder;
+        uint64 orderId;
+    }
+
+    IPermit2 private _permit2;
+
+    mapping(address owner => mapping(uint256 pairId => UserPosition)) public userPositions;
+
+    event PerpTraded(
+        address indexed trader,
+        uint256 pairId,
+        uint256 vaultId,
+        int256 tradeAmount,
+        IPredyPool.Payoff payoff,
+        int256 fee,
+        int256 marginAmount
+    );
+    event PerpTraded2(
+        address indexed trader,
+        uint256 pairId,
+        uint256 vaultId,
+        int256 tradeAmount,
+        IPredyPool.Payoff payoff,
+        int256 fee,
+        int256 marginAmount,
+        uint64 orderId
+    );
+
+    constructor() {}
+
+    function initialize(IPredyPool predyPool, address permit2Address, address whitelistFiller, address quoterAddress)
+        public
+        initializer
+    {
+        __ReentrancyGuard_init();
+        __BaseMarket_init(predyPool, whitelistFiller, quoterAddress);
+
+        _permit2 = IPermit2(permit2Address);
+    }
+
+    function predyTradeAfterCallback(
+        IPredyPool.TradeParams memory tradeParams,
+        IPredyPool.TradeResult memory tradeResult
+    ) external override(BaseHookCallbackUpgradable) onlyPredyPool {
+        CallbackData memory callbackData = abi.decode(tradeParams.extraData, (CallbackData));
+        ERC20 quoteToken = ERC20(_getQuoteTokenAddress(tradeParams.pairId));
+
+        if (callbackData.callbackSource == CallbackSource.QUOTE) {
+            _revertTradeResult(tradeResult);
+        } else if (callbackData.callbackSource == CallbackSource.QUOTE3) {
+            _revertTradeResult(tradeResult);
+        } else if (callbackData.callbackSource == CallbackSource.TRADE3) {
+            int256 marginAmountUpdate =
+                _calculateInitialMargin(tradeParams.vaultId, tradeParams.pairId, callbackData.leverage);
+
+            uint256 cost = 0;
+
+            if (marginAmountUpdate > 0) {
+                cost = uint256(marginAmountUpdate);
+            }
+
+            _verifyOrderV3(callbackData.resolvedOrder, cost);
+
+            if (marginAmountUpdate > 0) {
+                quoteToken.safeTransfer(address(_predyPool), uint256(marginAmountUpdate));
+            } else if (marginAmountUpdate < 0) {
+                _predyPool.take(true, callbackData.trader, uint256(-marginAmountUpdate));
+            }
+
+            emit PerpTraded2(
+                callbackData.trader,
+                tradeParams.pairId,
+                tradeResult.vaultId,
+                tradeParams.tradeAmount,
+                tradeResult.payoff,
+                tradeResult.fee,
+                marginAmountUpdate,
+                callbackData.orderId
+            );
+        }
+    }
+
+    /**
+     * @notice Verifies signature of the order_v3 and executes trade
+     * @param order The order signed by trader
+     * @param settlementParams The route of settlement created by filler
+     */
+    function executeOrderV3(SignedOrder memory order, SettlementParamsV3 memory settlementParams)
+        external
+        nonReentrant
+        returns (IPredyPool.TradeResult memory)
+    {
+        PerpOrderV3 memory perpOrder = abi.decode(order.order, (PerpOrderV3));
+
+        return _executeOrderV3(perpOrder, order.sig, settlementParams, 0);
+    }
+
+    function _executeOrderV3(
+        PerpOrderV3 memory perpOrder,
+        bytes memory sig,
+        SettlementParamsV3 memory settlementParams,
+        uint64 orderId
+    ) internal returns (IPredyPool.TradeResult memory tradeResult) {
+        ResolvedOrder memory resolvedOrder = PerpOrderV3Lib.resolve(perpOrder, sig);
+
+        _validateQuoteTokenAddress(perpOrder.pairId, perpOrder.entryTokenAddress);
+
+        UserPosition storage userPosition = userPositions[perpOrder.info.trader][perpOrder.pairId];
+
+        userPosition.lastLeverage = perpOrder.leverage;
+
+        int256 tradeAmount = PerpMarketLib.getFinalTradeAmount(
+            _predyPool.getVault(userPosition.vaultId).openPosition.perp.amount,
+            perpOrder.side,
+            perpOrder.quantity,
+            perpOrder.reduceOnly,
+            perpOrder.closePosition
+        );
+
+        if (tradeAmount == 0) {
+            revert AmountIsZero();
+        }
+
+        tradeResult = _predyPool.trade(
+            IPredyPool.TradeParams(
+                perpOrder.pairId,
+                userPosition.vaultId,
+                tradeAmount,
+                0,
+                abi.encode(
+                    CallbackData(
+                        CallbackSource.TRADE3, perpOrder.info.trader, 0, perpOrder.leverage, resolvedOrder, orderId
+                    )
+                )
+            ),
+            _getSettlementDataFromV3(settlementParams, msg.sender)
+        );
+
+        if (tradeResult.minMargin > 0) {
+            // only whitelisted filler can open position
+            if (msg.sender != whitelistFiller) {
+                revert CallerIsNotFiller();
+            }
+        }
+
+        if (userPosition.vaultId == 0) {
+            userPosition.vaultId = tradeResult.vaultId;
+
+            _predyPool.updateRecepient(tradeResult.vaultId, perpOrder.info.trader);
+        }
+
+        PerpMarketLib.validateTrade(
+            tradeResult, tradeAmount, perpOrder.limitPrice, perpOrder.stopPrice, perpOrder.auctionData
+        );
+
+        return tradeResult;
+    }
+
+    function _calculateInitialMargin(uint256 vaultId, uint256 pairId, uint256 leverage)
+        internal
+        view
+        returns (int256)
+    {
+        DataType.Vault memory vault = _predyPool.getVault(vaultId);
+
+        uint256 sqrtPrice = _predyPool.getSqrtIndexPrice(pairId);
+
+        uint256 price = Math.calSqrtPriceToPrice(sqrtPrice);
+
+        uint256 netValue = _calculateNetValue(vault, price);
+
+        return (netValue / leverage).toInt256() - _calculatePositionValue(vault, sqrtPrice);
+    }
+
+    function _calculateNetValue(DataType.Vault memory vault, uint256 price) internal pure returns (uint256) {
+        int256 positionAmount = vault.openPosition.perp.amount;
+
+        return Math.abs(positionAmount) * price / Constants.Q96;
+    }
+
+    function _calculatePositionValue(DataType.Vault memory vault, uint256 sqrtPrice) internal pure returns (int256) {
+        return PositionCalculator.calculateValue(sqrtPrice, PositionCalculator.getPosition(vault.openPosition))
+            + vault.margin;
+    }
+
+    function getUserPosition(address owner, uint256 pairId)
+        external
+        returns (
+            UserPosition memory userPosition,
+            IPredyPool.VaultStatus memory vaultStatus,
+            DataType.Vault memory vault
+        )
+    {
+        userPosition = userPositions[owner][pairId];
+
+        if (userPosition.vaultId == 0) {
+            // if user has no position, return empty vault status and vault
+            return (userPosition, vaultStatus, vault);
+        }
+
+        return (userPosition, _quoter.quoteVaultStatus(userPosition.vaultId), _predyPool.getVault(userPosition.vaultId));
+    }
+
+    function _saveUserPosition(UserPosition storage userPosition, PerpOrder memory perpOrder) internal {
+        require(perpOrder.slippageTolerance <= Bps.ONE);
+
+        userPosition.takeProfitPrice = perpOrder.takeProfitPrice;
+        userPosition.stopLossPrice = perpOrder.stopLossPrice;
+        userPosition.slippageTolerance = perpOrder.slippageTolerance;
+        userPosition.lastLeverage = perpOrder.leverage;
+    }
+
+    /// @notice Estimate transaction results and return with revert message
+    function quoteExecuteOrderV3(
+        PerpOrderV3 memory perpOrder,
+        SettlementParamsV3 memory settlementParams,
+        address filler
+    ) external {
+        UserPosition memory userPosition = userPositions[perpOrder.info.trader][perpOrder.pairId];
+
+        int256 tradeAmount = PerpMarketLib.getFinalTradeAmount(
+            _predyPool.getVault(userPosition.vaultId).openPosition.perp.amount,
+            perpOrder.side,
+            perpOrder.quantity,
+            perpOrder.reduceOnly,
+            perpOrder.closePosition
+        );
+
+        if (tradeAmount == 0) {
+            revert AmountIsZero();
+        }
+        _predyPool.trade(
+            IPredyPool.TradeParams(
+                perpOrder.pairId,
+                userPosition.vaultId,
+                tradeAmount,
+                0,
+                abi.encode(
+                    CallbackData(
+                        CallbackSource.QUOTE3,
+                        perpOrder.info.trader,
+                        0,
+                        perpOrder.leverage,
+                        PerpOrderV3Lib.resolve(perpOrder, bytes("")),
+                        0
+                    )
+                )
+            ),
+            _getSettlementDataFromV3(settlementParams, filler)
+        );
+    }
+
+    function _verifyOrder(ResolvedOrder memory order, uint256 amount) internal {
+        order.validate();
+
+        _permit2.permitWitnessTransferFrom(
+            order.toPermit(),
+            ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: amount}),
+            order.info.trader,
+            order.hash,
+            PerpOrderLib.PERMIT2_ORDER_TYPE,
+            order.sig
+        );
+    }
+
+    function _verifyOrderV3(ResolvedOrder memory order, uint256 amount) internal {
+        order.validate();
+
+        _permit2.permitWitnessTransferFrom(
+            order.toPermit(),
+            ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: amount}),
+            order.info.trader,
+            order.hash,
+            PerpOrderV3Lib.PERMIT2_ORDER_TYPE,
+            order.sig
+        );
+    }
+}
+
+```

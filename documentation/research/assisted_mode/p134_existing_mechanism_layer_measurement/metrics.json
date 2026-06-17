@@ -1,0 +1,40 @@
+{
+  "phase": "P134",
+  "decision": "ROUTING_GAP_NOT_DETECTOR_GAP",
+  "target_set": "8 noya boost-delta awarded functions (P133)",
+  "combined_mechanism_layer_recovery": {
+    "DETECTOR_HIT": 4, "DETECTOR_PARTIAL": 3, "DETECTOR_MISS": 1,
+    "useful_detector_recall": "7/8 (88%)", "strict_detector_recall": "4/8 (50%)",
+    "vs_p133_surface_specialist": {"useful": "5/8 (62%)", "strict": "2/8 (25%)"}
+  },
+  "per_target": {
+    "H-03 NoyaValueOracle._getValue": {"p133": "HIT", "detector": "MISS", "by": "none (logic loop-var bug; no static mechanism taxonomy)"},
+    "H-01 ChainlinkOracleConnector.getValue": {"p133": "MISS", "detector": "HIT", "by": "units_invariant=chainlink_decimals", "routing": "report-only (unsurfaced)"},
+    "H-13 BalancerConnector._getPositionTVL": {"p133": "MISS", "detector": "HIT", "by": "connector_position_accounting=position_tvl_product_div", "routing": "advisory (strict-full-audit only)"},
+    "H-14 BalancerConnector.totalLpBalanceOf": {"p133": "MISS", "detector": "PARTIAL", "by": "arithmetic_conservation=supply_aggregate + units=shares_assets", "routing": "advisory + report-only"},
+    "H-06 AerodromeConnector._getPositionTVL": {"p133": "PARTIAL", "detector": "HIT", "by": "semantic_tvl_completeness=omitted_external_stake_balance", "routing": "research-only (un-wired)"},
+    "H-19 MorphoBlueConnector._getPositionTVL": {"p133": "HIT", "detector": "HIT", "by": "connector_position_accounting=external_reader_aggregate + semantic=collateral_debt_side_omission", "routing": "advisory + research-only"},
+    "H-22 PendleConnector._getPositionTVL": {"p133": "PARTIAL", "detector": "PARTIAL", "by": "arithmetic_conservation=supply_aggregate + units=price_per_share", "routing": "advisory + report-only"},
+    "H-15 SiloConnector._getPositionTVL": {"p133": "PARTIAL", "detector": "PARTIAL", "by": "arithmetic_conservation=supply_aggregate + semantic=collateral_debt_side_omission(wrong mechanism) + units=token_decimals", "routing": "advisory + research-only + report-only"}
+  },
+  "p133_MISS_recovery": "3/3 recovered (H-01 HIT, H-13 HIT, H-14 PARTIAL)",
+  "p133_PARTIAL_recovery": "H-06 upgraded to HIT; H-22, H-15 remain PARTIAL",
+  "bonus_outside_target_set": "registry_position_lifecycle recovers H-23 (transferBetweenAccounts) + H-18 (closeBorrowPosition)",
+  "true_residual_detector_gap": ["H-03 NoyaValueOracle._getValue (oracle multi-hop loop-variable logic bug; no static mechanism detector; needs deep_pass_value_provenance trace, not a new detector)"],
+  "control_noise_off_target_flags": {"connector_position_accounting": 4, "arithmetic_conservation": 5, "semantic_tvl_completeness": 7, "registry_position_lifecycle": 3, "units_invariant": 39},
+  "blocked_by_environment": false,
+  "slither_required": false,
+  "routing_status": {
+    "connector_position_accounting": "advisory (advisory_escalation_gate, strict-full-audit only)",
+    "arithmetic_conservation": "advisory (advisory_escalation_gate, strict-full-audit only)",
+    "units_invariant": "report-only (NOT surfaced to human review)",
+    "semantic_tvl_completeness": "research-only / un-wired",
+    "registry_position_lifecycle": "research-only"
+  },
+  "integrity": {
+    "production_code_changed": false,
+    "detector_outputs_written": "audits/noya-2024-04-eval/output/*_audit.json (audit-local)",
+    "self_test": "OK",
+    "active_audit_restored": "quantamm-2024-12-eval"
+  }
+}

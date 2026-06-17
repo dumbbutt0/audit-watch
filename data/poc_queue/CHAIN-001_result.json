@@ -1,0 +1,30 @@
+{
+  "finding_id": "CHAIN-001",
+  "status": "proved",
+  "level": 3,
+  "poc_level_achieved": "L3C",
+  "test_file": "pocs/foundry/test/CHAIN001_IntegratedPoC.t.sol",
+  "run_command": "cd pocs/foundry && forge test --match-contract CHAIN001_IntegratedPoC -vvv",
+  "tests_passed": [
+    "test_phase1_slot0_manipulation_mints_excess_oethb",
+    "test_phase2_withdrawAll_returns_zero_weth",
+    "test_full_chain_quantifies_loss"
+  ],
+  "key_numbers": {
+    "oethb_at_fair_price": "99997500187484376366",
+    "oethb_at_manip_price": "376186526486701505135",
+    "over_minting_multiplier": "3.76x",
+    "weth_received_by_vault": "1",
+    "weth_lost": "99999999999999999999",
+    "insolvency_deficit": "100000000000000000000",
+    "mev_cost_modeled_upper_bound": "5000000000000000000",
+    "weth_share_at_manip": "0.21e18 (21%, inside 20-80% band)"
+  },
+  "evidence_summary": "All 3 integrated Foundry tests pass. Phase 1: at 79% toward upper tick (wethShare=21%, inside 20-80% allowed band), the strategy mints 3.76x excess OETHb (376.18 OETHb for 100 WETH vs fair 99.99 OETHb). _solvencyAssert passes due to circular parity accounting. Phase 2: attacker sandwiches withdrawAll; _removeLiquidity with amount0Min=0 returns 0 WETH; strategy burns OETHb and transfers 1 wei dust to vault. Net loss: ~100 WETH.",
+  "generated_at": "2026-05-14T00:30:00.000000+00:00",
+  "tests_passing": 5,
+  "negative_controls": [
+    "test_neg_twap_prevents_phase1_overmint",
+    "test_neg_amount0Min_prevents_phase2_sandwich"
+  ]
+}

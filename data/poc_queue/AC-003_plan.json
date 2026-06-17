@@ -1,0 +1,86 @@
+{
+  "finding_id": "AC-003",
+  "test_name": "poc_ac_003_verify_deposit_no_access_control",
+  "approach": "pure_arithmetic",
+  "target_language": "rust",
+  "target_framework": "soroban",
+  "claim_to_prove": "verifyDeposit() has no access control modifier, and when snapTimestamp == 0 the require check `(_calcNextBlockTimestamp(depositProcessedSlot) <= snapTimestamp) || snapTimestamp == 0` always passes, allowing any caller to prematurely remove a deposit from depositList before the next verifyBalances cycle, causing totalDepositsWei undercount.",
+  "bug_type": "access_control_missing_auth",
+  "minimal_setup": {
+    "contracts_needed": [],
+    "actors": [
+      "registrator (legitimate deposit creator)",
+      "attacker (arbitrary external caller)"
+    ],
+    "initial_state": [
+      "snapTimestamp is 0 (snappedBalance.timestamp == 0 \u2014 no snapBalances call has been made yet)",
+      "A deposit exists in depositList with DepositStatus.PENDING",
+      "depositProcessedSlot is any valid slot after deposit.slot",
+      "_calcNextBlockTimestamp(depositProcessedSlot) returns a large value >> 0"
+    ]
+  },
+  "reproduction_steps": [
+    "Define _calcNextBlockTimestamp as: SLOT_DURATION * slot + BEACON_GENESIS_TIMESTAMP + SLOT_DURATION",
+    "Set constants: SLOT_DURATION=12, BEACON_GENESIS_TIMESTAMP=1606824023",
+    "Set depositProcessedSlot = 1000000 (well after any deposit slot)",
+    "Compute nextBlockTimestamp = _calcNextBlockTimestamp(1000000) = 12 * 1000000 + 1606824023 + 12 = 13606824035",
+    "Set snapTimestamp = 0 (no snapBalances called yet)",
+    "Evaluate the access guard condition: (nextBlockTimestamp <= snapTimestamp) || snapTimestamp == 0",
+    "With snapTimestamp=0: (13606824035 <= 0) is false, but (0 == 0) is true => condition passes",
+    "Demonstrate that any caller (attacker) satisfies this condition and proceeds to _removeDeposit",
+    "Show that if snapTimestamp were set to a real value (e.g., 1606824023) LESS than nextBlockTimestamp, the condition would be: (13606824035 <= 1606824023) || (1606824023 == 0) => false || false => REVERT",
+    "Demonstrate that with snapTimestamp=0, attacker bypasses timing protection entirely"
+  ],
+  "functions_to_reproduce": [
+    {
+      "name": "_calcNextBlockTimestamp",
+      "source": "return SLOT_DURATION * slot + BEACON_GENESIS_TIMESTAMP + SLOT_DURATION;",
+      "signature": "fn calc_next_block_timestamp(slot: u64) -> u64"
+    },
+    {
+      "name": "verifyDeposit_snap_timestamp_guard",
+      "source": "require((_calcNextBlockTimestamp(depositProcessedSlot) <= snapTimestamp) || snapTimestamp == 0, 'Deposit after balance snapshot');",
+      "signature": "fn snap_timestamp_guard_passes(deposit_processed_slot: u64, snap_timestamp: u64) -> bool"
+    }
+  ],
+  "assertions": [
+    {
+      "variable": "snap_timestamp_guard_passes(1000000, 0)",
+      "expected_correct_value": "false (attacker should be blocked \u2014 deposit timing not yet verified against a snapshot)",
+      "actual_buggy_value": "true (snapTimestamp == 0 short-circuits all timing protection)",
+      "why_they_differ": "The OR condition `snapTimestamp == 0` was intended as a bootstrap exception but creates a permanent bypass: before any snapBalances() call (snapTimestamp stays 0), ANY caller can call verifyDeposit for ANY depositProcessedSlot, removing the deposit prematurely without access control or timing validation."
+    },
+    {
+      "variable": "snap_timestamp_guard_passes(1000000, 1606824023)",
+      "expected_correct_value": "false (next block timestamp 13606824035 > snap timestamp 1606824023, so deposit is after snapshot)",
+      "actual_buggy_value": "false (this case correctly reverts)",
+      "why_they_differ": "Once snapTimestamp is set, the guard works correctly. The bug only exists in the snapTimestamp==0 window, which is the pre-snapshot state."
+    },
+    {
+      "variable": "access_control_present",
+      "expected_correct_value": "true (only registrator or governor should call verifyDeposit)",
+      "actual_buggy_value": "false (function is declared `external` with no modifier \u2014 any address can call it)",
+      "why_they_differ": "Missing `onlyRegistratorOrGovernor` modifier on the function declaration."
+    },
+    {
+      "variable": "deposits_removed_by_attacker_before_snapshot",
+      "expected_correct_value": "0 (no deposits should be removed before snapBalances is called by authorized party)",
+      "actual_buggy_value": "N (attacker can remove all N pending deposits while snapTimestamp == 0, causing verifyBalances to count 0 in totalDepositsWei for those deposits)",
+      "why_they_differ": "No access control + snapTimestamp==0 bypass allows attacker to drain depositList before the verifyBalances cycle, causing underreporting of strategy's pending ETH."
+    }
+  ],
+  "constants": {
+    "SLOT_DURATION": 12,
+    "BEACON_GENESIS_TIMESTAMP": 1606824023,
+    "SLOTS_PER_EPOCH": 32
+  },
+  "run_command": "cargo test --manifest-path pocs/k2/AC-003/Cargo.toml -- --nocapture",
+  "expected_test_outcome": "Test PASSES demonstrating the bug: snap_timestamp_guard_passes returns true when snapTimestamp==0 for any depositProcessedSlot, proving any external caller can bypass timing protection. If bug is fixed (access control added or snapTimestamp==0 check removed), test assertions about guard behavior would need updating.",
+  "failure_modes": [
+    "The Solidity source is not directly testable in Rust \u2014 pure_arithmetic approach reproduces the logic manually, so any typo in reproducing constants causes wrong results",
+    "BEACON_GENESIS_TIMESTAMP or SLOT_DURATION may differ from mainnet values used in the actual contract, causing assertion on exact timestamp values to fail",
+    "The bug may already be patched if onlyRegistratorOrGovernor was added after the audit snapshot",
+    "The `snapTimestamp == 0` semantic may be intentional as a valid bootstrap state, weakening the severity claim \u2014 but the access control absence is still provable",
+    "Cargo.toml for standalone pure_arithmetic test needs correct setup without importing the full protocol crate"
+  ]
+}

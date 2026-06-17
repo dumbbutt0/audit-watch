@@ -1,0 +1,42 @@
+{
+  "lens": "value_flow_parity",
+  "version": "v2",
+  "enable_v2_shapes": true,
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Detects WRONG-VALUE parity: the validation/accounting component is PRESENT but fed a different semantic value/identity than its sibling/correct counterpart. Distinct from asset_source_consistency (which compares asset-source FAMILIES for transfer-source mismatch) — this lens compares curated IDENTIFIER ALIAS-PAIRS for check-vs-use / threshold-name mismatch. Anchored on Size M-02 (validateSellCreditMarket guards `params.amount < minimumCreditBorrowAToken` — a cash amount checked against a CREDIT-named threshold; the derived creditAmount is what should be checked). Wrong-value detection is semantic and FP-prone, so this lens is deliberately narrow (curated alias vocab, two-context split required) and high-precision-over-recall. NEVER mints or routes.",
+
+  "identity_alias_pairs": [
+    {"a": ["msg.sender", "msgsender", "_msgsender"], "b": ["onbehalfof", "on_behalf_of", "behalf"]},
+    {"a": ["recipient", "receiver", "_recipient"], "b": ["owner", "_owner", "positionowner"]},
+    {"a": ["recipient", "receiver", "beneficiary"], "b": ["caller", "sender", "msg.sender"]},
+    {"a": ["to", "_to", "dst", "destination"], "b": ["from", "_from", "src", "source"]}
+  ],
+
+  "value_alias_pairs": [
+    {"raw": ["amount", "rawamount", "inputamount"], "raw_kw": ["amount", "cash"],
+     "derived": ["creditamount", "creditamountin", "creditamountout"], "derived_kw": ["credit"]},
+    {"raw": ["cashamount", "cashamountin", "cashamountout", "grossamount", "grossvalue"], "raw_kw": ["cash", "gross"],
+     "derived": ["netcashamount", "netamount", "netvalue"], "derived_kw": ["net"]},
+    {"raw": ["prebalance", "prestate", "balancebefore", "before"], "raw_kw": ["pre", "before"],
+     "derived": ["postbalance", "poststate", "balanceafter", "after"], "derived_kw": ["post", "after"]}
+  ],
+
+  "threshold_idents": ["min", "max", "minimum", "maximum", "cap", "limit", "threshold", "floor", "ceiling"],
+  "comparison_ops": ["<", ">", "<=", ">=", "==", "!="],
+
+  "transfer_call_re": "\\.(?:safeTransfer|safeTransferFrom|transfer|transferFrom|mint|burn|send|sendValue|deposit_for)\\s*\\(([^;]*?)\\)",
+  "fee_terms": ["fee", "fees", "fragmentationfee", "swapfee", "protocolfee"],
+
+  "validator_context_verbs": ["validate", "check", "verify", "require", "ensure"],
+  "exclude_idents": ["uint", "uint256", "address", "bool", "true", "false", "params", "state", "this"],
+
+  "fp_controls": {
+    "curated_alias_only": "candidates require a member of a curated identity_alias_pairs / value_alias_pairs entry — never arbitrary identifier diffs",
+    "two_context_split": "shape 1 (identity check-vs-use) is LOW-only / never routable: corpus eval showed its premise is weak — checking msg.sender/owner while sending to recipient/receiver is the NORMAL ERC20/ERC4626 transfer pattern, not a bug. Kept as research context only; the routable signal is shape 2 (threshold_value_mismatch).",
+    "threshold_name_mismatch": "shape 2 fires only when a guard compares a raw-alias operand against an identifier whose NAME carries the paired derived keyword (e.g. amount < minimumCredit...) — the threshold-name mismatch is the signal",
+    "validator_context_only": "shape 2 restricted to validator-context functions",
+    "net_gross_low_only": "shape 3 (return V vs transfer V+/-fee) is emitted at LOW confidence only, never routable",
+    "not_asset_source": "this lens does NOT flag asset-source-FAMILY mismatch (collateral/supply/native/token transfer-source) — that is asset_source_consistency's territory",
+    "wrapper_admin_view_suppression": "reuse forwarder/both-admin suppression from the parity machinery"
+  }
+}

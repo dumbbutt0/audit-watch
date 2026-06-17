@@ -1,0 +1,36 @@
+{
+  "lens": "cross_contract_sibling_parity",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Detects validation/guard parity gaps between SIBLING functions in DIFFERENT contracts of the same module — e.g. per-action library protocols (validateX/executeX libraries) where one action guards an eligibility flag and a sibling action operating on the same shared object omits it. Anchored on Size Credit M-06 (BuyCreditMarket.validateBuyCreditMarket guards `!creditPosition.forSale`; SellCreditMarket.validateSellCreditMarket reads the same creditPosition but omits the forSale guard). Complements the intra-contract sibling_function_parity lens (which cannot pair across contracts). High precision over recall; multi-gate cross-sibling test keeps FP low. NEVER mints or routes.",
+
+  "action_verbs": ["validate", "execute", "simulate", "preview", "quote", "process", "perform"],
+  "antonym_prefixes": ["buy", "sell", "add", "remove", "deposit", "withdraw", "long", "short", "open", "close", "increase", "decrease", "mint", "burn", "lend", "borrow", "stake", "unstake", "self"],
+  "require_shared_state_struct": true,
+  "require_same_module_dir": true,
+  "require_shared_object_suffix": true,
+  "min_shared_object_suffix_len": 5,
+  "min_shared_calls": 2,
+
+  "eligibility_guard_vocab": ["forsale", "for_sale", "disabled", "paused", "ispaused", "allowed", "whitelist", "whitelisted", "enabled", "isenabled", "frozen", "blacklist", "blacklisted", "eligible", "iseligible", "active", "isactive", "approved", "isapproved", "permitted", "transferrable", "transferable", "locked", "valid", "isvalid"],
+
+  "components": {
+    "validation_parity": ["validate", "_validate", "check", "_check", "verify", "ensure", "_require"],
+    "recipient_parity": ["getoriginalowner", "resolve", "recipientof", "beneficiary", "ownerof", "originalowner"],
+    "cap_enforcement_parity": ["cap", "limit", "ceiling", "maxsupply", "borrowcap", "supplycap"],
+    "access_control_parity": ["onlyowner", "onlyadmin", "onlyrole", "onlygovernance", "onlymaintainer"]
+  },
+
+  "exclude_components": ["transfer", "ierc20", "ierc721", "address", "uint", "uint256", "bool", "bytes", "bytes32", "balanceof", "totalsupply", "length", "decimals", "abi", "keccak256", "require", "revert", "assert", "memory", "storage", "emit", "new", "block", "msg"],
+
+  "admin_modifiers": ["onlyowner", "onlyadmin", "onlyrole", "onlygovernance", "onlymaintainer", "onlymanager", "onlykeeper", "onlytimelock"],
+
+  "fp_controls": {
+    "multi_gate_cross_sibling": "a candidate requires ALL of: same action-verb prefix, same module directory (file parent), a shared storage-struct first parameter type, and >=2 shared called functions (shared subject). This is a far stronger sibling gate than intra-contract pairing, needed because cross-contract pairs are inherently noisier.",
+    "eligibility_guard_field_focus": "high confidence reserved for a missing GUARD on an eligibility-style flag (forSale/paused/disabled/...) that the strong sibling checks and the weak sibling omits while operating on the same shared object",
+    "view_functions_included": "unlike the intra-contract lens, validator functions are view/pure and ARE the target; mutation is NOT required, shared-subject calls replace the mutating-path gate",
+    "weak_must_be_external": "the omitting (weak) sibling must be external/public",
+    "wrapper_suppression": "if one sibling forwards to the other, suppress",
+    "both_admin_suppression": "if both siblings are admin-gated, asymmetry is intended",
+    "controlled_component_filter": "missing component tokens must be eligibility-vocab guard fields or components[] calls; uppercase-initial tokens (events/interface casts) and exclude_components are dropped"
+  }
+}

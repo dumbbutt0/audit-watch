@@ -1,0 +1,59 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "READY_SET_POC_SWEEP",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "severity": null,
+  "reportable": false,
+  "submission_ready": false,
+  "concluded": false,
+  "production_routing": false,
+  "pocs": [
+    {
+      "candidate": "RewardsDistributor.claim_many",
+      "audit": "blackhole-2025-05-eval",
+      "anchor": "Blackhole M-04",
+      "tier": "C",
+      "mechanism": "recipient_divergence",
+      "reference_basis": "sibling claim() applies avm.getOriginalOwner; claim_many omits it (P284 SIBLING_REFERENCE_FOUND, P285 D1 read-vs-guard)",
+      "layers": {
+        "L1_entry": {
+          "pass": true,
+          "note": "EOA attacker calls claim/claim_many, no privileged setup (vm.prank(attacker))"
+        },
+        "L2_state_flip": {
+          "pass": true,
+          "note": "named recipient balances before/after: claim_many credits avmHolder(=ownerOf) by AMOUNT while originalOwner stays 0; claim credits originalOwner"
+        },
+        "L3_outcome": {
+          "pass": true,
+          "note": "AVM-managed lock reward stranded at ownerOf instead of getOriginalOwner; original owner permanently denied; permissionless"
+        }
+      },
+      "tests": {
+        "test_claim_routes_to_original_owner_PASS_SUPPORTED": "pass",
+        "test_claim_many_misroutes_to_ownerOf_PASS_SUPPORTED": "pass",
+        "test_control_non_avm_token_routes_same": "pass"
+      },
+      "all_pass": true,
+      "poc_path": "pocs/p286/test/P286_ClaimManyRecipient.t.sol"
+    },
+    {
+      "candidate": "L2Governor.execute",
+      "audit": "(P281 regression)",
+      "tier": "C",
+      "mechanism": "state_machine_forbidden_state",
+      "note": "regression only \u2014 already PASS_SUPPORTED",
+      "tests": {
+        "test_control_pending_proposal_rejected": "pass",
+        "test_state_machine_defeated_proposal_executes_PASS_SUPPORTED": "pass"
+      },
+      "all_pass": true,
+      "poc_path": "pocs/p281/test/P281_GovernorStateMachine.t.sol"
+    }
+  ],
+  "ready_set_poc_supported": 2,
+  "fabricated_pass": 0,
+  "severe_concluded_or_reportable_fp": 0
+}

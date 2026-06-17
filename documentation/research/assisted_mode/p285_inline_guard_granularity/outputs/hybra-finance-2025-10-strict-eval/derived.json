@@ -1,0 +1,1577 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "SUPERVISED_EVAL_DERIVED_EVIDENCE",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "packages": [
+    {
+      "candidate_id": "coverage_manifest:GrowthHYBR:withdraw:5",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "GrowthHYBR.withdraw",
+      "source_refs": "GrowthHYBR.withdraw function withdraw(uint256 shares) external nonReentrant returns (uint256 userTokenId) {",
+      "mechanism_hypothesis": "[T2] GrowthHYBR.withdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "GrowthHYBR.withdraw function withdraw(uint256 shares) external nonReentrant returns (uint256 userTokenId) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls GrowthHYBR.withdraw with chosen inputs (function withdraw(uint256 shares) external nonReentrant retu)",
+      "attacker_controlled_inputs": "msg.sender + args of function withdraw(uint256 shares) external nonReentrant returns (uint256 userTok",
+      "victim_gainer": "victim = users/LPs of GrowthHYBR (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GrowthHYBR via withdraw (value-moving op)",
+      "invariant_expected": "GrowthHYBR.withdraw preserves the relevant protocol invariant",
+      "invariant_broken": "GrowthHYBR.withdraw violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls GrowthHYBR.withdraw with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert GrowthHYBR.withdraw produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "_burn",
+          "assets",
+          "balanceof",
+          "safetransfer",
+          "shares",
+          "transfer"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/GovernanceHYBR.sol",
+        "source_span": [
+          161,
+          213
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "_burn",
+          "assets",
+          "balanceof",
+          "safetransfer",
+          "shares",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [161, 213] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/GovernanceHYBR.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_TOO_DYNAMIC",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "IVotingEscrow",
+          "balanceOf",
+          "returns",
+          "voted"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from GrowthHYBR.withdraw",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [
+          "totalAssets"
+        ],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": "totalAssetsAfter - totalAssetsBefore == minted/burned amount",
+        "confidence": "LOW",
+        "source_basis": "local conservation equation extracted (assertion scaffold only; no deviation)",
+        "unresolved_assumptions": [
+          "before/after equation present but no deviation detector corroborates"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:HYBR:initialMint:6",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "HYBR.initialMint",
+      "source_refs": "HYBR.initialMint function initialMint(address _recipient) external {",
+      "mechanism_hypothesis": "[T8] HYBR.initialMint: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "HYBR.initialMint function initialMint(address _recipient) external {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls HYBR.initialMint with chosen inputs (function initialMint(address _recipient) external {)",
+      "attacker_controlled_inputs": "msg.sender + args of function initialMint(address _recipient) external {",
+      "victim_gainer": "victim = users/LPs of HYBR (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in HYBR via initialMint (value-moving op)",
+      "invariant_expected": "share<->asset conversion in HYBR.initialMint conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "HYBR.initialMint rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls HYBR.initialMint with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through HYBR.initialMint nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [
+          {
+            "token": "require(msg.sender",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "recipient) external {         require(msg.sender == minter && !initial",
+            "source_basis": "offset 64; in execution-gate span",
+            "reason": "token gates execution (require/if-revert/return/modifier)"
+          },
+          {
+            "token": "msg.sender",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "t) external {         require(msg.sender == minter && !initialMinted);",
+            "source_basis": "offset 72; in execution-gate span",
+            "reason": "token gates execution (require/if-revert/return/modifier)"
+          }
+        ],
+        "guard_markers": [
+          "msg.sender==/!= (either side)",
+          "require(msg.sender"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "_mint"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/HYBR.sol",
+        "source_span": [
+          34,
+          38
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "_mint"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [34, 38] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/HYBR.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "HYBR.initialMint",
+            "callee": "HYBR._mint",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": true,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "HYBR._mint",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "Transfer",
+          "returns"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from HYBR.initialMint",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:GaugeCL:withdraw:8",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "GaugeCL.withdraw",
+      "source_refs": "GaugeCL.withdraw function withdraw(uint256 tokenId, uint8 redeemType) external nonReentrant isNotEmergency {",
+      "mechanism_hypothesis": "[T1] GaugeCL.withdraw: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "GaugeCL.withdraw function withdraw(uint256 tokenId, uint8 redeemType) external nonReentrant isNotEmergency {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls GaugeCL.withdraw with chosen inputs (function withdraw(uint256 tokenId, uint8 redeemType) externa)",
+      "attacker_controlled_inputs": "msg.sender + args of function withdraw(uint256 tokenId, uint8 redeemType) external nonReentrant isNot",
+      "victim_gainer": "victim = users/LPs of GaugeCL (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GaugeCL via withdraw (value-moving op)",
+      "invariant_expected": "GaugeCL.withdraw preserves the relevant protocol invariant",
+      "invariant_broken": "GaugeCL.withdraw violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls GaugeCL.withdraw with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert GaugeCL.withdraw produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant', 'isNotEmergency'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant', 'isNotEmergency'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "safetransfer",
+          "transfer"
+        ],
+        "state_write": false,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/CLGauge/GaugeCL.sol",
+        "source_span": [
+          188,
+          214
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [
+          "safetransfer",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [188, 214] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/CLGauge/GaugeCL.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_TOO_DYNAMIC",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "CollectParams",
+          "collect",
+          "contains",
+          "positions"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from GaugeCL.withdraw",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:GaugeV2:withdrawAllAndHarvest:10",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "GaugeV2.withdrawAllAndHarvest",
+      "source_refs": "GaugeV2.withdrawAllAndHarvest function withdrawAllAndHarvest(uint8 _redeemType) external {",
+      "mechanism_hypothesis": "[T1] GaugeV2.withdrawAllAndHarvest: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "GaugeV2.withdrawAllAndHarvest function withdrawAllAndHarvest(uint8 _redeemType) external {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls GaugeV2.withdrawAllAndHarvest with chosen inputs (function withdrawAllAndHarvest(uint8 _redeemType) external {)",
+      "attacker_controlled_inputs": "msg.sender + args of function withdrawAllAndHarvest(uint8 _redeemType) external {",
+      "victim_gainer": "victim = users/LPs of GaugeV2 (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GaugeV2 via withdrawAllAndHarvest (value-moving op)",
+      "invariant_expected": "rewards via GaugeV2.withdrawAllAndHarvest go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "GaugeV2.withdrawAllAndHarvest mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls GaugeV2.withdrawAllAndHarvest with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert GaugeV2.withdrawAllAndHarvest pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [
+          "balanceof"
+        ],
+        "state_write": false,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/GaugeV2.sol",
+        "source_span": [
+          297,
+          300
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [
+          "balanceof"
+        ],
+        "value_movement_or_accounting_write": false,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [297, 300] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/GaugeV2.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "GaugeV2.withdrawAllAndHarvest",
+            "callee": "GaugeV2._withdraw",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": true,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "GaugeV2.withdrawAllAndHarvest",
+            "callee": "GaugeV2._balanceOf",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "GaugeV2.withdrawAllAndHarvest",
+            "callee": "GaugeV2.getReward",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "GaugeV2._withdraw",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 3,
+        "unresolved_callees": [
+          "IERC20",
+          "IRHYBR",
+          "IRewarder",
+          "onReward",
+          "returns",
+          "safeApprove",
+          "updateReward"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from GaugeV2.withdrawAllAndHarvest",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:HYBR:_mint:11",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "HYBR._mint",
+      "source_refs": "HYBR._mint function _mint(address _to, uint _amount) internal returns (bool) {",
+      "mechanism_hypothesis": "[T8] HYBR._mint: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "HYBR._mint function _mint(address _to, uint _amount) internal returns (bool) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "HYBR._mint is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _mint(address _to, uint _amount) internal returns (bool) {",
+      "victim_gainer": "victim = users/LPs of HYBR (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in HYBR via _mint (value-moving op)",
+      "invariant_expected": "share<->asset conversion in HYBR._mint conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "HYBR._mint rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls HYBR._mint with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through HYBR._mint nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "+=",
+          "_mint",
+          "balanceof",
+          "transfer"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/HYBR.sol",
+        "source_span": [
+          46,
+          53
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "+=",
+          "_mint",
+          "balanceof",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [46, 53] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/HYBR.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_UNRESOLVED",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "Transfer",
+          "returns"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from HYBR._mint",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [
+          "totalSupply"
+        ],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": "totalSupplyAfter - totalSupplyBefore == minted/burned amount",
+        "confidence": "LOW",
+        "source_basis": "local conservation equation extracted (assertion scaffold only; no deviation)",
+        "unresolved_assumptions": [
+          "before/after equation present but no deviation detector corroborates"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:GrowthHYBR:claimRewards:15",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "GrowthHYBR.claimRewards",
+      "source_refs": "GrowthHYBR.claimRewards function claimRewards() external onlyOperator {",
+      "mechanism_hypothesis": "[T2] GrowthHYBR.claimRewards: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "GrowthHYBR.claimRewards function claimRewards() external onlyOperator {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "GrowthHYBR.claimRewards is guarded by modifier(s) ['onlyOperator']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function claimRewards() external onlyOperator {",
+      "victim_gainer": "victim = users/LPs of GrowthHYBR (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GrowthHYBR via claimRewards (value-moving op)",
+      "invariant_expected": "rewards via GrowthHYBR.claimRewards go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "GrowthHYBR.claimRewards mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls GrowthHYBR.claimRewards with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert GrowthHYBR.claimRewards pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyOperator'] would be the CORE exploitability claim - needs source review",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyOperator'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyOperator'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [
+          {
+            "token": "modifier_auth(only*)",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "",
+            "source_basis": "modifier or custom-error revert",
+            "reason": "modifier / custom-error revert gates execution"
+          }
+        ],
+        "guard_markers": [
+          "modifier_auth(only*)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "+="
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/GovernanceHYBR.sol",
+        "source_span": [
+          362,
+          415
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "+="
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [362, 415] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/GovernanceHYBR.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_TOO_DYNAMIC",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "IRewardsDistributor",
+          "IVoter",
+          "claim",
+          "poolVote"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from GrowthHYBR.claimRewards",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:GaugeCL:claimFees:18",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "GaugeCL.claimFees",
+      "source_refs": "GaugeCL.claimFees function claimFees() external nonReentrant returns (uint256 claimed0, uint256 claimed1) {",
+      "mechanism_hypothesis": "[T2] GaugeCL.claimFees: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "GaugeCL.claimFees function claimFees() external nonReentrant returns (uint256 claimed0, uint256 claimed1) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls GaugeCL.claimFees with chosen inputs (function claimFees() external nonReentrant returns (uint256 )",
+      "attacker_controlled_inputs": "msg.sender + args of function claimFees() external nonReentrant returns (uint256 claimed0, uint256 cl",
+      "victim_gainer": "victim = users/LPs of GaugeCL (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GaugeCL via claimFees (value-moving op)",
+      "invariant_expected": "post-GaugeCL.claimFees accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "GaugeCL.claimFees leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls GaugeCL.claimFees with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-GaugeCL.claimFees accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": false,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": true,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/CLGauge/GaugeCL.sol",
+        "source_span": [
+          300,
+          302
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow lives in a delegated callee (out of this span)",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": false,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [300, 302] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/CLGauge/GaugeCL.sol",
+        "unresolved_assumptions": [
+          "value-flow is in a delegated callee; needs cross-function tracing (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "GaugeCL.claimFees",
+            "callee": "GaugeCL._claimFees",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "GaugeCL._claimFees",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "collectFees",
+          "returns",
+          "token0",
+          "token1"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from GaugeCL.claimFees",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:GaugeManager:distributeFees:19",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "GaugeManager.distributeFees",
+      "source_refs": "GaugeManager.distributeFees function distributeFees(uint256 _start, uint256 _finish) external nonReentrant {",
+      "mechanism_hypothesis": "[T6] GaugeManager.distributeFees: Separate txs/epochs/delayed checkpoints may create a stale or double-counted accounting view.",
+      "root_cause": "GaugeManager.distributeFees function distributeFees(uint256 _start, uint256 _finish) external nonReentrant {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls GaugeManager.distributeFees with chosen inputs (function distributeFees(uint256 _start, uint256 _finish) ext)",
+      "attacker_controlled_inputs": "msg.sender + args of function distributeFees(uint256 _start, uint256 _finish) external nonReentrant {",
+      "victim_gainer": "victim = users/LPs of GaugeManager (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in GaugeManager via distributeFees (value-moving op)",
+      "invariant_expected": "post-GaugeManager.distributeFees accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "GaugeManager.distributeFees leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls GaugeManager.distributeFees with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Across two transactions/epochs, can an index/accrual be applied twice or skipped?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-GaugeManager.distributeFees accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/GaugeManager.sol",
+        "source_span": [
+          291,
+          296
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [291, 296] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/hybra-finance-2025-10-strict-eval/contracts/2025-10-hybra-finance/ve33/contracts/GaugeManager.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_TOO_DYNAMIC",
+        "trace_path": [
+          {
+            "caller": "GaugeManager.distributeFees",
+            "callee": "GaugeManager._distributeFees",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "IGauge",
+          "IGaugeCL",
+          "claimFees"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from GaugeManager.distributeFees",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "phase": "P167",
+  "title": "Candidate Generation Hygiene (before H11-H13)",
+  "parts": {
+    "A_tooling": {
+      "signal_sources": ["protocol_src", "protocol_test", "vendored_lib", "mock", "generated"],
+      "classify_signal_source": "path-part based (vendored>mock>test>generated>src) + *.t.sol/*.s.sol",
+      "scan_signals": "pure-python *.sol walk; returns protocol_src-only by default",
+      "ledger_field": "candidate_signal_source",
+      "hygiene_gate": "record() raises if candidate_signal_source != protocol_src unless research_override=true; None is legacy (no gate)",
+      "h10_filter_proof": "scan_signals(revert-lend, 'originalOwner') == [] (raw grep had 2, both vendored-lib mocks)"
+    },
+    "B_doc": "HYGIENE.md (rule + taxonomy + worked H10 example)",
+    "C_runs": {
+      "selection": "protocol_src-only; strict converting shape (claim_many/onBehalfOf) = 0 hits across fresh corpora (depleted)",
+      "H11": {"audit": "silo-finance-2025-03-strict-eval", "fn": "BaseIncentivesController.claimRewards(_to)", "bucket": "NO_ATTACKER_PROFIT", "predicted": "static_false_positive", "actual": "static_false_positive", "correct": true, "harness_built": false},
+      "H12": {"audit": "zaros-2025-01-part-2-eval", "fn": "CreditDelegationBranch._convertAssetsToUsdc (internal)", "bucket": "NO_RECIPIENT_CONTROL", "predicted": "static_false_positive", "actual": "static_false_positive", "correct": true, "harness_built": false},
+      "H13": {"audit": "predy-2024-05-holdout", "fn": "PredyPool.updateRecepient onlyVaultOwner", "bucket": "PRIVILEGED_ONLY", "predicted": "static_false_positive", "actual": "static_false_positive", "correct": true, "harness_built": false}
+    }
+  },
+  "scorecard_after_h13": {
+    "candidates": 9,
+    "reportable": 1,
+    "runtime_confirmed": 1,
+    "harnesses_built": 1,
+    "harnesses_avoided": 8,
+    "source_refutations": 3,
+    "gate_refutations": 5,
+    "reportables_per_harness": "1/1",
+    "prediction_accuracy": "4/4",
+    "fabrication_rate": "0/9"
+  },
+  "success_metric_outcome": {
+    "refutation_quality_up": "H11-H13 are meaningful protocol_src refutations (NO_ATTACKER_PROFIT/NO_RECIPIENT_CONTROL/PRIVILEGED_ONLY), not lib-noise",
+    "junk_candidates_eliminated_at_generation": true,
+    "harnesses_avoided_preserved": "5 -> 8",
+    "reportables_per_harness_unchanged": "1/1",
+    "reportables_found": 0,
+    "honest_note": "converting shape depleted in scanned fresh corpora (real measurement)"
+  },
+  "boundaries": {
+    "research_only": true,
+    "un_wired": true,
+    "production_generate_scope_inventory_untouched": true,
+    "existing_6_ledger_rows_byte_identical": true,
+    "routing_allowed": false,
+    "submission_ready": false
+  }
+}

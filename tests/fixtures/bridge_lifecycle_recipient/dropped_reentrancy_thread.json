@@ -1,0 +1,12 @@
+{
+  "_doc": "A promising BRIDGE reentrancy thread (T-04 shape) the synthesis tried to drop with a vague label. The bridge thread escalation gate must BLOCK because there is no escalated finding and no concrete invalidation.",
+  "promising_thread": {
+    "thread_id": "T-04", "invariant_id": "INV-03", "chain_id": "CH-01-withdraw", "verdict": "MEDIUM_THREAD",
+    "entry_conditions": "withdraw releases NFT via safeTransferFrom; receiver hook re-enters the bridge before escrow state settles",
+    "violation_path": ["Bridge.withdraw releases from escrow", "onERC721Received re-enters withdraw"],
+    "attacker_class": "malicious recipient contract", "impact_estimate": "NFT unbridgeable / escrow desync",
+    "evidence": "Escrow._withdrawFromEscrow safeTransferFrom; no reentrancy guard"
+  },
+  "vague_drop_attempt": {"thread_id": "T-04", "exact_sink": "", "attacker_entrypoint": "", "resolution": {"type": "", "reason": "low confidence, already covered"}},
+  "valid_invalidation_example": {"thread_id": "T-04", "exact_sink": "Escrow._withdrawFromEscrow safeTransferFrom (Escrow.sol:79)", "attacker_entrypoint": "Bridge.withdraw(request) by listing recipient", "resolution": {"type": "bounded", "reason": "escrow slot is zeroed before the external transfer (CEI); a reentrant withdraw finds _escrow==0 and returns false, so no double-release — impact bounded to the attacker's own token"}}
+}

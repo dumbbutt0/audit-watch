@@ -1,0 +1,36 @@
+{
+  "phase": "P139",
+  "decision": "ACCEPT_SCAFFOLD",
+  "reason": "api_free=true => llm_runtime.llm_available()=False => no safe non-interactive LLM runner; jobs queued as pending_manual_execution, executed via in-session /deep-pass skill; never faked",
+  "what": "config-gated, capped auto-route of H-03-class value-provenance deep-pass jobs as advisory-only review context",
+  "noya_measurement": {
+    "vp_jobs": 2,
+    "jobs": ["SolvencyV2.convertAmountsToValues", "NoyaValueOracle._getValue"],
+    "h03_target_NoyaValueOracle._getValue_present": true,
+    "config_setter_false_triggers": 0,
+    "skipped": 8,
+    "auto_run_status": "pending_manual_execution (all)",
+    "all_advisory_only_submission_false_requires_human": true,
+    "all_prompt_decision_pending_not_faked": true,
+    "rendered_in_review_gate_subsection": true,
+    "disclaimer_requires_human_and_poc": true,
+    "in_validated_findings": false,
+    "confirmed_findings_count": 0,
+    "confirmed_count_unchanged": true,
+    "master_gate_off_ran": false
+  },
+  "trigger_tightening": "during measurement, fixed a precision bug: body reader overshot into neighboring functions and signal accepted any call -> config-setter loops (updateDefaultPriceSource/updateAssetPriceSource) falsely triggered and the H-03 target was cap-dropped. Fixed: read EXACT span from coverage_manifest + require a value-CONVERSION call in the loop region. Result: H-03 target surfaced, config-setter false triggers removed (5 jobs -> 2 real value-provenance loops).",
+  "tests": {"new": 14, "full_suite": "1621 passed, 2 pre-existing snapshot fails, 4 skipped"},
+  "safety": {
+    "advisory_only": true, "submission_ready": false, "requires_human_review": true,
+    "faked_llm_execution": false, "confirmed_or_severity_assigned": false,
+    "non_blocking_pipeline_calls": true, "master_gate_disables": true, "fail_open": true,
+    "research_only_excluded_by_default": true
+  },
+  "integrity": {
+    "files_changed": ["scripts/run_value_provenance_advisories.py (new)", "scripts/generate_review_gate.py (+VP subsection)", "config/agent_policy.json (+value_provenance_auto_run block)", "run_pipeline.sh (+1 call x2)", "tests/mechanism_advisory/test_value_provenance_auto_advisory.py (new)"],
+    "detector_severity_submission_gate_logic_changed": false,
+    "bash_n_clean": true, "self_test": "OK",
+    "active_audit_restored": "quantamm-2024-12-eval", "noya_state_restored": true
+  }
+}

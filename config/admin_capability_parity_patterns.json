@@ -1,0 +1,32 @@
+{
+  "lens": "admin_capability_parity",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Generalized CLASS of the P304 centrifuge M-06 miss: an admin/role/Auth contract exposes one half of a known capability PAIR (add/remove, pause/unpause, grant/revoke, schedule/cancel, freeze/unfreeze, enable/disable, rely/deny, lock/unlock, register/deregister) but NOT the inverse -> a granted capability cannot be reversed (e.g. a pauser can pause but not be un-paused / revoked promptly). Two-signal: S1 the contract is an admin/role/Auth contract; S2 a capability-pair half is present (external/public) while its inverse is absent. Suppress: non-admin contracts; pairs where both halves present. Anchor: centrifuge admins/PauseAdmin.sol exposes `pause` but no `unpause` (capability asymmetry in the M-06 admin layer). HONEST SCOPE: generalizes the admin capability-asymmetry class / recalls the M-06 subsystem; the exact cross-contract DelayedAdmin<->PauseAdmin role-graph gap is a role-graph nuance beyond a static lens.",
+
+  "admin_markers": ["auth", " wards", "wards[", "pausers", "pausers[", "onlyrole", "hasrole", "root.", " ward ", "accesscontrol", "ownable", "onlyowner", "grantrole", "_checkrole"],
+  "admin_name_terms": ["admin", "pauser", "guardian", "timelock", "rolemanager", "governor", "governance", "authority"],
+
+  "capability_pairs": [
+    ["add", "remove"], ["remove", "add"],
+    ["grant", "revoke"], ["revoke", "grant"],
+    ["rely", "deny"], ["deny", "rely"],
+    ["register", "deregister"], ["deregister", "register"],
+    ["enable", "disable"], ["disable", "enable"],
+    ["pause", "unpause"], ["unpause", "pause"],
+    ["freeze", "unfreeze"], ["unfreeze", "freeze"],
+    ["lock", "unlock"], ["unlock", "lock"],
+    ["schedule", "cancel"]
+  ],
+
+  "_doc_role_gate": "add/remove & register/deregister fire ONLY when the suffix is a role/permission noun, so append-only registries (addPool/addCurrency/addTranche) are not flagged — only reversible role grants (addPauser/addMinter/...).",
+  "role_restricted_pairs": [["add", "remove"], ["remove", "add"], ["register", "deregister"], ["deregister", "register"]],
+  "role_suffix_terms": ["pauser", "minter", "burner", "member", "router", "operator", "manager", "ward", "admin", "guardian", "keeper", "relayer", "signer", "spender", "whitelist", "blacklist", "role", "caller", "controller", "owner", "delegate"],
+
+
+  "fp_controls": {
+    "two_signal_required": "S1 admin/role/Auth contract AND S2 a capability-pair half present (external/public) with its inverse absent.",
+    "camelcase_boundary": "a prefix only matches at a camelCase boundary (addPauser, not 'additional') — the char after the prefix must be uppercase or end-of-name.",
+    "both_halves_suppression": "if both halves of the pair exist on the contract -> symmetric -> silent.",
+    "non_admin_suppression": "a contract with no admin/role/Auth marker -> silent (avoids flagging core protocol verbs)."
+  }
+}

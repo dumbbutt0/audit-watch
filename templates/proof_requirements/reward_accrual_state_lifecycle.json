@@ -1,0 +1,32 @@
+{
+  "bug_class": "reward_accrual_state_lifecycle",
+  "description": "A per-user reward-accrual lifecycle is broken by an omitted state reset/update: a dirty/stale flag, a per-user reward checkpoint, or a reward debt/index is set on one path but never cleared/advanced on recovery, so a validly-participating user permanently (or until an abnormal action like unstake+restake) stops accruing or cannot claim owed rewards. Anchored on the Munchables 2024-07 H-05 case (dirty flag set in _farmPlots, never reset in transferToUnoccupiedPlot -> permanent reward loss on a valid plot).",
+  "required_for_medium": [
+    "reward_accrual_halted_proven",
+    "state_flag_or_checkpoint_not_reset_proven"
+  ],
+  "required_for_high": [
+    "reward_accrual_halted_proven",
+    "state_flag_or_checkpoint_not_reset_proven",
+    "permanent_or_unrecoverable_reward_loss_proven",
+    "loss_or_blocked_path_quantified"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "a participant is in a valid reward-earning state; trigger the path that sets the dirty/stale flag (or skips the checkpoint update)",
+    "L3B": "restore the valid state (e.g. move to a valid plot / re-lock / re-enter); assert the flag/checkpoint is NOT reset (read the storage slot before/after)",
+    "L3C": "assert the participant accrues 0 (or strictly less than the recoverable baseline) / cannot claim owed reward, and that no normal later action recovers it (only unstake+restake / abnormal action does)"
+  },
+  "poc_level_requirements": {
+    "L3A": ["reward_accrual_halted_proven"],
+    "L3B": ["reward_accrual_halted_proven", "state_flag_or_checkpoint_not_reset_proven"],
+    "L3C": ["reward_accrual_halted_proven", "state_flag_or_checkpoint_not_reset_proven", "permanent_or_unrecoverable_reward_loss_proven", "loss_or_blocked_path_quantified"]
+  },
+  "proof_signatures": {
+    "reward_accrual_halted_proven": ["continue", "skipped", "dirty", "accrues 0", "no reward", "earns nothing"],
+    "state_flag_or_checkpoint_not_reset_proven": ["dirty = true", "never reset", "not set to false", "checkpoint not updated", "lastReward not advanced", "rewardDebt stale"],
+    "permanent_or_unrecoverable_reward_loss_proven": ["permanent", "until unstake", "not recoverable", "only by restake", "forever"],
+    "loss_or_blocked_path_quantified": ["reward lost", "delta", "baseline vs", "blocked claim", "owed but unclaimable"]
+  },
+  "high_severity_rationale": "High requires proving the reward loss is permanent / not recoverable by a normal later action (only an abnormal action such as unstake+restake recovers it) AND quantifying the lost reward or the blocked claim path. Medium is proven by showing accrual is halted and the flag/checkpoint is not reset, without a permanence/quantified-loss proof. NOTE: a bounded/lazy reward mismatch that self-corrects on the next normal claim is NOT this class -> route to Low via the severity gate (P86).",
+  "negative_control_template": "Reset the dirty/stale flag to false (or advance the per-user reward checkpoint / clear the reward debt) on the recovery path (e.g. inside transferToUnoccupiedPlot / on re-entry), and set lastRewardDate to block.timestamp. Assert the participant resumes accruing the recoverable baseline and can claim owed reward, with no other change."
+}

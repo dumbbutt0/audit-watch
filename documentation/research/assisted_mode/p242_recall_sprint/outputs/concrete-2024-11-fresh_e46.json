@@ -1,0 +1,42 @@
+{
+  "lens": "erc4626_share_accounting",
+  "generated_at": "2026-06-08T22:59:36.236898+00:00",
+  "manifest": "audits/concrete-2024-11-fresh/output/coverage_manifest.json",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "raw_candidates": 1,
+  "by_confidence": {
+    "high": 1
+  },
+  "high": 1,
+  "medium": 0,
+  "low": 0,
+  "candidates": [
+    {
+      "finding_shape": "erc4626_convert_in_max_misuse",
+      "confidence": "high",
+      "function_kind": "max/limit",
+      "approx_call": "converttoassets(",
+      "wraps_external_max": true,
+      "explanation": "ConcreteMultiStrategyVault.maxMint is an ERC-4626 max/limit function that uses the APPROXIMATE converttoassets( wrapping an external max* redemption instead of the EIP-4626-mandated exact preview* \u2014 so it may over/under-report, breaking 4626 compliance and downstream integrations (PoolTogether M-02 class).",
+      "signals": {
+        "S1_is4626": true,
+        "S2_approx_convert": [
+          "converttoassets("
+        ],
+        "S2_wraps_external_max": true,
+        "fn": "maxMint"
+      },
+      "contract": "ConcreteMultiStrategyVault",
+      "function": "maxMint",
+      "file": "audits/concrete-2024-11-fresh/_src/src/vault/ConcreteMultiStrategyVault.sol",
+      "lens_id": "ConcreteMultiStrategyVault:maxMint:erc4626_share_accounting",
+      "in_scope": true,
+      "manifest_id": "function:ConcreteMultiStrategyVault:maxMint#94df99bc",
+      "file_line_refs": "audits/concrete-2024-11-fresh/_src/src/vault/ConcreteMultiStrategyVault.sol:657",
+      "false_positive_controls": "two-signal (is-4626 vault context + max/limit/preview fn using approximate convertTo* where EIP-4626 mandates preview*); non-4626 / preview-correct / documented suppressed; narrow scope (precision over recall)"
+    }
+  ]
+}

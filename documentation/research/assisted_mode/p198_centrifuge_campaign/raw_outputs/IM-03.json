@@ -1,0 +1,24 @@
+{
+  "surface": "InvestmentManager.handleExecutedDecreaseInvestOrder",
+  "mechanism_inventory": [
+    "missing invariant enforcement — no check currencyPayout <= outstanding decrease-order amount",
+    "victim accounting direction — transfers currency to user WITHOUT updating any per-user/per-pool ledger (no order-fulfilled flag) -> accounting diverges from balances",
+    "access-control mismatch — user is arbitrary message-supplied address, not bound to an on-chain order",
+    "wrong lifecycle ordering — no verification a matching decreaseInvestOrder exists / correct epoch (replay)",
+    "external-call DoS — safeTransferFrom reverts (insufficient escrow / blacklist) bricks payout"
+  ],
+  "selected_mechanisms": [
+    {"root_cause":"transfers currencyPayout from escrow to user but writes NO accounting state (no fulfilled flag) -> replay/double-delivery passes all requires and pays again","who_loses":"Escrow (double payout) or DoS'd recipient","who_gains":"user/attacker double payout","why_carried":"no accounting write in function body; replay not idempotent; fund-loss"},
+    {"root_cause":"user is message-supplied, no binding to the on-chain order owner -> payout redirected","who_loses":"legitimate investor","who_gains":"attacker user address","why_carried":"different auth path (identity vs accounting); no owner check; >=High if message integrity not guaranteed"}
+  ],
+  "unresolved_mechanisms": [
+    {"mechanism":"out-of-epoch / non-existent-order payout","unresolved_question":"does Gateway enforce epoch+order existence upstream?","who_loses":"Escrow/other users","status":"NEEDS_HARNESS"},
+    {"mechanism":"safeTransferFrom DoS (blacklist/FoT)","unresolved_question":"recovery path if permanent revert?","who_loses":"blacklisted user","status":"NEEDS_HARNESS"}
+  ],
+  "rejected_mechanisms": [
+    {"mechanism":"currencyPayout exceeds outstanding order amount","claimed_locus":"currencyPayout","rejecting_source_fact":"currencyPayout is Gateway-originated (onlyGateway); Gateway is the trusted settlement layer for payout amount","why_unexploitable":"unprivileged attacker cannot inflate without compromising Gateway","leans_on_unproven_guard":false}
+  ],
+  "impact_direction":"attacker gets double payout (replay) or redirected payout (user-field); escrow/investor loses; not dust",
+  "stop_condition":"more_mechanisms_pending: epoch-state + DoS NEEDS_HARNESS",
+  "verdict":"HIGH_THREAD"
+}

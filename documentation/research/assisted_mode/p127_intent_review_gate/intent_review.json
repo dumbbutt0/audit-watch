@@ -1,0 +1,48 @@
+{
+  "phase": "P127",
+  "type": "human intent review gate (judgment gate, not automation gate)",
+  "control_fact": {
+    "ref": "P126-F",
+    "summary": "permissionless LiquidityManager.moveLiquidity() + donation-inflatable end-criterion gate => an external donor can force lifecycle graduation early by self-funding the full threshold",
+    "runtime_facts": "self-funded (cost = gate amount); profit-less (attacker recoups 0; donation -> agent-owned LP); no funds stuck/stolen; irreversible (monotonic stage + permanent kill)"
+  },
+  "checks": {
+    "1_docs_require_organic_demand": "NO (README:73 threshold-only; Documentation N/A)",
+    "2_donation_to_target_explicitly_allowed": "NOT ADDRESSED (gate is source-agnostic; permitted-by-omission)",
+    "3_forced_migration_harm": "fees conserved + manipulation net-loss; BUT forces premature agent-alive + governance-active + irreversible liquidity move; NO funds stuck/stolen",
+    "4_cost_recoverable_indirectly": "not directly; possible indirect via early governance activation (UNPROVEN, = C2)",
+    "5_cost_non_credible": "UNKNOWN/configurable (effective bar = min of OR-ed targets; global target owner-mutable)",
+    "6_fair_launch_promised": "NO documented promise (README + N/A docs)",
+    "7_owner_mitigation_after": "NONE (monotonic Agent.setStage; permanent BootstrapPool.killed); only pre-set threshold"
+  },
+  "evidence": {
+    "readme_intent": "README.md:73 'intended to move liquidity ... given certain conditions are met'; 'Documentation: N/A'",
+    "readme_attack_focus": "README.md:215-216 'Graduation of agents and transfer of LP to Fraxswap' + 'funds getting stuck or stolen' (severity bar)",
+    "agent_alive_gate": "Agent.sol:41-43 onlyWhenAlive -> NotAlive while stage==0; Agent.sol:106 setStage monotonic (if _stage>stage)",
+    "governance_gate": "TokenGovernor.sol:75 proposalThreshold()==type(uint256).max while agent.stage()==0",
+    "or_gate": "LiquidityManager.sol:109-112 reserveCurrency >= targetCCYLiquidity || >= AgentFactory.targetCCYLiquidity",
+    "owner_threshold_control": "AgentFactory.sol:275 setTargetCCYLiquidity onlyOwner"
+  },
+  "verdict": "GRIEFING_NEEDS_MORE_CONTEXT",
+  "rationale": "real self-funded/profit-less/irreversible lifecycle-control primitive that satisfies the literal documented condition, violates no documented fair-launch promise, and causes no funds-stuck/stolen (argues acceptable); but forces premature graduation with no owner mitigation in a team-flagged attack area (graduation), and acceptability hinges on two unresolved context items",
+  "missing_context": {
+    "C1_cost_credibility": "intended threshold magnitude; effective bar = min of two OR-ed, owner-mutable targets",
+    "C2_downstream_harm": "does premature agent-alive + early governance enable a follow-on attack (governance capture / premature agent operation)? currently unproven"
+  },
+  "escalation_map": {
+    "to_ACCEPTABLE_SELF_FUNDED_CONTROL": "C1 high/credible cost AND C2 no downstream harm AND team confirms threshold-only graduation intended",
+    "to_REPORT_CANDIDATE_NEEDS_HUMAN_REVIEW": "C1 cheap/owner-lowerable bar OR C2 demonstrated downstream consequence",
+    "to_INTENDED_BEHAVIOR": "explicit protocol statement that donation-funded graduation is by design"
+  },
+  "routes_to_human": true,
+  "severity_claimed": null,
+  "exploitability_claimed": false,
+  "report_ready": false,
+  "submission_ready": false,
+  "harness_run": false,
+  "code_changed": false,
+  "rediscovered_M01": false,
+  "research_only": true,
+  "is_gate": false,
+  "routes_in_production": false
+}

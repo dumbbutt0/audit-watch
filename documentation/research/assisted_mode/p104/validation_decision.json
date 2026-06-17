@@ -1,0 +1,16 @@
+{
+  "research_only": true, "phase": "P104", "subject": "iq-ai-2025-01", "commit": "db0d369b8625c3b451ccba69c273a3de3ff99ff1",
+  "candidate": "LiquidityManager.moveLiquidity / addLiquidityToFraxswap",
+  "decision": "CONFIRMED",
+  "reproduced": true,
+  "harness": "Fraxtal mainnet fork @ block 12918968 via rpc.frax.com (archive); forge --evm-version cancun; deps via npm install (dev-fraxswap/OZ/forge-std).",
+  "vulnerable_test": "test_M01_attacker_precreate_low_fee_is_adopted -> PASS: migratedPair == attacker pre-created pair; adopted swap fee 1 bps vs intended 100 bps",
+  "measurable_impact": "protocol/agent LPs earn 1 bps instead of the intended 100 bps swap fee on the migrated pool (~99% lost fee revenue), for the life of the pool; attacker also controls the adopted pool's initial price/reserves.",
+  "root_cause": "addLiquidityToFraxswap adopts any pre-existing getPair() result and only sets the intended fee in the create-branch; permissionless moveLiquidity + permissionless createPair let an attacker choose the migrated pool's fee/price.",
+  "defense_coverage": "no covering guard (see defense_map.json)",
+  "minimal_mitigation_validated": true,
+  "mitigation_test": "M01PatchRegression: with require((10_000-pair.fee())==fee) the attacker pair makes moveLiquidity revert; clean migration still succeeds.",
+  "source_integrity": "in-scope LiquidityManager.sol restored to frozen hash 9a68efe4b6664f after the temporary guard test.",
+  "honesty": "derived + reproduced from source + an executable fork PoC; no answer-key wording used. Not submitted.",
+  "is_gate": false, "routes_in_production": false
+}

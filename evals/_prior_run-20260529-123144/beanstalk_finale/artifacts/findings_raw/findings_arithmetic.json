@@ -1,0 +1,131 @@
+{
+  "agent": "arithmetic",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-28T23:55:00+00:00",
+  "findings": [
+    {
+      "id": "AR-001",
+      "title": "LibChainlinkOracle.getTokenPrice inverts lookback: spot returned for TWAP",
+      "severity": "High",
+      "vuln_type": "oracle-manipulation",
+      "description": "LibChainlinkOracle.getTokenPrice (contracts/libraries/Oracle/LibChainlinkOracle.sol#39-48) selects the price source with an INVERTED ternary:\n\n    return lookback > 0\n        ? getPrice(priceAggregatorAddress, maxTimeout)        // <-- instantaneous SPOT\n        : getTwap(priceAggregatorAddress, maxTimeout, lookback); // <-- lookback==0 here\n\nThe semantics are backwards. The sibling oracle LibEthUsdOracle.getEthUsdPrice(lookback) (LibEthUsdOracle.sol#53-65) and the NatSpec everywhere in the codebase document the intended contract as: lookback > 0 => use the manipulation-resistant TWAP, lookback == 0 => use the instantaneous price. Here the two branches are swapped.\n\nConsequences:\n  (1) When a caller requests a TWAP (lookback > 0), getTokenPrice returns getPrice(...) \u2014 the single-round latestRoundData spot price \u2014 completely ignoring the requested averaging window. The manipulation-resistance the caller asked for is silently discarded.\n  (2) When a caller requests the instantaneous price (lookback == 0), it calls getTwap(...,0). getTwap computes t.endTimestamp = block.timestamp - 0 = block.timestamp; the first `if (timestamp <= t.endTimestamp)` branch is taken (the latest round timestamp is <= now), so it returns the spot price via the early return and the final `.div(lookback)` (div-by-zero) is never reached. So the lookback==0 path happens to still return spot \u2014 but only by accident of the early return.\n\nThe net live bug is (1): every TWAP request through this function returns a non-time-averaged value. This function is the generic chainlink price path used by LibUsdOracle.getTokenPriceFromExternal for encodeType 0x01 tokens (LibUsdOracle.sol#120-127) and as the stablecoin leg of the uniswap+chainlink encodeType 0x02 path (LibUsdOracle.sol#155-160). ETH and WSTETH bypass getTokenPrice (LibUsdOracle.getUsdPrice/getTokenPrice branch on C.WETH / C.WSTETH and call LibEthUsdOracle/LibWstethUsdOracle directly, which use the CORRECT ternary), so the current BEAN:ETH / BEAN:wstETH wells are not affected. The exposure is any whitelisted Well whose non-Bean token resolves to the default chainlink implementation (encodeType 0x01), or any token whose USD value is fetched with a non-zero lookback for manipulation resistance.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibChainlinkOracle.sol",
+        "function": "getTokenPrice",
+        "line_start": 39,
+        "line_end": 48,
+        "code_snippet": "return\n    lookback > 0\n        ? getPrice(priceAggregatorAddress, maxTimeout)\n        : getTwap(priceAggregatorAddress, maxTimeout, lookback);"
+      },
+      "impact": "For any whitelisted Well whose non-Bean token uses the default chainlink oracle (encodeType 0x01), the season minting oracle requests a TWAP (LibWellMinting.twaDeltaB -> LibWell.getRatiosAndBeanIndex(tokens, block.timestamp - season.timestamp) -> LibUsdOracle.getUsdPrice(token, lookback>0)) but receives the manipulable SPOT chainlink answer. The returned `ratios` feed calcReserveAtRatioSwap, which sets deltaB (LibWellMinting.sol#172-179) \u2014 the exact quantity of Beans minted in stepSun, and the soil/pod issuance derived from it. The same spot-for-twap substitution corrupts the LP-to-supply ratio (LibEvaluate.calcLPToSupplyRatio) and the excessive-price weather case (LibEvaluate.evalPrice). An attacker who skews the chainlink-priced token's spot feed (or sandwiches a thin feed update) at the season boundary biases the freshly minted supply distribution in their favour, defeating the TWA defense Beanstalk explicitly relies on.",
+      "recommendation": "Swap the ternary branches so the function matches its documented and sibling-oracle semantics:\n\n    return lookback > 0\n        ? getTwap(priceAggregatorAddress, maxTimeout, lookback)\n        : getPrice(priceAggregatorAddress, maxTimeout);\n\nAdd a regression test asserting that getTokenPrice(agg, timeout, 900) routes to getTwap and getTokenPrice(agg, timeout, 0) routes to getPrice. Consider reverting (rather than silently early-returning) inside getTwap when lookback == 0 to harden against future callers.",
+      "references": [
+        {
+          "title": "H-6: PerpDepository#getPositionValue uses incorrect value for TWAP interval allowing more than intended funds to be extracted (UXD Protocol)",
+          "url": "https://github.com/sherlock-audit/2023-01-uxd-judging/issues/249",
+          "source": "solodit"
+        }
+      ],
+      "confidence": "Medium",
+      "ite": {
+        "intent": "Bias the per-season Bean mint / soil sizing by manipulating the spot chainlink price of a whitelisted Well's non-Bean token in the block sunrise reads it, profiting from the mispriced freshly-minted supply.",
+        "technique": "Permissionless sunrise()->gm()->stepOracle() runs LibWellMinting.twaDeltaB, which calls LibWell.getRatiosAndBeanIndex(tokens, nonzero-lookback) -> LibUsdOracle.getUsdPrice(token, lookback) -> getTokenPriceFromExternal (encodeType 0x01) -> LibChainlinkOracle.getTokenPrice(agg, timeout, lookback>0). Because of the inverted ternary at LibChainlinkOracle.sol#44-46 this returns getPrice() (single-round spot) instead of the lookback TWAP. The spot value becomes `ratios`, which sets deltaB (LibWellMinting.sol#172) and hence uint256(deltaB) Beans minted in stepSun.",
+        "evasion": "The developer intended manipulation resistance via the TWA lookback (and correctly implemented it in LibEthUsdOracle/LibWstethUsdOracle). The gap is exactly the swapped branches in the generic chainlink helper LibChainlinkOracle.getTokenPrice, which silently drops the averaging window for any token routed through the default chainlink implementation."
+      },
+      "human_review_required": true,
+      "human_review_reason": "Exploit economics span the season boundary (multi-block oracle/minting reasoning) and the live impact is conditional on a Well being whitelisted whose non-Bean token uses the default chainlink (encodeType 0x01) oracle path; current BEAN:ETH/wstETH wells bypass the bug. Human must confirm the active whitelist and the feed-manipulability of any encodeType 0x01 token before finalizing severity.",
+      "attack_surface_rank": 5,
+      "assumption_count": 2,
+      "critical_assumptions": [
+        "A Well is whitelisted whose non-Bean token resolves to LibUsdOracle encodeType 0x01 (default chainlink) rather than the WETH/WSTETH special-case branches.",
+        "That token's chainlink spot feed is manipulable / sandwich-able at the season boundary enough to move deltaB profitably."
+      ],
+      "cross_agent_refs": [],
+      "ice_chain": {
+        "corrupted_state": "ratios[] returned by LibWell.getRatiosAndBeanIndex -> deltaB in LibWellMinting.twaDeltaB",
+        "consumer_found": true,
+        "consumer_function": "Sun.stepSun(int256 deltaB, uint256 caseId)",
+        "consumer_action": "Mints uint256(deltaB) Beans (C.bean().mint) and sizes soil/pod issuance off the corrupted price",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      }
+    },
+    {
+      "id": "AR-002",
+      "title": "LibWell USD/bean-price math hardcodes 18-decimal non-Bean token assumption",
+      "severity": "Medium",
+      "vuln_type": "arithmetic",
+      "description": "Several LibWell helpers scale Well reserves with hardcoded 1e18 / 1e6 factors that are only correct when the non-Bean token has 18 decimals. The functions even document the assumption ('assumes TKN has 18 decimals', LibWell.sol#178 and #216) but nothing enforces it on whitelist.\n\n  - getWellTwaUsdLiquidityFromReserves (LibWell.sol#134-155): for the in-season path it returns twaReserves[j].mul(1e18).div(tokenUsd) where tokenUsd is a 6-decimal USD/TKN price and twaReserves[j] is the non-Bean reserve in its NATIVE decimals. The 1e18 numerator presumes the reserve is 1e18-scaled. For the out-of-season path it returns LibUsdOracle.getTokenPrice(token).mul(twaReserves[j]).div(1e6) \u2014 again assuming the reserve carries 18 decimals so the result lands at 1e18 USD precision.\n  - getBeanTokenPriceFromTwaReserves (LibWell.sol#241-259): price = reserveBean.mul(1e18).div(reserveTkn) (or the inverse). The fixed 1e18 only yields a correctly-scaled TKN/BEAN price when Bean (6 dec) is paired against an 18-dec token; a 6-dec or 8-dec non-Bean token shifts the result by 10**(18-decimals).\n\nThese values are consumed by LibEvaluate.calcLPToSupplyRatio (usdLiquidity at LibEvaluate.sol#260, drives the L2SR weather case) and LibEvaluate.evalPrice (beanUsdPrice = 1e30 / (usdTokenPrice * beanTknPrice), LibEvaluate.sol#111-113, drives the excessive-price case 6). A non-18-decimal token would make usdLiquidity and beanUsdPrice wrong by a factor of 10**(18-decimals), pushing the L2SR/price weather cases into the wrong bucket and mis-sizing the season's stalk/soil/temperature response. This is a latent decimal-mismatch bug: currently inert because the live Wells use WETH/wstETH (both 18-dec), but it is triggered the moment governance whitelists a Well with a 6- or 8-decimal non-Bean token (e.g. USDC, WBTC).",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Well/LibWell.sol",
+        "function": "getWellTwaUsdLiquidityFromReserves / getBeanTokenPriceFromTwaReserves",
+        "line_start": 134,
+        "line_end": 259,
+        "code_snippet": "return twaReserves[j].mul(1e18).div(tokenUsd);\n...\nreturn LibUsdOracle.getTokenPrice(token).mul(twaReserves[j]).div(1e6);\n...\nprice = uint256(s.sys.twaReserves[well].reserve0).mul(1e18).div(s.sys.twaReserves[well].reserve1);"
+      },
+      "impact": "If a Well with a non-18-decimal non-Bean token is whitelisted, the computed USD liquidity and Bean USD price are off by 10**(18-decimals). This corrupts the liquidity-to-supply ratio and the excessive-price detection in LibEvaluate, selecting the wrong Weather caseId and therefore mis-issuing grown stalk, soil, and temperature changes for that Season \u2014 a systematic accounting distortion of core monetary policy rather than a direct single-tx drain.",
+      "recommendation": "Normalize reserves to a common precision using the token's actual decimals (e.g. multiply by 10**(18 - IERC20Decimals(token).decimals())) before applying the 1e18 scaling, or enforce on whitelist (LibFertilizer.beginBarnRaiseMigration / whitelist path) that the non-Bean token has exactly 18 decimals and revert otherwise. Replace the hardcoded 1e18/1e6 constants in getWellTwaUsdLiquidityFromReserves and getBeanTokenPriceFromTwaReserves with decimal-aware scaling.",
+      "references": [],
+      "confidence": "Medium",
+      "ite": {
+        "intent": "Cause Beanstalk to mis-evaluate the liquidity-to-supply ratio and Bean price for a Season, distorting stalk/soil/temperature issuance, by relying on a whitelisted Well whose non-Bean token is not 18 decimals.",
+        "technique": "After a non-18-dec token Well is whitelisted, sunrise->stepOracle stores native-decimal twaReserves; LibEvaluate.calcLPToSupplyRatio reads getWellTwaUsdLiquidityFromReserves (LibWell.sol#141/154 fixed 1e18/1e6) and evalPrice reads getBeanTokenPriceFromTwaReserves (LibWell.sol#250 fixed 1e18). The 10**(18-decimals) scale error flows into evalLpToSupplyRatio/evalPrice caseId selection and thus into LibGauge stalk/soil sizing.",
+        "evasion": "The code comments openly state 'assumes TKN has 18 decimals' but no whitelist check enforces it; the defense is purely conventional, so the first non-conforming Well silently produces wrong numbers."
+      },
+      "human_review_required": true,
+      "human_review_reason": "Triggered only by a governance whitelisting action (adding a non-18-decimal Well token); impact is on monetary-policy accounting rather than a direct fund flow. Human should weigh likelihood of such a whitelist against Beanstalk's roadmap and confirm no upstream decimal normalization exists in the pump/well function.",
+      "attack_surface_rank": 4,
+      "assumption_count": 1,
+      "critical_assumptions": [
+        "Governance whitelists a Well whose non-Bean token has != 18 decimals (current Wells use 18-dec WETH/wstETH, so the bug is presently inert)."
+      ],
+      "cross_agent_refs": [],
+      "ice_chain": {
+        "corrupted_state": "usdLiquidity / beanUsdPrice computed in LibEvaluate from LibWell helpers",
+        "consumer_found": true,
+        "consumer_function": "LibEvaluate.evalLpToSupplyRatio / LibEvaluate.evalPrice (-> Weather caseId -> LibGauge issuance)",
+        "consumer_action": "Selects the Weather case that sets grown-stalk-per-season, soil, and temperature for the Season",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      }
+    },
+    {
+      "id": "AR-003",
+      "title": "addMigratedUnderlying credits trusted amount, not measured balance diff",
+      "severity": "Informational",
+      "vuln_type": "arithmetic",
+      "description": "UnripeFacet.addMigratedUnderlying (contracts/beanstalk/barn/UnripeFacet.sol#284-295) does safeTransferFrom(user, this, amount) then LibUnripe.incrementUnderlying(unripeToken, amount), crediting the caller-supplied `amount` rather than the actually-received balance delta. If the underlying token charges a fee-on-transfer or rebases down, balanceOfUnderlying is credited more than was received, breaking the invariant balanceOfUnderlying <= actual token balance and over-valuing chop/redemption math (unripeToUnderlying / _getUnderlying read balanceOfUnderlying). The same trust-the-amount pattern (vs the balance-diff accounting that LibTransfer.receiveToken uses) appears here. However the function is gated by LibDiamond.enforceIsContractOwner() and nonReentrant, the underlying token is owner-chosen, and it carries noNetFlow/noSupplyChange invariant guards, so this is a privileged-only correctness/operational concern, not a permissionless exploit.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/barn/UnripeFacet.sol",
+        "function": "addMigratedUnderlying",
+        "line_start": 284,
+        "line_end": 295,
+        "code_snippet": "IERC20(s.sys.silo.unripeSettings[unripeToken].underlyingToken).safeTransferFrom(LibTractor._user(), address(this), amount);\nLibUnripe.incrementUnderlying(unripeToken, amount);"
+      },
+      "impact": "Owner-only: if a fee-on-transfer/rebasing underlying is ever set, balanceOfUnderlying is over-credited, inflating per-unripe redemption (unripeToUnderlying) above the real backing. No permissionless path; requires owner to migrate to a non-standard underlying.",
+      "recommendation": "Measure the balance delta (balanceAfter - balanceBefore) and pass that to incrementUnderlying, mirroring LibTransfer.receiveToken's fee-on-transfer-safe accounting, instead of trusting `amount`.",
+      "references": [],
+      "confidence": "High",
+      "ite": {
+        "intent": "(Privileged) Over-credit Unripe Token underlying backing if a fee-on-transfer underlying is migrated in, inflating later redemptions.",
+        "technique": "addMigratedUnderlying transfers `amount` then incrementUnderlying(amount) without measuring received balance (UnripeFacet.sol#289-294).",
+        "evasion": "enforceIsContractOwner + nonReentrant + noNetFlow gate the function; the residual gap is only the unmeasured FoT delta, reachable solely by the owner choosing a non-standard underlying."
+      },
+      "human_review_required": false,
+      "attack_surface_rank": 3,
+      "assumption_count": 2,
+      "critical_assumptions": [
+        "Contract owner is the caller (function is enforceIsContractOwner-gated).",
+        "The migrated underlying token is fee-on-transfer or rebasing (standard ERC-20 underlying credits correctly)."
+      ],
+      "cross_agent_refs": [],
+      "ice_chain": {
+        "corrupted_state": "s.sys.silo.unripeSettings[unripeToken].balanceOfUnderlying",
+        "consumer_found": true,
+        "consumer_function": "LibUnripe.unripeToUnderlying / _getUnderlying (chop/redeem)",
+        "consumer_action": "Pays out underlying proportional to inflated balanceOfUnderlying",
+        "severity_ceiling": "Low",
+        "search_method": "manual_trace"
+      }
+    }
+  ]
+}

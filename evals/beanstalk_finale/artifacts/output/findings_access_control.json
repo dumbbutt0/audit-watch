@@ -1,0 +1,153 @@
+{
+  "agent": "access_control",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T21:40:00+00:00",
+  "summary": {
+    "scanned": [
+      "beanstalk/init/reseed/L2/* (ReseedSilo, ReseedField, ReseedInternalBalances, ReseedBarn)",
+      "beanstalk/diamond/* (DiamondCutFacet, OwnershipFacet, PauseFacet, DiamondLoupeFacet)",
+      "beanstalk/silo/ApprovalFacet.sol + LibSiloPermit + LibTokenPermit",
+      "libraries/LibTractor.sol + beanstalk/farm/TractorFacet.sol",
+      "beanstalk/migration/BeanL1RecieverFacet.sol + L2ContractMigrationFacet.sol",
+      "beanstalk/silo/WhitelistFacet/WhitelistFacet.sol"
+    ],
+    "clean": {
+      "diamond_facets": "DiamondCutFacet/OwnershipFacet/PauseFacet/WhitelistFacet all gate state-mutating fns with LibDiamond.enforceIsContractOwner()/enforceIsOwnerOrContract(). OwnershipFacet is correct two-step (transferOwnership sets ownerCandidate, claimOwnership requires candidate==msg.sender).",
+      "permit_libs": "LibSiloPermit and LibTokenPermit build the domain separator with the correct EIP712Domain typehash, include chainId via C.getChainId(), use per-owner incrementing nonces, and verify via OZ ECDSA.recover (reverts on address(0), checks s-malleability). No replay, no ecrecover(0) bypass, no missing chainId. Clean.",
+      "reseed_init": "ACCESS-001 hypothesis (reseed init() external + unguarded -> anyone re-runs it) is NOT reachable. Reseed contracts are one-shot _init delegatecall targets invoked only inside LibDiamond.diamondCut(), which is gated by enforceIsContractOwner(). They are never registered as facet selectors, so init() is not externally callable against diamond storage. The += / loop bugs in reseed are owner-input-bounded logic/DoS issues, not attacker-reachable access-control bugs.",
+      "bridge_recv": "BeanL1RecieverFacet.recieveL1Beans is correctly gated by msg.sender==BRIDGE && xDomainMessageSender==L1BEANSTALK. The EXTERNAL_L1_BEANS=0 cap is a logic/DoS bug (cross_chain CC-002), not an auth flaw.",
+      "no_tx_origin": "No tx.origin authentication anywhere in scope."
+    }
+  },
+  "findings": [
+    {
+      "id": "AC-001",
+      "title": "Migration redeem has no nonce/spent-marker; proof+signature replayable",
+      "severity": "High",
+      "vuln_type": "signature-replay",
+      "recommendation": "Persist a spent-marker keyed by the merkle leaf (or the blueprint of owner+reciever+deadline) and/or a per-owner nonce inside the EIP-712 struct hash; check-and-set it before crediting. Reject any redemption whose marker is already set so each authorization is consumable exactly once.",
+      "confidence": "High",
+      "description": "L2ContractMigrationFacet.redeemDepositsAndInternalBalances is an external, permissionless function (only nonReentrant). It authenticates a migration by (1) MerkleProof.verify over leaf=keccak256(account,deposits,internalBalances,ownerRoots) against a hardcoded MERKLE_ROOT, and (2) an EIP-712 signature over (owner,reciever,deadline) recovered with ECDSA.recover and required to equal owner. Neither check consumes any state: there is no nonce, no per-leaf/per-signature redeemed-marker, and no per-account migration flag. All inputs (proof and signature) are plain calldata, visible on-chain the moment the first legitimate redemption is broadcast. setStalk uses `s.accts[account].stalk += accountStalk` and `s.accts[account].roots += accountRoots` (line 205-211), and addMigratedDepositsToAccount re-writes the same deposit slots each call. Because both the proof and the signature re-validate identically on every call, anyone can resubmit the exact observed calldata repeatedly until `deadline`, accumulating stalk and roots to `reciever` on each replay while no L1 backing is consumed (the L1 deposits are not burned per-redemption by this function). The result is unbounded inflation of governance/yield weight (stalk drives Stalk-weighted governance and Silo earnings; roots drive earned-bean distribution) and per-account deposit credit, against the protocol invariant that migrated credit is issued exactly once per L1 owner. This is the access-control failure mode of signature reuse: a one-time authorization is treated as a reusable capability.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "redeemDepositsAndInternalBalances",
+        "line_start": 88,
+        "line_end": 114
+      },
+      "impact": "Repeated replay of a single legitimate migration's public calldata inflates s.accts[reciever].stalk and s.accts[reciever].roots without bound (and re-credits deposits), corrupting Stalk-weighted governance, Silo earnings, and earned-bean accounting protocol-wide. Conservative reading: unbacked minting of governance weight and yield -> protocol insolvency / governance capture. Immunefi v2.2: protocol insolvency / unbacked value creation = High to Critical; scored High pending PoC of the economic magnitude.",
+      "proof_of_concept": "1. Wait for (or observe) any honest call to redeemDepositsAndInternalBalances; capture its calldata (owner, reciever, deposits, internalBalances, ownerRoots, proof, deadline, signature) from the mempool/chain. 2. From any EOA, resubmit the identical calldata before `deadline`. verifyDepositsAndInternalBalances passes (same leaf, same root). verifySignature passes (same digest, signer==owner). 3. setStalk runs again: reciever.stalk and reciever.roots increase by the same delta a second time. 4. Repeat N times within the deadline window. Assert s.accts[reciever].stalk after N calls == N * delta (vm.load on the stalk slot) while no L1 burn/lock counter increased. L3: reciever now holds N-times the legitimate stalk/roots -> over-weighted in governance and over-paid in Silo earnings.",
+      "ite": {
+        "intent": "Mint unbacked stalk, roots, and deposit credit to a receiver by reusing a single authorized migration authorization",
+        "technique": "Replay the publicly visible proof+signature calldata of redeemDepositsAndInternalBalances multiple times before deadline; setStalk uses += and there is no nonce or redeemed-marker, so each replay re-credits the receiver",
+        "evasion": "Intended protection was the merkle proof + EIP-712 owner signature as a one-time authorization, but neither is consumed; the deadline is the only bound, leaving an open replay window"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[reciever].stalk, s.accts[reciever].roots, s.accts[reciever].deposits[depositId]",
+        "impact": "Inflated governance weight and earned-bean/Silo yield entitlement with no backing; protocol-wide accounting (total stalk vs sum) desynced",
+        "consumer_found": true,
+        "consumer_function": "Stalk-weighted governance voting and Silo earnings/plenty distribution that read s.accts[account].stalk and .roots (LibSilo / Season sunrise mow + earned bean math)",
+        "exploit_path": "EOA replays captured calldata -> setStalk += -> inflated stalk/roots -> consumed by governance vote weighting and earned-bean distribution"
+      },
+      "attack_surface_rank": 5,
+      "cross_agent_refs": [
+        "CC-001",
+        "DT-003",
+        "CC-006"
+      ],
+      "kb_match": {
+        "matched": "Successful transactions are not stored, causing a replay attack on redeemDepositsAndInternalBalances (Codehawks, Beanstalk: The Finale)",
+        "score": 0.44,
+        "category": "signature-replay",
+        "novel": false
+      },
+      "thread_refs": [
+        "T-003"
+      ],
+      "thread_note": "T-003: High (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-006",
+          "note": "score-3 invariant covers same state vars (s.accts[account].stalk); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "AC-002",
+      "title": "Migration merkle leaf omits reciever; destination bound only by signature",
+      "severity": "Medium",
+      "vuln_type": "access-control",
+      "recommendation": "Include `reciever` in the merkle leaf preimage (keccak256(abi.encode(account, reciever, deposits, internalBalances, ownerRoots))) so the immutable root commits to both what migrates and where it goes, binding destination at the same authorization layer as the asset data.",
+      "confidence": "High",
+      "description": "verifyDepositsAndInternalBalances computes the merkle leaf as keccak256(abi.encode(account, deposits, internalBalances, ownerRoots)) (line 127). The destination `reciever` is NOT part of the leaf and therefore not committed to by the immutable MERKLE_ROOT. The only thing binding the credit to a specific L2 destination is the owner's EIP-712 signature over (owner,reciever,deadline) in verifySignature. This splits authorization across two artifacts (a root that fixes WHAT migrates, and a signature that fixes WHERE it goes) without binding them together. Because the signature is plain calldata and AC-001 allows unlimited replay, the receiver binding provides no protection against reuse, and the absence of `reciever` from the proof means the proof can never constrain the destination. If a publisher ever signs more than one (owner,reciever) pair for the same owner-leaf, or the signature is otherwise obtainable, credit destination is governed solely by an unprotected, replayable signature rather than by the committed root. This weakens the authorization model and compounds AC-001.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "verifyDepositsAndInternalBalances",
+        "line_start": 120,
+        "line_end": 129
+      },
+      "impact": "Authorization of the migration destination is decoupled from the merkle commitment and rests entirely on a single unprotected signature. Combined with AC-001 (no nonce/spent-marker) the destination binding is ineffective against replay. Standalone: incorrect/weak access binding of migrated credit. Immunefi v2.2: incorrect access binding without standalone direct loss = Medium.",
+      "proof_of_concept": "1. Construct a valid (account, deposits, internalBalances, ownerRoots) tuple whose leaf is in MERKLE_ROOT. 2. Show that verifyDepositsAndInternalBalances accepts the proof for ANY `reciever` argument, since reciever is absent from the leaf. 3. The only gate on reciever is verifySignature; demonstrate that the same proof validates under two different reciever values given two different owner signatures, proving the root does not constrain destination. L2: leaf recomputed in test equals the rooted leaf regardless of reciever. L3: migrated credit destination is governed by signature alone, not by the on-chain commitment.",
+      "ite": {
+        "intent": "Determine the destination of migrated credit independent of the on-chain merkle commitment",
+        "technique": "reciever is excluded from the merkle leaf; only the replayable EIP-712 signature binds it, so the committed root never constrains where credit lands",
+        "evasion": "Intended protection (a fixed merkle root committing the migration) does not cover the destination field; binding is delegated to a signature that AC-001 shows is reusable"
+      },
+      "ice_chain": {
+        "corrupted_state": "destination binding of migrated stalk/roots/deposits (s.accts[reciever].*)",
+        "impact": "Migrated credit can be directed by signature alone rather than the committed root; amplifies replay reach of AC-001",
+        "consumer_found": true,
+        "consumer_function": "addMigratedDepositsToAccount / setStalk write to s.accts[reciever] which feeds Silo and governance",
+        "exploit_path": "Proof accepts any reciever -> reciever bound only by replayable signature (AC-001) -> credit lands at attacker-influenced/repeated destination"
+      },
+      "attack_surface_rank": 3,
+      "cross_agent_refs": [
+        "CC-003",
+        "DT-010",
+        "AC-001"
+      ],
+      "kb_match": {
+        "matched": "Signature binding misses verifyingContract and replay controls (Immunefi Belong 56810)",
+        "score": 0.41,
+        "category": "access-control",
+        "novel": false
+      }
+    },
+    {
+      "id": "AC-003",
+      "title": "LibTractor domain separator uses wrong typehash (BLUEPRINT not EIP712Domain)",
+      "severity": "Low",
+      "vuln_type": "signature-replay",
+      "recommendation": "Use the dedicated EIP712_TYPE_HASH (EIP712Domain typehash) constant in _domainSeparatorV4() instead of BLUEPRINT_TYPE_HASH so the domain separator matches the EIP-712 standard and signatures produced by standard tooling verify correctly.",
+      "confidence": "High",
+      "description": "LibTractor._domainSeparatorV4() (line 173-184) computes the EIP-712 domain separator as keccak256(abi.encode(BLUEPRINT_TYPE_HASH, TRACTOR_HASHED_NAME, TRACTOR_HASHED_VERSION, C.getChainId(), address(this))). It uses BLUEPRINT_TYPE_HASH (the Blueprint struct typehash, line 28) as the domain typehash, while the correctly-defined EIP712_TYPE_HASH constant (the EIP712Domain typehash, line 24-27) is never referenced. This is a malformed domain separator: it does not match the EIP-712 standard digest that off-chain signers / wallets (eth_signTypedData) and verifying tools produce. Note this does NOT create a signature-replay or auth-bypass vulnerability: the same (non-standard) separator is used consistently on-chain by both the signer-recovery path and the verifier, chainId IS included via C.getChainId(), and TractorFacet uses a per-blueprintHash nonce incremented in runBlueprint with a maxNonce ceiling, so blueprint replay is bounded. The impact is interoperability/standards-correctness: signatures produced by a standards-compliant EIP-712 signer will not verify, and any tooling assuming a standard domain will fail. It does not advance to Medium under ICE because no privilege escalation or unauthorized state change results (consumer impact is signature non-verification, i.e. self-DoS of legitimate signers, already a likely usability issue rather than an attacker capability).",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/LibTractor.sol",
+        "function": "_domainSeparatorV4",
+        "line_start": 173,
+        "line_end": 184
+      },
+      "impact": "Non-standard EIP-712 domain separator: signatures from standard tooling will not verify against Tractor blueprints. No auth bypass, no replay (chainId present, per-blueprint nonce enforced). Severity Low (standards/interoperability correctness).",
+      "proof_of_concept": "Compute the standard EIP-712 domain separator for name='Tractor', version='1', chainId=C.getChainId(), verifyingContract=diamond using the EIP712Domain typehash, and compare to LibTractor._domainSeparatorV4(); they differ because the on-chain code substitutes BLUEPRINT_TYPE_HASH for the domain typehash. A blueprint signed via a standards-compliant eth_signTypedData call will fail the verifyRequisition check (signer != publisher).",
+      "ite": {
+        "intent": "(no attacker intent) - standards/correctness defect, not an exploit",
+        "technique": "Domain separator hashes the Blueprint struct typehash in place of the EIP712Domain typehash",
+        "evasion": "Dedicated EIP712_TYPE_HASH constant exists but is unused; the wrong constant is consistent on-chain so internal verification still self-validates"
+      },
+      "ice_chain": {
+        "corrupted_state": "Tractor EIP-712 domain separator / blueprint signing digest",
+        "impact": "Standards-compliant off-chain signatures do not verify; no unauthorized capability is granted",
+        "consumer_found": true,
+        "consumer_function": "TractorFacet.verifyRequisition (ECDSA.recover against _hashTypedDataV4)",
+        "exploit_path": "No exploit path - legitimate standard signatures fail verification (self-DoS/usability), not attacker privilege gain"
+      },
+      "attack_surface_rank": 4,
+      "cross_agent_refs": [],
+      "kb_match": {
+        "matched": "EIP-712 domain separator typehash mismatch (incorrect DOMAIN_TYPEHASH definition)",
+        "score": 0.52,
+        "category": "signature-replay",
+        "novel": false
+      }
+    }
+  ]
+}

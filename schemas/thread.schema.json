@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DeepTraceThread",
+  "description": "Result of a deep trace analysis: one invariant × one interaction chain",
+  "type": "object",
+  "required": [
+    "thread_id",
+    "invariant_id",
+    "chain_id",
+    "verdict",
+    "escalate"
+  ],
+  "properties": {
+    "thread_id": {
+      "type": "string",
+      "description": "Unique thread ID, e.g. DT-001",
+      "pattern": "^DT-[0-9]{3}$"
+    },
+    "invariant_id": {
+      "type": "string",
+      "description": "Invariant ID from protocol_invariants.json"
+    },
+    "chain_id": {
+      "type": "string",
+      "description": "Chain ID from call_graph.json"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "CRITICAL_THREAD",
+        "HIGH_THREAD",
+        "MEDIUM_THREAD",
+        "DEAD_END",
+        "NEEDS_MORE_CONTEXT"
+      ]
+    },
+    "violation_path": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Numbered steps in the exploit sequence if violation exists"
+    },
+    "violation_line": {
+      "type": "string",
+      "description": "Exact location where the invariant breaks"
+    },
+    "attacker_type": {
+      "type": "string",
+      "description": "unprivileged | needs_allowance | needs_role"
+    },
+    "profit_or_damage": {
+      "type": "string",
+      "description": "Estimated profit or damage from exploiting this thread"
+    },
+    "entry_conditions": {
+      "type": "string",
+      "description": "What state must exist for an attacker to enter this chain"
+    },
+    "hop_traces": {
+      "type": "array",
+      "description": "One trace entry per hop in the interaction chain",
+      "items": {
+        "type": "object",
+        "required": ["hop", "function"],
+        "properties": {
+          "hop": { "type": "integer" },
+          "function": { "type": "string" },
+          "state_read": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "state_written": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "invariants_false_here": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "trust_crossing": { "type": "boolean" },
+          "exploitation_possible": { "type": "boolean" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "dead_end_reason": {
+      "type": "string",
+      "description": "If verdict is DEAD_END, why no violation is possible"
+    },
+    "escalate": {
+      "type": "boolean",
+      "description": "true if verdict is not DEAD_END and warrants specialist follow-up"
+    },
+    "escalation_angles": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Sub-agent directions to explore for this thread"
+    }
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "F1_referral_not_distributed": {
+    "hygiene_ok": true,
+    "violations": [],
+    "recommended": "POC_REQUIRED",
+    "bundle": {
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "candidate_id": "F1_referral_not_distributed",
+      "detector_family": "surface_recall_lens",
+      "final_decision": "POC_REQUIRED",
+      "poc_needed": true,
+      "status_reason": "source-backed: referralFeeCost computed but never transferred (no defense blocks)",
+      "state_trace": [
+        "STATIC_LEAD",
+        "CONTEXT_MAPPED",
+        "DEFENSE_TRACED",
+        "EXPLOIT_PATH_ATTEMPTED",
+        "IMPACT_CHECKED",
+        "SOURCE_FALSIFIED",
+        "POC_REQUIRED"
+      ],
+      "defense_ledger": {
+        "referral_payout_path": {
+          "classification": "missing"
+        }
+      },
+      "exploit_path": {
+        "transaction_sequence": [
+          "spotPurchase(vp,id,amt,R) with R!=0 and public listing",
+          "_handleTransfers computes referralFeeCost then sends full buyerFee+sellerFee to feeCollector",
+          "R receives nothing; referralFeeCollector never read"
+        ]
+      },
+      "invariant_analysis": {
+        "broken_invariant": "referrer receives the accounted referral reward"
+      },
+      "impact_analysis": {
+        "impact_category": "broken_incentive_reward",
+        "minimum_profit_or_damage_condition": "any spotPurchase with non-zero _referral on a non-whitelist listing"
+      },
+      "source_falsification": {}
+    }
+  },
+  "F2_permissionless_whitelist": {
+    "hygiene_ok": true,
+    "violations": [],
+    "recommended": "POC_REQUIRED",
+    "bundle": {
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "candidate_id": "F2_permissionless_whitelist",
+      "detector_family": "surface_recall_lens",
+      "final_decision": "POC_REQUIRED",
+      "poc_needed": true,
+      "status_reason": "source-backed: whitelistAddress has no caller gating (missing access control)",
+      "state_trace": [
+        "STATIC_LEAD",
+        "CONTEXT_MAPPED",
+        "DEFENSE_TRACED",
+        "EXPLOIT_PATH_ATTEMPTED",
+        "IMPACT_CHECKED",
+        "SOURCE_FALSIFIED",
+        "POC_REQUIRED"
+      ],
+      "defense_ledger": {
+        "whitelist_join_auth": {
+          "classification": "missing"
+        }
+      },
+      "exploit_path": {
+        "transaction_sequence": [
+          "attacker self-calls Whitelist.whitelistAddress() from maxWhitelist sybil EOAs",
+          "totalWhitelist==maxWhitelist",
+          "seller-intended private buyers can no longer join -> blocked from the private spotPurchase"
+        ]
+      },
+      "invariant_analysis": {
+        "broken_invariant": "only seller-approved addresses participate in a private listing"
+      },
+      "impact_analysis": {
+        "impact_category": "griefing_dos_access_bypass",
+        "minimum_profit_or_damage_condition": "one private listing; attacker fills maxWhitelist slots"
+      },
+      "source_falsification": {}
+    }
+  }
+}

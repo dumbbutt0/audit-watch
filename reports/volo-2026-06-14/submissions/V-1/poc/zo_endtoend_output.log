@@ -1,0 +1,19 @@
+# volo-vault end-to-end PoC — sui move test zo_endtoend (run from volo-vault/)
+
+[ PASS    ] volo_vault::zzz_volo_zo_endtoend_poc::test_zo_stale_nav_dilutes_vault_shares_end_to_end
+Test result: OK. Total tests: 1; passed: 1; failed: 0
+
+# Decoded values (debug::print) — PRO-RATA capture:
+#   v0  stale NAV / share ratio         = 1000000000  (1.0000)
+#   v1  settled NAV / share ratio(A-only)= 1021600000  (1.0216)
+#   omitted reward leg                  =   21600000  (2.16% of position)
+#   B deposit (= stale NAV)             = 1000000000
+#   B value after settle (pro-rata)     = 1010800000
+#   B gain                              =   10800000  (1.08% of deposit = 50% of omitted reward)
+#   B(10x) deposit                      =10000000000
+#   B(10x) gain                         =   19636360  (~91% of omitted reward; -> full as B dominates)
+
+# Asserts: v1>v0 (200); ratio_settled_a_only>ratio_stale (201); b_value_after>x_deposit (202);
+#          b_gain>0 (207); omitted_reward>0 (203); b_gain<=omitted_reward (204); 10x: 205/206.
+# B's mint is MODELED with the vault's real share-ratio math (div_d/mul_d) — not user_entry::deposit,
+# whose execute_deposit needs the v1.1 single-vault-operator pairing the repo harness omits.

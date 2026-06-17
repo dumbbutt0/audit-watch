@@ -1,0 +1,99 @@
+{
+  "finding_id": "AR-005",
+  "title": "Unchecked uint128() downcasts of bdv*stalkIssuedPerBdv and gauge average ('safeCast unnecessary' comments) verified safe under realistic bounds",
+  "agent": "",
+  "claimed_severity": "Info",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Convert/LibConvert.sol",
+    "function": "_depositTokensForConvert",
+    "line_start": 537,
+    "line_end": 540
+  },
+  "description": "Two NatSpec 'safeCast not needed / unnecessary' downcasts were re-derived independently rather than trusted: (1) LibConvert._depositTokensForConvert line 540 `uint128(bdv.mul(LibTokenSilo.stalkIssuedPerBdv(token)))` and (2) LibGauge.updateAverageStalkPerBdvPerSeason line 320 `uint128(getAverageGrownStalkPerBdv().mul(BDV_PRECISION).div(targetSeasonsToCatchUp))`. For (1), stalkIssuedPerBdv is on the order of 1e10 (1 stalk = 1e10 micro-units); overflowing uint128 (~3.4e38) would require bdv > ~3.4e28 micro-BDV, i.e. ~3.4e22 Beans of value, which is many orders of magnitude above any plausible Bean supply (~1e13 micro-Beans). For (2), the divided average is similarly bounded. Both casts are therefore safe in practice; flagged only to record that the comments were verified, not accepted, and that the bound is implicit (not enforced) so a future parameter change to stalkIssuedPerBdv could erode the margin.",
+  "impact": "No issue under current parameters and realistic supply. Truncation would only occur at absurd BDV magnitudes. Documented for completeness and future-parameter caution.",
+  "ite": {
+    "intent": "Silently truncate stalk on a uint128 downcast to under-issue or wrap stalk",
+    "technique": "Drive bdv*stalkIssuedPerBdv above 2^128",
+    "evasion": "Required magnitude is non-physical given Bean supply; not reachable"
+  },
+  "ice_chain": {
+    "corrupted_state": "germinating/active stalk minted (would truncate)",
+    "consumer_found": true,
+    "consumer_function": "LibSilo.mintGerminatingStalk / mintActiveStalk; LibGauge season update",
+    "impact": "None under realistic bounds",
+    "exploit_path": "not reachable"
+  },
+  "source_slice": "507:             a.active.stalk.add(a.active.bdv.mul(s.sys.silo.assetSettings[token].stalkIssuedPerBdv))\n508:         );\n509:         return (a.active.stalk, a.active.bdv);\n510:     }\n511: \n512:     function _depositTokensForConvert(\n513:         address token,\n514:         uint256 amount,\n515:         uint256 bdv,\n516:         uint256 grownStalk\n517:     ) internal returns (int96 stem) {\n518:         require(bdv > 0 && amount > 0, \"Convert: BDV or amount is 0.\");\n519: \n520:         GerminationSide side;\n521: \n522:         // calculate the stem and germination state for the new deposit.\n523:         (stem, side) = LibTokenSilo.calculateStemForTokenFromGrownStalk(token, grownStalk, bdv);\n524: \n525:         // increment totals based on germination state,\n526:         // as well as issue stalk to the user.\n527:         // if the deposit is germinating, only the initial stalk of the deposit is germinating.\n528:         // the rest is active stalk.\n529:         if (side == GerminationSide.NOT_GERMINATING) {\n530:             LibTokenSilo.incrementTotalDeposited(token, amount, bdv);\n531:             LibSilo.mintActiveStalk(\n532:                 LibTractor._user(),\n533:                 bdv.mul(LibTokenSilo.stalkIssuedPerBdv(token)).add(grownStalk)\n534:             );\n535:         } else {\n536:             LibTokenSilo.incrementTotalGerminating(token, amount, bdv, side);\n537:             // safeCast not needed as stalk is <= max(uint128)\n538:             LibSilo.mintGerminatingStalk(\n539:                 LibTractor._user(),\n540:                 uint128(bdv.mul(LibTokenSilo.stalkIssuedPerBdv(token))),\n541:                 side\n542:             );\n543:             LibSilo.mintActiveStalk(LibTractor._user(), grownStalk);\n544:         }\n545:         LibTokenSilo.addDepositToAccount(\n546:             LibTractor._user(),\n547:             token,\n548:             stem,\n549:             amount,\n550:             bdv,\n551:             LibTokenSilo.Transfer.emitTransferSingle\n552:         );\n553:     }\n554: \n555:     function abs(int256 a) internal pure returns (uint256) {\n556:         return a >= 0 ? uint256(a) : uint256(-a);\n557:     }\n558: \n559:     /**\n560:      * @dev Returns the largest of two numbers.\n561:      */\n562:     function max(uint256 a, uint256 b) internal pure returns (uint256) {\n563:         return a > b ? a : b;\n564:     }\n565: \n566:     /**\n567:      * @dev Returns the smallest of two numbers.\n568:      */\n569:     function min(uint256 a, uint256 b) internal pure returns (uint256) {\n570:         return a < b ? a : b;",
+  "gate_verdict": {
+    "finding_id": "AR-005",
+    "severity": "Info",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.546579+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": false
+}

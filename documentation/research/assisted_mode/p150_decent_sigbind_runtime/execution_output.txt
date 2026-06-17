@@ -1,0 +1,47 @@
+P150 — runtime execution (real decent UTBFeeCollector) + panel
+
+=== forge test (audits/decent-2024-01-holdout/pocs/p150) ===
+Compiling with Solc 0.8.21 (UTBFeeCollector + solmate Owned + forge-std IERC20; CommonTypes)
+
+Ran 3 tests for test/UTBFeeCollectorSigBinding.t.sol:UTBFeeCollectorSigBinding
+[PASS] test_executed_fee_not_bound_to_signed_packedinfo()
+Logs:
+  signer_authorized: 1000000000000000000          (1e18, encoded in packedInfo)
+  actually_charged: 1000000000000000000000        (1000e18, the UNSIGNED fees.feeAmount)
+[PASS] test_corrected_reference_binds_fees()        (corrected: require keccak256(packedInfo)==keccak256(abi.encode(fees)) -> revert)
+[PASS] test_control_matched_fees()                  (matched fees -> both charge 1e18; no divergence)
+3 passed; 0 failed; 0 skipped
+
+Interpretation:
+- REAL UTBFeeCollector.collectFees verifies ecrecover over packedInfo only; the executed transfer uses the
+  separate `fees` struct, which is NEVER bound to packedInfo. With a valid signer signature over feeAmount=1e18,
+  the contract charged the UNSIGNED feeAmount=1000e18 from `utb`. => signed subject (packedInfo) != executed
+  subject (fees) = authorization subject mismatch (signature does not bind the executed fee).
+- Corrected reference (bind fees) reverts on the mismatch; matched control charges the signed amount in both.
+- Mechanism confirmed at the contract level with a clear state delta + control comparison.
+- REACHABILITY/SEVERITY NOT established: collectFees is onlyUtb; whether an external attacker can supply mismatched
+  `fees` while reusing a signer signature depends on the UTB router flow (out of harness). Replay/no-nonce/no-chainid
+  also noted. -> human review.
+
+=== harness all (panel + scorecard) ===
+$ python scripts/research/value_provenance_eval_harness.py all
+[all] totals={'queued': 11, ... 'finding': 3,'needs_human': 1,'strong_clear': 7,'useful_recall': 0.8,
+      'clean_false_finding_rate': 0.0}                         # == P138 baseline (byte-for-byte; corpus unchanged)
+
+runtime_panel.summary = {'rows': 14, 'runtime_only': 3, 'by_status': {'runtime_confirmed': 4, 'not_run': 9, 'runtime_refuted': 1}}
+runtime_only_rows = ['H1-centrifuge-userescrow','H2-velodrome-rewardsdist-parity','H3-decent-utbfeecollector-sigbind']
+prompt_corpus_unchanged = True
+non-not_run rows:
+  B1  noya       runtime_confirmed dup=duplicate_known   only=False
+  B5  blackhole  runtime_confirmed dup=duplicate_known   only=False
+  H1  centrifuge runtime_confirmed dup=duplicate_unknown only=True
+  H2  velodrome  runtime_refuted   dup=duplicate_unknown only=True
+  H3  decent     runtime_confirmed dup=duplicate_unknown only=True   <-- NEW (5th architecture)
+
+=== tests / integrity ===
+$ python -m pytest tests/research/test_value_provenance_eval_harness.py -q -> 31 passed
+$ grep -rn value_provenance_eval_harness run_pipeline.sh config/agent_policy.json -> UN-WIRED (no match)
+$ bash -n run_pipeline.sh -> OK ; readlink output -> audits/quantamm-2024-12-eval/output (unchanged)
+$ python -m pytest -q -> 2 failed (pre-existing deep_solidity snapshots), 1668 passed, 4 skipped
+
+DECISION: RUNTIME_CONFIRMED (mechanism; reachability/severity -> human review); not submission-ready

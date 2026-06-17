@@ -1,0 +1,62 @@
+{
+  "finding_id": "LG-001",
+  "test_name": "poc_lg_001_strict_equality_dos",
+  "approach": "pure_arithmetic",
+  "language": "rust",
+  "framework": "soroban",
+  "target_file": "contracts/origin/origin-dollar/contracts/contracts/strategies/aerodrome/AerodromeAMOStrategy.sol",
+  "target_function": "_updateUnderlyingAssets",
+  "bug_summary": "A strict `require(_wethAmount == 0, \"Non zero wethAmount\")` check on a value derived from fixed-point arithmetic will revert when the Sugar helper returns 1-2 wei of WETH dust due to rounding near tick 0, bricking all liquidity operations.",
+  "test_file_path": "pocs/lg_001/src/lib.rs",
+  "manifest_path": "pocs/lg_001/Cargo.toml",
+  "setup_steps": [
+    "Define a constant ZERO_DUST_WETH = 0u128 representing the expected zero amount",
+    "Define a constant ROUNDING_DUST_WETH = 1u128 representing the 1-wei rounding output from fixed-point getAmountsForLiquidity near tick 0",
+    "Define a constant LARGE_OETHB_AMOUNT = 1_000_000_000_000_000_000u128 (1e18) representing a typical OETHb amount returned alongside the dust",
+    "Reproduce the exact require logic from _updateUnderlyingAssets verbatim as a Rust function that panics if the condition fails"
+  ],
+  "buggy_function_reproduction": {
+    "description": "Reproduce the exact conditional check from Solidity _updateUnderlyingAssets as a Rust function. The function simulates what happens when getAmountsForLiquidity returns (_wethAmount=1, _oethbAmount=1e18) \u2014 the require fails and the function reverts.",
+    "code_logic": "fn update_underlying_assets(weth_amount: u128, oethb_amount: u128) -> Result<u128, &'static str> { if weth_amount != 0 { return Err(\"Non zero wethAmount\"); } Ok(oethb_amount) }"
+  },
+  "assertions": [
+    {
+      "variable": "result_with_zero_weth",
+      "expected_value": "Ok(1_000_000_000_000_000_000)",
+      "actual_buggy_value": "Ok(1_000_000_000_000_000_000)",
+      "explanation": "When weth_amount == 0 (ideal case), the function succeeds and returns oethb_amount. This is the happy path."
+    },
+    {
+      "variable": "result_with_dust_weth",
+      "expected_value": "Err(\"Non zero wethAmount\")",
+      "actual_buggy_value": "Err(\"Non zero wethAmount\")",
+      "explanation": "When the Sugar helper returns weth_amount == 1 (1 wei rounding dust from fixed-point arithmetic near tick 0), the strict equality check fails and the function reverts with 'Non zero wethAmount'. This demonstrates the DoS: every call to _addLiquidity, _removeLiquidity, and withdrawAll will revert permanently."
+    },
+    {
+      "variable": "result_with_two_wei_dust",
+      "expected_value": "Err(\"Non zero wethAmount\")",
+      "actual_buggy_value": "Err(\"Non zero wethAmount\")",
+      "explanation": "When the Sugar helper returns weth_amount == 2 (2 wei rounding dust, also documented Slipstream behavior), the same DoS occurs."
+    },
+    {
+      "variable": "result_with_fixed_check_dust",
+      "expected_value": "Ok(1_000_000_000_000_000_000)",
+      "actual_buggy_value": "CURRENTLY_FAILS_WITH_ERR",
+      "explanation": "If the check were replaced with weth_amount <= 1 (the recommended fix), weth_amount=1 would pass. This assertion demonstrates the fix direction: the current code rejects valid states that the fixed code would accept."
+    }
+  ],
+  "constants": {
+    "ZERO_WETH": 0,
+    "ONE_WEI_DUST": 1,
+    "TWO_WEI_DUST": 2,
+    "TYPICAL_OETHB": "1_000_000_000_000_000_000"
+  },
+  "run_command": "cargo test --manifest-path pocs/k2/LG-001/Cargo.toml -- --nocapture",
+  "expected_test_outcome": "All assertions pass: zero weth succeeds, 1-wei dust triggers the DoS revert, 2-wei dust triggers the DoS revert. The test PASSES (demonstrates the bug). If the check is changed to `<= 1`, the dust cases would no longer revert, and the test would FAIL (indicating the bug is fixed).",
+  "failure_modes": [
+    "The buggy strict-equality check may have already been patched in the current codebase to use a tolerance like `<= 1` or `< 1e6`, making the dust case no longer revert",
+    "Compile errors if the Cargo.toml does not include the correct crate structure for a standalone pure_arithmetic test",
+    "The test assertion for `result_with_fixed_check_dust` may be confusing because it describes hypothetical fixed behavior rather than actual buggy behavior \u2014 the code generator must assert the BUGGY outcome (Err) not the fixed outcome",
+    "Off-by-one: if getAmountsForLiquidity only ever returns 0 or >= 1e6 in practice (never exactly 1 or 2), the scenario may be theoretical rather than reproducible on mainnet, though the logic bug is still valid"
+  ]
+}

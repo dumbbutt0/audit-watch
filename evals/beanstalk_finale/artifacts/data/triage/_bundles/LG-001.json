@@ -1,0 +1,101 @@
+{
+  "finding_id": "LG-001",
+  "title": "L2ContractMigrationFacet zeroes global per-token silo balances on every redeem",
+  "agent": "",
+  "claimed_severity": "Critical",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+    "function": "addMigratedDepositsToAccount",
+    "line_start": 152,
+    "line_end": 200,
+    "code_snippet": "uint128 totalDeposited;\nuint128 totalDepositedBdv;\nfor (...) { /* totalDeposited / totalDepositedBdv NEVER incremented */ }\n// set global state\ns.sys.silo.balances[depositData.token].deposited = totalDeposited;      // = 0\ns.sys.silo.balances[depositData.token].depositedBdv = totalDepositedBdv; // = 0"
+  },
+  "description": "addMigratedDepositsToAccount declares local uint128 totalDeposited and totalDepositedBdv (lines 159-160) but never increments them inside the deposit loop. After crediting per-account deposits, lines 194-195 assign these still-zero locals to the protocol-wide totals s.sys.silo.balances[token].deposited and .depositedBdv. The redeem entry point (redeemDepositsAndInternalBalances) is permissionless (anyone with a valid proof+signature can call it), so the global silo balance for every migrated token is overwritten to 0 on each call, while per-account deposit records (s.accts[account].deposits[depositId]) are written correctly and remain non-zero. This is a hard assignment (=), not an increment, so it also clobbers whatever ReseedSilo previously set. Independently verified against source: locals are declared and never written before being stored to global state.",
+  "impact": "Global deposited/depositedBdv for every token routed through contract migration is set to 0 while per-account deposits exist, breaking the core invariant total == sum(accounts) (ACC-002). Downstream consumers that read s.sys.silo.balances[token] for BDV ratios, convert valuation, gauge weighting and withdrawal accounting are corrupted protocol-wide: a depositor whose token total reads 0 cannot have their withdrawal decrement reconciled (DoS / underflow), and BDV/convert math that scales by global deposited can be skewed to mint unbacked BDV/stalk. Permissionless, deterministic, protocol-wide accounting corruption with no rescue path short of a governance upgrade.",
+  "ite": {
+    "intent": "Corrupt protocol-wide silo balances to 0 while per-account deposits persist, desyncing all withdraw/convert/BDV math",
+    "technique": "Locals totalDeposited/totalDepositedBdv never incremented (L2ContractMigrationFacet.sol:159-160) then assigned to s.sys.silo.balances[token] (lines 194-195) via the permissionless redeem path",
+    "evasion": "fundsSafu/noSupplyChange/nonReentrant guard reentrancy and net supply, not internal accounting consistency; no invariant reconciles global total to the sum of accounts"
+  },
+  "ice_chain": {
+    "corrupted_state": "s.sys.silo.balances[token].deposited and .depositedBdv (overwritten to 0)",
+    "consumer_found": true,
+    "consumer_function": "LibTokenSilo / SiloFacet.withdrawDeposit decrements global deposited; LibConvert and BDV getters scale by global depositedBdv",
+    "consumer_action": "decrements/scales against a zeroed global total -> withdrawal underflow (DoS) or mispriced BDV/convert (unbacked value)",
+    "severity_ceiling": "Critical",
+    "search_method": "manual_trace"
+  },
+  "source_slice": "122:         AccountDepositData[] calldata deposits,\n123:         AccountInternalBalance[] calldata internalBalances,\n124:         uint256 ownerRoots,\n125:         bytes32[] calldata proof\n126:     ) internal pure {\n127:         bytes32 leaf = keccak256(abi.encode(account, deposits, internalBalances, ownerRoots));\n128:         require(MerkleProof.verify(proof, MERKLE_ROOT, leaf), \"Migration: invalid proof\");\n129:     }\n130: \n131:     /**\n132:      * @notice verifies that the signature came from the owner.\n133:      * @dev the signature is signed on the L1 blockchain.\n134:      * the deposit data itself is not needed, as the signature\n135:      */\n136:     function verifySignature(\n137:         address owner,\n138:         address reciever,\n139:         uint256 deadline,\n140:         bytes calldata signature\n141:     ) internal view {\n142:         require(block.timestamp <= deadline, \"Migration: permit expired deadline\");\n143:         bytes32 structHash = keccak256(\n144:             abi.encode(REDEEM_DEPOSIT_TYPE_HASH, owner, reciever, deadline)\n145:         );\n146: \n147:         bytes32 hash = _hashTypedDataV4(structHash);\n148:         address signer = ECDSA.recover(hash, signature);\n149:         require(signer == owner, \"Migration: permit invalid signature\");\n150:     }\n151: \n152:     function addMigratedDepositsToAccount(\n153:         address account,\n154:         AccountDepositData calldata depositData\n155:     ) internal returns (uint256 accountStalk) {\n156:         int96 stemTip = LibTokenSilo.stemTipForToken(depositData.token);\n157:         uint256 stalkIssuedPerBdv = s.sys.silo.assetSettings[depositData.token].stalkIssuedPerBdv;\n158:         uint128 totalBdvForAccount;\n159:         uint128 totalDeposited;\n160:         uint128 totalDepositedBdv;\n161:         for (uint256 i; i < depositData.depositIds.length; i++) {\n162:             // verify that depositId is valid.\n163:             uint256 depositId = depositData.depositIds[i];\n164:             (address depositToken, int96 stem) = depositId.unpackAddressAndStem();\n165:             require(depositToken == depositData.token, \"Migration: INVALID_DEPOSIT_ID\");\n166:             require(stemTip >= stem, \"Migration: INVALID_STEM\");\n167: \n168:             // add deposit to account.\n169:             s.accts[account].deposits[depositId].amount = depositData.amounts[i];\n170:             s.accts[account].deposits[depositId].bdv = depositData.bdvs[i];\n171: \n172:             // increment totalBdvForAccount by bdv of deposit:\n173:             totalBdvForAccount += depositData.bdvs[i];\n174: \n175:             // increment by grown stalk of deposit.\n176:             accountStalk += uint96(stemTip - stem) * depositData.bdvs[i];\n177: \n178:             // emit events.\n179:             emit AddDeposit(\n180:                 account,\n181:                 depositData.token,\n182:                 stem,\n183:                 depositData.amounts[i],\n184:                 depositData.bdvs[i]\n185:             );\n186:             emit TransferSingle(msg.sender, address(0), account, depositId, depositData.amounts[i]);\n187:         }\n188: \n189:         // update mowStatuses for account and token.\n190:         s.accts[account].mowStatuses[depositData.token].bdv = totalBdvForAccount;\n191:         s.accts[account].mowStatuses[depositData.token].lastStem = stemTip;\n192: \n193:         // set global state\n194:         s.sys.silo.balances[depositData.token].deposited = totalDeposited;\n195:         s.sys.silo.balances[depositData.token].depositedBdv = totalDepositedBdv;\n196: \n197:         // increment stalkForAccount by the stalk issued per BDV.\n198:         // placed outside of loop for gas effiency.\n199:         accountStalk += stalkIssuedPerBdv * totalBdvForAccount;\n200:     }\n201: \n202:     /**\n203:      * @notice increments the stalk and roots for an account.\n204:      */\n205:     function setStalk(address account, uint256 accountStalk, uint256 accountRoots) internal {\n206:         s.accts[account].stalk += accountStalk;\n207:         s.accts[account].roots += accountRoots;\n208: \n209:         // emit event.\n210:         emit StalkBalanceChanged(account, int256(accountStalk), int256(accountRoots));\n211:     }\n212: \n213:     /**\n214:      * @notice Hashes in an EIP712 compliant way.\n215:      * @dev Returns an Ethereum Signed Typed Data, created from a\n216:      * `domainSeparator` and a `structHash`. This produces hash corresponding\n217:      * to the one signed with the\n218:      * https://eips.ethereum.org/EIPS/eip-712[`eth_signTypedData`]\n219:      * JSON-RPC method as part of EIP-712.\n220:      *\n221:      * Sourced from OpenZeppelin 0.8 ECDSA lib.\n222:      */\n223:     function _hashTypedDataV4(bytes32 structHash) internal view returns (bytes32) {\n224:         return keccak256(abi.encodePacked(\"\\x19\\x01\", _domainSeparatorV4(), structHash));\n225:     }\n226: \n227:     /**\n228:      * @notice Returns the domain separator for the current chain.\n229:      */\n230:     function _domainSeparatorV4() internal view returns (bytes32) {",
+  "gate_verdict": {
+    "finding_id": "LG-001",
+    "severity": "Critical",
+    "vuln_type": "logic-error",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.535108+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

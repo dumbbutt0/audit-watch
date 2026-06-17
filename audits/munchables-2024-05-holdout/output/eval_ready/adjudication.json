@@ -1,0 +1,134 @@
+{
+  "audit_id": "munchables-2024-05-holdout",
+  "set": "training",
+  "generated_at": "2026-06-12T14:13:52Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": false,
+  "awarded": [
+    {
+      "id": "H-01",
+      "severity": "High",
+      "title": "Malicious User can call `lockOnBehalf` repeatedly extend a users `unlockTime`, removing their ability to withdraw previously locked tokens",
+      "label": "STRONG",
+      "matched_candidate_id": null,
+      "mechanism_class": "lock-unlock-monotonicity",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "H-02",
+      "severity": "High",
+      "title": "Invalid validation allows users to unlock early",
+      "label": "SAME_AREA",
+      "matched_candidate_id": null,
+      "mechanism_class": "lock-unlock-monotonicity",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Missing disapproval check in `LockManager.sol::approveUSDPrice` allows simultaneous approval and disapproval of a price proposal",
+      "label": "STRONG",
+      "matched_candidate_id": null,
+      "mechanism_class": "missing-sibling-check",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "When `LockManager.lockOnBehalf` is called from `MigrationManager`, the user's `reminder` will be set to 0, resulting in fewer received `MunchableNFTs`",
+      "label": "SAME_AREA",
+      "matched_candidate_id": null,
+      "mechanism_class": "remainder-carryover",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "Players can gain more NFTs benefiting from that past remainder in subsequent locks",
+      "label": "SAME_AREA",
+      "matched_candidate_id": null,
+      "mechanism_class": "remainder-carryover",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-04",
+      "severity": "Medium",
+      "title": "User's schnibbles rewards are not harvested in the `setLockDuration` function",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": null,
+      "mechanism_class": "accrual-parity",
+      "read_file": true,
+      "source": "preserved"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "F-001",
+      "title": "LockManager.lockOnBehalf: anyone can extend a victim's unlockTime via a dust deposit (lock griefing)",
+      "severity": "High",
+      "file": "src/managers/LockManager.sol",
+      "contract": "LockManager",
+      "function": "lockOnBehalf/_lock",
+      "description": "lockOnBehalf(token, quantity, _onBehalfOf) credits the lock to _onBehalfOf but _lock() unconditionally sets lockedToken.unlockTime = block.timestamp + _lockDuration, where _lockDuration is the VICTIM's playerSettings.lockDuration (or lockdrop.minLockDuration). An attacker can call lockOnBehalf(token, 1 wei, victim) to push the victim's unlockTime forward to now + their duration, re-locking funds that were about to unlock. Unlike setLockDuration (which has LockDurationReducedError protection), _lock has no guard against extending an existing lock, so the griefing is repeatable and cheap."
+    },
+    {
+      "id": "F-002",
+      "title": "AccountManager.addSubAccount: anyone can claim an arbitrary unregistered address as a sub-account, blocking its lock",
+      "severity": "Medium",
+      "file": "src/managers/AccountManager.sol",
+      "contract": "AccountManager",
+      "function": "addSubAccount",
+      "description": "addSubAccount(_subAccount) only requires _subAccount to be unregistered with mainAccounts[_subAccount]==0; there is no consent from _subAccount. An attacker claims a victim address as their sub-account, setting mainAccounts[victim]=attacker. LockManager._lock calls accountManager.getPlayer(recipient) and reverts SubAccountCannotLockError if the resolved main account != recipient, so the victim cannot lock on their own behalf until they call register() (which unlinks). This is a griefing/denial lever and pollutes the account graph."
+    },
+    {
+      "id": "F-003",
+      "title": "LockManager USD price voting: a price feed that disapproved can also approve the same proposal (no cross-check)",
+      "severity": "Low",
+      "file": "src/managers/LockManager.sol",
+      "contract": "LockManager",
+      "function": "approveUSDPrice/disapproveUSDPrice",
+      "description": "approveUSDPrice only checks approvals[msg.sender]==_usdProposalId (already approved) but NOT disapprovals[msg.sender]; disapproveUSDPrice checks both. So a PriceFeed role that has already disapproved can still call approveUSDPrice, incrementing approvalsCount toward APPROVE_THRESHOLD while their disapproval also stands. This lets a single feed contribute to both tallies and can skew threshold-based execution of a price update."
+    },
+    {
+      "id": "F-004",
+      "title": "MigrationManager.migrateAllNFTs / burnNFTs are permissionless with a caller-chosen _skip (batch ordering griefing)",
+      "severity": "Low",
+      "file": "src/managers/MigrationManager.sol",
+      "contract": "MigrationManager",
+      "function": "migrateAllNFTs/burnNFTs",
+      "description": "migrateAllNFTs(_user,_skip) and burnNFTs(_user,_skip) are callable by anyone once the user has selected a lock action, and process a window [_skip, _skip+5). A griefer can call them with chosen _skip values to control which 5-token window is processed first / leave gaps, complicating the user's migration accounting and emitting confusing partial events. Combined with the per-snapshot `claimed` flag the end state is consistent, but the externally-driven batch boundaries are an availability/UX hazard."
+    },
+    {
+      "id": "F-005",
+      "title": "LockManager.unlock does not recompute remainder; getLockedWeightedValue underflows if a token is configured with decimals > 18",
+      "severity": "Low",
+      "file": "src/managers/LockManager.sol",
+      "contract": "LockManager",
+      "function": "unlock/getLockedWeightedValue",
+      "description": "unlock() decrements lockedToken.quantity but never adjusts lockedToken.remainder, so the NFT-cost remainder can become stale relative to the remaining quantity. Separately getLockedWeightedValue computes 10 ** (18 - decimals); a token configured with decimals > 18 underflows and reverts (0.8.25 checked math), bricking weighted-value/harvest reads for all players if such a token is ever configured."
+    }
+  ],
+  "summary": {
+    "awarded_total": 6,
+    "awarded_source": "report.md",
+    "adjudicated": 6,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 0,
+    "recall_of_surfaced": 1.0,
+    "strong_only": 0.333,
+    "by_label": {
+      "MISSED": 0,
+      "SAME_AREA": 3,
+      "STRONG": 2,
+      "SUBSYSTEM_ONLY": 1,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

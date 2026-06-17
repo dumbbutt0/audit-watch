@@ -1,0 +1,50 @@
+{
+  "research_only": true,
+  "phase": "P95",
+  "subject": "wildcat-2024-08",
+  "commit": "7c5d8389b2a368ce6c4fc79e50c39eac3516ea5e",
+  "purpose": "Confirmation run on a HIGHER-DENSITY subject: P91 selection + P92/P94 depth-trace v3.1 + maximal_consequence_check, holding 0 severity FP (gate frozen 193abf9f).",
+  "blindness": "repo-key-blind (findings cloned only AFTER prekey_freeze.json) + web-blind; training contamination acknowledged.",
+  "answer_key": {"high": 1, "medium": 8, "note": "higher-density (9 H/M) — chosen specifically to exercise conversion"},
+  "metrics": {
+    "blind_surface_recall": {"lens_total": 81, "selected": 27, "policy": "top-16 ∪ per-contract top-2 floor + 3 controls",
+      "per_contract_floor_added": "10 leads", "per_contract_floor_contribution_to_hits": "0"},
+    "NOT_RUN": 9, "not_run_honestly_excluded": "deep hooks (AccessControl/FixedTermLoan on*) + HooksFactory.deploy* + sentinel/escrow — exceeded budget on a 6683-line subject; honestly excluded, not fake-REJECTed",
+    "investigation_safety": {"C_SOURCE_FALSE": 0, "C_unsupported_READY": 0, "C_HARD_FAIL": 0, "C_detector_to_finding": 0},
+    "severity_FP_after_gate": 0,
+    "false_demotions_and_false_rejects": [
+      "H-01 (HIGH, 'user could withdraw more than supposed to'): the bug is in executeWithdrawal's pro-rata mulDiv(batch.normalizedAmountPaid, status.scaledAmount, batch.scaledTotalAmount) when the market is CLOSED (withdrawals execute before all requests are batched + small-request rounding) -> invariant sum<=normalizedAmountPaid breaks -> last user fails. I TRACED executeWithdrawal with v3.1 (in-scope read resolved) and concluded REJECT ('pro-rata correct; accounting consistent') -> a CONFIDENT-BUT-WRONG completed trace = FALSE-REJECT of a surfaced true High (missed the closed-market early-execution boundary).",
+      "M-05 (MEDIUM, role providers bypass/lower expiry): I localized grantRole/_grantRole (the newExpiry>oldExpiry OR caller==lastProvider replacement rule) and classified it a CONTROL ('trusted-provider, not permissionless') -> false-clear; the awarded finding is exactly that rule being bypassable provider-vs-provider."
+    ],
+    "mechanism_correctness": "0 promotions.",
+    "conversion": {"clean_or_strong": 0, "CLEAN_HIT": [],
+      "false_reject_of_true_high": "H-01 executeWithdrawal closed-market over-withdrawal (traced -> REJECT, WRONG)",
+      "false_clear_of_true_medium": "M-05 grantRole expiry-bypass (localized -> classified CONTROL)"},
+    "controls": {"privileged_rejected": "7/7 governance/role setters rejected", "controls_promoted_incorrectly": 0},
+    "depth_completion_measurement": {
+      "leads_with_localized_mechanism": "11 traced-REJECT (accounting/value-exit) with v3.1 completion (in-scope MarketState/withdrawal-batch reads resolved); 0 bare abstains; 9 NOT_RUN honestly excluded",
+      "depth_trace_false_escalations": 0,
+      "depth_trace_useful_saves": "0 conversions (no PASS produced)",
+      "critical_negative": "v3.1 traced executeWithdrawal as a COMPLETED REJECT (in-scope read resolved, all fields filled) yet it was WRONG (H-01). The completion gate ensures the trace is DONE, NOT that it is CORRECT -> it missed the closed-market-early-execution boundary."
+    },
+    "p84_taxonomy_coverage": "no promotion -> no handoff bundle.",
+    "p84_generator_behavior": "n/a (no candidate reached POC_HANDOFF_STARTED)"
+  },
+  "honest_misses": {
+    "H-01": "FALSE-REJECT (traced executeWithdrawal pro-rata as correct; missed closed-market over-withdrawal)",
+    "M-01/M-06": "close-market withdrawal lifecycle (traced closeMarket -> REJECT; missed exit/incentive issues)",
+    "M-02/M-04/M-07": "FixedTermLoanHooks / role-provider-EOA -> NOT_RUN (honest budget exclusion)",
+    "M-03": "repay-function fee inconsistency (repay/repayOutstandingDebt/repayDelinquentDebt not deeply traced)",
+    "M-05": "grantRole expiry-bypass false-cleared as trusted-provider CONTROL",
+    "M-08": "onQueueWithdrawal no market-hooked check -> below-cutoff (not selected)"
+  },
+  "verdict": "SAFETY-ONLY PASS by the rubric letter (safety 0/0/0/0, 0 severity FP, controls clean, 0 depth-trace false escalations, conversion 0) -- BUT with a MATERIAL FALSE-REJECT of a true High (H-01), so it does NOT meet the clean-PASS 'no material false-demotion of a surfaced true M/H' bullet. Honest headline = a NEGATIVE result.",
+  "p92_p94_conclusion": "The depth-trace system improved PROCESS RIGOR/SAFETY (forced traces, resolved in-scope reads, well-formed abstains, 0 false escalations, 0 severity FP across 4 depth-equipped runs) but has NOT improved CONVERSION (4 consecutive 0-conversion blind runs). On this high-density subject it produced a CONFIDENT-BUT-WRONG completed REJECT of a true High (H-01) and false-cleared a true Medium (M-05). The P94 completion gate guarantees a trace is DONE, not that it is CORRECT. The bottleneck is now clearly BLIND REASONING CORRECTNESS / boundary-case discovery on well-engineered code -- a capability limit that selection policy, the (validated) gate, and depth-completion discipline do not address.",
+  "action_per_constraints": "STOP and report. No machinery change (gate frozen 193abf9f). No post-key tuning. No retroactive re-score.",
+  "caveats": [
+    "training-contamination residual (key opened only post-freeze)",
+    "H-01 false-REJECT is the most concerning result across 7 blind runs: a 'completed' v3.1 trace was confidently wrong",
+    "9 NOT_RUN honestly excluded (deep hooks/factory/sentinel) on a 6683-line subject -> M-02/M-04/M-07 unreachable in budget",
+    "per-contract floor again 0 hits"
+  ]
+}

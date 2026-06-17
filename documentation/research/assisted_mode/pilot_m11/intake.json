@@ -1,0 +1,58 @@
+{
+  "subject": "secondswap-2024-12",
+  "repo": "code4rena 2024-12-secondswap",
+  "commit": "6693d9e4f03a37919a52626de64b1cadf632fd29",
+  "contract": "SecondSwap_VestingManager",
+  "function": "listVesting",
+  "candidate_invariant": "A vesting/listing holder must not be able to bypass or exceed the intended maxSellPercent restriction through sale/listing/claim state transitions, schedule inheritance, or accounting paths. Any sellability cap should be enforced against the correct holder, schedule, and claim state, and should not be bypassable by ordering or state mutation.",
+  "suspected_break": "maxSellPercent can be bypassed or misapplied through listing/sale/claim/schedule state transitions",
+  "affected_actor": "the vesting issuer and honest market — the per-holder maxSellPercent cap on the original locked allocation is the protected property",
+  "attacker_or_trigger_actor": "a single holder (no sybil required): the holder is both seller and buyer of their own public listing",
+  "entrypoint": "Marketplace.listVesting + Marketplace.spotPurchase (EOA, permissionless, self-purchase allowed)",
+  "source_refs": [
+    "contracts/SecondSwap_VestingManager.sol:121-140 listVesting: sellLimit = bought + maxSellPercent*(currentAlloc+sold-bought)/BASE; require(sold<=sellLimit)",
+    "contracts/SecondSwap_VestingManager.sol:161-164 completePurchase: allocations[buyer][vesting].bought += amount (unconditional; no buyer!=seller guard)",
+    "contracts/SecondSwap_Marketplace.sol:387-404 _validatePurchase: only require(msg.sender != _referral) — NO buyer!=seller check",
+    "contracts/SecondSwap_Marketplace.sol:505-551 spotPurchase -> completePurchase (a holder may buy their own public listing)"
+  ],
+  "expected_impact": "Medium - maxSellPercent sell-restriction bypass / unintended sellability state for the original locked allocation",
+  "confidence": "high",
+  "supplied_by": "human",
+  "requested_check": "VALIDATE",
+  "known_unknowns": [
+    "exact transition ordering and affected state variables (confirmed from source: bought, sold, total, sellLimit)",
+    "per-cycle marketplace fee cost vs sell headroom unlocked"
+  ],
+
+  "depth_trace": {
+    "localized_mechanism": "VestingManager.listVesting sell-cap: sellLimit = bought + maxSellPercent*(currentAlloc+sold-bought)/BASE; the `bought` term is added at 100% and is credited unconditionally by completePurchase.",
+    "controlled_inputs": "single holder H with original locked allocation A and maxSellPercent p (default 2000 = 20%); H controls a payment-currency balance for fees; H is both seller and buyer.",
+    "pre_state": "allocations[H].bought=0, sold=0; total(H)=A; sellLimit = 0 + p*(A+0-0)/BASE = p*A.",
+    "operation_trace": "(1) H lists p*A (sold=p*A<=p*A ok; transferVesting H->manager; total=A-p*A). (2) H spotPurchases its OWN public listing (no buyer!=seller guard in _validatePurchase): completePurchase credits allocations[H].bought += p*A; transferVesting manager->H; total back to A. (3) Now sellLimit = bought(p*A) + p*(currentAlloc(A)+sold(p*A)-bought(p*A))/BASE = p*A + p*A = 2p*A; headroom = sellLimit-sold = p*A. (4) Repeat: each self-buy cycle raises `bought` by the listed amount and sellLimit by the same, while (currentAlloc+sold-bought) stays = A so the cap term never shrinks.",
+    "boundary_cases": "after k self-buy cycles sellLimit = (k+1)*p*A and sold can reach k*p*A; for k >= ceil((1-p)/p) the holder can list/sell their ENTIRE original allocation A (and beyond) to an EXTERNAL buyer, exceeding the intended p*A cap. Cost per cycle = marketplace buyer+seller fees to feeCollector (H pays itself baseAmount back as seller).",
+    "post_state": "more than maxSellPercent of H's original locked allocation has been sold to the external market; the cap require(sold<=sellLimit) never trips because `bought` inflation grew sellLimit in lockstep.",
+    "concrete_outcome": "PASS"
+  },
+  "adversarial_ordering": {
+    "proposed_reject_reason": "n/a — human supplies the correct invariant; the system tests whether the cap holds across orderings",
+    "relied_upon_invariant": "a single holder cannot sell more than maxSellPercent of their ORIGINAL locked allocation onto the external market, across any ordering of list/buy/sell/unlist/claim",
+    "mechanism_class": "accounting",
+    "counterexample_found": true,
+    "counterexample_trace": "SELF-PURCHASE bought-inflation: H lists p*A -> H buys its own listing (allowed: no buyer!=seller check at Marketplace.sol:387-404) -> completePurchase credits bought+=p*A (VestingManager.sol:162), which is added at 100% to sellLimit while (currentAlloc+sold-bought) stays = A -> repeating raises sellLimit without bound, letting H eventually sell its entire original allocation to an external buyer for only per-cycle fees. The cap is enforced against an inflatable `bought` counter, not the original schedule.",
+    "ordering_cases_tested": ["list-then-self-buy-then-relist (k cycles)", "list-then-external-buy (baseline cap holds)", "claim-then-list (cap on remaining)"] ,
+    "actor_interleavings_tested": ["single holder as both seller and buyer (no sybil needed)", "holder + cooperating sybil buyer (equivalent, higher fee cost)"],
+    "boundary_cases_tested": ["k cycles -> sellLimit=(k+1)*p*A; external sale of full A once headroom>=A-p*A", "fee cost per cycle vs unlocked headroom"]
+  },
+  "impact_assessment": {
+    "impact_class": "medium",
+    "proven_magnitude": "significant",
+    "source_true": true,
+    "source_backed": true,
+    "material_consequence": [],
+    "impact_category": "maxSellPercent sell-restriction bypass (unintended sellability of locked allocation)",
+    "minimum_profit_or_damage_condition": "holder performs k self-buy cycles (fee cost only) to lift sellLimit above maxSellPercent*A, then sells beyond the cap to an external buyer"
+  },
+
+  "is_gate": false, "research_only": true, "review_only": true,
+  "routes_in_production": false, "routed_manifest_ids": []
+}

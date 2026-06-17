@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CandidateRecord",
+  "description": "The ONE canonical per-finding record (output/candidates/<id>.json), built by build_candidate_records.py by joining merged_findings + fp_pattern_check + pre_submission_gate + findings_confirmed + min_confirm_gate + confirm_gate + runtime_poc + triage on finding id. `state` is the single definition of READY. Dashboard, triage, and report should read THIS, not re-join the source files.",
+  "type": "object",
+  "required": ["id", "schema", "state", "classification", "confirmation", "gates", "readiness_blockers"],
+  "properties": {
+    "id": {"type": "string"},
+    "schema": {"const": "candidate_record/v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "language": {"type": "string"},
+    "title": {"type": "string"},
+    "location": {"type": "object"},
+    "classification": {
+      "type": "object",
+      "properties": {
+        "severity": {"type": ["string", "null"]},
+        "severity_ceiling": {"type": ["string", "null"]},
+        "vuln_type": {"type": ["string", "null"]},
+        "confidence": {"type": ["string", "null"]}
+      }
+    },
+    "ice": {"type": "object", "description": "impact / confidence / exploitability / exploit_path"},
+    "evidence": {
+      "type": "object",
+      "description": "report-readiness fields (review task 7). null when not yet derived; null required fields become readiness_blockers for High/Critical.",
+      "properties": {
+        "attacker_model": {}, "entrypoint": {}, "preconditions": {}, "who_loses": {}, "who_gains": {},
+        "impact": {}, "constraints": {}, "poc_result": {}, "suggested_fix": {}
+      }
+    },
+    "confirmation": {
+      "type": "object",
+      "description": "multi-pass confirmation state. `required` is true for High/Critical. An unconfirmed required finding can never be `ready`.",
+      "required": ["present", "required", "threshold"],
+      "properties": {
+        "present": {"type": "boolean"}, "skipped": {"type": "boolean"},
+        "score": {"type": ["number", "null"]}, "passes": {"type": ["integer", "null"]},
+        "human_review_required": {"type": ["boolean", "null"]},
+        "threshold": {"type": "number"}, "required": {"type": "boolean"}
+      }
+    },
+    "gates": {"type": "object", "description": "fp_action, any_fail, fail_gates[], warn_count, min_confirm_blocked, reachability_status"},
+    "poc": {"type": "object", "description": "status / level / proved"},
+    "triage_status": {"type": ["string", "null"]},
+    "state": {
+      "type": "string",
+      "description": "single derived state — the canonical READY definition",
+      "enum": ["candidate", "confirmed", "poc_required", "human_pending", "ready", "rejected", "duplicate"]
+    },
+    "readiness_blockers": {"type": "array", "items": {"type": "string"},
+      "description": "human-readable reasons this is not READY; empty == nothing blocking"}
+  }
+}

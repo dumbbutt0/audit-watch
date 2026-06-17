@@ -1,0 +1,110 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "schema": "p111_harness_prep_v1",
+  "candidate": {
+    "subject": "iq-ai-2025-01",
+    "contract": "LiquidityManager",
+    "function": "moveLiquidity"
+  },
+  "harness_classification": "HARNESS_COMPLEX",
+  "rationale": "fork / external-state recreation required (2 hardcoded mainnet address(es); external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol, dev-fraxswap/src/contracts/core/libraries/Math.sol)",
+  "dependency_map": {
+    "in_scope_imports": [
+      "./AgentFactory.sol",
+      "./BootstrapPool.sol",
+      "./interface/IBAMM.sol",
+      "./interface/IBAMMFactory.sol"
+    ],
+    "in_scope_deployable": [
+      "AgentFactory",
+      "BootstrapPool",
+      "LiquidityManager"
+    ],
+    "resolved_concrete_from_interfaces": [],
+    "libraries": [
+      "@openzeppelin/contracts/interfaces/IERC20.sol",
+      "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+    ],
+    "tokens": [
+      "@openzeppelin/contracts/interfaces/IERC20.sol",
+      "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+    ],
+    "external_integrations": [
+      "dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol",
+      "dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol",
+      "dev-fraxswap/src/contracts/core/libraries/Math.sol"
+    ],
+    "interfaces_referenced": [
+      "IBAMM",
+      "IBAMMFactory",
+      "IERC20",
+      "IFraxswapFactory",
+      "IFraxswapPair",
+      "ISC"
+    ],
+    "hardcoded_addresses": [
+      "0x19928170D739139bfbBb6614007F8EEeD17DB0Ba",
+      "0xE30521fe7f3bEB6Ad556887b50739d6C7CA667E6"
+    ],
+    "new_deploys_in_source": [
+      "BootstrapPool"
+    ],
+    "missing_deployable_imports": [],
+    "missing_interface_imports": [
+      "./interface/IBAMM.sol",
+      "./interface/IBAMMFactory.sol"
+    ]
+  },
+  "actor_model": [
+    {
+      "role": "attacker",
+      "evidence": "EOA entrypoint (default adversary)"
+    },
+    {
+      "role": "victim_user",
+      "evidence": "per-user accounting present"
+    },
+    {
+      "role": "liquidity_provider",
+      "evidence": "liquidity/reserve mechanics present"
+    },
+    {
+      "role": "protocol",
+      "evidence": "external protocol surface (factory/pair/pool/oracle)"
+    }
+  ],
+  "environment": {
+    "fork_required": true,
+    "fork_reasons": [
+      "2 hardcoded mainnet address(es)",
+      "external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol, dev-fraxswap/src/contracts/core/libraries/Math.sol"
+    ],
+    "local_deployable": false,
+    "deployment_sequence": [
+      "AgentFactory",
+      "BootstrapPool",
+      "LiquidityManager"
+    ],
+    "funding_required": true,
+    "config_required": false,
+    "setup_steps": 5
+  },
+  "required_components": [
+    "deploy AgentFactory",
+    "deploy BootstrapPool",
+    "deploy LiquidityManager",
+    "fork (external state) \u2014 2 hardcoded mainnet address(es); external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol, dev-fraxswap/src/contracts/core/libraries/Math.sol",
+    "fund actors with tokens",
+    "actor: attacker",
+    "actor: victim_user",
+    "actor: liquidity_provider",
+    "actor: protocol"
+  ],
+  "blockers": [],
+  "scaffold_inert": true,
+  "boundary": "Harness preparation prepares execution; it does NOT prove exploitation and does NOT advance candidate status. The classification is an advisory EFFORT estimate, not a gate. BLOCKED means runtime infrastructure is unavailable \u2014 it is NOT a verdict that the candidate is safe or unsafe."
+}

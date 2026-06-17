@@ -1,0 +1,125 @@
+{
+  "agent": "reentrancy",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-28T23:55:00+00:00",
+  "findings": [
+    {
+      "id": "RE-001",
+      "title": "claimPlenty sends SOP token before zeroing plenty (cross-function reentry seam)",
+      "severity": "Medium",
+      "vuln_type": "reentrancy",
+      "description": "_claimPlenty (ClaimFacet.sol#95-108) sends the non-Bean SOP/Well token to the user at L100 (LibTransfer.sendToken with To.EXTERNAL -> safeTransfer) BEFORE it zeroes s.accts[account].sop.perWellPlenty[well].plenty (L101) and decrements s.sys.sop.plentyPerSopToken[sopToken] (L104). This is a checks-effects-interactions violation: the outbound interaction precedes the effects. The SOP token is the NON-Bean side of a whitelisted Well (getSopTokens -> getNonBeanTokenFromWell, LibWhitelistedTokens.sol#153). Unlike Bean (a plain hookless ERC-20 that the protocol controls), this token is an external/third-party asset whose transfer can hand control to a recipient contract (e.g. an ERC-777-style token, a token with a transfer callback, or a malicious wrapper whitelisted as a future Well's non-Bean side). The two public entries claimPlenty() and claimAllPlenty() (ClaimFacet.sol#65,79) DO carry the diamond-wide nonReentrant guard, and that guard uses shared AppStorage (s.sys.reentrantStatus, ReentrancyGuard.sol#19) so it locks ALL nonReentrant functions across every facet. Therefore the attacker CANNOT re-enter claimPlenty/claimAllPlenty itself to double-claim the same plenty. The residual seam is cross-function: during the SOP-token send the attacker can re-enter the fund-moving functions that DO NOT carry nonReentrant -- fillPodOrder/fillPodListing/cancelPodOrder (MarketplaceFacet) and claimFertilized (FertilizerFacet). None of those consume the stale perWellPlenty value, so no direct double-spend of plenty was traced. The end-of-call fundsSafu invariant on the outer claimPlenty call (Invariable.sol#35, asserts every watched-token balance >= entitlements after the whole call) is the backstop that would catch a net protocol shortfall. I could not trace a concrete fund-loss consumer that survives fundsSafu, so this is reported at Medium with consumer_found=false and routed for human consumer-chain verification.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/SiloFacet/ClaimFacet.sol",
+        "function": "_claimPlenty",
+        "line_start": 95,
+        "line_end": 108,
+        "code_snippet": "LibTransfer.sendToken(sopToken, plenty, LibTractor._user(), toMode);\ns.accts[account].sop.perWellPlenty[well].plenty = 0;\n// reduce from Beanstalk's total stored plenty for this well\ns.sys.sop.plentyPerSopToken[address(sopToken)] -= plenty;"
+      },
+      "impact": "If a whitelisted Well's non-Bean token has a transfer hook, the SOP-token payout yields control while perWellPlenty/plentyPerSopToken are still stale, opening a cross-function reentry into the market and fertilizer fund-movers that lack the shared nonReentrant lock. No fund-loss path that defeats the fundsSafu solvency assertion was traced, so worst proven outcome is a reentry seam / state-ordering hazard rather than a demonstrated drain.",
+      "proof_of_concept": "function test_reentrancy_claimPlenty_crossFunction() public {\n    // Setup: whitelist a Well whose non-Bean token is a hook-bearing ERC-777-style token.\n    // Accrue plenty to attacker via a Flood (sop) so perWellPlenty[well].plenty > 0.\n    // Action: attacker (EOA -> attacker contract) calls claimPlenty(well, To.EXTERNAL).\n    //   During sopToken.safeTransfer at ClaimFacet.sol#100, the token's tokensReceived/\n    //   transfer hook re-enters Beanstalk via fillPodOrder()/claimFertilized() (no nonReentrant).\n    // Assert L2 state-flip: read perWellPlenty[well].plenty == old value DURING the hook (vm.load);\n    //   confirm reentered market/fert call observes pre-zeroed plenty and non-decremented\n    //   plentyPerSopToken[sopToken].\n    // Assert L3: measure whether the combined reentry can leave protocol balance < entitlement\n    //   AFTER the outer fundsSafu runs. If fundsSafu reverts, finding is bounded to Medium hazard.\n}",
+      "recommendation": "Apply CEI: zero s.accts[account].sop.perWellPlenty[well].plenty and decrement s.sys.sop.plentyPerSopToken[sopToken] BEFORE the LibTransfer.sendToken call at ClaimFacet.sol#100. Additionally, add the shared nonReentrant modifier to every external fund-moving entry that currently relies only on Invariable guards (fillPodOrder, fillPodListing, cancelPodOrder, createPodOrder, claimFertilized, mintFertilizer) so the diamond-wide lock covers the full cross-function surface during any external token send.",
+      "confidence": "Medium",
+      "attack_surface_rank": 4,
+      "human_review_required": true,
+      "human_review_reason": "Cross-function reentry seam is real (CEI violation + missing nonReentrant on peer fund-movers), but no consumer that defeats the end-of-call fundsSafu solvency invariant was traced. Requires human to (a) confirm whether any whitelisted/future SOP Well token can carry a transfer hook, and (b) trace a balance-vs-entitlement shortfall that survives fundsSafu.",
+      "assumption_count": 2,
+      "critical_assumptions": [
+        "A whitelisted Well's non-Bean SOP token has (or can be set to) a transfer hook that yields control to the recipient (Bean itself has none).",
+        "A cross-function reentry into a non-nonReentrant fund-mover can produce a net balance < entitlement that survives the outer fundsSafu assertion."
+      ],
+      "cross_agent_refs": ["EA-002", "EA-003"],
+      "ite": {
+        "intent": "Re-enter Beanstalk during the Flood SOP token payout to manipulate market/fertilizer fund-movers while the plenty accounting is still stale, aiming to extract more value than the caller is entitled to.",
+        "technique": "Call claimPlenty(well, To.EXTERNAL); at ClaimFacet.sol#100 sopToken.safeTransfer hands control to the attacker's contract BEFORE perWellPlenty.plenty is zeroed (L101) and plentyPerSopToken decremented (L104); from the token hook the attacker re-enters fillPodOrder/cancelPodOrder/claimFertilized (MarketplaceFacet/FertilizerFacet), none of which carry nonReentrant.",
+        "evasion": "nonReentrant on claimPlenty/claimAllPlenty uses shared AppStorage (s.sys.reentrantStatus) and blocks re-entry into ANY nonReentrant function across all facets, so claimPlenty cannot be re-entered. The gap is that the market and fertilizer fund-movers omit nonReentrant entirely and the perWellPlenty effects run after the send; the only remaining backstop is the end-of-call fundsSafu balance>=entitlement assertion."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[account].sop.perWellPlenty[well].plenty and s.sys.sop.plentyPerSopToken[sopToken]",
+        "consumer_found": false,
+        "consumer_action": "No consumer that produces a balance<entitlement shortfall surviving fundsSafu was traced; reentered market/fert functions do not read the stale plenty value.",
+        "search_method": "manual_trace",
+        "severity_ceiling": "Medium",
+        "exploit_path": "Hook-bearing SOP token transfer at ClaimFacet.sol#100 -> attacker token hook -> re-enter non-guarded fund-mover (fillPodOrder/claimFertilized) -> attempt net extraction -> bounded by outer fundsSafu."
+      }
+    },
+    {
+      "id": "RE-002",
+      "title": "Marketplace fill/cancel violate CEI and omit nonReentrant (Bean-hookless today)",
+      "severity": "Low",
+      "vuln_type": "reentrancy",
+      "description": "The marketplace fund-moving entries fillPodOrder, fillPodListing and cancelPodOrder (MarketplaceFacet.sol#31,75,86) carry only Invariable invariant guards (oneOutFlow/noSupplyChange/fundsSafu) and DO NOT carry the diamond-wide nonReentrant lock (unlike transferPlot/transferPlots/approvePods on the same facet, which do). Their internal bodies also violate checks-effects-interactions around the outbound Bean transfer:\n- _cancelPodOrder (Order.sol#134-140): reads amountBeans = s.sys.podOrders[id] (L136), sends Beans to the orderer at L137, and only THEN delete s.sys.podOrders[id] at L138 -- a classic send-before-delete.\n- _fillPodOrder (Order.sol#79-129): decrements the order at L105 (this part is CEI-correct), sends Beans at L107, but performs _transferPlot (L113) and the order delete (L115-117) AFTER the send.\nIf the payout token had a transfer hook these orderings would be exploitable (re-enter to cancel/fill the same order again before podOrders[id] is cleared, or grab the plot twice). The reason this is NOT currently exploitable is that the payout token is C.bean() -- a plain ERC-20 the protocol controls with no transfer callback -- and the To.INTERNAL path (LibTransfer.sendToken -> LibBalance.increaseInternalBalance, LibTransfer.sol#70) performs NO external call. So no control is yielded during the send and reentry cannot occur today. This is therefore a latent defensive issue: protocol safety rests entirely on the Bean token never gaining a hook and on no hook-bearing token ever being routed through these market entries. Reported at Low confidence accordingly.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/market/MarketplaceFacet/Order.sol",
+        "function": "_cancelPodOrder",
+        "line_start": 134,
+        "line_end": 140,
+        "code_snippet": "uint256 amountBeans = s.sys.podOrders[id];\nLibTransfer.sendToken(C.bean(), amountBeans, podOrder.orderer, mode);\ndelete s.sys.podOrders[id];"
+      },
+      "impact": "No current fund loss: the only outbound token (Bean) is hookless and To.INTERNAL makes no external call, so reentry is unreachable. The hazard is latent -- if a hook-bearing token were ever routed through these unguarded market entries, an attacker could re-enter to cancel/refill the same order twice (draining escrowed order Beans) or acquire the plot without finalized payment, because podOrders[id] / the plot are not cleared until after the send.",
+      "proof_of_concept": "function test_reentrancy_cancelPodOrder_sendBeforeDelete() public {\n    // L1: create a pod order escrowing Bean (podOrders[id] = X).\n    // Demonstrate the ordering hazard: in _cancelPodOrder the send (Order.sol#137) precedes\n    //   delete podOrders[id] (Order.sol#138). With Bean (no hook) the recipient gets no callback,\n    //   so reentry is impossible -> test documents that the guard is the token's hooklessness,\n    //   not the code ordering.\n    // L2: if hooks were possible, assert podOrders[id] still == X during the recipient callback (vm.load).\n    // L3: prove double-refund only under a hypothetical hook-bearing payout token (not Bean).\n}",
+      "recommendation": "Reorder to CEI: in _cancelPodOrder delete s.sys.podOrders[id] BEFORE LibTransfer.sendToken (Order.sol#137-138); in _fillPodOrder perform _transferPlot and the order delete BEFORE the Bean send (Order.sol#107 vs #113-117). Add the shared nonReentrant modifier to fillPodOrder/fillPodListing/cancelPodOrder/createPodOrder so the diamond-wide lock no longer depends on the payout token being hookless.",
+      "confidence": "Low",
+      "attack_surface_rank": 4,
+      "human_review_required": false,
+      "assumption_count": 1,
+      "critical_assumptions": [
+        "A hook-bearing token is routed as the payout through fillPodOrder/cancelPodOrder/fillPodListing (Bean, the only payout token today, has no hook; To.INTERNAL makes no external call)."
+      ],
+      "cross_agent_refs": [],
+      "ite": {
+        "intent": "Re-enter the marketplace during the Bean payout to cancel/refill the same pod order twice or acquire a plot without finalized payment, draining escrowed order Beans.",
+        "technique": "_cancelPodOrder sends Beans at Order.sol#137 before delete podOrders[id] at L138; _fillPodOrder sends at L107 before _transferPlot/delete at L113-117. A transfer callback during the send would re-enter cancelPodOrder/fillPodOrder (neither has nonReentrant) while podOrders[id] is still non-zero.",
+        "evasion": "Developer chose Invariable guards (oneOutFlow) instead of nonReentrant on market entries. oneOutFlow only bounds net outflow of all-but-one watched token; it does not prevent re-entry. The actual protection is incidental: Bean is hookless and To.INTERNAL yields no control, so the send cannot reenter today."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.podOrders[id]",
+        "consumer_found": true,
+        "consumer_function": "cancelPodOrder / fillPodOrder",
+        "consumer_action": "Would refund or fill against the same non-zeroed order balance a second time (drain escrowed Beans) IF a hook-bearing payout token existed -- not reachable with Bean.",
+        "search_method": "manual_trace",
+        "severity_ceiling": "Low",
+        "exploit_path": "Hook-bearing payout token send (Order.sol#137/#107) -> recipient callback -> re-enter cancelPodOrder/fillPodOrder before podOrders[id] cleared -> double refund/fill. Blocked today because Bean has no hook."
+      }
+    },
+    {
+      "id": "RE-003",
+      "title": "Diamond<->Fertilizer callback loop unguarded by shared nonReentrant lock",
+      "severity": "Low",
+      "vuln_type": "reentrancy",
+      "description": "The Beanstalk diamond and the external Fertilizer (ERC-1155) contract form a cross-contract callback loop, and none of the diamond-side participants carry nonReentrant. claimFertilized (FertilizerFacet.sol#47-54) calls C.fertilizer().beanstalkUpdate(...), which inside Fertilizer._update (Fertilizer.sol#75-78) calls back into the diamond via IBS(owner()).payFertilizer(account, amount) (FertilizerFacet.sol#96-103). Separately, any holder can call Fertilizer1155.safeTransferFrom directly (Fertilizer1155.sol#19, a public function on the standalone Fertilizer contract, so the diamond's reentrant lock is NOT engaged when entering it); its _beforeTokenTransfer (Fertilizer.sol#62-73) calls _update -> payFertilizer for both from and to BEFORE _transfer moves the 1155 balance, and the recipient onERC1155Received hook (Fertilizer1155.sol#104) fires AFTER _transfer. I traced both directions and did NOT find a double-payout: __update updates _balances[id][account].lastBpf (Fertilizer.sol#90) before computing further deltaBpf, so a second pass yields deltaBpf=0; and payFertilizer sends Beans only To.INTERNAL (no external call, no hook). In mintFertilizer the 1155 mint (which triggers onERC1155Received) is the LAST action after all diamond state is finalized. Thus no concrete over-claim is currently reachable. The residual concern is structural: the cross-contract round trip is unguarded by any shared lock, so its safety depends on the precise effects-before-callback ordering inside Fertilizer staying correct across future changes, and on the onERC1155Received hook never being able to re-enter a diamond fund-mover mid-update. Reported Low.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/tokens/Fertilizer/Fertilizer.sol",
+        "function": "_update",
+        "line_start": 75,
+        "line_end": 78,
+        "code_snippet": "function _update(address account, uint256[] memory ids, uint256 bpf) internal {\n    uint256 amount = __update(account, ids, bpf);\n    if (amount > 0) IBS(owner()).payFertilizer(account, amount);\n}"
+      },
+      "impact": "No current over-claim of rinsable Beans: lastBpf is updated before payout (deltaBpf=0 on re-pass) and payFertilizer uses To.INTERNAL with no external call. The hazard is a structurally unguarded diamond<->Fertilizer callback loop that relies on effects-before-interaction ordering remaining correct; a future change that moves a fund effect after the payFertilizer/onERC1155Received callback would become exploitable with no reentrancy lock to catch it.",
+      "proof_of_concept": "function test_reentrancy_fertilizer_roundTrip() public {\n    // Attacker holds Fertilizer (ids with owed sprouts), recipient is an onERC1155Received contract.\n    // Action: call Fertilizer.safeTransferFrom(attacker, attackerContract, id, amount).\n    //   _beforeTokenTransfer -> _update -> payFertilizer (Beans To.INTERNAL); then _transfer; then onERC1155Received.\n    // Assert L2: during onERC1155Received, read _balances[id][acct].lastBpf (already bumped) and\n    //   re-call claimFertilized(ids) -> assert it returns 0 (deltaBpf=0), i.e. no double pay.\n    // Documents that ordering currently blocks the attack; lock absence is the latent risk.\n}",
+      "recommendation": "Add the shared nonReentrant modifier to claimFertilized, payFertilizer and mintFertilizer so the diamond-wide lock spans the full diamond<->Fertilizer round trip. This makes correctness independent of the internal effects-before-callback ordering in Fertilizer._update / Fertilizer1155, hardening the loop against future regressions.",
+      "confidence": "Low",
+      "attack_surface_rank": 3,
+      "human_review_required": false,
+      "assumption_count": 2,
+      "critical_assumptions": [
+        "A future change moves a fund-affecting effect after the payFertilizer or onERC1155Received callback (currently effects precede both).",
+        "The onERC1155Received recipient can reach a diamond fund-mover that observes mid-update fertilizer accounting (currently the mint is the last action and lastBpf is pre-updated)."
+      ],
+      "cross_agent_refs": [],
+      "ite": {
+        "intent": "Re-enter the Beanstalk diamond through the Fertilizer payFertilizer callback or the ERC-1155 onERC1155Received hook to over-claim rinsable Beans (Sprouts).",
+        "technique": "claimFertilized -> beanstalkUpdate -> Fertilizer._update -> IBS(owner()).payFertilizer back into the diamond; and Fertilizer1155.safeTransferFrom -> _beforeTokenTransfer -> _update -> payFertilizer then onERC1155Received on the recipient. Neither claimFertilized nor payFertilizer carries nonReentrant.",
+        "evasion": "Developer relies on effects-before-interaction ordering inside Fertilizer (__update bumps lastBpf at Fertilizer.sol#90 before payout; payFertilizer uses To.INTERNAL with no external call; mint is last). The gap is the absence of any shared reentrancy lock across the diamond<->Fertilizer boundary, so correctness is purely ordering-dependent."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.fert.fertilizedPaidIndex and Fertilizer _balances[id][account].lastBpf",
+        "consumer_found": false,
+        "consumer_action": "No over-payout consumer reachable today: lastBpf pre-update yields deltaBpf=0 on re-entry and payFertilizer is To.INTERNAL (no hook).",
+        "search_method": "manual_trace",
+        "severity_ceiling": "Low",
+        "exploit_path": "claimFertilized/safeTransferFrom -> payFertilizer or onERC1155Received callback into the diamond while fert accounting updates -> currently blocked by effects-before-callback ordering and no external call in payFertilizer."
+      }
+    }
+  ]
+}

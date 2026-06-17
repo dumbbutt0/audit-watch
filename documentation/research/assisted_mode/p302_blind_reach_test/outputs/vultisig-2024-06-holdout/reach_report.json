@@ -1,0 +1,203 @@
+{
+  "research_only": true,
+  "is_gate": false,
+  "emits_findings": false,
+  "severity": null,
+  "auto_submitted": false,
+  "reportable": false,
+  "submission_ready": false,
+  "routes_in_production": false,
+  "label": "P302_REACH_REPORT",
+  "target": "vultisig-2024-06-holdout",
+  "scored_at": "2026-06-10T19:00:14.218753+00:00",
+  "totals": {
+    "awarded": 6,
+    "surfaced_findings_total": 9,
+    "strong": 3,
+    "same_area": 1,
+    "subsystem": 1,
+    "missed": 1
+  },
+  "recall_of_surfaced": 0.833,
+  "recall_strong_only": 0.5,
+  "recall_strong_or_area": 0.667,
+  "missed_ids": [
+    "M-01"
+  ],
+  "per_locus": [
+    {
+      "id": "H-01",
+      "severity": "High",
+      "title": "Most users won't be able to claim their share of Uniswap fees",
+      "match_level": "STRONG_MECHANISM_MATCH",
+      "surfaced_id": "F-001",
+      "evidence": "F-001 names the exact mechanism: per-NFT fee accounting over a single shared Uniswap position with uninitialized feeGrowthInsideLast; first claimer collects all fees (pool.collect max) so most users cannot claim their share."
+    },
+    {
+      "id": "H-02",
+      "severity": "High",
+      "title": "Vultisig whitelisting can be bypassed by anyone",
+      "match_level": "STRONG_MECHANISM_MATCH",
+      "surfaced_id": "F-006",
+      "evidence": "F-006 identifies free unlimited self-whitelist via Whitelist.receive() (ETH refunded), i.e. anyone can whitelist themselves \u2014 the awarded 'whitelisting can be bypassed by anyone'."
+    },
+    {
+      "id": "H-03",
+      "severity": "High",
+      "title": "Adversary can prevent the launch of any ILO pool with enough raised capital at any moment by providing single-sided liquidity",
+      "match_level": "STRONG_MECHANISM_MATCH",
+      "surfaced_id": "F-004",
+      "evidence": "F-004 captures launch DoS via moving Uniswap slot0 away from initialPoolPriceX96 (require UV3P). Awarded uses single-sided liquidity to move the price; same mechanism (price nudge -> launch revert)."
+    },
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Vultisig should be burnable",
+      "match_level": "MISSED",
+      "surfaced_id": null,
+      "evidence": "Missing-feature finding (VULT token should implement burn). Not surfaced; no burn-capability analysis performed."
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "`claim` function lacks slippage controls for `amount0` and `amount1` returned by `pool.burn` function call",
+      "match_level": "SAME_AREA_WRONG_MECHANISM",
+      "surfaced_id": "F-002",
+      "evidence": "claim() was deeply analyzed (F-001 fee accounting, F-002 collect/transfer underflow) but the specific gap \u2014 pool.burn called with no amount0Min/amount1Min slippage control (MEV sandwich) \u2014 was not isolated."
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "Transfer of `ILOPool` NFT token to different account allows for users to bypass the pool's `maxCapPerUser` invariant",
+      "match_level": "SUBSYSTEM_ONLY_RECALL",
+      "surfaced_id": "F-006",
+      "evidence": "The per-user purchase-cap subsystem was examined and an adjacent cap-bypass finding (F-006, Whitelist maxAddressCap via Sybil) surfaced, but the ILOPool.buy maxCapPerUser bypass via transferring the position NFT (balanceOf->0 then re-buy) was not isolated."
+    }
+  ],
+  "coverage": {
+    "in_scope": 117,
+    "resolved": 7,
+    "unexamined": 110,
+    "coverage_percent": 6.0,
+    "complete": false,
+    "unexamined_file_count": 23,
+    "unexamined_files": [
+      {
+        "file": "Whitelist.sol",
+        "unexamined": 23,
+        "max_score": 5
+      },
+      {
+        "file": "src/ILOPool.sol",
+        "unexamined": 15,
+        "max_score": 5
+      },
+      {
+        "file": "src/ILOManager.sol",
+        "unexamined": 13,
+        "max_score": 5
+      },
+      {
+        "file": "src/base/ILOWhitelist.sol",
+        "unexamined": 9,
+        "max_score": 5
+      },
+      {
+        "file": "extensions/VultisigWhitelisted.sol",
+        "unexamined": 3,
+        "max_score": 5
+      },
+      {
+        "file": "Vultisig.sol",
+        "unexamined": 2,
+        "max_score": 4
+      },
+      {
+        "file": "src/base/LiquidityManagement.sol",
+        "unexamined": 2,
+        "max_score": 4
+      },
+      {
+        "file": "oracles/uniswap/UniswapV3Oracle.sol",
+        "unexamined": 7,
+        "max_score": 3
+      },
+      {
+        "file": "oracles/uniswap/uniswapv0.8/TickMath.sol",
+        "unexamined": 6,
+        "max_score": 3
+      },
+      {
+        "file": "src/base/ILOVest.sol",
+        "unexamined": 4,
+        "max_score": 3
+      },
+      {
+        "file": "src/libraries/TransferHelper.sol",
+        "unexamined": 4,
+        "max_score": 3
+      },
+      {
+        "file": "oracles/uniswap/uniswapv0.8/OracleLibrary.sol",
+        "unexamined": 3,
+        "max_score": 3
+      },
+      {
+        "file": "src/libraries/PoolAddress.sol",
+        "unexamined": 3,
+        "max_score": 3
+      },
+      {
+        "file": "oracles/uniswap/uniswapv0.8/FullMath.sol",
+        "unexamined": 2,
+        "max_score": 3
+      },
+      {
+        "file": "src/libraries/SqrtPriceMathPartial.sol",
+        "unexamined": 2,
+        "max_score": 3
+      },
+      {
+        "file": "src/base/ILOPoolImmutableState.sol",
+        "unexamined": 1,
+        "max_score": 3
+      },
+      {
+        "file": "src/base/PeripheryPayments.sol",
+        "unexamined": 1,
+        "max_score": 3
+      },
+      {
+        "file": "src/libraries/PositionKey.sol",
+        "unexamined": 1,
+        "max_score": 3
+      },
+      {
+        "file": "src/base/Multicall.sol",
+        "unexamined": 1,
+        "max_score": 2
+      },
+      {
+        "file": "src/interfaces/IMulticall.sol",
+        "unexamined": 1,
+        "max_score": 2
+      },
+      {
+        "file": "src/libraries/LiquidityAmounts.sol",
+        "unexamined": 5,
+        "max_score": 0
+      },
+      {
+        "file": "src/base/Initializable.sol",
+        "unexamined": 1,
+        "max_score": 0
+      },
+      {
+        "file": "src/libraries/ChainId.sol",
+        "unexamined": 1,
+        "max_score": 0
+      }
+    ]
+  },
+  "result_status": "partial"
+}

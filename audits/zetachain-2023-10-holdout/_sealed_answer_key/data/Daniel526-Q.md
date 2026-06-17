@@ -1,0 +1,2 @@
+1. Lack of Validation for Zero Addresses in Constructor Parameters;
+[Link](https://github.com/code-423n4/2023-11-zetachain/blob/b237708ed5e86f12c4bddabddfd42f001e81941a/repos/protocol-contracts/contracts/evm/ZetaConnector.eth.sol#L16-L21)

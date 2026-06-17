@@ -1,0 +1,20 @@
+{
+  "is_gate": false, "research_only": true, "review_only": true, "routes_in_production": false, "routed_manifest_ids": [],
+  "schema": "p118_runtime_result_v1",
+  "candidate": "secondswap-2024-12 :: SecondSwap_Marketplace.unlistVesting",
+  "novel": true,
+  "hypothesis": "unauthorized / double unlist (treated as permissionless per ranking) lets an arbitrary caller delist a seller's vesting or return its balance twice",
+  "terminal_state": "KILLED_RUNTIME",
+  "runtime_backed": true,
+  "command": "forge test --match-contract UnlistVestingRuntime -vv",
+  "cases": {
+    "A_nonseller_cannot_unlist": "PASS (revert 'Not the seller')",
+    "B_no_double_unlist": "PASS (2nd unlist revert 'Listing not active')",
+    "C_seller_can_unlist_once": "PASS (success)",
+    "D_admin_can_unlist": "PASS (success)"
+  },
+  "kill_basis": "runtime-proven: access guard (seller||s2Admin) blocks unauthorized caller; status guard + DELIST + balance=0 block double-unlist/double-return; legitimate seller/admin paths succeed once",
+  "actor_clarity_gap": "ranked permissionless because the role-guard regex misses `seller == msg.sender` (operand-reversed) and `msg.sender == s2Admin()`; second distinct gap after P115's signature-modifier fix",
+  "tests": 4, "passed": 4,
+  "notes": "Novel candidate (not in any known awarded set) refuted at runtime. No severity assigned; no report/submission/READY produced. secondswap src unmutated."
+}

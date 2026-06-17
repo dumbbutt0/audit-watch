@@ -1,0 +1,418 @@
+{
+  "audit_id": "hybra-finance-2025-10-strict-eval",
+  "set": "unknown",
+  "generated_at": "2026-06-12T14:07:12Z",
+  "awarded_source": "answer_key_normalization.json",
+  "auto_heuristic": true,
+  "awarded": [
+    {
+      "id": "H-01",
+      "severity": "",
+      "title": "",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-01",
+      "severity": "",
+      "title": "",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-02",
+      "severity": "",
+      "title": "",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-03",
+      "severity": "",
+      "title": "",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-04",
+      "severity": "",
+      "title": "",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-05",
+      "severity": "",
+      "title": "",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-06",
+      "severity": "",
+      "title": "",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-07",
+      "severity": "",
+      "title": "",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-08",
+      "severity": "",
+      "title": "",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-09",
+      "severity": "",
+      "title": "",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "DT-001",
+      "title": "GaugeCL.deposit changes stakedLiquidity without poking reward global first (reward mis-accrual)",
+      "severity": "High",
+      "file": "ve33/contracts/CLGauge/GaugeCL.sol",
+      "contract": "",
+      "function": "deposit",
+      "description": "deposit() snapshots rewardGrowthInside via getRewardGrowthInside(tickLower,tickUpper,0) \u2014 which falls back to the STORED rewardGrowthGlobalX128 \u2014 and then calls clPool.stake(+liquidity) to change stakedLiquidity, without first calling updateRewardsGrowthGlobal(). Because the global is not advanced for the elapsed time before stakedLiquidity changes, rewards accrued to prior stakers in the current interval are computed against the new (larger) stakedLiquidity, diluting existing stakers / mis-crediting the new one."
+    },
+    {
+      "id": "EA-001",
+      "title": "GaugeCL stake-before-checkpoint reward dilution",
+      "severity": "High",
+      "file": "ve33/contracts/CLGauge/GaugeCL.sol",
+      "contract": "",
+      "function": "deposit",
+      "description": "deposit() increases stakedLiquidity via clPool.stake() and snapshots rewardGrowthInside using getRewardGrowthInside(.,.,0) (stored global) WITHOUT first calling updateRewardsGrowthGlobal(). Reward accrued in the current interval is then spread over the larger stakedLiquidity, diluting prior stakers / mis-crediting the entrant."
+    },
+    {
+      "id": "ARI-001",
+      "title": "multiSplit floor-division strands locked HYBR (V-3)",
+      "severity": "Medium",
+      "file": "ve33/contracts/VotingEscrow.sol",
+      "contract": "",
+      "function": "multiSplit",
+      "description": "child.amount = floor(parent.amount * w_i / totalWeight); sum of children <= parent, so the remainder HYBR stays in escrow unrepresented by any veNFT (permanently stuck). Violates V-3 sum-of-children == parent."
+    },
+    {
+      "id": "DT-003",
+      "title": "VotingEscrow.merge into an actively-voted _to refreshes weight mid-epoch",
+      "severity": "Medium",
+      "file": "ve33/contracts/VotingEscrow.sol",
+      "contract": "",
+      "function": "merge",
+      "description": "merge() requires !voted[_from] but not !voted[_to]. Merging into a _to that is currently voting increases its locked amount and calls IVoter(voter).poke(_to), refreshing its gauge vote weight mid-epoch \u2014 potentially affecting already-distributed-but-unclaimed reward data for the epoch (README area-of-concern #2)."
+    },
+    {
+      "id": "EA-002",
+      "title": "Merge into voted _to can shift epoch reward weight",
+      "severity": "Medium",
+      "file": "ve33/contracts/VotingEscrow.sol",
+      "contract": "",
+      "function": "merge",
+      "description": "merge() does not require !voted[_to]; merging increases _to amount and pokes its vote mid-epoch, potentially altering already-distributed-unclaimed reward/bribe data (README area #2)."
+    },
+    {
+      "id": "LOG-001",
+      "title": "GaugeV2 maturityTime withdraw-lock is a permanent no-op",
+      "severity": "Medium",
+      "file": "ve33/contracts/GaugeV2.sol",
+      "contract": "",
+      "function": "_withdraw",
+      "description": "maturityTime[user] is declared and checked in _withdraw (require block.timestamp >= maturityTime) but is never written anywhere in GaugeV2, so the intended maturity lock never applies."
+    },
+    {
+      "id": "LOG-002",
+      "title": "RewardHYBR TO_HYBR harvest reverts when gHYBR unset",
+      "severity": "Medium",
+      "file": "ve33/contracts/RewardHYBR.sol",
+      "contract": "",
+      "function": "_redeemToHYBR",
+      "description": "_redeemToHYBR transfers penalty to gHYBR and calls receivePenaltyReward; if gHYBR==address(0) the ERC20 transfer reverts, so every TO_HYBR harvest path (GaugeV2/GaugeCL getReward) reverts until owner sets gHYBR."
+    },
+    {
+      "id": "LOG-003",
+      "title": "Merge missing voted[_to] guard",
+      "severity": "Medium",
+      "file": "ve33/contracts/VotingEscrow.sol",
+      "contract": "",
+      "function": "merge",
+      "description": "Asymmetric guard: !voted[_from] required, voted[_to] not. See EA-002 for reward impact."
+    },
+    {
+      "id": "AC-001",
+      "title": "Gauge onlyDistribution / Minter team roles \u2014 examined (Blackhole-standard)",
+      "severity": "Low",
+      "file": "ve33/contracts/GaugeManager.sol",
+      "contract": "",
+      "function": "notifyRewardAmount/distribute",
+      "description": "notifyRewardAmount/getReward are onlyDistribution; Minter setters are team-gated; PermissionsRegistry roles per README. Centralization/admin-key trust is a publicly-known (Peckshield) issue and out of scope. No privilege-escalation path found in-scope."
+    },
+    {
+      "id": "SWP-001",
+      "title": "reward/accounting candidate (EA-001/DT-001)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (EA-001/DT-001)"
+    },
+    {
+      "id": "SWP-006",
+      "title": "reward/accounting candidate (ARI-001/DT-002)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (ARI-001/DT-002)"
+    },
+    {
+      "id": "SWP-001",
+      "title": "reward/accounting candidate (EA-001/DT-001)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (EA-001/DT-001)"
+    },
+    {
+      "id": "SWP-006",
+      "title": "reward/accounting candidate (ARI-001/DT-002)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (ARI-001/DT-002)"
+    },
+    {
+      "id": "SWP-001",
+      "title": "reward/accounting candidate (EA-001/DT-001)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (EA-001/DT-001)"
+    },
+    {
+      "id": "SWP-006",
+      "title": "reward/accounting candidate (ARI-001/DT-002)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (ARI-001/DT-002)"
+    },
+    {
+      "id": "SWP-002",
+      "title": "reward/accounting candidate (LOG-001)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (LOG-001)"
+    },
+    {
+      "id": "SWP-003",
+      "title": "reward/accounting candidate (LOG-001)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (LOG-001)"
+    },
+    {
+      "id": "SWP-004",
+      "title": "reward/accounting candidate (LOG-002)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (LOG-002)"
+    },
+    {
+      "id": "SWP-005",
+      "title": "reward/accounting candidate (EA-002/LOG-003/DT-003)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (EA-002/LOG-003/DT-003)"
+    },
+    {
+      "id": "SWP-002",
+      "title": "reward/accounting candidate (LOG-001)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (LOG-001)"
+    },
+    {
+      "id": "SWP-003",
+      "title": "reward/accounting candidate (LOG-001)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (LOG-001)"
+    },
+    {
+      "id": "SWP-004",
+      "title": "reward/accounting candidate (LOG-002)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (LOG-002)"
+    },
+    {
+      "id": "SWP-005",
+      "title": "reward/accounting candidate (EA-002/LOG-003/DT-003)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (EA-002/LOG-003/DT-003)"
+    },
+    {
+      "id": "SWP-002",
+      "title": "reward/accounting candidate (LOG-001)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (LOG-001)"
+    },
+    {
+      "id": "SWP-003",
+      "title": "reward/accounting candidate (LOG-001)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (LOG-001)"
+    },
+    {
+      "id": "SWP-004",
+      "title": "reward/accounting candidate (LOG-002)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (LOG-002)"
+    },
+    {
+      "id": "SWP-005",
+      "title": "reward/accounting candidate (EA-002/LOG-003/DT-003)",
+      "severity": "Low",
+      "file": "",
+      "contract": "",
+      "function": "",
+      "description": "reward/accounting candidate (EA-002/LOG-003/DT-003)"
+    },
+    {
+      "id": "ERC-001",
+      "title": "gHYBR/rHYBR are non-4626 share wrappers \u2014 share accounting examined",
+      "severity": "Low",
+      "file": "ve33/contracts/GovernanceHYBR.sol",
+      "contract": "",
+      "function": "deposit/withdraw",
+      "description": "No ERC4626 vault in scope. GovernanceHYBR (gHYBR) wraps HYBR with deposit/withdraw + veNFT split/merge; RewardHYBR (rHYBR) is a non-transferable 1:1/penalty convert token. Share-mint/burn accounting reviewed for conservation; the reward-relevant risks are captured in EA-001/EA-002/ARI-001. No 4626 preview/rounding surface."
+    },
+    {
+      "id": "REE-001",
+      "title": "GaugeCL deposit/withdraw external NFT calls under nonReentrant \u2014 examined",
+      "severity": "Low",
+      "file": "ve33/contracts/CLGauge/GaugeCL.sol",
+      "contract": "",
+      "function": "deposit/withdraw",
+      "description": "deposit/withdraw make external calls (NFPM.collect, safeTransferFrom, clPool.stake, rHYBR convert) but are nonReentrant; onERC721Received is a pure selector return. GaugeV2 onReward callback (gaugeRewarder) is after state updates under nonReentrant. No reentrancy path found."
+    },
+    {
+      "id": "TI-001",
+      "title": "rHYBR non-transferable enforcement \u2014 examined",
+      "severity": "Low",
+      "file": "ve33/contracts/RewardHYBR.sol",
+      "contract": "",
+      "function": "_beforeTokenTransfer",
+      "description": "rHYBR blocks transfer/approve; only exempt/gauge can move it. Mint/burn allowed (to/from address(0) exempted). depostionEmissionsToken is permissionless but yields non-transferable rHYBR redeemable 1:1 to ve/gHYBR or 80% to HYBR. No unintended transfer path found."
+    },
+    {
+      "id": "ORA-001",
+      "title": "No in-scope external price-oracle dependency \u2014 examined",
+      "severity": "Info",
+      "file": "audits/hybra-finance-2025-10-strict-eval/contracts",
+      "contract": "",
+      "function": "n/a",
+      "description": "Reward distribution uses gauge weights and emission schedule, not a price oracle. CLPool exposes a TWAP via the Oracle.sol library, but Oracle.sol/OracleLibrary are OUT of scope. DynamicSwapFeeModule uses pool state, not an external feed. No in-scope oracle-manipulation surface."
+    }
+  ],
+  "summary": {
+    "awarded_total": 10,
+    "awarded_source": "answer_key_normalization.json",
+    "adjudicated": 10,
+    "pending": 0,
+    "auto_adjudicated": 10,
+    "misses_detected": 10,
+    "recall_of_surfaced": 0.0,
+    "strong_only": 0.0,
+    "by_label": {
+      "MISSED": 10,
+      "SAME_AREA": 0,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 0,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

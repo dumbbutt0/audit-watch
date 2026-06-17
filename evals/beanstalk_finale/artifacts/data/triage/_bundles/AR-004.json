@@ -1,0 +1,99 @@
+{
+  "finding_id": "AR-004",
+  "title": "stalkReward casts a potentially-negative int96 stem delta to uint96 (huge value) with no enforced endStem >= startStem",
+  "agent": "",
+  "claimed_severity": "Info",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibSilo.sol",
+    "function": "stalkReward",
+    "line_start": 661,
+    "line_end": 669
+  },
+  "description": "LibSilo.stalkReward computes `uint128(uint96(endStem.sub(startStem))).mul(bdv).div(PRECISION)`. The NatSpec states 'endStem must be larger than startStem' but the code does NOT enforce it. If a caller passed endStem < startStem, the int96 difference is negative and `uint96(negative)` becomes a ~7.9e28-scale value, then `.mul(bdv)` (LibRedundantMath128, checked) overflows uint128 and reverts for any non-trivial bdv. In practice every caller derives startStem from a stored deposit stem and endStem from the current stemTip / germStem.stemTip, and stemTipForToken only grows over time, so startStem <= endStem holds for valid deposits; removeDepositFromAccount / grownStalkForDeposit additionally require stem <= stemTip. Therefore the path is a checked-revert (DoS) at worst and is not attacker-reachable with the invariant intact. Flagged as a robustness gap: an explicit `require(endStem >= startStem)` would replace a silent giant-cast-then-overflow with a clear error.",
+  "impact": "No value extraction; a malformed (endStem < startStem) call reverts via checked uint128 multiplication rather than returning a wrong reward. Truncation of the final `reward` to uint128 is also safe: (stemDelta * bdv)/1e6 fits uint128 for any realistic Bean BDV. Info.",
+  "ite": {
+    "intent": "Obtain an inflated grown-stalk reward by inverting stem order",
+    "technique": "Pass endStem < startStem so uint96 cast yields a huge multiplier",
+    "evasion": "stem ordering is enforced upstream (stem <= stemTip) for every caller; checked mul reverts otherwise"
+  },
+  "ice_chain": {
+    "corrupted_state": "grown stalk reward value",
+    "consumer_found": true,
+    "consumer_function": "LibSilo.__mow -> mintActiveStalk; LibConvert._withdrawTokens",
+    "impact": "Inflated stalk would be minted IF an inverted-stem call were reachable; it is not (checked overflow reverts and upstream guards hold)",
+    "exploit_path": "no reachable inverted-stem caller found"
+  },
+  "source_slice": "631:         }\n632: \n633:         // \"removing\" deposits is equivalent to \"burning\" a batch of ERC1155 tokens.\n634:         if (emission == ERC1155Event.EMIT_BATCH_EVENT) {\n635:             emit TransferBatch(msg.sender, account, address(0), removedDepositIDs, amounts);\n636:         }\n637: \n638:         emit RemoveDeposits(\n639:             account,\n640:             token,\n641:             stems,\n642:             amounts,\n643:             ar.active.tokens.add(ar.odd.tokens).add(ar.even.tokens),\n644:             bdvsRemoved\n645:         );\n646:     }\n647: \n648:     //////////////////////// UTILITIES ////////////////////////\n649: \n650:     /**\n651:      * @notice Calculates the Stalk reward based on the start and end\n652:      * stems, and the amount of BDV deposited. Stems represent the\n653:      * amount of grown stalk per BDV, so the difference between the\n654:      * start index and end index (stem) multiplied by the amount of\n655:      * bdv deposited will give the amount of stalk earned.\n656:      * formula: stalk = bdv * (\u0394stalkPerBdv)\n657:      *\n658:      * @dev endStem must be larger than startStem.\n659:      *\n660:      */\n661:     function stalkReward(\n662:         int96 startStem,\n663:         int96 endStem,\n664:         uint128 bdv\n665:     ) internal pure returns (uint256) {\n666:         uint128 reward = uint128(uint96(endStem.sub(startStem))).mul(bdv).div(PRECISION);\n667: \n668:         return reward;\n669:     }\n670: \n671:     /**\n672:      * @dev Internal function to compute `account` balance of Earned Beans.\n673:      *\n674:      * The number of Earned Beans is equal to the difference between:\n675:      *  - the \"expected\" Stalk balance, determined from the account balance of\n676:      *    Roots.\n677:      *  - the \"account\" Stalk balance, stored in account storage.\n678:      * divided by the number of Stalk per Bean.\n679:      * The earned beans from the latest season\n680:      */\n681:     function _balanceOfEarnedBeans(\n682:         uint256 accountStalk,\n683:         uint256 accountRoots\n684:     ) internal view returns (uint256 beans) {\n685:         AppStorage storage s = LibAppStorage.diamondStorage();\n686:         // There will be no Roots before the first Deposit is made.\n687:         if (s.sys.silo.roots == 0) return 0;\n688: \n689:         uint256 stalk = s.sys.silo.stalk.mul(accountRoots).div(s.sys.silo.roots);\n690: \n691:         // Beanstalk rounds down when minting Roots. Thus, it is possible that\n692:         // balanceOfRoots / totalRoots * totalStalk < s.accts[account].stalk.\n693:         // As `account` Earned Balance balance should never be negative,\n694:         // Beanstalk returns 0 instead.\n695:         if (stalk <= accountStalk) return 0;\n696: \n697:         // Calculate Earned Stalk and convert to Earned Beans.\n698:         beans = (stalk - accountStalk).div(C.STALK_PER_BEAN);\n699:         if (beans > s.sys.silo.earnedBeans) return s.sys.silo.earnedBeans;",
+  "gate_verdict": {
+    "finding_id": "AR-004",
+    "severity": "Info",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.546402+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": false
+}

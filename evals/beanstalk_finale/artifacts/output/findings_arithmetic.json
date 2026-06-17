@@ -1,0 +1,158 @@
+{
+  "agent": "arithmetic",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T21:40:00+00:00",
+  "methodology_note": "BLIND audit. Solidity ^0.8.20 (checked arithmetic by default). All LibRedundantMath* libs are thin wrappers over native checked operators (verified LibRedundantMath128/256: add/sub/mul/div simply use +,-,*,/ which revert on overflow), so overflow on those paths is a DoS-revert, never a silent wrap. NatSpec 'SafeCast unnecessary / will not overflow' comments were re-derived independently against realistic Bean-supply bounds, NOT trusted. High-severity migration accounting bugs (stalk =-vs-+= overwrite, zeroed global balances, replay) are accounting/logic-class and are owned by deep_trace (DT-001/002/003) and the logic agent; this report covers only arithmetic/precision-specific issues not already escalated there.",
+  "findings": [
+    {
+      "id": "AR-001",
+      "title": "getAverageGrownStalkPerBdv underflows when total stalk-per-BDV falls below STALK_BDV_PRECISION, reverting stepGauge and bricking season advancement",
+      "severity": "Medium",
+      "confidence": "High",
+      "description": "LibGauge.getAverageGrownStalkPerBdv computes `s.sys.silo.stalk.div(totalBdv).sub(STALK_BDV_PRECISION)` where STALK_BDV_PRECISION = 1e4. The subtraction uses LibRedundantMath256.sub (checked) and there is NO floor/guard ensuring `stalk/totalBdv >= 1e4`. The quotient `stalk/totalBdv` is the average stalk units per BDV unit; it is normally >= the base 1e4, but it can drop below 1e4 if the system stalk-to-BDV ratio is depressed. A depressed ratio is directly reachable post-migration: DT-002/ACC-002 zeroes `s.sys.silo.balances[token].deposited/depositedBdv` for migrated tokens while per-account stalk persists (and DT-001/ACC-001 overwrites per-account stalk), desyncing the global stalk and global BDV totals that feed getTotalBdv() and s.sys.silo.stalk. It is also approachable by large active-stalk burns (mass withdraw/convert) outpacing BDV reduction. When `stalk/totalBdv < 1e4`, the checked .sub reverts. getAverageGrownStalkPerBdv -> updateAverageStalkPerBdvPerSeason -> updateGrownStalkEarnedPerSeason -> stepGauge() reverts, and stepGauge is invoked during sunrise/gm, so every season advance reverts: a protocol-wide temporary freeze until the ratio is externally restored.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/LibGauge.sol",
+        "function": "getAverageGrownStalkPerBdv",
+        "line_start": 347,
+        "line_end": 352
+      },
+      "impact": "Checked-subtraction underflow reverts the seed-gauge update, which runs inside sunrise/gm. Season advancement DoS (temporary protocol freeze) whenever the global stalk/BDV ratio is pushed below 1e4. Immunefi v2.2: temporary freezing of season progression / core protocol function -> High when chained with the migration desync that makes it reachable; standalone (requires the ratio precondition) it is Medium.",
+      "proof_of_concept": "1. After L1->L2 migration, ACC-002 has left s.sys.silo.balances[token].depositedBdv at 0 for one or more migrated tokens, but getTotalBdv() summed over siloTokens still picks up the non-zeroed tokens; meanwhile s.sys.silo.stalk reflects the (overwritten/under-counted) account stalk from ACC-001. Construct/inherit a state where s.sys.silo.stalk / getTotalBdv() < 1e4. 2. Anyone calls sunrise()/gm(). 3. stepGauge -> updateGrownStalkEarnedPerSeason -> (season.current > targetSeasonsToCatchUp) updateAverageStalkPerBdvPerSeason -> getAverageGrownStalkPerBdv: `stalk.div(totalBdv)` < 1e4, `.sub(1e4)` reverts. 4. sunrise reverts; season cannot advance. consumer_found=true (stepGauge in sunrise). Full Level-3 PoC requires a fork with the post-migration storage; flagged for runtime confirmation.",
+      "ite": {
+        "intent": "Permanently or temporarily halt season advancement, or grief sunrise, via an underflow in the gauge average",
+        "technique": "Drive the global stalk/totalBdv ratio below STALK_BDV_PRECISION (1e4) so the checked subtraction in getAverageGrownStalkPerBdv reverts",
+        "evasion": "No min() floor on the quotient before subtracting; the migration accounting desync (ACC-001/ACC-002) supplies the precondition without an attacker"
+      },
+      "ice_chain": {
+        "corrupted_state": "return value of getAverageGrownStalkPerBdv (reverts) -> stepGauge",
+        "consumer_found": true,
+        "consumer_function": "LibGauge.stepGauge invoked by SeasonFacet.sunrise/gm",
+        "impact": "Season advancement DoS / temporary freeze of mints, gauge, and downstream silo accrual",
+        "exploit_path": "sunrise/gm -> stepGauge -> updateGrownStalkEarnedPerSeason -> updateAverageStalkPerBdvPerSeason -> getAverageGrownStalkPerBdv: stalk/totalBdv < 1e4 -> checked sub reverts"
+      },
+      "invariant_violated": "ACC-010",
+      "cross_agent_refs": ["DT-001", "DT-002"],
+      "attack_surface_rank": 4
+    },
+    {
+      "id": "AR-002",
+      "title": "LibUsdOracle chainlink branch divides 1e24 by an unchecked oracle price (division-by-zero revert on frozen/broken feed)",
+      "severity": "Low",
+      "confidence": "High",
+      "description": "getTokenPriceFromExternal, encodeType 0x01 (default chainlink) path, returns `uint256(1e24).div(LibChainlinkOracle.getTokenPrice(addr, FOUR_HOUR_TIMEOUT, lookback))`. LibChainlinkOracle.getTokenPrice/getPrice/getTwap are explicitly documented and coded to RETURN 0 (not revert) when the feed is broken, frozen, has a non-positive answer, or times out. There is NO zero-check before the division here (unlike the WETH/WSTETH branches at lines 52/57/63 which guard `if (price == 0) return 0`). When the underlying chainlink feed returns 0, `1e24 / 0` reverts via LibRedundantMath256.div, instead of the documented graceful 0-return contract. This DoSes any peg/minting/convert path that prices an encodeType-0x01 token while its feed is down. Note the inverted-lookback ternary in LibChainlinkOracle.getTokenPrice (lookback>0 -> spot, lookback==0 -> getTwap(...,0)) is a separate oracle-class bug (ARITH-001); the arithmetic-specific issue here is the missing zero guard before inversion.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibUsdOracle.sol",
+        "function": "getTokenPriceFromExternal",
+        "line_start": 120,
+        "line_end": 127
+      },
+      "impact": "Division-by-zero revert (DoS) for any non-WETH/WSTETH whitelisted token using the default chainlink oracle when its feed is frozen/broken, propagating to peg, sunrise minting, and convert valuation that call getUsdPrice. Best-practice violation of the documented 0-sentinel contract; severity Low because it requires an external feed outage and only causes a revert (no value extraction).",
+      "proof_of_concept": "1. A whitelisted token T uses oracleImplementation.encodeType == 0x01. 2. Its chainlink feed times out / returns answer<=0 -> LibChainlinkOracle.getTokenPrice returns 0. 3. Any call to LibUsdOracle.getUsdPrice(T)/getTokenPriceFromExternal(T) executes `1e24.div(0)` -> revert. 4. Season/convert/peg logic that reaches this token's price reverts. consumer_found=true (LibDeltaB / minting / convert price paths). PoC is a unit test stubbing the aggregator to return 0; flagged for runtime confirmation.",
+      "ite": {
+        "intent": "DoS price-dependent flows (peg, mint, convert) by causing a div-by-zero",
+        "technique": "Frozen/broken chainlink feed returns 0; 1e24/0 reverts because the chainlink branch omits the zero guard present in the WETH/WSTETH branches",
+        "evasion": "Documented graceful-0 contract is violated only on this branch; requires feed outage (conditional, not attacker-triggered)"
+      },
+      "ice_chain": {
+        "corrupted_state": "return value of getTokenPriceFromExternal (reverts)",
+        "consumer_found": true,
+        "consumer_function": "LibUsdOracle.getUsdPrice -> LibWell.getRatiosAndBeanIndex / LibDeltaB / minting price paths",
+        "impact": "Revert/DoS of peg, mint, and convert valuation for the affected token",
+        "exploit_path": "getUsdPrice(T) -> getTokenPriceFromExternal(T) encodeType 0x01 -> 1e24.div(getTokenPrice()==0) -> revert"
+      },
+      "invariant_violated": "ARITH-003",
+      "cross_agent_refs": [],
+      "attack_surface_rank": 4
+    },
+    {
+      "id": "AR-003",
+      "title": "LibConvert.abs(int256) underflows on type(int256).min via unchecked negation",
+      "severity": "Info",
+      "confidence": "High",
+      "description": "abs(int256 a) returns `a >= 0 ? uint256(a) : uint256(-a)`. For a == type(int256).min, `-a` is not representable and the unary negation reverts under 0.8 checked arithmetic. abs() is applied to deltaB values (LibDeltaB.cappedReservesDeltaB / overallCappedDeltaB / calculateAgainstPeg / calculateTowardsPeg) and to overallConvertCapacity in pipelineConvert. deltaB is computed as `calcReserveAtRatioSwap(reserves) - reserves[beanIndex]`, bounded by realistic well reserve sizes (far below 2^255). I could not construct a reachable path producing int256.min, so this is a defensive/Info note rather than an exploitable finding.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Convert/LibConvert.sol",
+        "function": "abs",
+        "line_start": 555,
+        "line_end": 557
+      },
+      "impact": "Theoretical revert (DoS) if a deltaB ever equalled type(int256).min; not reachable under realistic reserve magnitudes. No fund loss.",
+      "proof_of_concept": "No reachable input found. Would require a well/deltaB value of exactly -2^255, which exceeds any plausible token reserve. consumer_found true (convert penalty math) but exploit_path not achievable.",
+      "ite": {
+        "intent": "Revert convert penalty math via an abs() overflow",
+        "technique": "Supply deltaB == type(int256).min so uint256(-a) reverts",
+        "evasion": "Bounded by physical reserve sizes; not attacker-reachable"
+      },
+      "ice_chain": {
+        "corrupted_state": "abs() return (would revert)",
+        "consumer_found": true,
+        "consumer_function": "LibConvert.applyStalkPenalty / calculatePerWellCapacity / LibPipelineConvert.executePipelineConvert",
+        "impact": "Revert of convert penalty calculation if int256.min ever reached",
+        "exploit_path": "not reachable under realistic reserve magnitudes"
+      },
+      "invariant_violated": null,
+      "cross_agent_refs": ["ARITH-004"],
+      "attack_surface_rank": 5
+    },
+    {
+      "id": "AR-004",
+      "title": "stalkReward casts a potentially-negative int96 stem delta to uint96 (huge value) with no enforced endStem >= startStem",
+      "severity": "Info",
+      "confidence": "High",
+      "description": "LibSilo.stalkReward computes `uint128(uint96(endStem.sub(startStem))).mul(bdv).div(PRECISION)`. The NatSpec states 'endStem must be larger than startStem' but the code does NOT enforce it. If a caller passed endStem < startStem, the int96 difference is negative and `uint96(negative)` becomes a ~7.9e28-scale value, then `.mul(bdv)` (LibRedundantMath128, checked) overflows uint128 and reverts for any non-trivial bdv. In practice every caller derives startStem from a stored deposit stem and endStem from the current stemTip / germStem.stemTip, and stemTipForToken only grows over time, so startStem <= endStem holds for valid deposits; removeDepositFromAccount / grownStalkForDeposit additionally require stem <= stemTip. Therefore the path is a checked-revert (DoS) at worst and is not attacker-reachable with the invariant intact. Flagged as a robustness gap: an explicit `require(endStem >= startStem)` would replace a silent giant-cast-then-overflow with a clear error.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibSilo.sol",
+        "function": "stalkReward",
+        "line_start": 661,
+        "line_end": 669
+      },
+      "impact": "No value extraction; a malformed (endStem < startStem) call reverts via checked uint128 multiplication rather than returning a wrong reward. Truncation of the final `reward` to uint128 is also safe: (stemDelta * bdv)/1e6 fits uint128 for any realistic Bean BDV. Info.",
+      "proof_of_concept": "All observed callers (_removeDepositFromAccount, _removeDepositsFromAccount, _balanceOfGrownStalk via __mow, LibConvert._withdrawTokens) pass startStem = deposit stem (<= stemTip) and endStem = stemTip/germStem.stemTip, so endStem >= startStem. No reachable counterexample. consumer_found true but no exploit_path.",
+      "ite": {
+        "intent": "Obtain an inflated grown-stalk reward by inverting stem order",
+        "technique": "Pass endStem < startStem so uint96 cast yields a huge multiplier",
+        "evasion": "stem ordering is enforced upstream (stem <= stemTip) for every caller; checked mul reverts otherwise"
+      },
+      "ice_chain": {
+        "corrupted_state": "grown stalk reward value",
+        "consumer_found": true,
+        "consumer_function": "LibSilo.__mow -> mintActiveStalk; LibConvert._withdrawTokens",
+        "impact": "Inflated stalk would be minted IF an inverted-stem call were reachable; it is not (checked overflow reverts and upstream guards hold)",
+        "exploit_path": "no reachable inverted-stem caller found"
+      },
+      "invariant_violated": null,
+      "cross_agent_refs": [],
+      "attack_surface_rank": 4
+    },
+    {
+      "id": "AR-005",
+      "title": "Unchecked uint128() downcasts of bdv*stalkIssuedPerBdv and gauge average ('safeCast unnecessary' comments) verified safe under realistic bounds",
+      "severity": "Info",
+      "confidence": "High",
+      "description": "Two NatSpec 'safeCast not needed / unnecessary' downcasts were re-derived independently rather than trusted: (1) LibConvert._depositTokensForConvert line 540 `uint128(bdv.mul(LibTokenSilo.stalkIssuedPerBdv(token)))` and (2) LibGauge.updateAverageStalkPerBdvPerSeason line 320 `uint128(getAverageGrownStalkPerBdv().mul(BDV_PRECISION).div(targetSeasonsToCatchUp))`. For (1), stalkIssuedPerBdv is on the order of 1e10 (1 stalk = 1e10 micro-units); overflowing uint128 (~3.4e38) would require bdv > ~3.4e28 micro-BDV, i.e. ~3.4e22 Beans of value, which is many orders of magnitude above any plausible Bean supply (~1e13 micro-Beans). For (2), the divided average is similarly bounded. Both casts are therefore safe in practice; flagged only to record that the comments were verified, not accepted, and that the bound is implicit (not enforced) so a future parameter change to stalkIssuedPerBdv could erode the margin.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Convert/LibConvert.sol",
+        "function": "_depositTokensForConvert",
+        "line_start": 537,
+        "line_end": 540
+      },
+      "impact": "No issue under current parameters and realistic supply. Truncation would only occur at absurd BDV magnitudes. Documented for completeness and future-parameter caution.",
+      "proof_of_concept": "Bound analysis only: max realistic bdv * 1e10 << 2^128. No reachable overflow.",
+      "ite": {
+        "intent": "Silently truncate stalk on a uint128 downcast to under-issue or wrap stalk",
+        "technique": "Drive bdv*stalkIssuedPerBdv above 2^128",
+        "evasion": "Required magnitude is non-physical given Bean supply; not reachable"
+      },
+      "ice_chain": {
+        "corrupted_state": "germinating/active stalk minted (would truncate)",
+        "consumer_found": true,
+        "consumer_function": "LibSilo.mintGerminatingStalk / mintActiveStalk; LibGauge season update",
+        "impact": "None under realistic bounds",
+        "exploit_path": "not reachable"
+      },
+      "invariant_violated": null,
+      "cross_agent_refs": [],
+      "attack_surface_rank": 5
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "finding_id": "I-1",
+  "title": "Insurance injection compensates current LP holders, not drawdown-era holders (JIT capture)",
+  "root_cause": "attemptInjectPool credits the live pool (applyDeltaToPoolAmount) on drawdown, raising the price for whoever holds LP at injection time; the reserve was meant for LPs who bore the drawdown, so a JIT LP depositing after the drawdown captures insurance compensation it never lost.",
+  "affected_contracts": [
+    "contracts/insurance/InsuranceFundUtils.sol",
+    "contracts/position/DecreasePositionCollateralUtils.sol"
+  ],
+  "affected_functions": [
+    "InsuranceFundUtils.attemptInjectPool",
+    "InsuranceFundUtils.getDrawdownFraction",
+    "DecreasePositionCollateralUtils.processCollateral (call site ~557)"
+  ],
+  "attacker_entrypoint": "market realizes drawdown (traders win); reserve funded over the epoch",
+  "attacker_capabilities": [
+    "deposit LP after a realized drawdown, before/at injection (async GMX deposit)"
+  ],
+  "privilege_required": "none",
+  "scope_status": "in_scope",
+  "in_scope_asset": "InsuranceFundUtils (attemptInjectPool)",
+  "out_of_scope_risks": [],
+  "impact_category": "reward_extraction",
+  "severity_claim": "Medium",
+  "severity_justification": {
+    "worst_case": "JIT LPs systematically skim the insurance reserve from drawdown-era LPs.",
+    "realistic_case": "Bounded by async deposit timing/fees; a real value-distribution flaw.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "0xMarkets",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "0xMarkets contest (0xMarkets_contract-main @ e94daee); GMX Synthetics fork (ships GMX audits)."
+  },
+  "call_trace": [
+    "market realizes drawdown (traders win); reserve funded over the epoch",
+    "JIT LP deposits after the drawdown",
+    "attemptInjectPool injects reserve into the pool -> raises price for current holders incl. the JIT LP",
+    "JIT LP withdraws, capturing a share of insurance compensation it never lost"
+  ],
+  "state_transition": {
+    "before": "reserve accrued; drawdown realized; intended beneficiaries = drawdown-era LPs",
+    "after": "injection compensates current holders incl. a post-drawdown JIT LP",
+    "slots_or_balances": []
+  },
+  "asset_delta": "Insurance reserve (meant for drawdown-era LPs) partially skimmed by JIT LPs.",
+  "proof_type": "static_proof",
+  "poc_path": "",
+  "poc_status": "none",
+  "reproduction_steps": [
+    "code analysis \u2014 see report.md + vulnerable/ source (no standalone PoC: not standalone-reproducible without the full GMX deposit/withdrawal + keeper machinery; code-verified design finding.)"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [
+    "GMX core is audited (ABDK/Certora/Dedaub/Guardian); this is the 0xMarkets delta / a GMX-inherited fact"
+  ],
+  "false_positive_risks": [
+    "Bounded by async deposit timing/fees; a real value-distribution flaw."
+  ],
+  "invalidating_conditions": [
+    "not standalone-reproducible without the full GMX deposit/withdrawal + keeper machinery; code-verified design finding."
+  ],
+  "defense_analysis": [
+    {
+      "defense": "async + fee'd GMX deposits/withdrawals",
+      "blocks_path": false,
+      "uncertain": true,
+      "why_it_fails": "bounds single-block JIT but not the compensation-to-current-holders mismatch"
+    }
+  ],
+  "assumptions": [
+    "GMX Synthetics fork; insurance module is the 0xMarkets delta"
+  ],
+  "evidence_links": [
+    "contracts/insurance/InsuranceFundUtils.sol:attemptInjectPool (credits pool, not per-LP snapshot)",
+    "contracts/position/DecreasePositionCollateralUtils.sol (call site ~line 557)",
+    "reports/0xmarkets-2026-06-13/submissions/I-1/vulnerable/InsuranceFundUtils.sol"
+  ],
+  "triager_summary": "Insurance injection compensates current LP holders, not drawdown-era holders (JIT capture) \u2014 code-verified (no standalone PoC)",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Blockchain \u2192 Transaction-Ordering Dependence (TOD) / Front Running (insurance injection compensates *current* LP holders, not the drawdown-era holders \u2192 JIT capture of the insurance reserve)  \u00b7  Business Logic Errors (value-attribution mismatch in `attemptInjectPool`)",
+  "cvss": [
+    {
+      "aspect": "JIT insurance-reserve capture",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N",
+      "score": 3.7,
+      "severity": "Low"
+    }
+  ]
+}

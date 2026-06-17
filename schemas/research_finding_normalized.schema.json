@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ResearchFindingNormalized",
+  "description": "Read-only normalization of research-detector candidates into one comparable record. RESEARCH-ONLY: routing_allowed is const false and research_only is const true on every record. Normalization may RANK (review_priority) but NEVER changes a detector's confidence. Not consumed by the production exploitability/submission/gate engine.",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "routing_allowed", "sources", "records", "summary"],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "generated_at": { "type": "string" },
+    "routing_allowed": { "const": false },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["detector", "source_audit_path", "accepted"],
+        "properties": {
+          "detector": { "type": "string" },
+          "detector_version": { "type": "string" },
+          "source_audit_path": { "type": "string" },
+          "accepted": { "type": "boolean" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "records": { "type": "array", "items": { "$ref": "#/definitions/record" } },
+    "summary": {
+      "type": "object",
+      "required": ["total_records", "by_detector", "by_confidence"],
+      "properties": {
+        "total_records": { "type": "integer" },
+        "by_detector": { "type": "object" },
+        "by_confidence": { "type": "object" },
+        "top_by_review_priority": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "definitions": {
+    "record": {
+      "type": "object",
+      "required": ["detector", "detector_version", "schema_version", "candidate_id", "source_audit_path",
+                   "signal_type", "finding_shape", "confidence", "candidate_surface", "file_line_refs",
+                   "evidence", "declared_severity_potential", "review_priority", "why_priority",
+                   "suppression_status", "routing_allowed", "research_only"],
+      "properties": {
+        "detector": { "type": "string" },
+        "detector_version": { "type": "string" },
+        "schema_version": { "type": "string" },
+        "candidate_id": { "type": "string", "description": "stable id traceable to the origin candidate" },
+        "source_audit_path": { "type": "string", "description": "the *_audit.json this record came from" },
+        "signal_type": { "type": "string" },
+        "finding_shape": { "type": "string" },
+        "confidence": { "type": "string", "enum": ["high", "medium", "low", "needs_context"],
+                        "description": "copied VERBATIM from the detector — normalization never upgrades/downgrades it" },
+        "candidate_surface": { "type": "string", "description": "Contract.function" },
+        "file_line_refs": { "type": "string" },
+        "evidence": { "type": "object", "description": "detector-specific evidence terms lifted via the registry" },
+        "declared_severity_potential": { "type": "string", "enum": ["high", "medium", "low", "info"],
+          "description": "a DETECTOR-DECLARED capability hint (a family-level constant), NOT a computed per-finding severity" },
+        "review_priority": { "type": "number", "minimum": 0, "maximum": 1 },
+        "why_priority": {
+          "type": "object",
+          "required": ["confidence_weight", "severity_weight", "suppression_penalty"],
+          "properties": {
+            "confidence_weight": { "type": "number" },
+            "severity_weight": { "type": "number" },
+            "suppression_penalty": { "type": "number" }
+          }
+        },
+        "suppression_status": { "type": "string" },
+        "routing_allowed": { "const": false },
+        "research_only": { "const": true }
+      }
+    }
+  }
+}

@@ -1,0 +1,242 @@
+{
+  "audit_id": "predy-2024-05-holdout",
+  "set": "training",
+  "generated_at": "2026-06-12T14:06:30Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": true,
+  "awarded": [
+    {
+      "id": "H-01",
+      "severity": "High",
+      "title": "Reallocation depends on the `slot0` price, which can be manipulated",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "H-02",
+      "severity": "High",
+      "title": "Liquidators can bypass remaining negative margin check and leave the loss to the protocol",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "H-03",
+      "severity": "High",
+      "title": "One pair can steal another pair's Uniswap liquidity during `reallocate()` call if both pairs operate on the same Uniswap pool and both have the same upper and lower tick during reallocation",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "H-04",
+      "severity": "High",
+      "title": "Liquidation incorrectly tries to transfer token from Market instead of liquidator if `remainingMargin` is negative",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Liquidity manipulation is possible when trading",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "`updateIRMParams` does not call `applyInterestForToken` before updating `irmParams` which leads to incorrect calculation of interest rate for subsequent trades.",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "Incorrect price for negative ticks due to lack of rounding down",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-04",
+      "severity": "Medium",
+      "title": "Chainlink's `latestRoundData` might return stale or incorrect results",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-05",
+      "severity": "Medium",
+      "title": "Possible DoS When calling `GammaTradeMarket::_removePosition` will cause user position to not be able to get liquidated",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-06",
+      "severity": "Medium",
+      "title": "Vaults can become immune from liquidation by setting `vault.recipient` to a blacklisted quote token address",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "DT-02",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "M-07",
+      "severity": "Medium",
+      "title": "Reallocation incorrectly sends the exceed `quoteTokens` to Market contract instead of reallocator",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    },
+    {
+      "id": "M-08",
+      "severity": "Medium",
+      "title": "PriceFeed does not return to the correct price for quote pairs",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "high"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "DT-01",
+      "title": "TWAP 'OLD' fallback shortens the oracle window, enabling price manipulation of margin/liquidation",
+      "severity": "Medium",
+      "file": "libraries/UniHelper.sol:35-75; libraries/PositionCalculator.sol:141-149",
+      "contract": "",
+      "function": "",
+      "description": "UniHelper.callUniswapObserve requests a 30-min TWAP; on the Uniswap 'OLD' revert it falls back to ago = block.timestamp - oldestAvailableAge, i.e. a window potentially far shorter than 30 min. PositionCalculator.getSqrtIndexPrice uses this TWAP for isLiquidatable/min-margin, so on a pool with short observation history the effective TWAP is cheaper to manipulate."
+    },
+    {
+      "id": "OR-01",
+      "title": "TWAP 'OLD' fallback shortens the oracle window -> manipulable margin/liquidation price",
+      "severity": "Medium",
+      "file": "libraries/UniHelper.sol:35-75; libraries/PositionCalculator.sol:141-149",
+      "contract": "",
+      "function": "",
+      "description": "UniHelper.callUniswapObserve falls back from the 30-min TWAP to ago=block.timestamp-oldestAvailableAge on the 'OLD' revert; a low-cardinality pool yields a short, manipulable TWAP used by PositionCalculator.getSqrtIndexPrice for margin/liquidation."
+    },
+    {
+      "id": "DT-02",
+      "title": "Bad-debt vault can be unliquidatable: liquidator must cover the shortfall via transferFrom",
+      "severity": "Medium",
+      "file": "libraries/logic/LiquidationLogic.sol:101-107",
+      "contract": "",
+      "function": "",
+      "description": "In liquidate(), when the position is fully closed and remainingMargin<0, the contract does ERC20.safeTransferFrom(msg.sender, address(this), -remainingMargin) to make the liquidator cover the loss. A liquidator lacking the quote token or approval reverts, so a deeply-underwater vault may have no party willing/able to liquidate it."
+    },
+    {
+      "id": "DOS-01",
+      "title": "Bad-debt vault can be unliquidatable: liquidator must fund the shortfall",
+      "severity": "Medium",
+      "file": "libraries/logic/LiquidationLogic.sol:101-107",
+      "contract": "",
+      "function": "",
+      "description": "liquidate(): remainingMargin<0 requires ERC20.safeTransferFrom(msg.sender, -remainingMargin); a liquidator without quote token/approval reverts, so a deeply-underwater vault may have no party able to liquidate it."
+    },
+    {
+      "id": "EA-02",
+      "title": "Dutch-auction liquidation slippage grows as vault value drops -> liquidator over-extraction",
+      "severity": "Medium",
+      "file": "libraries/logic/LiquidationLogic.sol:159-175",
+      "contract": "",
+      "function": "",
+      "description": "calculateSlippageTolerance returns toward maxSlippage as vaultValue->0, so low-value vaults can be liquidated at a price up to maxSlippage from oracle, enabling liquidator/MEV extraction."
+    },
+    {
+      "id": "DT-03",
+      "title": "Residual margin stranded when a vault is closed by liquidation with recipient unset",
+      "severity": "Low",
+      "file": "libraries/logic/LiquidationLogic.sol:89-100",
+      "contract": "",
+      "function": "",
+      "description": "When !hasPosition && remainingMargin>0 but vault.recipient == address(0), the transfer block is skipped and vault.margin is neither zeroed nor swept \u2014 the positive residual margin is stranded."
+    },
+    {
+      "id": "LG-01",
+      "title": "Residual margin stranded on liquidation-close when vault.recipient is unset",
+      "severity": "Low",
+      "file": "libraries/logic/LiquidationLogic.sol:89-100",
+      "contract": "",
+      "function": "",
+      "description": "liquidate(): when !hasPosition && remainingMargin>0 but vault.recipient==address(0), the transfer block is skipped and vault.margin is not zeroed/swept -> residual stranded."
+    },
+    {
+      "id": "DT-04",
+      "title": "Direct-fill settlement uses a filler-supplied price (bounded only by post-trade slippage)",
+      "severity": "Low",
+      "file": "base/SettlementCallbackLib.sol:99-135,146-182",
+      "contract": "",
+      "function": "",
+      "description": "SettlementCallbackLib sell/buy direct-fill path (contractAddress==0) computes quoteAmount from settlementParams.price, a filler-supplied value; only SlippageLib.checkPrice against the oracle bounds the abuse, so a filler can self-deal within the slippage band."
+    },
+    {
+      "id": "EA-01",
+      "title": "Direct-fill settlement uses a filler-supplied price (bounded only by slippage)",
+      "severity": "Low",
+      "file": "base/SettlementCallbackLib.sol:99-135,146-182",
+      "contract": "",
+      "function": "",
+      "description": "SettlementCallbackLib direct-fill (contractAddress==0) prices via settlementParams.price (filler-supplied); only the post-trade SlippageLib.checkPrice bounds it -> filler self-dealing within the slippage band."
+    }
+  ],
+  "summary": {
+    "awarded_total": 12,
+    "awarded_source": "report.md",
+    "adjudicated": 12,
+    "pending": 0,
+    "auto_adjudicated": 12,
+    "misses_detected": 11,
+    "recall_of_surfaced": 0.083,
+    "strong_only": 0.0,
+    "by_label": {
+      "MISSED": 11,
+      "SAME_AREA": 0,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 1,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

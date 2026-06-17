@@ -1,0 +1,95 @@
+{
+  "agent": "flash_loan",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T00:00:00+00:00",
+  "findings": [
+    {
+      "id": "FL-001",
+      "title": "Convert peg bound + stalk penalty use spot getReserves(), flash-exploitable",
+      "severity": "High",
+      "vuln_type": "price-manipulation",
+      "description": "The Silo convert path (both `ConvertFacet.convert` and `PipelineConvertFacet.pipelineConvert`) determines (a) the maximum convertible amount and (b) the anti-peg stalk penalty entirely from the Well's *instantaneous* spot reserves, with no TWA / capped-reserve guard on either the convert direction or the convert amount.\n\nCall chain:\n- `LibConvert.getMaxAmountIn` -> `LibWellConvert.beansToPeg`/`lpToPeg` both read `IWell(well).getReserves()` (spot) at LibWellConvert.sol#39 / #60 and compute `calcReserveAtRatioLiquidity` to derive the maximum amount convertible 'to peg'. The USD ratio feeding this comes from `LibWell.getRatiosAndBeanIndex(tokens)` with lookback 0 (spot — see oracle OR-001/OR-002).\n- The penalty calculation in `LibConvert.calculateStalkPenalty` derives before/after deltaB from `LibDeltaB.getCurrentDeltaB` -> `LibDeltaB.currentDeltaB` -> `IWell(well).getReserves()` with `ZERO_LOOKBACK` (LibDeltaB.sol#46-49). `calculateAgainstPeg`/`calculateTowardsPeg` (LibConvert.sol#369-430) therefore measure deltaB movement from spot.\n- Only the *convert capacity* exemption (`overallCappedDeltaB`, `cappedReservesDeltaB`, LibDeltaB.sol#65-91) uses the pump's manipulation-resistant capped reserves. Capacity merely bounds how much penalty-free room exists per block; it does NOT bound the convert amount nor the spot-derived against-peg measurement.\n\nBecause everything that decides 'is this convert legal, how large can it be, and is it penalized' is spot-sourced, an attacker can flash-borrow WETH (or the non-Bean Well token), swap into the target Well to push spot deltaB strongly positive (well below peg appears as above peg, or the peg distance is inflated), then in the same transaction call `convert`/`pipelineConvert`. Effects: (1) `_beansToPeg`/`lpToPeg` returns an inflated cap (`require(maxBeans > 0)` / `require(maxLp > 0)` is satisfied even when the true TWA price is on the other side of peg), allowing a convert that should be disallowed or much smaller; (2) the spot before/after deltaB makes the attacker's against-peg movement read as zero, so `stalkPenaltyBdv == 0` — in pipelineConvert this means `newGrownStalk = initialGrownStalk * (fromBdv - 0)/fromBdv`, i.e. the attacker preserves 100% of grown stalk while actually moving the pool against peg. After the convert, the attacker unwinds the flash swap; the Well returns to its true price but the attacker keeps the over-sized / penalty-free converted deposit (LP minted via `IWell.sync` at the manipulated ratio at LibWellConvert.sol#186, or Beans extracted via `removeLiquidityOneToken` at #143).",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibDeltaB.sol",
+        "function": "currentDeltaB / getCurrentDeltaB",
+        "line_start": 32,
+        "line_end": 49,
+        "code_snippet": "function currentDeltaB(address well) internal view returns (int256) {\n    uint256[] memory reserves = IWell(well).getReserves();\n    return calculateDeltaBFromReserves(well, reserves, ZERO_LOOKBACK);\n}"
+      },
+      "impact": "An attacker holding Silo deposits can, in a single flash-loaned transaction, (a) convert a larger amount than the true peg distance permits and (b) dodge the grown-stalk convert penalty (`stalkPenaltyBdv` forced to 0). This lets them retain grown stalk / governance and yield weight they should have forfeited for an against-peg convert, and mint LP / extract Beans at a manipulated ratio — a direct value transfer from honest Stalk holders (dilution) and a degradation of the convert mechanism's peg-defense purpose.",
+      "proof_of_concept": "1. EOA holds a Bean deposit with large grown stalk. True state: deltaB < 0 (below peg), so a Bean->LP convert should be disallowed (P must be >= 1) and an LP->Bean against-peg convert should incur a full stalk penalty.\n2. Flash-borrow WETH; swap WETH->? in the BEAN:WETH Well to drive spot reserves so calcReserveAtRatio shows deltaB >= 0 (above peg). vm.load the Well reserves before/after to assert the spot deltaB sign flip.\n3. Call ConvertFacet.convert (BEANS_TO_WELL_LP) — `_beansToPeg` now returns maxBeans > 0 (spot), the convert succeeds, and `checkForValidConvertAndUpdateConvertCapacity` computes before/after spot deltaB that read as towards-peg, so the require(stalkPenaltyBdv == 0) passes.\n4. Assert: attacker's new LP deposit retains full grownStalk (no penalty) and BDV reflects the manipulated ratio.\n5. Unwind the flash loan (swap back). Net: attacker paid only the round-trip swap fee/slippage but kept penalty-free grown stalk + an oversized convert.",
+      "recommendation": "Bound the convert direction and amount, and compute the stalk penalty's against/towards-peg measurement, from the pump's capped/TWA reserves (the same `cappedReservesDeltaB` / `readCappedReserves` already used for convert capacity), not from instantaneous `getReserves()`. At minimum, gate convert legality (`beansToPeg`/`lpToPeg`) on capped reserves so a single-block spot skew cannot open or enlarge a convert. Treat the USD ratio lookback consistently (do not pass lookback 0) — see OR-001/OR-002.",
+      "references": [
+        {
+          "title": "Spot price flash-loan manipulation of AMM-derived bounds",
+          "url": "",
+          "source": "solodit"
+        }
+      ],
+      "confidence": "Medium",
+      "ite": {
+        "intent": "A Silo depositor flash-skews a Bean Well's spot price to convert more than the true peg distance allows and to dodge the grown-stalk convert penalty, diluting honest Stalk holders and defeating the convert peg-defense.",
+        "technique": "Flash-borrow WETH; swap in BEAN:WETH Well to flip spot deltaB sign; call ConvertFacet.convert/pipelineConvert in the same tx — `LibWellConvert._beansToPeg`/`lpToPeg` (LibWellConvert.sol#39,#60) read spot getReserves() giving an inflated maxBeans/maxLp, and `LibConvert.calculateStalkPenalty` measures before/after deltaB from spot via LibDeltaB.currentDeltaB (LibDeltaB.sol#46) so `stalkPenaltyBdv == 0`; in pipelineConvert newGrownStalk = initialGrownStalk*(fromBdv-0)/fromBdv (LibPipelineConvert.sol#72). Unwind the flash swap.",
+        "evasion": "The protocol intended TWA/capped reserves to resist single-block manipulation (and correctly uses them for sunrise minting via readTwaReserves and for convert *capacity* via cappedReservesDeltaB). The gap: the convert amount bound (beansToPeg/lpToPeg) and the against/towards-peg penalty input both use instantaneous getReserves() with ZERO_LOOKBACK, leaving the convert legality, size, and penalty fully spot-manipulable."
+      },
+      "attack_surface_rank": 4,
+      "assumption_count": 2,
+      "critical_assumptions": [
+        "A Basin Well with sufficient depth exists for the BEAN pair so that a flash-loaned swap can move spot deltaB across peg within achievable capital/slippage, and net manipulation cost is below the retained-grown-stalk + oversized-convert value.",
+        "Attacker already holds (or can cheaply acquire) Silo deposits with grown stalk to convert."
+      ],
+      "cross_agent_refs": ["EA-001", "OR-001", "OR-002"],
+      "ice_chain": {
+        "corrupted_state": "spot deltaB / well reserves feeding beansToPeg, lpToPeg, and DeltaBStorage before/after (s.sys.convertCapacity penalty inputs)",
+        "consumer_found": true,
+        "consumer_function": "ConvertFacet.convert / PipelineConvertFacet.pipelineConvert -> LibConvert.applyStalkPenalty -> _depositTokensForConvert",
+        "consumer_action": "Allows an out-of-bounds / penalty-free convert that mints LP via IWell.sync or extracts Beans, and preserves grown stalk that should have been burned",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "human_review_required": true,
+      "human_review_reason": "Economic-design / quantitative finding: exploit profitability depends on live Basin Well depth, swap fees, and the production capped-reserve config vs the manipulable spot path. The spot-vs-TWA code split is confirmed end-to-end in source, but net profitability and the exact retained-stalk magnitude require a fork PoC and human economic review. Compounds with EA-001 (same penalty function) — needs human to deconflict/merge."
+    },
+    {
+      "id": "FL-002",
+      "title": "Flood (Season of Plenty) well swap uses minAmountOut=0, sandwichable",
+      "severity": "Medium",
+      "vuln_type": "front-running",
+      "description": "During a Flood / Season of Plenty, Beanstalk swaps excess Beans for the non-Bean Well token to distribute as 'plenty'. The swap is executed with a zero minimum-out and a permissive deadline, so it carries no slippage protection. A searcher (optionally with flash-loaned capital to maximise pool displacement) can sandwich the protocol's swap: front-run by pushing the Well price, let Beanstalk swap at the worsened rate with minAmountOut=0, then back-run to capture the spread. The value lost comes out of the plenty that would otherwise accrue to Stalk holders. This overlaps the economic_attack agent's EA-002 (same sopWell swap); flagged here for the flash-loan amplification angle (borrowed capital sizes the sandwich to the full SOP swap).",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+        "function": "sopWell",
+        "line_start": 0,
+        "line_end": 0,
+        "code_snippet": "swap executed with amountOutMin = 0 during Season of Plenty (see EA-002 for exact lines)"
+      },
+      "impact": "MEV searchers extract a portion of each Flood's plenty via sandwich, reducing the Beans-equivalent value distributed to Silo Stalk holders. No fund custody breach, but a recurring leak proportional to Flood size.",
+      "proof_of_concept": "1. Detect a pending sunrise that will trigger a Flood (deltaB persistently > 0 and raining). 2. Front-run: swap to move the SOP Well price against the protocol's swap direction. 3. Protocol executes the SOP swap with minAmountOut=0 at the worsened price. 4. Back-run to revert the price and pocket the difference. Flash-loaned capital lets the sandwich match the full SOP swap size.",
+      "recommendation": "Derive a minAmountOut for the SOP swap from the pump's TWA/capped reserves (a bounded slippage off the manipulation-resistant price) rather than passing 0, and use a tight deadline. This is the same fix track as EA-002.",
+      "references": [],
+      "confidence": "Medium",
+      "ite": {
+        "intent": "An MEV searcher sandwiches Beanstalk's Season-of-Plenty swap to skim plenty value from Silo Stalk holders.",
+        "technique": "Front-run/back-run the SOP well swap that is submitted with amountOutMin=0; flash-loaned capital sizes the front-run to the full SOP swap.",
+        "evasion": "Slippage protection (minAmountOut) was intended to bound swap loss; it is set to 0 here, so the only 'protection' is that the swap is internal — which does not stop a same-block sandwich."
+      },
+      "attack_surface_rank": 3,
+      "assumption_count": 2,
+      "critical_assumptions": [
+        "A Flood/SOP is triggered (requires sustained above-peg + raining state across the season boundary).",
+        "The SOP well swap path uses amountOutMin=0 (confirmed by economic_attack EA-002)."
+      ],
+      "cross_agent_refs": ["EA-002", "SN-001"],
+      "duplicate_of": "EA-002",
+      "ice_chain": {
+        "corrupted_state": "amount of non-Bean token received by the SOP swap (plenty distributed)",
+        "consumer_found": true,
+        "consumer_function": "LibFlood.handleRainAndSops / rewardSop -> plentyPerSopToken distribution",
+        "consumer_action": "Distributes reduced plenty to Stalk holders; the skimmed spread goes to the sandwicher",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      },
+      "human_review_required": false
+    }
+  ]
+}

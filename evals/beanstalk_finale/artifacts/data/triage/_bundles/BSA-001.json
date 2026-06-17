@@ -1,0 +1,99 @@
+{
+  "finding_id": "BSA-001",
+  "title": "LibChainlinkOracle.getTokenPrice NatSpec states lookback>0 returns TWAP, but the ternary returns spot for lookback>0 and divides-by-zero for lookback==0",
+  "agent": "",
+  "claimed_severity": "High",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibChainlinkOracle.sol",
+    "function": "getTokenPrice",
+    "line_start": 33,
+    "line_end": 48
+  },
+  "description": "The NatSpec on getTokenPrice (lines 34-36) explicitly documents the intended behavior: 'Use lookback = 0 for the instantaneous price. lookback > 0 for a TWAP.' and 'Returns 0 if priceAggregatorAddress is broken or frozen.' The code implements the exact opposite mapping: `return lookback > 0 ? getPrice(...) : getTwap(..., lookback)`. getPrice is the instantaneous/spot path and getTwap is the lookback-windowed path, so a caller requesting a manipulation-resistant TWAP (lookback>0) silently receives a flash-loan-manipulable spot price, and a caller requesting spot (lookback==0) invokes getTwap with lookback=0 whose final statement is `t.cumulativePrice.mul(PRECISION).div(10 ** decimals).div(lookback)` \u2014 a division by zero that REVERTS rather than returning the documented 0 sentinel. Both halves of the NatSpec contract are violated: the value semantics are inverted, and the documented frozen-feed graceful-degradation guarantee does not hold on the lookback==0 path.",
+  "impact": "Any internal consumer that follows the documented convention and passes lookback>0 expecting manipulation resistance instead consumes the instantaneous spot price. If a reachable mint/convert/peg path (LibEthUsdOracle -> LibWellMinting/LibDeltaB -> sunrise Bean issuance / convert valuation) requests a TWAP through this function, single-block flash-loan reserve/price skew mispriced Bean issuance and conversions. The lookback==0 spot path additionally bricks (reverts) instead of degrading, contradicting the '@dev Returns 0 if broken or frozen' guarantee for that path.",
+  "ite": {
+    "intent": "Stated intent: return a manipulation-resistant TWAP when lookback>0 and a spot price when lookback==0, returning 0 on a broken feed.",
+    "technique": "Ternary branches transposed; consumer relying on lookback>0 for safety receives manipulable spot. Spot request (lookback==0) reverts via div-by-zero.",
+    "evasion": "The inversion defeats the only manipulation guard; a flash-loan attacker requests/relies on a path the protocol believes is TWAP-protected."
+  },
+  "ice_chain": {
+    "corrupted_state": "oracle return value: spot price substituted where a TWAP is documented (and revert where a 0-sentinel is documented)",
+    "impact": "Manipulable price flows into Bean minting/convert peg math; or feed-outage DoS of the spot path",
+    "consumer_found": true,
+    "consumer_function": "LibEthUsdOracle/LibUsdOracle.getTokenPrice -> LibWellMinting/LibDeltaB deltaB & peg calculations feeding SeasonFacet.sunrise mint and ConvertFacet valuation",
+    "exploit_path": "consumer calls getTokenPrice(addr, timeout, lookback>0) believing it gets a TWAP -> receives spot -> attacker flash-loan-skews the source within one block -> sunrise/convert mint mispriced Beans/BDV"
+  },
+  "source_slice": "3:  **/\n4: \n5: pragma solidity ^0.8.20;\n6: \n7: import {C} from \"contracts/C.sol\";\n8: import {IChainlinkAggregator} from \"contracts/interfaces/chainlink/IChainlinkAggregator.sol\";\n9: import {LibRedundantMath256} from \"contracts/libraries/LibRedundantMath256.sol\";\n10: \n11: /**\n12:  * @title Chainlink Oracle Library\n13:  * @notice Contains functionalty to fetch prices from Chainlink price feeds.\n14:  * @dev currently supports:\n15:  * - ETH/USD price feed\n16:  **/\n17: library LibChainlinkOracle {\n18:     using LibRedundantMath256 for uint256;\n19: \n20:     uint256 constant PRECISION = 1e6; // use 6 decimal precision.\n21: \n22:     // timeout for Oracles with a 1 hour heartbeat.\n23:     uint256 constant FOUR_HOUR_TIMEOUT = 14400;\n24:     // timeout for Oracles with a 1 day heartbeat.\n25:     uint256 constant FOUR_DAY_TIMEOUT = 345600;\n26: \n27:     struct TwapVariables {\n28:         uint256 cumulativePrice;\n29:         uint256 endTimestamp;\n30:         uint256 lastTimestamp;\n31:     }\n32: \n33:     /**\n34:      * @dev Returns the TOKEN/USD price with the option of using a TWA lookback.\n35:      * Use `lookback = 0` for the instantaneous price. `lookback > 0` for a TWAP.\n36:      * Return value has 6 decimal precision.\n37:      * Returns 0 if `priceAggregatorAddress` is broken or frozen.\n38:      **/\n39:     function getTokenPrice(\n40:         address priceAggregatorAddress,\n41:         uint256 maxTimeout,\n42:         uint256 lookback\n43:     ) internal view returns (uint256 price) {\n44:         return\n45:             lookback > 0\n46:                 ? getPrice(priceAggregatorAddress, maxTimeout)\n47:                 : getTwap(priceAggregatorAddress, maxTimeout, lookback);\n48:     }\n49: \n50:     /**\n51:      * @dev Returns the price of a given `priceAggregator`\n52:      * Return value has 6 decimal precision.\n53:      * Returns 0 if Chainlink's price feed is broken or frozen.\n54:      **/\n55:     function getPrice(\n56:         address priceAggregatorAddress,\n57:         uint256 maxTimeout\n58:     ) internal view returns (uint256 price) {\n59:         IChainlinkAggregator priceAggregator = IChainlinkAggregator(priceAggregatorAddress);\n60:         // First, try to get current decimal precision:\n61:         uint8 decimals;\n62:         try priceAggregator.decimals() returns (uint8 _decimals) {\n63:             // If call to Chainlink succeeds, record the current decimal precision\n64:             decimals = _decimals;\n65:         } catch {\n66:             // If call to Chainlink aggregator reverts, return a price of 0 indicating failure\n67:             return 0;\n68:         }\n69: \n70:         // Secondly, try to get latest price data:\n71:         try priceAggregator.latestRoundData() returns (\n72:             uint80 roundId,\n73:             int256 answer,\n74:             uint256 /* startedAt */,\n75:             uint256 timestamp,\n76:             uint80 /* answeredInRound */\n77:         ) {\n78:             // Check for an invalid roundId that is 0",
+  "gate_verdict": {
+    "finding_id": "BSA-001",
+    "severity": "High",
+    "vuln_type": "behavioral_state_divergence",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.535606+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

@@ -1,0 +1,114 @@
+{
+  "ran": true,
+  "generated_at": "2026-06-04T19:08:17.268781+00:00",
+  "llm_available": false,
+  "config": {
+    "auto_run_value_provenance_advisories": true,
+    "auto_run_value_provenance_mode": "review_only",
+    "auto_run_value_provenance_max_total": 5,
+    "auto_run_value_provenance_max_per_audit": 5,
+    "auto_run_value_provenance_timeout_seconds": 120,
+    "auto_run_value_provenance_allowed_prompts": [
+      "deep_pass_value_provenance"
+    ],
+    "auto_run_value_provenance_attach_to_human_queue": false,
+    "auto_run_value_provenance_render_in_review_gate": true,
+    "auto_run_value_provenance_surface_research_only": false,
+    "auto_run_value_provenance_manual_results_dir": "output/value_provenance_manual_results",
+    "auto_run_value_provenance_hide_strong_clear": false,
+    "auto_run_value_provenance_ingest_on_review_gate": true,
+    "description": "P139 auto-route + P140 completion loop for H-03-class value-provenance deep-pass jobs (scripts/run_value_provenance_advisories.py). SCAFFOLD: api-free has no non-interactive LLM runner, so jobs are queued as auto_run_status=pending_manual_execution and EXECUTED via the in-session /deep-pass skill; output is ADVISORY-ONLY (advisory_only=true, submission_ready=false, requires_human_review=true), never confirmed/severity/submission-ready, never faked. Triggers only on deep_pass_recommendations with recommended_prompt in allowed_prompts + a re-verified value-provenance loop signal; excludes mock/trivial/confirmed/submission_ready (+ research-only unless enabled). Capped + fail-open. P140 --ingest-results folds manual completion artifacts from auto_run_value_provenance_manual_results_dir back into the report deterministically (idempotent, quarantines unsafe/malformed, forces the advisory triplet, never confirms); auto_run_value_provenance_hide_strong_clear optionally hides cleared rows in the review gate; auto_run_value_provenance_ingest_on_review_gate runs ingestion during full/review-gate. Master switch auto_run_value_provenance_advisories=false (or mode=off) disables all.",
+    "_eval_mode": false
+  },
+  "summary": {
+    "total": 2,
+    "skipped": 8,
+    "by_status": {
+      "pending_manual_execution": 2
+    }
+  },
+  "results": [
+    {
+      "advisory_id": "VP-SolvencyV2.convertAmountsToValues",
+      "audit_id": "noya-2024-04-eval",
+      "contract": "SolvencyV2",
+      "function": "convertAmountsToValues",
+      "file_path": "audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/external/libraries/Silo/SolvencyV2.sol",
+      "source_detector_or_recommendation": "deep_pass_router",
+      "recommended_prompt": "deep_pass_value_provenance",
+      "auto_run_status": "completed",
+      "advisory_only": true,
+      "submission_ready": false,
+      "requires_human_review": true,
+      "prompt_decision": "strong_clear",
+      "prompt_confidence": "high",
+      "mechanism_summary": "Per-asset loop with single-index provenance: _assets[i] supplies the identity for both getPrice and decimals, _amounts[i] the quantity, values[i] the output; validated_subject == mutated_subject everywhere.",
+      "source_evidence_summary": "values[i] = _amounts[i].toValue(assetPrice, assetDecimals) with assetPrice/assetDecimals both from _assets[i]; toValue applies amount*price/10**decimals.",
+      "rejected_alternatives": "no off-by-one / wrong-key / operand swap; length guard prevents index divergence; residual oracle-price-decimal-basis is an out-of-family units question, not a wrong-subject divergence.",
+      "safety_notes": "prompt-derived review evidence, NOT proof; human + PoC required before any severity/submission",
+      "allowed_next_steps": [
+        "inspect_source",
+        "run_deep_pass_value_provenance",
+        "map_defenses",
+        "build_poc_if_confirmed",
+        "reject_if_design_intended"
+      ],
+      "forbidden_next_steps": [
+        "submit_directly",
+        "assign_severity_without_impact",
+        "mark_confirmed_without_poc_or_human_review"
+      ],
+      "output_path": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/output/value_provenance_jobs/VP-SolvencyV2.convertAmountsToValues.md",
+      "error": null,
+      "execution_mode": "manual_in_session",
+      "reviewer_or_runner": "P141 fresh blind subagent aa6d4aac2a89ed1b9 (uncontaminated, neutral packet only)",
+      "completed_at": "2026-06-04T00:00:00+00:00",
+      "impact_summary": null,
+      "limitations": "Oracle price decimal basis unresolvable from the bundle; out-of-family units concern only, not a provenance bug.",
+      "recommended_next_step": "keep_advisory",
+      "source_result_path": "documentation/research/assisted_mode/p141_value_provenance_completion_measurement/manual_deep_pass_outputs.md",
+      "raw_output_path": null
+    },
+    {
+      "advisory_id": "VP-NoyaValueOracle._getValue",
+      "audit_id": "noya-2024-04-eval",
+      "contract": "NoyaValueOracle",
+      "function": "_getValue",
+      "file_path": "audits/noya-2024-04-eval/contracts/2024-04-noya/contracts/helpers/valueOracle/NoyaValueOracle.sol",
+      "source_detector_or_recommendation": "deep_pass_router",
+      "recommended_prompt": "deep_pass_value_provenance",
+      "auto_run_status": "completed",
+      "advisory_only": true,
+      "submission_ready": false,
+      "requires_human_review": true,
+      "prompt_decision": "finding",
+      "prompt_confidence": "high",
+      "mechanism_summary": "Multi-hop loop reuses the static from-token `asset` for every hop instead of the updated loop-carried `quotingToken`, so each hop after the first prices the wrong from-token.",
+      "source_evidence_summary": "initialValue = _getValue(asset, sources[i], initialValue) inside the loop, while quotingToken = sources[i] is advanced but never used as the hop's from-token.",
+      "rejected_alternatives": "single-hop routes are correct; distinct per-hop oracles mean the hops are not equivalent; not a benign view function.",
+      "safety_notes": "prompt-derived review evidence, NOT proof; human + PoC required before any severity/submission",
+      "allowed_next_steps": [
+        "inspect_source",
+        "run_deep_pass_value_provenance",
+        "map_defenses",
+        "build_poc_if_confirmed",
+        "reject_if_design_intended"
+      ],
+      "forbidden_next_steps": [
+        "submit_directly",
+        "assign_severity_without_impact",
+        "mark_confirmed_without_poc_or_human_review"
+      ],
+      "output_path": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/noya-2024-04-eval/output/value_provenance_jobs/VP-NoyaValueOracle._getValue.md",
+      "error": null,
+      "execution_mode": "manual_in_session",
+      "reviewer_or_runner": "P137 blind subagent (in-session /deep-pass, answer-key-free)",
+      "completed_at": "2026-06-04T00:00:00+00:00",
+      "impact_summary": ">=2-hop routes mis-value the asset (value denominated in sources[i-1] is priced via asset->sources[i]).",
+      "limitations": "PoC recommended to confirm the >=2-hop precondition and oracle distinctness; mechanism is source-decisive but unproven at runtime.",
+      "recommended_next_step": "build_poc",
+      "source_result_path": "documentation/research/assisted_mode/p137_h03_value_provenance_conversion/blind_prompt_output.md",
+      "raw_output_path": null
+    }
+  ]
+}

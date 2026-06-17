@@ -1,0 +1,37 @@
+{
+  "is_gate": false, "research_only": true, "review_only": true, "routes_in_production": false, "routed_manifest_ids": [],
+  "schema": "p117_runtime_result_v1",
+  "candidate": "phi-2024-08 :: CuratorRewardsDistributor.distribute",
+  "hypothesis": "unbounded-loop reward-distribution DoS (matches phi awarded H-03)",
+  "terminal_state": "CONFIRMED_RUNTIME",
+  "runtime_backed": true,
+  "command": "forge test --match-contract CuratorDistributeDoS -vv",
+  "block_gas_reference": 30000000,
+  "gas_by_curator_count": {
+    "10": 61972, "100": 350046, "500": 1691807, "1000": 3443716,
+    "2000": 7196555, "4000": 15698328, "8000": 36686251
+  },
+  "first_N_exceeding_block_gas": 8000,
+  "measured_is_conservative_lower_bound": true,
+  "block_gas_cap_call_completed_at_N8000": false,
+  "cases": {
+    "A_small_N_succeeds": "PASS (N=10, 61972 gas)",
+    "B_gas_grows_exceeds_block": "PASS (first N>30M = 8000)",
+    "B2_gascap_revert_largeN": "PASS (distribute under 30M cap at N=8000 did NOT complete)",
+    "C_control_small_N": "PASS (N=10 still 61972 gas)"
+  },
+  "reachability_source_established": {
+    "curator_growth_permissionless": true,
+    "getCuratorAddresses_0_0_returns_all": true,
+    "distribute_has_no_pagination": true,
+    "distribute_is_only_distribution_path": true
+  },
+  "decision_conditions_met": {
+    "small_N_succeeds": true,
+    "large_N_fails_or_impractical": true,
+    "curator_growth_attacker_controllable": true,
+    "failure_blocks_reward_distribution": true
+  },
+  "notes": "Corresponds to phi's AWARDED H-03 (known finding) — not novel/submittable; this is the assisted pipeline independently reaching + runtime-confirming a true positive via the P115-corrected ranking -> P116 surface -> P117 runtime. No severity assigned; no report/submission/READY produced.",
+  "tests": 4, "passed": 4
+}

@@ -1,0 +1,11 @@
+{"surface":"UserEscrow.transferIn",
+ "mechanism_inventory":["stale accounting/wrong ordering — destinations incremented before safeTransferFrom (credit-before-receipt)","missing invariant — no cap on destinations accumulation","external-call DoS — safeTransferFrom reverts after increment (benign via atomicity)","victim accounting direction — source is caller-supplied; auth caller can pull from any pre-approving address"],
+ "selected_mechanisms":[
+  {"root_cause":"destinations[token][destination] += amount before safeTransferFrom; credit-before-receipt; with a non-reverting token or reentrancy via token hook, destinations inflated without real receipt","who_loses":"other destination holders (dilution / over-claim vs UserEscrow)","who_gains":"destination with inflated claim","why_carried":"credit-before-receipt source-confirmed; runtime-dependent on token behavior -> carry"},
+  {"root_cause":"source is unconstrained caller-supplied param; an auth caller pulls tokens from any address that pre-approved UserEscrow, crediting an arbitrary destination","who_loses":"victim source address (tokens pulled)","who_gains":"attacker destination","why_carried":"source param unconstrained; fund redirection; depends on auth scope"}],
+ "unresolved_mechanisms":[
+  {"mechanism":"reentrancy via token transferFrom hook (ERC777/malicious)","unresolved_question":"SafeTransferLib/UserEscrow reentrancy guard? downstream reads destinations?","who_loses":"other holders","status":"NEEDS_HARNESS"},
+  {"mechanism":"no cap on destinations accumulation","unresolved_question":"downstream over-withdrawal gate?","who_loses":"legit destinations","status":"NEEDS_HARNESS"}],
+ "rejected_mechanisms":[{"mechanism":"transferIn callable unauthenticated","claimed_locus":"external auth modifier","rejecting_source_fact":"auth restricts to whitelisted callers","why_unexploitable":"EOA can't pass auth","leans_on_unproven_guard":false}],
+ "impact_direction":"attacker inflates destinations claim or pulls a pre-approving victim's tokens; sum(destinations)==balance invariant threatened; real fund loss/dilution",
+ "stop_condition":"more_mechanisms_pending: reentrancy + cap NEEDS_HARNESS","verdict":"HIGH_THREAD"}

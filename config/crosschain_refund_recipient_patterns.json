@@ -1,0 +1,18 @@
+{
+  "lens": "crosschain_refund_recipient",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Generalized CLASS of the P306 decent M-05 + H-03 misses: cross-chain value flows refund/return funds to the WRONG recipient. Two sub-shapes: (i) a cross-chain send in an intermediary (router/adapter/executor) sets the LayerZero refundAddress to msg.sender — but msg.sender is the intermediary, so refunded gas is stranded (M-05); (ii) an executor-style function that takes a source-chain `from`/`sender` param, makes an external target.call, and on failure refunds to that `from` — a foreign-chain address that may be unusable/attacker-influenced on this chain (H-03). Suppress: refund to address(this)/a freshly-validated user; views; non-intermediary direct user entrypoints for (i).",
+
+  "send_primitives": ["sendandcall", "lzsend", "_lzsend", "router.swap{", "nonblockinglzsend", "_lzsend(", "estimatesendandcallfee"],
+  "intermediary_name_terms": ["router", "adapter", "executor", "bridge", "relayer", "gateway", "forwarder"],
+  "source_param_roles": ["from", "sender", "source", "origin", "srcsender", "originalsender", "srcaddress"],
+  "external_call_markers": [".call(", ".call{", "target.call"],
+  "failure_markers": ["!success", "! success", "success == false", "success==false", "if (!success", "if(!success"],
+
+  "fp_controls": {
+    "subshape_i": "cross-chain send + refund/refundAddress set to msg.sender + the contract is an intermediary (name router/adapter/executor/bridge OR has an onlyX modifier) -> refund stranded at the intermediary.",
+    "subshape_ii": "a source-chain `from`/`sender` param + an external target.call + a failure branch that refunds to that param -> refund to a foreign-chain address.",
+    "self_refund_suppression": "refund to address(this) -> suppressed.",
+    "view_suppression": "view/pure functions -> suppressed."
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "mechanism_inventory": [
+    "emit CommissionPaid logs wrong value (builderSplit emit shows protocolSplit twice)",
+    "missing invariant enforcement: protocolSplit + builderSplit may not sum to DECIMALS -> residual shares unburned",
+    "value exceeds a logical / economic bound: premiumFee/notionalFee >= DECIMALS over-charges owner",
+    "precision / packing normalization edge: unchecked 10*notionalFee overflow uint128",
+    "victim accounting direction: shares transferred via _transferFrom but never burned -> supply inflates"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "else-branch emit CommissionPaid uses (commissionFee*protocolSplit)/DECIMALS for BOTH protocol and builder args; builder shares actually (sharesToBurn*builderSplit)/DECIMALS but mis-logged.",
+      "attacker_model": "No active attacker; accounting/auditing defect for off-chain reconcilers.",
+      "exploit_path": "settleBurn else-branch -> _transferFrom builder shares -> emit mis-logs builder amount as protocolSplit.",
+      "who_loses": "Builder (under-reported), governance/fee monitors (wrong data).",
+      "who_gains": "Protocol appears larger share in log.",
+      "why_carried": "Source duplicates protocolSplit expression where builderSplit intended; logging/accounting path."
+    },
+    {
+      "root_cause": "No enforcement protocolSplit+builderSplit==DECIMALS; if sum<DECIMALS only fraction transferred (rest retained by owner), if >DECIMALS over-drain; _burn never called in else-branch, only _transferFrom.",
+      "attacker_model": "Malicious/misconfigured builder sets splits != DECIMALS.",
+      "exploit_path": "RiskParameters from PanopticPool -> splits != DECIMALS -> transfers != sharesToBurn -> supply vs assets diverges.",
+      "who_loses": "All LP holders (supply distortion); owner over-drained if >DECIMALS.",
+      "who_gains": "Owner retains shares if <DECIMALS; recipient gains if >DECIMALS.",
+      "why_carried": "Two _transferFrom with no sum-check and no _burn; different accounting variable (totalSupply); High if attacker-influenced."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "value exceeds bound: premiumFee/notionalFee >= DECIMALS over-charges owner full position value",
+      "source_evidence": "commissionFeeP/N use premiumFee()/notionalFee() with no cap visible.",
+      "unresolved_question": "Are premiumFee()/notionalFee() capped < DECIMALS at construction/caller?",
+      "who_loses": "optionOwner (entire position as commission).",
+      "who_gains": "riskEngine + feeRecipient.",
+      "status": "NEEDS_HARNESS"
+    },
+    {
+      "mechanism": "precision/packing: unchecked 10*notionalFee overflow uint128",
+      "source_evidence": "10*notionalFee inside unchecked block; large value wraps -> tiny commissionFeeN.",
+      "unresolved_question": "Type/range of notionalFee()? If basis-point bounded, no overflow.",
+      "who_loses": "Protocol/builder (near-zero commission).",
+      "who_gains": "optionOwner pays less.",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [
+    {
+      "mechanism": "hook caller or hook-timing mismatch",
+      "claimed_locus": "settleBurn call ordering / hook invocation",
+      "rejecting_source_fact": "onlyPanopticPool; called synchronously by pool; no hook dispatch/callback/reentry surface in this function.",
+      "why_unexploitable": "No hook interface or untrusted external call; onlyPanopticPool gates entry.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    }
+  ],
+  "impact_direction": {
+    "attacker_receives": "Builder/riskEngine shares not matching commission owed; or off-chain inflated protocol revenue.",
+    "attacker_preserves": "Owner retains shares that should have been burned if splits<DECIMALS.",
+    "victim_loses": "LP holders via supply dilution; owner via excess drain or wrong accounting.",
+    "invariant_violated": "CommissionPaid mis-logs builder split; total transferred may != sharesToBurn.",
+    "not_self_funded_or_dust_or_admin_or_timing": "Emit bug fires every else-branch; split-sum affects real LP balances."
+  },
+  "stop_condition": "more_mechanisms_pending: fee-exceeds-DECIMALS + overflow unresolved NEEDS_HARNESS, different state variables, could be High.",
+  "verdict": "HIGH_THREAD"
+}

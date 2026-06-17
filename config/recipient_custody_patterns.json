@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "description": "Recipient/custody compatibility lens. Bridges/escrows that deliver NFTs/tokens to a recipient via safeTransferFrom/mint can permanently lock assets when the recipient is a contract lacking onERC721Received/onERC1155Received, or when a failed delivery has no retry/recovery path, or when custody accounting marks an asset released while it stays trapped. Recovers ArkProject AK-M2. Advisory recall lens — never blocks.",
+  "delivery_signals": ["safeTransferFrom", "safeTransfer", "_safeMint", "safeMint", "mintFromBridge", "_mint", "transferFrom", "onERC1155Received"],
+  "safe_delivery_signals": ["safeTransferFrom", "safeTransfer", "_safeMint", "safeMint"],
+  "raw_delivery_signals": ["transferFrom", "transfer\\("],
+  "receiver_check_signals": ["onERC721Received", "onERC1155Received", "IERC721Receiver", "IERC1155Receiver", "isContract", "code.length", "ERC165", "supportsInterface"],
+  "custody_release_signals": ["_withdrawFromEscrow", "release", "_escrow\\[", "escrow", "withdraw"],
+  "recovery_signals": ["retry", "recover", "rescue", "sweep", "reclaim", "redeliver", "emergencyWithdraw", "setRecipient", "redeem"],
+  "categories": {
+    "non_receiver_lock": {
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Asset delivered via safeTransferFrom/safeMint to a recipient taken from the message; if that recipient is a contract without onERC721Received/onERC1155Received the transfer reverts and the asset is permanently stuck (no alternate recipient possible)."
+    },
+    "safe_vs_raw_transfer": {
+      "severity_ceiling_hint": "Low",
+      "review_hint": "Mix of raw transfer/transferFrom vs safe* — verify the intended semantics (raw can silently strand to non-receivers; safe can revert-lock)."
+    },
+    "no_retry_recovery": {
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Delivery/withdraw path with no retry/recover/redeliver function — a single failed delivery permanently locks the asset."
+    },
+    "custody_released_but_trapped": {
+      "severity_ceiling_hint": "Medium",
+      "review_hint": "Escrow accounting marks the asset released/cleared but the delivery can revert or the asset remains held — custody state diverges from reality."
+    }
+  }
+}

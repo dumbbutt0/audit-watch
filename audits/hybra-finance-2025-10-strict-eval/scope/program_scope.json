@@ -1,0 +1,48 @@
+{
+  "program": "Hybra Finance (ve(3,3) + CL AMM)",
+  "platform": "Code4rena",
+  "contest_slug": "2025-10-hybra-finance",
+  "report_url_ANSWER_KEY_DO_NOT_OPEN_PRE_FREEZE": "https://code4rena.com/reports/2025-10-hybra-finance",
+  "repo": "https://github.com/code-423n4/2025-10-hybra-finance",
+  "pinned_commit": "17d72f0b95e6d320e13c4e33ffc68eaad440e8a7",
+  "solc": "ve33=0.8.13, cl=0.7.6 (mixed pragma; bytecode migration cl->ve33)",
+  "answer_key_access_status": "not_accessed",
+  "scope_source": "repo scope.txt + out_of_scope.txt + README (NOT the Hybra-V12-output.md / audit/ / discord-export/)",
+  "eval_purpose": "Stress-test the shipped reward_accounting spec-checklist surface on a reward-SATURATED ve(3,3) target: does the run-level reward context convert real reward bugs or over-route every share mutation into noise?",
+  "architecture": "Fork of Blackhole (ve(3,3)). Two trees: ve33 (vote-escrow tokenomics + gauges, 0.8.13) and cl (Uniswap-V3 fork concentrated-liquidity AMM, 0.7.6). ve33 integrates cl via bytecode export. Reward flow: MinterUpgradeable emits HYBR per epoch -> VoterV3/GaugeManager distribute to GaugeV2 (legacy pair) + GaugeCL (CL position NFTs) by gauge weight -> users claim; VotingEscrow (veNFT) holds locks/voting power; RewardsDistributor rebase; RewardHYBR (rHYBR) converts claimed rewards to veHYBR/HYBR/gHYBR; GovernanceHYBR (gHYBR) wraps.",
+  "in_scope_files": [
+    "ve33/contracts/GaugeManager.sol (410)",
+    "ve33/contracts/GaugeV2.sol (273)",
+    "ve33/contracts/MinterUpgradeable.sol (169)",
+    "ve33/contracts/VoterV3.sol (195)",
+    "ve33/contracts/VotingEscrow.sol (801)",
+    "ve33/contracts/GovernanceHYBR.sol (366)",
+    "ve33/contracts/HYBR.sol (81)",
+    "ve33/contracts/RewardHYBR.sol (186)",
+    "ve33/contracts/swapper/HybrSwapper.sol (81)",
+    "ve33/contracts/CLGauge/GaugeCL.sol (258)",
+    "ve33/contracts/CLGauge/GaugeFactoryCL.sol (71)",
+    "cl/contracts/core/CLFactory.sol (205)",
+    "cl/contracts/core/CLPool.sol (795)",
+    "cl/contracts/core/fees/DynamicSwapFeeModule.sol"
+  ],
+  "in_scope_nsloc_approx": 3891,
+  "reward_surface_focus": "GaugeV2/GaugeCL reward index + rewardPerToken + earned + checkpoint vs deposit/withdraw ordering; GaugeManager/VoterV3 distribute-by-weight; MinterUpgradeable emission cap + epoch rollover; RewardsDistributor rebase; RewardHYBR claim->convert; VotingEscrow merge/split/extend effect on pending rewards; CLPool fee-growth accounting.",
+  "readme_areas_of_concern": [
+    "CL Gauge: reward distribution must match the active liquidity range of the deposited tokenId (mismatch in reward calc)",
+    "ve(3,3) epoch rollover Distribute/rebase; uneven reward allocation; claim across epochs; extend-lock/merge effect on already-distributed-not-claimed rewards",
+    "RewardHYBR: claim->veHYBR/HYBR/gHYBR conversion always succeeds; no asset loss",
+    "gHYBR (GovernanceHYBR): deposit/withdraw + veNFT split/slice/merge keep funds intact"
+  ],
+  "target_invariants_for_reward_accounting": ["R-1 non-negative claimable", "R-2 monotone accrual", "R-3 accrue-then-claim (slow users not diluted)", "E-1 emission cap", "E-2 proportionality", "E-3 bribe accounting conservation", "E-4 multi-token precision/dust", "C-1 order independence", "C-2 context isolation", "V-3 merge/split weight conservation", "G-3 time monotonicity (feeGrowth/rewardDebt)"],
+  "publicly_known_ineligible": {
+    "note": "Per README. Must NOT be scored HIT; pipeline flagging them is not an FP.",
+    "blackhole_fork": "Findings acknowledged in the original Blackhole audit (code4rena 2025-05-blackhole) are ineligible UNLESS impact is increased by the Hybra code delta.",
+    "peckshield_sept_2025": ["ERC7702 incompatibility in contract check", "Voting delegate DoS with dust delegates", "Trust issue of admin keys (centralization)", "Improved dynamic fee calc in DynamicSwapFeeModule", "Improper estimateAmount0/1 in SugarHelper"],
+    "v12_findings": "All Zellic V12 findings (Hybra-V12-output.md) are out of scope/ineligible (quarantined, not read).",
+    "storage_slot_migration": "Issues arising from misconfigured migrated storage slots are ineligible.",
+    "centralization": "Admin/multisig key trust is a publicly-known issue."
+  },
+  "trusted_roles": ["hybraMultisig (4/6)", "hybraTeamMultisig (2/2)", "emergencyCouncil", "GOVERNANCE", "VOTER_ADMIN", "GAUGE_ADMIN", "BRIBE_ADMIN", "MinterUpgradeable.team", "owner"],
+  "quarantined_not_read": ["Hybra-V12-output.md", "audit/", "discord-export/"]
+}

@@ -1,0 +1,81 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "L2-getRSETHPrice",
+  "detector_family": "oracle",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "LRTOracle",
+    "function": "getRSETHPrice",
+    "lines": "oracle",
+    "suspicious_pattern": "rsETH price from sum(asset balances * assetPrice)/supply feeding mint",
+    "detector_claim": "price computation manipulable / division/rounding"
+  },
+  "context_summary": {
+    "source_resolved": true,
+    "reachability": "external"
+  },
+  "attacker_reachability": "external",
+  "defense_ledger": {
+    "accounting_invariant": {
+      "classification": "partially_covers_candidate",
+      "evidence": "supply==0->1e18 guard; but totalAssetDeposits is balanceOf-based"
+    },
+    "caps_or_limits": {
+      "classification": "partially_covers_candidate"
+    },
+    "oracle_or_price_dependency": {
+      "classification": "bypassed",
+      "evidence": "balance-based, no donation guard"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "price reflects real backing",
+    "why_defenses_do_not_block": "see ledger"
+  },
+  "exploit_path": {
+    "attacker_profile": "EOA",
+    "entrypoint": "getRSETHPrice",
+    "preconditions": "reachable",
+    "transaction_sequence": "donate asset to pool -> getTotalAssetDeposits (balanceOf-based) up -> rsETH price inflates",
+    "state_before": "s0",
+    "state_after": "s1",
+    "rejection_case": "considered defenses/falsifiers from source",
+    "source_evidence": "getRSETHPrice"
+  },
+  "impact_analysis": {
+    "impact_category": "price_manipulation",
+    "minimum_profit_or_damage_condition": "inflate price via donation"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED",
+  "arm": "B_defense_first",
+  "claimed_mechanism": "oracle"
+}

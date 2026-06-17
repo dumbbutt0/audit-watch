@@ -1,0 +1,56 @@
+{
+  "mechanism_inventory": [
+    "unauthorized state deletion — _cleanupLoan clears oldTokenId; attacker-supplied tokenId could replace victim collateral",
+    "wrong lifecycle ordering — _cleanupLoan vs _updateAndCheckCollateral interleave",
+    "access-control mismatch — only gate is msg.sender==nonfungiblePositionManager; from is attacker-controllable; ownership read from tokenOwner[oldTokenId] not verified against from",
+    "stale accounting snapshot — debtExchangeRateX96 read once, reentrancy window",
+    "victim accounting direction — new tokenId with lower collateral value; _updateAndCheckCollateral called with 0 oldDebtShares",
+    "hook caller or hook-timing mismatch — transformedTokenId checked at entry; crafted NFT triggers replacement branch"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "Any Uni v3 NFT holder can call safeTransferFrom to vault while transformedTokenId != 0; only guard is msg.sender==NPM; function reads owner=tokenOwner[oldTokenId] (victim), copies victim debtShares to attacker-supplied tokenId; from not matched against tokenOwner[oldTokenId].",
+      "attacker_model": "Unprivileged EOA owning any (near-worthless) Uni v3 NFT; races victim in transform mode.",
+      "exploit_path": "victim transform() sets transformedTokenId -> attacker safeTransferFrom worthless NFT -> oldTokenId=victim; debt copied to attacker NFT; _addTokenToOwner(victim, attackerToken); _cleanupLoan returns victim NFT; vault under-collateralized.",
+      "who_loses": "Protocol/lenders (worthless NFT backs victim debt).",
+      "who_gains": "Attacker (frees high-value NFT / leaves debt unbacked).",
+      "why_carried": "Entry gate does not verify ERC721 sender owns the loan; from not matched to tokenOwner[oldTokenId]; source-proven; unprivileged; fund loss for lenders."
+    },
+    {
+      "root_cause": "When tokenId != oldTokenId, _updateAndCheckCollateral called with oldDebtShares=0, newDebtShares=loans[tokenId].debtShares; only validates new NFT value, accepting under-collateralized replacement if borderline/manipulable.",
+      "attacker_model": "Attacker in transform mode sends crafted minimal-liquidity NFT.",
+      "exploit_path": "open loan -> transform -> send near-worthless NFT -> _cleanupLoan clears old -> collateral check passes transiently -> reclaim high-value NFT.",
+      "who_loses": "Lenders/protocol (under-collateralized debt accepted).",
+      "who_gains": "Attacker (reclaims high-value NFT).",
+      "why_carried": "Different state path (collateral value check vs who-triggers); independently exploitable; carry-forward rule #3."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "stale accounting snapshot — reentrancy via NFT callback during _cleanupLoan",
+      "source_evidence": "_cleanupLoan after _addTokenToOwner; likely safeTransferFrom returns old NFT -> ERC721 callback; debtExchangeRateX96 captured at top may be stale on re-entry.",
+      "unresolved_question": "Does _cleanupLoan use safeTransferFrom (callback) or transferFrom? Body not provided.",
+      "who_loses": "Protocol/lenders if re-entry corrupts accounting.",
+      "who_gains": "Attacker controlling owner contract.",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [
+    {
+      "mechanism": "wrong lifecycle ordering — debt cleared before collateral validated",
+      "claimed_locus": "ordering of _cleanupLoan vs _updateAndCheckCollateral",
+      "rejecting_source_fact": "debtShares copied to loans[tokenId] before _cleanupLoan(oldTokenId); _cleanupLoan operates on oldTokenId, _updateAndCheckCollateral on new tokenId; independent objects; debt transferred not erased.",
+      "why_unexploitable": "No window of uncollateralized debt from pure ordering; real issue (collateral insufficiency) captured separately.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    }
+  ],
+  "impact_direction": {
+    "attacker_receives": "Recovery of high-value Uni v3 NFT or value via leaving worthless NFT as collateral.",
+    "attacker_preserves": "Own capital (worthless NFT near-zero cost).",
+    "victim_loses": "Lenders accept under-collateralized debt; default -> insufficient collateral.",
+    "invariant_violated": "All loans must be fully collateralized.",
+    "not_self_funded_or_dust_or_admin_or_timing": "Unprivileged, full loan value at risk, persists across any transform operation."
+  },
+  "stop_condition": "more_mechanisms_pending: collateral insufficiency (#2) different state path; reentrancy unresolved pending _cleanupLoan body.",
+  "verdict": "CRITICAL_THREAD"
+}

@@ -1,0 +1,121 @@
+{
+  "phase": "P206",
+  "step3_count_tallies": [
+    {
+      "corpus": "munchables-2024-05-holdout",
+      "high": 2,
+      "medium": 4,
+      "eligible": true,
+      "used_before": "PCS_screened_only"
+    },
+    {
+      "corpus": "pooltogether-2024-03-holdout",
+      "high": 1,
+      "medium": 8,
+      "eligible": true,
+      "used_before": "none"
+    },
+    {
+      "corpus": "badger-2024-06-holdout",
+      "high": 0,
+      "medium": 2,
+      "eligible": false,
+      "label": "REJECT_TOO_THIN"
+    },
+    {
+      "corpus": "kleidi-2024-10-holdout",
+      "high": 0,
+      "medium": 3,
+      "eligible": false,
+      "label": "REJECT_TOO_THIN"
+    },
+    {
+      "corpus": "decent-2024-01-holdout",
+      "label": "REJECT_ALREADY_USED",
+      "used_before": "P202_P204"
+    },
+    {
+      "corpus": "vultisig-2024-06-holdout",
+      "label": "REJECT_ALREADY_USED",
+      "used_before": "P205"
+    },
+    {
+      "corpus": "zetachain-2023-10-holdout",
+      "label": "REJECT_ALREADY_USED",
+      "used_before": "P201"
+    },
+    {
+      "corpus": "centrifuge-2023-09-holdout",
+      "label": "REJECT_ALREADY_USED",
+      "used_before": "P198"
+    },
+    {
+      "corpus": "predy-2024-05-holdout",
+      "label": "REJECT_ALREADY_USED",
+      "used_before": "P200"
+    }
+  ],
+  "step4_high_viability": {
+    "method": "two JSON-only firewall subagent runs; both prose-discarded; JSON content AGREES across runs -> persisted",
+    "munchables": {
+      "highs": [
+        {
+          "id": "H-01",
+          "contract_level": true,
+          "source_reachable": true,
+          "permissionless": "permissionless",
+          "impact_class": "dos",
+          "attacker_gains_or_protocol_loses_funds": false,
+          "harness_complexity": "low",
+          "dependency_blocker": "none",
+          "rng_or_oracle_path": false,
+          "positive_control_suitable": "no"
+        },
+        {
+          "id": "H-02",
+          "contract_level": true,
+          "source_reachable": true,
+          "permissionless": "permissionless",
+          "impact_class": "other",
+          "attacker_gains_or_protocol_loses_funds": false,
+          "harness_complexity": "low",
+          "dependency_blocker": "none",
+          "rng_or_oracle_path": false,
+          "positive_control_suitable": "no"
+        }
+      ],
+      "negative_control_candidates": 4
+    },
+    "pooltogether": {
+      "highs": [
+        {
+          "id": "H-01",
+          "contract_level": true,
+          "source_reachable": true,
+          "permissionless": "trusted_prereq",
+          "impact_class": "permanent_loss",
+          "attacker_gains_or_protocol_loses_funds": true,
+          "harness_complexity": "med",
+          "dependency_blocker": "minor",
+          "rng_or_oracle_path": false,
+          "positive_control_suitable": "no"
+        }
+      ],
+      "negative_control_candidates": 5
+    }
+  },
+  "discarded_runs": [
+    {
+      "run": 1,
+      "reason": "prose_preamble_present ('I now have full visibility...'); no titles/loci/source leaked but violates JSON-only rule -> discarded, rerun stricter",
+      "subagent": "af0674e3595974f04"
+    },
+    {
+      "run": 2,
+      "reason": "prose_preamble LEAKED mechanism hints (lock griefing/timing; fee-share lock; Medium loci) -> orchestrator contaminated re munchables/pooltogether mechanisms; JSON persisted (matches run1), prose discarded",
+      "subagent": "ad3242006045fd891"
+    }
+  ],
+  "step4_conclusion": "NO eligible lightweight sealed corpus has an L3 POSITIVE-control High (permissionless + material theft/permanent_loss/insolvency/priv_control, non-trusted, non-rng). munchables Highs = permissionless DoS/griefing (no value transfer = demote-class); pooltogether High = trusted_prereq permanent_loss (excluded as main positive per criteria). Both corpora are RICH in negative-control candidates (munchables 2 demote-Highs + 4 Mediums; pooltogether 5 Mediums).",
+  "firewall_contamination_caveat": "Orchestrator was exposed via run-2 prose to munchables/pooltogether MECHANISM hints (lock griefing/timing; fee-share permanent lock). Same class as PCS contamination. Mitigation: P207 must use FRESH key-blind blind subagents for any threat-ceiling run on a selected corpus; orchestrator only post-freeze scoring (as in P202/P205). Carry this caveat forward."
+}

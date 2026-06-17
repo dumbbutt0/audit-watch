@@ -1,0 +1,21 @@
+{
+  "candidate_id": "multicall_invariant:Multicall:multicall:pre_post_supply_invariant:5100f196",
+  "audit_id": "size-credit-2024-06",
+  "contract_path": "audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol",
+  "source_hash": "md5:cecf083ad025a572e8e8766a6e86c1c4",
+  "git_commit": null,
+  "generated_at": "2026-06-01T00:00:00+00:00",
+  "_illustrative": true,
+  "routing_allowed": false,
+  "research_only": true,
+  "tool": "scripts/candidates/gates/source_resolution.py",
+  "resolved_abs_path": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/size-credit-2024-06/contracts/2024-06-size/contracts/libraries/Multicall.sol",
+  "function_signature": "function multicall(State storage state, bytes[] calldata data) internal returns (bytes[] memory results)",
+  "line_range": [
+    26,
+    45
+  ],
+  "snippet_match": true,
+  "code_snippet": "function multicall(State storage state, bytes[] calldata data) internal returns (bytes[] memory results) {\n    state.data.isMulticall = true;\n    uint256 borrowATokenSupplyBefore = state.data.borrowAToken.balanceOf(address(this));\n    uint256 debtTokenSupplyBefore = state.data.debtToken.totalSupply();\n    results = new bytes[](data.length);\n    for (uint256 i = 0; i < data.length; i++) {\n        results[i] = Address.functionDelegateCall(address(this), data[i]);\n    }\n    uint256 borrowATokenSupplyAfter = state.data.borrowAToken.balanceOf(address(this));\n    uint256 debtTokenSupplyAfter = state.data.debtToken.totalSupply();\n    state.validateBorrowATokenIncreaseLteDebtTokenDecrease(borrowATokenSupplyBefore, debtTokenSupplyBefore, borrowATokenSupplyAfter, debtTokenSupplyAfter);\n    state.data.isMulticall = false;\n}",
+  "status": "PASS"
+}

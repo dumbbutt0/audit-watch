@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Investigation Workspace — research corpus</title>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a; --txt:#dfe3ea;
+    --muted:#8b93a3; --accent:#5b9dff; --good:#36b37e; --warn:#e2b341; --bad:#e5707e;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif; }
+  header { padding:12px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  .badge { font-size:11px; padding:2px 8px; border-radius:10px; border:1px solid var(--line); color:var(--muted); }
+  .badge.ok { color:var(--good); border-color:var(--good); }
+  .hash { font-family:var(--mono); font-size:11px; color:var(--muted); }
+  nav.tabs { display:flex; gap:4px; padding:6px 18px 0; border-bottom:1px solid var(--line); background:var(--bg); }
+  nav.tabs button { background:transparent; border:1px solid var(--line); border-bottom:none; color:var(--muted);
+    padding:8px 14px; border-radius:8px 8px 0 0; cursor:pointer; font-size:13px; }
+  nav.tabs button.active { color:var(--txt); background:var(--panel); border-color:var(--accent); }
+  #driftBanner { display:none; background:#3a2a16; color:var(--warn); padding:8px 18px; border-bottom:1px solid var(--warn); }
+  .tabpanel { display:none; }
+  .tabpanel.active { display:block; }
+  .wrap { display:grid; grid-template-columns:330px 1fr 380px; height:calc(100vh - 96px); }
+  .col { overflow:auto; padding:14px 16px; }
+  .col.left { border-right:1px solid var(--line); }
+  .col.right { border-left:1px solid var(--line); background:var(--panel); }
+  .pad { padding:16px 22px; max-width:1100px; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:18px 0 8px; }
+  h2:first-child { margin-top:0; }
+  h3 { font-size:13px; margin:16px 0 6px; }
+  .stat { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px dotted var(--line); }
+  .stat b { color:var(--txt); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--muted); cursor:pointer; position:sticky; top:0; background:var(--bg); }
+  tr.row { cursor:pointer; } tr.row:hover { background:var(--panel2); } tr.row.sel { background:#1d2740; }
+  tr.row.labeled td:first-child::before { content:"●"; color:var(--good); margin-right:6px; }
+  tr.row.unlabeled td:first-child::before { content:"○"; color:var(--muted); margin-right:6px; }
+  .pill { font-size:11px; padding:1px 7px; border-radius:9px; border:1px solid var(--line); color:var(--muted); }
+  .pill.high { color:var(--bad); border-color:var(--bad); } .pill.medium { color:var(--warn); border-color:var(--warn); }
+  .pill.PROMOTE_TO_CHAIN_ANALYSIS { color:var(--good); border-color:var(--good); }
+  .filters { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .filters input,.filters select { background:var(--panel2); border:1px solid var(--line); color:var(--txt); border-radius:6px; padding:5px 8px; font-size:12px; }
+  .kv { margin:4px 0; } .kv .k { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .kv .v { font-family:var(--mono); font-size:12px; word-break:break-word; }
+  pre.snippet { background:#0b0d11; border:1px solid var(--line); border-radius:8px; padding:10px; max-height:300px; overflow:auto; font-family:var(--mono); font-size:12px; white-space:pre; }
+  label { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:10px 0 3px; }
+  select,textarea,input { width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--txt); border-radius:6px; padding:7px 8px; font-size:13px; }
+  textarea { resize:vertical; min-height:42px; font-family:var(--mono); }
+  .btn { background:var(--accent); color:#06101f; border:none; border-radius:7px; padding:9px 14px; font-weight:600; cursor:pointer; }
+  .btn.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .btn.mini { padding:3px 8px; font-size:11px; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .notice { font-size:11px; color:var(--muted); border-left:3px solid var(--accent); padding:6px 10px; margin:8px 0; background:var(--panel2); }
+  .present { color:var(--good); } .missing { color:var(--bad); }
+  .progressbar { height:8px; background:var(--panel2); border-radius:4px; overflow:hidden; } .progressbar>div { height:100%; background:var(--good); width:0%; }
+  .catgrid { display:grid; grid-template-columns:200px 150px 1fr; gap:6px 10px; align-items:center; }
+  .catgrid .cn { font-size:12px; }
+  .section { border:1px solid var(--line); border-radius:8px; margin:10px 0; padding:10px 12px; }
+  .section .sh { display:flex; justify-content:space-between; align-items:center; }
+  .section .sh .t { font-weight:600; font-size:13px; }
+  .att { font-size:11px; padding:1px 7px; border-radius:9px; border:1px solid var(--line); }
+  .att.yes { color:var(--good); border-color:var(--good); } .att.no { color:var(--muted); }
+  .quick { display:flex; gap:6px; margin:4px 0; }
+  .src { font-size:10px; padding:1px 5px; border-radius:6px; border:1px solid var(--line); color:var(--muted); }
+  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:10px 0; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .card .n { font-size:26px; font-weight:700; } .card .l { font-size:11px; color:var(--muted); text-transform:uppercase; }
+  .toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--panel2); border:1px solid var(--line); padding:9px 16px; border-radius:8px; display:none; }
+  .toast.show { display:block; } .toast.err { border-color:var(--bad); color:var(--bad); }
+  .row-actions { display:flex; gap:8px; margin-top:14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Investigation Workspace</h1>
+  <span class="badge">research_only:true</span>
+  <span class="badge">routing_allowed:false</span>
+  <span class="badge ok">review → prioritize → explain → organize (never route/severity/submit)</span>
+  <span style="flex:1"></span>
+  <a href="/funnel" style="font-size:11px">funnel →</a>
+  <span class="badge" title="Submission, PoC-handoff, human-gate and outcome state are tracked on /funnel — not here. After code changes, restart the server and hard-refresh.">not a submit/severity verdict · submission &amp; outcome live on /funnel</span>
+  <span class="hash">corpus <span id="corpusHash">—</span></span>
+  <label style="display:inline;font-size:11px;color:var(--muted);text-transform:none">editor
+    <select id="editorScheme" style="width:auto;display:inline;padding:2px 4px;font-size:11px">
+      <option value="wsl-unc">VS Code (\\wsl.localhost)</option>
+      <option value="wsl-remote">VS Code (WSL remote)</option>
+      <option value="cursor-wsl">Cursor (WSL remote)</option>
+      <option value="local">local path</option>
+    </select></label>
+  <label style="display:inline;font-size:11px;color:var(--muted);text-transform:none"><input type="checkbox" id="demoToggle" style="width:auto" /> demo files</label>
+</header>
+<nav class="tabs">
+  <button data-tab="review" class="active">① Review &amp; Label</button>
+  <button data-tab="promotion">② Promotion Checklist</button>
+  <button data-tab="chain">③ Chain Workspace</button>
+  <button data-tab="progress">④ Investigation Progress</button>
+  <button data-tab="allfindings">+ All findings (synced)</button>
+</nav>
+<div id="driftBanner">⚠ Corpus changed since some labels/promotions were written — they reference a different corpus hash.</div>
+
+<!-- ① REVIEW & LABEL -->
+<section id="tab-review" class="tabpanel active">
+  <div class="wrap">
+    <div class="col left">
+      <h2>Corpus Overview</h2><div id="overview"></div>
+      <h2>Label Progress</h2><div class="progressbar"><div id="progFill"></div></div>
+      <div id="progress" style="margin-top:8px"></div>
+    </div>
+    <div class="col center">
+      <h2>Bundle Queue</h2>
+      <div class="filters">
+        <input id="fSearch" placeholder="search surface / candidate_id" />
+        <select id="fDetector"><option value="">all detectors</option></select>
+        <select id="fConfidence"><option value="">all confidence</option></select>
+        <select id="fWorkspace"><option value="">all workspaces</option></select>
+        <select id="fLabel"><option value="">all</option><option value="unlabeled">unlabeled</option><option value="labeled">labeled</option></select>
+        <button class="btn ghost mini" id="nextUnlabeled">Next unlabeled →</button>
+      </div>
+      <table id="queue"><thead><tr>
+        <th data-k="candidate_surface">Surface</th><th data-k="detector">Detector</th>
+        <th data-k="confidence">Conf</th><th data-k="declared_severity_potential">Sev-pot</th>
+        <th data-k="bundle_status">Status</th><th data-k="workspace">Workspace</th><th data-k="label_status">Label</th>
+      </tr></thead><tbody></tbody></table>
+      <div id="detail" style="margin-top:18px"></div>
+    </div>
+    <div class="col right">
+      <h2>Human Label</h2>
+      <div class="notice">Not a bug/severity/exploitability/submit verdict — records whether evidence is coherent and worth investigating.</div>
+      <div id="formHost"><p style="color:var(--muted)">Select a bundle to label.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ② PROMOTION CHECKLIST -->
+<section id="tab-promotion" class="tabpanel"><div class="pad" id="promotionHost"></div></section>
+
+<!-- ③ CHAIN WORKSPACE -->
+<section id="tab-chain" class="tabpanel"><div class="pad" id="chainHost"></div></section>
+
+<!-- ④ INVESTIGATION PROGRESS -->
+<section id="tab-progress" class="tabpanel"><div class="pad" id="progressHost"></div></section>
+
+<!-- (5) ALL FINDINGS (SYNCED) — read-only mirror across runtime / funnel / detector tracks -->
+<section id="tab-allfindings" class="tabpanel"><div class="pad" id="allFindingsHost">
+  <p style="color:var(--muted)">Loading all findings…</p>
+</div></section>
+
+<div class="toast" id="toast"></div>
+<script src="/static/validation.js?v=unified-sync"></script>
+</body>
+</html>

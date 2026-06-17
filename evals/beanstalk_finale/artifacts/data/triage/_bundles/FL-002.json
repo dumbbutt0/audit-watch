@@ -1,0 +1,100 @@
+{
+  "finding_id": "FL-002",
+  "title": "Sunrise/gm deltaB mint is NOT flash-loan manipulable (cumulative-pump TWAP); inverted-TWAP oracle bug (DT-006/OR-001) does not reach the live mint path",
+  "agent": "",
+  "claimed_severity": "Informational",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Minting/LibWellMinting.sol",
+    "function": "twaDeltaB",
+    "line_start": 139,
+    "line_end": 186,
+    "code_snippet": "ICumulativePump(pumps[0].target).readTwaReserves(well, lastSnapshot, uint40(s.sys.season.timestamp), pumps[0].data) // season-length TWAP, not spot"
+  },
+  "description": "Documenting the negative result demanded by the attack-surface hypotheses (SeasonFacet sunrise/gm -> deltaB mint, CC-005/CH-005). The permissionless season advance SeasonFacet sunrise()/gm() -> Oracle.stepOracle() -> LibWellMinting.capture(well) -> twaDeltaB() reads ICumulativePump.readTwaReserves(well, lastSnapshot, s.sys.season.timestamp, ...): a time-weighted average of cumulative reserves accumulated since the previous season's snapshot, NOT instantaneous reserves. A flash loan that skews the well within the calling block contributes negligibly to a season-length TWAP, so the minted deltaB (and the caller's reward Beans) cannot be materially inflated by a single-tx reserve skew. The minting oracle also self-disables (returns deltaB 0) when twaReserves[beanIndex] < WELL_MINIMUM_BEAN_BALANCE or the USD oracle fails. Separately, the deep-trace DT-006 / oracle OR-001 inverted TWAP/spot ternary in LibChainlinkOracle.getTokenPrice is on a Chainlink (not AMM) source, so its return is not flash-loan manipulable, AND the live BEAN:WETH / BEAN:WSTETH wells obtain their USD price via LibEthUsdOracle / LibWstethUsdOracle, not via the inverted getTokenPrice branch \u2014 so it does not feed the live sunrise/deltaB mint. Conclusion: the naive 'flash-loan skew well -> over-mint Beans in sunrise' attack is defended by the cumulative-pump TWAP and is reported here only to close the hypothesis. The residual manipulable surface is the convert-PENALTY spot path (FL-001), not the mint.",
+  "impact": "None (defended path). Recorded so triage does not re-open the sunrise mint flash-loan hypothesis without new evidence. The only conditions that could revive it: a well wired to a pump whose readTwaReserves can be saturated within one block (very short effective window), or a future well whitelisted with a Chainlink-impl USD oracle that routes through the inverted getTokenPrice (OR-001) on a lookback>0 minting request.",
+  "ite": {
+    "intent": "Confirm whether sunrise/gm deltaB minting consumes manipulable spot reserves.",
+    "technique": "Trace the mint path's reserve source: it is the cumulative pump TWAP, not spot.",
+    "evasion": "n/a - defended."
+  },
+  "ice_chain": {
+    "corrupted_state": "none (twaDeltaB consumes season-length TWAP reserves)",
+    "impact": "no manipulable mint",
+    "consumer_found": true,
+    "consumer_function": "Oracle.stepOracle / Sun mint",
+    "exploit_path": "defended - single-tx skew does not move the season TWAP"
+  },
+  "source_slice": "109:     /**\n110:      * @dev Updates the Oracle snapshot for a given Well and returns the deltaB\n111:      * given the previous snapshot in the Well\n112:      */\n113:     function updateOracle(\n114:         address well,\n115:         bytes memory lastSnapshot\n116:     ) internal returns (int256 deltaB) {\n117:         AppStorage storage s = LibAppStorage.diamondStorage();\n118:         uint256[] memory twaReserves;\n119:         uint256[] memory ratios;\n120:         (deltaB, s.sys.wellOracleSnapshots[well], twaReserves, ratios) = twaDeltaB(\n121:             well,\n122:             lastSnapshot\n123:         );\n124: \n125:         // Set the Well reserves in storage, so that it can be read when\n126:         // 1) set the USD price of the non bean token so that it can be read when\n127:         //    calculating the price of Bean. See {LibEvaluate.evalPrice}.\n128:         // 2) When calculating the Bean reward for calling the Season (Bean:Eth Only).\n129:         //    See {LibIncentive.determineReward}.\n130:         LibWell.setTwaReservesForWell(well, twaReserves);\n131:         LibWell.setUsdTokenPriceForWell(well, ratios);\n132:         emit WellOracle(s.sys.season.current, well, deltaB, s.sys.wellOracleSnapshots[well]);\n133:     }\n134: \n135:     /**\n136:      * @dev Calculates the time weighted average delta B since the input snapshot for\n137:      * a given Well address.\n138:      */\n139:     function twaDeltaB(\n140:         address well,\n141:         bytes memory lastSnapshot\n142:     ) internal view returns (int256, bytes memory, uint256[] memory, uint256[] memory) {\n143:         AppStorage storage s = LibAppStorage.diamondStorage();\n144:         // Try to call `readTwaReserves` and handle failure gracefully, so Sunrise does not revert.\n145:         // On failure, reset the Oracle by returning an empty snapshot and a delta B of 0.\n146:         Call[] memory pumps = IWell(well).pumps();\n147:         try\n148:             ICumulativePump(pumps[0].target).readTwaReserves(\n149:                 well,\n150:                 lastSnapshot,\n151:                 uint40(s.sys.season.timestamp),\n152:                 pumps[0].data\n153:             )\n154:         returns (uint[] memory twaReserves, bytes memory snapshot) {\n155:             IERC20[] memory tokens = IWell(well).tokens();\n156:             (uint256[] memory ratios, uint256 beanIndex, bool success) = LibWell\n157:                 .getRatiosAndBeanIndex(tokens, block.timestamp.sub(s.sys.season.timestamp));\n158: \n159:             // If the Bean reserve is less than the minimum, the minting oracle should be considered off.\n160:             if (twaReserves[beanIndex] < C.WELL_MINIMUM_BEAN_BALANCE) {\n161:                 return (0, snapshot, new uint256[](0), new uint256[](0));\n162:             }\n163: \n164:             // If the USD Oracle oracle call fails, the minting oracle should be considered off.\n165:             if (!success) {\n166:                 return (0, snapshot, twaReserves, new uint256[](0));\n167:             }\n168: \n169:             Call memory wellFunction = IWell(well).wellFunction();\n170:             // Delta B is the difference between the target Bean reserve at the peg price\n171:             // and the time weighted average Bean balance in the Well.\n172:             int256 deltaB = int256(\n173:                 IBeanstalkWellFunction(wellFunction.target).calcReserveAtRatioSwap(\n174:                     twaReserves,\n175:                     beanIndex,\n176:                     ratios,\n177:                     wellFunction.data\n178:                 )\n179:             ).sub(int256(twaReserves[beanIndex]));\n180: \n181:             return (deltaB, snapshot, twaReserves, ratios);\n182:         } catch {\n183:             // if the pump fails, return all 0s to avoid the sunrise reverting.\n184:             return (0, new bytes(0), new uint256[](0), new uint256[](0));\n185:         }\n186:     }\n187: }",
+  "gate_verdict": {
+    "finding_id": "FL-002",
+    "severity": "Informational",
+    "vuln_type": "flash-loan",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.545986+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

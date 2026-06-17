@@ -1,0 +1,41 @@
+{
+  "phase": "P123",
+  "candidate": "iq-ai-2025-01::AgentRouter.buy",
+  "novel": true,
+  "terminal_state": "KILLED_RUNTIME",
+  "question": "Is the AgentRouter itself safe — does buy() deliver agent tokens only for the full _amountIn paid, enforce _minAmountOut, reject non-existent agents, and retain nothing — with pricing delegated to the pool, on both the bootstrap and Fraxswap paths?",
+  "answer": "Yes (router-level safe). The router reverts AgentNotFound and InsufficientAmountOut appropriately, pulls exactly _amountIn from the caller, forwards it to the bootstrap pool / Fraxswap pair, delivers the output to _recipient, and retains zero of both tokens on both branches. No skim, over-issue, slippage bypass, or fund retention at the router level.",
+  "harness": {
+    "type": "iq-ai Foundry project, test-only file under test/audit/, no fork",
+    "path": "/tmp/p102-iqai/test/audit/AgentRouterBuyRuntime.t.sol",
+    "command": "forge test --match-contract AgentRouterBuyRuntime --evm-version cancun -vvv",
+    "solc": "0.8.25",
+    "evm": "cancun",
+    "contract_under_test": "real AgentRouter (iq-ai), unmutated",
+    "mocks": ["MockAgentFactory", "MockLiquidityManager", "MockBootstrapPool", "MockERC20 x2", "MockFraxswapFactory (vm.etch at 0xE305...)", "MockFraxswapPair"]
+  },
+  "cases": [
+    {"id": "A", "scenario": "non-existent agent", "result": "PASS", "evidence": "reverts AgentNotFound"},
+    {"id": "B", "scenario": "bootstrap happy path", "result": "PASS", "evidence": "exact _amountIn pulled; recipient got quote; router holds 0"},
+    {"id": "C", "scenario": "slippage minOut>quote", "result": "PASS", "evidence": "reverts InsufficientAmountOut"},
+    {"id": "D", "scenario": "recipient != buyer", "result": "PASS", "evidence": "recipient got tokens; buyer paid, got nothing"},
+    {"id": "E", "scenario": "Fraxswap killed path (etched factory)", "result": "PASS", "evidence": "_amountIn routed to pair; recipient got out; router holds 0"}
+  ],
+  "all_cases_pass": true,
+  "runtime_proven": true,
+  "source_only_proof_used": false,
+  "out_of_scope_needs_context": [
+    "BootstrapPool bonding-curve pricing / fee / killed transition",
+    "Fraxswap getAmountOut / sync (donation skim) / reserves / fee tier (the IQ-M-01 moveLiquidity pair-adoption area)"
+  ],
+  "awarded": false,
+  "submittable": false,
+  "severity_assigned": null,
+  "report_written": false,
+  "submission_package": false,
+  "ready_for_human_review": false,
+  "production_wiring": false,
+  "research_only": true,
+  "src_mutated": false,
+  "iqai_src": "unmutated (AgentRouter.sol sha bb063429; harness is a test-only file under test/audit/)"
+}

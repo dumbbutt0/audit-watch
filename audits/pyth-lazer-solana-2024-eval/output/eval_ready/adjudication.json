@@ -1,0 +1,29 @@
+{
+  "audit_id": "pyth-lazer-solana-2024-eval",
+  "set": "training",
+  "language": "rust",
+  "pre_cutoff": true,
+  "source": "firm-report",
+  "generated_at": "2026-06-12",
+  "awarded_source": "_sealed_answer_key/report.pdf (Zellic — Pyth Lazer Solana, Jan 2025)",
+  "auto_heuristic": false,
+  "_do_not_auto_overwrite": "Hand-adjudicated GENUINE-BLIND full-coverage cold pass (firm-report eval). Only severity counts + scope peeked pre-pass; finding titles were SEALED until reveal. Rust-only; never mixes into the Solidity scoreboard.",
+  "awarded": [
+    {"id": "3.1", "severity": "Critical", "title": "Signature bypass — verify_message reads pubkey/payload from message_data, not bound to the ed25519-verified instruction bytes; attacker-controlled message_offset decouples them", "label": "STRONG", "read_file": true, "mechanism_class": "solana-ed25519-introspection-data-unbound", "source": "human", "matched_candidate": "P-01", "note": "STRONG: my P-01 named the exact root cause (message_data arg not bound to the ed25519-verified bytes; only offset arithmetic checked against attacker-controlled message_offset) and the exact exploit shape (ed25519 verifies attacker PK2's real sig while the contract reads trusted PK1 + arbitrary payload from message_data -> forged VerifiedMessage). Matches Zellic's PK1/PK2 layout PoC."},
+    {"id": "3.2", "severity": "Low", "title": "Migration applicable to an already-migrated storage account", "label": "STRONG", "read_file": true, "mechanism_class": "solana-reinit-missing-init-guard", "source": "human", "matched_candidate": "P-02", "note": "STRONG: my P-02 named the re-migration root cause (StorageV010 and Storage share the same struct-name discriminator so the old_data disc check passes post-migration; top_authority at same offset passes the gate -> re-run corrupts Storage; Pyth later removed migration)."}
+  ],
+  "candidates": [
+    {"id": "P-01", "title": "verify_message message_data not bound to ed25519-verified bytes", "matched": "3.1 (STRONG)"},
+    {"id": "P-02", "title": "migrate re-applicable to migrated account", "matched": "3.2 (STRONG)"},
+    {"id": "P-03", "title": "initialize permissionless (front-run)", "matched": null, "note": "not awarded (singleton init; deployer atomically inits in practice). Applied the WOOFi solana-missing-signer-check class correctly though not awarded."}
+  ],
+  "summary": {
+    "awarded_total": 2, "adjudicated": 2, "pending": 0,
+    "misses_detected": 0, "recall_of_surfaced": 1.0, "strong_only": 1.0,
+    "by_label": {"STRONG": 2, "SAME_AREA": 0, "SUBSYSTEM_ONLY": 0, "MISSED": 0, "UNADJUDICATED": 0},
+    "coverage_gap_misses": 0, "reasoning_gap_misses": 0,
+    "complete": true,
+    "blind": true,
+    "note": "GENUINE-BLIND firm-report cold pass (Zellic Pyth Lazer Solana). recall 1.0 / strong 1.0 — both findings caught at STRONG, zero misses. FULL coverage (2/2 in-scope .rs). Pre-cutoff/firm-report (prior-knowledge confound waived by user) so banked as a GENUINE pass but flagged firm-report. The Critical (signature bypass) was reasoned out from the earned Solana account/CPI binding discipline (instruction-introspection data-binding) -> new class solana-ed25519-introspection-data-unbound added (eval-validated STRONG). No misses to reincorporate; library strengthened with the new ed25519-introspection class + specialist note."
+  }
+}

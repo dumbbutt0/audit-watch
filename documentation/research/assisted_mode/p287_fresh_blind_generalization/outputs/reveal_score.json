@@ -1,0 +1,98 @@
+{
+  "label": "BLIND_EVAL",
+  "mode": "REVEAL_SCORE",
+  "target": "kelp-2023-11-holdout",
+  "hm_count": {
+    "High": 3,
+    "Medium": 2
+  },
+  "severity": null,
+  "reportable": false,
+  "submission_ready": false,
+  "concluded": false,
+  "production_routing": false,
+  "awarded_findings": [
+    {
+      "id": "H-01",
+      "area": "Chainlink price discrepancy/staleness (LRTOracle/getRsETHAmountToMint)",
+      "surfaced": true,
+      "routed": true,
+      "queued": true,
+      "ready": true,
+      "poc_attempted": true,
+      "poc_supported": true,
+      "match_level": "STRONG_MECHANISM_MATCH",
+      "note": "pre-reveal READY+PoC-supported candidate getRsETHAmountToMint, mechanism = mint valuation consumes Chainlink latestAnswer() with no staleness/normalization guard; same root cause + locus as H-01"
+    },
+    {
+      "id": "H-02",
+      "area": "mints less rsETH (deposit-before-calc, depositAsset/getRsETHAmountToMint)",
+      "surfaced": true,
+      "routed": true,
+      "queued": true,
+      "ready": true,
+      "poc_attempted": false,
+      "poc_supported": false,
+      "match_level": "SAME_AREA_WRONG_MECHANISM",
+      "note": "same locus READY but our mechanism was oracle-staleness, not the asset-transfer-before-calc ordering"
+    },
+    {
+      "id": "H-03",
+      "area": "first-staker rsETH price manipulation (getRSETHPrice donation)",
+      "surfaced": false,
+      "routed": false,
+      "queued": false,
+      "ready": false,
+      "poc_attempted": false,
+      "poc_supported": false,
+      "match_level": "SUBSYSTEM_ONLY_RECALL",
+      "note": "deposit/valuation subsystem surfaced (getRsETHAmountToMint) but the getRSETHPrice donation locus+mechanism not surfaced"
+    },
+    {
+      "id": "M-01",
+      "area": "strategy update -> wrong issuance (getTotalAssetDeposits)",
+      "surfaced": true,
+      "routed": true,
+      "queued": true,
+      "ready": false,
+      "poc_attempted": false,
+      "poc_supported": false,
+      "match_level": "SUBSYSTEM_ONLY_RECALL",
+      "note": "getTotalAssetDeposits surfaced+queued (NEEDS_MORE_EVIDENCE); strategy-update mechanism not derived"
+    },
+    {
+      "id": "M-02",
+      "area": "slippage control on depositAsset",
+      "surfaced": true,
+      "routed": true,
+      "queued": false,
+      "ready": false,
+      "poc_attempted": false,
+      "poc_supported": false,
+      "match_level": "SUBSYSTEM_ONLY_RECALL",
+      "note": "depositAsset surfaced as advisory; slippage mechanism not derived"
+    }
+  ],
+  "pre_reveal_candidates": [
+    {
+      "candidate": "LRTDepositPool.getRsETHAmountToMint",
+      "classification": "STRONG_MECHANISM_MATCH (H-01)",
+      "poc": "PASS_SUPPORTED",
+      "note": "awarded-area, PoC-supported oracle-staleness mechanism; also SAME_AREA to H-02"
+    }
+  ],
+  "totals": {
+    "awarded_hm": 5,
+    "loci_surfaced": 4,
+    "class_routed": 4,
+    "ready": 1,
+    "poc_supported": 1,
+    "strong_or_exact_awarded_recoveries": 1,
+    "same_area_wrong_mechanism": 1,
+    "subsystem_only_recall": 3,
+    "missed": 0,
+    "nonawarded_true_positive": 0,
+    "severe_concluded_or_reportable_fp": 0,
+    "false_positive": 0
+  }
+}

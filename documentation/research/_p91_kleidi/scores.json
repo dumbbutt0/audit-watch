@@ -1,0 +1,42 @@
+{
+  "research_only": true,
+  "phase": "P91",
+  "subject": "kleidi-2024-10",
+  "commit": "89266a7d5287720d925337c82d4ca94248b00b8e",
+  "purpose": "Confirmation run of the P90 recall/depth policy (top-16 + per-contract top-2 floor + NOT_RUN->0 + maximal_consequence_check) while holding 0 severity FP (P86/P88 gate frozen 193abf9f).",
+  "blindness": "repo-key-blind (findings cloned only AFTER prekey_freeze.json) + web-blind; training contamination acknowledged.",
+  "answer_key": {"high": 0, "medium": 3, "note": "hardened, low-density subject; all 3 Mediums concentrated in Timelock.sol"},
+  "metrics": {
+    "blind_surface_recall": {
+      "lens_total": 28, "selected": 22, "policy": "top-16 ∪ per-contract top-2 floor + 3 controls",
+      "per_contract_floor_added": ["ConfigurablePause.pause","Guard.checkTransaction","InstanceDeployer.createSystemInstance","RecoverySpellFactory.createRecoverySpell","TimelockFactory.createTimelock"],
+      "per_contract_floor_contribution_to_hits": "0 — all 3 awarded Mediums are in Timelock (the dominant top-scoring contract); the floor covered 5 OTHER contracts that had no awarded findings this subject"
+    },
+    "selected_lead_recall": "awarded fns: M-01 schedule(selected scheduleBatch, rejected) / M-02 calldata-check addCalldataChecks (SELECTED, NEEDS_CONTEXT abstain — right area) / M-03 updateExpirationPeriod (rank 18, NOT selected — below cutoff, self-governance setter)",
+    "NOT_RUN": 0,
+    "investigation_safety": {"C_SOURCE_FALSE": 0, "C_unsupported_READY": 0, "C_HARD_FAIL": 0, "C_detector_to_finding": 0},
+    "severity_FP_after_gate": 0,
+    "false_demotions": "0 of a SURFACED true M/H. RecoverySpellFactory.createRecoverySpell (real transient-storage-not-cleared bug) was adversarially adjudicated Low/QA and gate-demoted to NEEDS_CONTEXT -> and it is NOT in the awarded set, so the demotion was CORRECT (no severity FP, no false-demote of an awarded finding).",
+    "under_ratings": "none promoted to mis-label.",
+    "mechanism_correctness": "0 promotions (so 0 correct/0 wrong); the 1 promotion was demoted pre-key by adversarial+gate.",
+    "conversion": {"clean_or_strong": 0, "CLEAN_HIT": [], "near_miss_abstain": ["M-02 calldata-index off-by-one: localized to Timelock.addCalldataChecks/checkCalldata and flagged NEEDS_CONTEXT (right area), but the endIndex-startIndex length off-by-one was not deep-traced -> not converted"]},
+    "controls": {"privileged_rejected": "3/3 (updateDelay, setGuardian, revokeHotSigner) rejected at DEFENSE_TRACED", "controls_promoted_incorrectly": 0},
+    "maximal_consequence_check_effect": "applied to the 1 promotion; correctly did NOT escalate (bounded, self-inflicted, not all-users/permanent) -> no false escalation. Did not change any final tag toward a hit (there was no hit).",
+    "p84_taxonomy_coverage": "no promotion -> no handoff bundle generated. M-02 class (calldata index/length validation) is adjacent to validation_liveness_counter_scope; a dedicated calldata-range-validation type is a future candidate (1 instance).",
+    "p84_generator_behavior": "n/a (no candidate reached POC_HANDOFF_STARTED)"
+  },
+  "honest_misses": {
+    "M-01": "gas-griefing via creating many proposals (schedule, requires >=threshold keys exposed). Rejected scheduleBatch as standard timelock -> MISS (depth; precondition-heavy griefing).",
+    "M-02": "calldata-check index length computed as endIndex-startIndex (missing +1) -> whitelisted call reverts when a checked parameter fills all its bytes (Timelock.sol L1136 + BytesHelper L50). I localized to the calldata-check and abstained (NEEDS_CONTEXT) but did not trace the off-by-one -> DEEP-PASS DEPTH miss (P90-B #1 bucket).",
+    "M-03": "updateExpirationPeriod cannot reduce expiration below current in a window. Rank 18, NOT selected (below top-16; Timelock floor filled by top-16) + it is a self-governance setter -> selection + would-be-control miss."
+  },
+  "verdict": "SAFETY-ONLY PASS. Safety clean (0 SOURCE_FALSE / unsupported-READY / HARD_FAIL / detector->finding), 0 severity FP, controls 3/3 clean, NOT_RUN=0, no false-demotion of an awarded finding — BUT conversion = 0 (no CLEAN_HIT/STRONG_PARTIAL). Per the rubric this is exactly Safety-only PASS.",
+  "p90_validation_conclusion": "INCONCLUSIVE for the recall-improvement claim on this subject. Kleidi is hardened/low-density (0 High, 3 Medium, all in Timelock). The per-contract floor mechanically worked (covered 5 extra contracts) but paid off 0 hits because findings concentrated in the dominant top-scoring contract -> the floor is the wrong lever when findings are NOT in low-scoring contracts. The deep-pass DEPTH gap (P90-B's #1 predicted bottleneck) is RECONFIRMED: M-02 was correctly localized but not deep-traced; M-01/M-03 were depth/selection misses. KEY POSITIVE: the 0-severity-FP discipline held under temptation — a real-but-bounded bug (RecoverySpellFactory) was correctly adjudicated Low/QA by the isolated adversarial review + maximal_consequence_check + gate and kept out, and it was indeed not awarded.",
+  "action_per_constraints": "STOP and report. No machinery change. No post-key tuning. No retroactive re-score.",
+  "caveats": [
+    "training-contamination residual (key opened only post-freeze)",
+    "hardened/low-density subject -> conversion recall could not be exercised; P90 recall claim remains unvalidated here",
+    "per-contract floor added coverage but 0 hits (findings concentrated in the top-scoring contract)",
+    "deep-pass depth remains the dominant lever (M-02 localized but not traced) — confirms P90-B"
+  ]
+}

@@ -1,0 +1,16 @@
+### P104 M-01 reproduction — IQ-AI @ db0d369b, Fraxtal fork block 12,918,968 (rpc.frax.com archive)
+in-scope LiquidityManager.sol sha256(first14): 9a68efe4b6664f (== frozen 9a68efe4b6664f)
+
+=== (1) VULNERABLE (unpatched source): attacker pre-creates low-fee pair, migration adopts it ===
+$ forge test --match-test test_M01_attacker_precreate_low_fee_is_adopted --evm-version cancun -vv
+[PASS] test_M01_attacker_precreate_low_fee_is_adopted() (gas: 48947264)
+  intended feeBps: 100
+  attacker-adopted feeBps: 1
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 172.37ms (22.36ms CPU time)
+
+=== (2) MINIMAL GUARD (require pre-existing pair feeBps == intended) ===
+$ forge test --match-contract M01PatchRegression --evm-version cancun
+[PASS] test_patch_allows_clean_migration() (gas: 48951421)
+[PASS] test_patch_blocks_attacker_low_fee_pair() (gas: 48712389)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 199.41ms (15.82ms CPU time)
+final restored hash: 9a68efe4b6664f

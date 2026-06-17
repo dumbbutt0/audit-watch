@@ -1,0 +1,27 @@
+{
+  "lens": "erc4626_limit_fidelity",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Generalized CLASS of the P302 pooltogether M-02/M-03/M-07 misses: an ERC4626 wrapper's max*/limit function is NOT faithful to the action it bounds. Two sub-shapes: (i) LIMIT-vs-ACTION primitive mismatch — a max{Deposit,Mint,Withdraw,Redeem} bounds via underlying maxDeposit/maxMint/maxRedeem/convertTo* but the paired action calls a DIFFERENT underlying primitive (e.g. maxDeposit uses yieldVault.maxDeposit while the deposit path uses yieldVault.mint -> advertised max not fulfillable; OR a max-withdraw/redeem bounds via convertToAssets(maxRedeem) — a cross-basis estimate that may not match the action's redemption rounding -> over-report/revert). (ii) CAP omits accrued claimable — a deposit/mint cap is computed from a base supply but a separately-accrued mintable balance (yieldFeeBalance/accruedFees/pendingRewards) that also consumes that cap is not subtracted -> cap over-reports. Two-signal AND per sub-shape; suppress single-primitive-consistent vaults and pure-math libs. Anchors: PrizeVault maxDeposit/_depositAndMint, _maxYieldVaultWithdraw/_withdraw, maxDeposit/_twabSupplyLimit/yieldFeeBalance.",
+
+  "vault_refs": ["yieldvault.", "vault.", "underlying.", "_yieldvault.", "ivault.", "yieldsource.", "_vault.", "ierc4626("],
+  "estimate_primitives": ["maxdeposit", "maxmint", "maxredeem", "maxwithdraw", "converttoassets", "converttoshares"],
+  "action_primitives": ["deposit", "mint", "redeem", "withdraw"],
+
+  "limit_fns": ["maxdeposit", "maxmint", "maxwithdraw", "maxredeem"],
+  "verb_counterpart": {"maxdeposit": "deposit", "maxmint": "mint", "maxwithdraw": "withdraw", "maxredeem": "redeem"},
+  "deposit_side_names": ["deposit", "mint", "sponsor", "depositandmint", "_deposit"],
+  "withdraw_side_names": ["withdraw", "redeem", "burnandwithdraw", "_withdraw"],
+
+  "supply_cap_terms": ["_twabsupplylimit", "twabsupplylimit", "type(uint96).max", "type(uint128).max", "type(uint112).max", "supplylimit", "maxtotalsupply", "totalsupplycap", "_supplycap", "supplycap", "depositcap"],
+  "claimable_terms": ["yieldfeebalance", "feebalance", "accruedfee", "accruedfees", "pendingfee", "pendingfees", "pendingrewards", "pendingreward", "accruedreward", "accruedrewards", "reservefee", "protocolfee", "unclaimedfee"],
+
+  "suppress_library_contracts": ["math", "fixedpointmathlib", "safecast", "erc4626", "erc4626math"],
+
+  "fp_controls": {
+    "two_signal_required": "sub-shape (i) requires a vault-dotted estimate primitive in the limit AND a mismatched/converted basis vs the paired action; sub-shape (ii) requires a supply-cap term in the limit's OWN body AND a contract-level accrued claimable AND that claimable absent from the limit's own body.",
+    "consistent_vault_suppression": "a wrapper whose max{X} uses underlying max{X} and whose action uses the matching underlying {x} (maxDeposit->deposit, maxRedeem->redeem, ...) -> no mismatch -> silent.",
+    "no_underlying_suppression": "a limit computed purely from the wrapper's own state (no vault-dotted estimate primitive) -> silent.",
+    "claimable_accounted_suppression": "a cap that references/subtracts the accrued claimable -> sub-shape (ii) silent.",
+    "library_suppression": "pure math / ERC4626 base libraries -> silent."
+  }
+}

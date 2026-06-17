@@ -1,0 +1,82 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "RecoverySpellFactory.createRecoverySpell",
+  "detector_family": "surface_recall_lens",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "RecoverySpellFactory",
+    "function": "createRecoverySpell",
+    "lines": null,
+    "suspicious_pattern": "refund_path",
+    "detector_claim": "security-relevant surface; mechanism uncertain"
+  },
+  "context_summary": {
+    "source_available": true,
+    "source_resolved": true,
+    "reachability": "external"
+  },
+  "attacker_reachability": "external",
+  "defense_ledger": {
+    "duplicate_owner_check": {
+      "classification": "bypassed",
+      "evidence": "createRecoverySpell uses tload/tstore(owner,1) for dedup (L62-70) but NEVER clears the transient slots after the loop; calculateAddress uses a clean O(n^2) loop (L97-103)"
+    },
+    "param_checks": {
+      "classification": "irrelevant",
+      "evidence": "_paramChecks covers threshold/zero/delay, not cross-call transient state"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "the duplicate-owner check must be scoped to a single createRecoverySpell call; transient state must not leak across calls in a tx",
+    "why_defenses_do_not_block": "no clearing of transient storage between/after calls"
+  },
+  "exploit_path": {
+    "attacker_profile": "any deployer / orchestrator (multicall) creating >1 spell in one tx",
+    "entrypoint": "RecoverySpellFactory.createRecoverySpell",
+    "preconditions": "two createRecoverySpell calls in the SAME transaction whose owner sets share >=1 address",
+    "transaction_sequence": "call 1 sets tstore(ownerO,1) and never clears it; call 2 (different safe/spell) containing ownerO reads tload(ownerO)=1 -> require(!found) reverts 'Duplicate owner' even though ownerO is not a duplicate WITHIN call 2's set. Same-tx batch creation of spells sharing any owner reverts.",
+    "state_before": "both spells deployable",
+    "state_after": "second creation reverts on a false duplicate",
+    "rejection_case": "Real (transient slots are tx-scoped and never cleared here, unlike the view calculateAddress). Severity is the open question: it is a liveness/DoS of a SECURITY mechanism's batched setup, but a separate-tx workaround exists and there is no direct fund loss -> bounded. Defer the bounded-vs-material call to the isolated adversarial review.",
+    "source_evidence": "RecoverySpellFactory.createRecoverySpell L59-71 (tload/tstore dedup, no clear); cf. calculateAddress L97-103 (clean loop)"
+  },
+  "impact_analysis": {
+    "impact_category": "DoS of batched recovery-spell deployment (false duplicate across same-tx calls)",
+    "minimum_profit_or_damage_condition": "any same-tx multi-spell deployment with a shared owner reverts; workaround = separate txs"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED",
+  "_hygiene": {
+    "ok": true,
+    "violations": [],
+    "recommended": "POC_REQUIRED"
+  }
+}

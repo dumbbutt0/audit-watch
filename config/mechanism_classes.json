@@ -1,0 +1,997 @@
+{
+  "_description": "Recall Lab mechanism-class taxonomy. Each awarded eval finding is tagged with a mechanism_class in adjudication.json; the scoreboard reports per-class recall so we can see which expert-bug FAMILIES the system systematically misses (independent of project). 'prompt_section' points at the specialist agent section that teaches the class (the proven cold-recall lever). status: caught=system reliably finds it; reincorporated=prompt section authored after a miss; design=opinion/non-mechanical (not prompt-addressable); coverage=miss was a read-coverage gap not a reasoning gap; SEEDED=authored a-priori for a NEW language (Rust/Solana), NOT yet eval-validated (to be confirmed/upgraded by the recall lab). 'language' field (default solidity) keeps cross-language classes out of the Solidity scoreboard until earned.",
+  "_flags": {
+    "is_gate": false,
+    "routes_in_production": false,
+    "advisory": true
+  },
+  "_solana_seed_note": "The solana-* classes below are SEEDED (language:rust, status:seeded) from public Solana audit knowledge; they are scaffolding for the Rust recall-lab bootstrap (P4) and are validated/upgraded to 'reincorporated' only when a scored Solana contest confirms them. They never count toward Solidity recall.",
+  "_move_seed_note": "The move-* classes below are SEEDED (language:move, status:seeded) from Sui/Move audit knowledge (Cetus $220M CLMM class + general Sui object/capability review); scaffolding for the Move recall-lab bootstrap. They are language-tagged so they NEVER count toward Solidity or Rust recall scoring.",
+  "classes": {
+    "solana-missing-signer-check": {
+      "description": "an instruction that performs a privileged action (incl. INIT of config/oracle/pool) does not gate the caller (no Signer assertion / no authority|admin check) \u2192 anyone can invoke or initialize as if authorized",
+      "agent": "solana_account_model",
+      "prompt_section": "solana_account_model.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "woofi-solana-2024-08-eval:M-2"
+      ]
+    },
+    "solana-missing-owner-check": {
+      "description": "a passed account is deserialized/trusted without verifying account.owner == expected program id (or Anchor Account<T> type) \u2192 attacker substitutes a look-alike account they control",
+      "agent": "solana_account_model",
+      "prompt_section": "solana_account_model.md",
+      "status": "seeded",
+      "language": "rust",
+      "awarded_examples": []
+    },
+    "solana-account-substitution-confusion": {
+      "description": "two accounts of compatible layout (or missing discriminator/type check) let an attacker pass account A where B is expected (type confusion / arbitrary-account substitution) ALSO (LZ executor H-3.2): a PRIVILEGED Signer/account passed by-ref into an attacker-controlled CPI (here remaining_accounts forwarded to invoke()) can be REASSIGNED/written by the callee \u2014 its owner/data must be RE-VALIDATED after the CPI (fix added require!(executor.owner==system_program && data_is_empty())).",
+      "agent": "solana_account_model",
+      "prompt_section": "solana_account_model.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "lz-solana-endpoint-zellic-2024:H-3.2"
+      ]
+    },
+    "solana-missing-anchor-constraint": {
+      "description": "an Anchor account is missing a needed #[account(...)] constraint (has_one / seeds / address / mut / close / token::authority / a cross-field equality) that a sibling account or protocol invariant requires \u2192 unauthorized mutation/relation. e.g. WOOFi quote-pool: woopool_quote.token_mint==quote checked but NOT woopool_quote.token_mint==woopool_quote.quote_token_mint, so a non-quote pool's reserve is charged the fee ALSO: cross-chain handlers (lz_receive) where the recipient/token ACCOUNTS passed by the caller are not bound to the authenticated MESSAGE fields (user==receiver, deposit_token==token_hash) \u2014 the endpoint clear() authenticates the message, NOT the Solana accounts; an off-chain *_types account-list hint does NOT enforce on-chain (Orderly H-1 deposit_token!=allowed_token.mint_account; H-2 user!=withdraw receiver).",
+      "agent": "solana_account_model",
+      "prompt_section": "solana_account_model.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "woofi-solana-2024-08-eval:H-2",
+        "orderly-solana-2024-10-eval:H-1",
+        "orderly-solana-2024-10-eval:H-2"
+      ]
+    },
+    "solana-reinit-missing-init-guard": {
+      "description": "an account can be re-initialized (no init_if_needed guard / no already-initialized check / init not enforced) \u2192 state reset or takeover (Solana analog of init-once-guard-missing)",
+      "agent": "solana_account_model",
+      "prompt_section": "solana_account_model.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "pyth-lazer-solana-2024-eval:3.2"
+      ]
+    },
+    "solana-close-account-revival": {
+      "description": "an account closed without zeroing data / not using Anchor close (lamports drained but data intact, or no realloc-zero) \u2192 revived within same tx / reused (close-then-reinit attack) ALSO (LZ uln H-3.1 'arbitrary ULN PDAs can be closed'): a `close = receiver` instruction gated ONLY by a Signer whose key is itself part of the PDA seeds (any keypair can be that 'dvn'), with an UNCHECKED `receiver: AccountInfo` for the reclaimed rent. Result: state PDAs (DVN confirmations) can be closed by an unauthorized party / rent redirected. RULE: a close must validate WHO may close (real authority, not a self-derived-seed signer) AND, if rent matters, constrain the receiver.",
+      "agent": "solana_account_model",
+      "prompt_section": "solana_account_model.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "lz-solana-endpoint-zellic-2024:H-3.1"
+      ]
+    },
+    "solana-pda-seed-collision": {
+      "description": "PDA seeds are not canonical/bump-checked or are user-controllable so two logical entities map to the same PDA (or a non-canonical bump is accepted) \u2192 state collision / spoofed authority",
+      "agent": "solana_cpi",
+      "prompt_section": "solana_cpi.md",
+      "status": "seeded",
+      "language": "rust",
+      "awarded_examples": []
+    },
+    "solana-cpi-arbitrary-program": {
+      "description": "a CPI invokes a program id taken from an account/arg without verifying it equals the expected program (e.g. token program id unchecked) \u2192 attacker routes the CPI to a malicious program",
+      "agent": "solana_cpi",
+      "prompt_section": "solana_cpi.md",
+      "status": "seeded",
+      "language": "rust",
+      "awarded_examples": []
+    },
+    "solana-remaining-accounts-trust": {
+      "description": "ctx.remaining_accounts entries are used without validating owner/key/signer \u2192 attacker injects arbitrary accounts the handler trusts ALSO (LZ uln M-3.3): the remaining_accounts SLICE LENGTH was derived from the WRONG config field (optional_dvn_threshold instead of optional_dvns.len()), so a downstream loop indexing accounts[offset+i] over ALL optional DVNs runs past the slice -> out-of-bounds PANIC / DoS. Cross-check that the count used to slice remaining_accounts matches the count the consumer iterates.",
+      "agent": "solana_cpi",
+      "prompt_section": "solana_cpi.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "lz-solana-endpoint-zellic-2024:M-3.3"
+      ]
+    },
+    "solana-arithmetic-unchecked": {
+      "description": "lamport/token arithmetic uses unchecked +/-/* (not checked_add/checked_sub) in release (overflow-checks off) \u2192 silent wrap draining funds (Rust analog of arithmetic overflow; the compiler does NOT save you in release) DIVISION sub-checks (Drift): (1) `.div(x)` instead of `checked_div(x)` PANICS on x==0 \u2014 any divisor that can reach 0 (e.g. base_asset_amount, a reserve) is a DoS; require checked_div + explicit zero guard. (2) SIGNED integer division rounds TOWARD ZERO (positive floored, negative ceiled), so a precision-reducing div of a signed value (funding/PnL) is ASYMMETRIC \u2192 systematic accounting bias favoring one side; pick an explicit rounding direction that doesn't leak value to users.",
+      "agent": "solana_account_model",
+      "prompt_section": "solana_account_model.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "drift-zellic-2022:unchecked-division",
+        "drift-zellic-2022:signed-division-rounding"
+      ]
+    },
+    "solana-pda-signer-seeds-missing-bump": {
+      "description": "a PDA's seeds() used for invoke_signed/CpiContext::new_with_signer omits the canonical bump (or a required seed), so the derived signer != the PDA \u2192 the CPI signature is invalid and the privileged CPI (vault payout) permanently fails / funds stuck",
+      "agent": "solana_cpi",
+      "prompt_section": "solana_cpi.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "woofi-solana-2024-08-eval:H-1"
+      ]
+    },
+    "solana-init-authority-mismatch-vs-use": {
+      "description": "an account field (authority/owner) is set at INIT to the creator (msg.sender/admin), but a LATER instruction's constraint requires that field to equal a DIFFERENT authority (e.g. manager.authority) \u2192 accounts created by a non-matching creator are permanently unusable in the later instruction (claim/withdraw bricked)",
+      "agent": "solana_account_model",
+      "prompt_section": "solana_account_model.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "woofi-solana-2024-08-eval:M-1"
+      ]
+    },
+    "solana-duplicate-mutable-account-serialization": {
+      "description": "an instruction takes >=2 mutable accounts of the same type that CAN be the same account (aliased); Anchor serializes in-memory copies at the end so only one write survives \u2192 lost state update (e.g. fee credited to woopool_quote is overwritten when woopool_to==woopool_quote). Forbid aliasing (key!=key) or operate on one reloaded instance",
+      "agent": "solana_account_model",
+      "prompt_section": "solana_account_model.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "woofi-solana-2024-08-eval:M-3"
+      ]
+    },
+    "signed-validity-window": {
+      "description": "auth/time metadata appended to a signature but not covered by the signed hash (relayer-malleable)",
+      "agent": "logic",
+      "prompt_section": null,
+      "status": "caught",
+      "awarded_examples": [
+        "intuition-2026-03-blind:M-01"
+      ]
+    },
+    "inclusive-boundary-snapshot": {
+      "description": "inclusive timestamp/epoch boundary in reward/snapshot lookups lets a boundary checkpoint retroactively qualify for the prior period",
+      "agent": "logic",
+      "prompt_section": "logic.md#15",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "intuition-2026-03-blind:M-02"
+      ]
+    },
+    "cross-function-conservation": {
+      "description": "one-sided backing/solvency accounting \u2014 an asset side (e.g. borrow liabilities) omitted from a backing/surplus aggregation across functions",
+      "agent": "logic",
+      "prompt_section": "logic.md#14",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "monetrix-2026-04-blind:M-01"
+      ]
+    },
+    "lock-unlock-monotonicity": {
+      "description": "lock/unlock-time set/overwrite without a monotonicity guard (extend grief or early-unlock)",
+      "agent": "logic",
+      "prompt_section": "logic.md#10",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "munchables-2024-05-holdout:H-01",
+        "munchables-2024-05-holdout:H-02"
+      ]
+    },
+    "missing-sibling-check": {
+      "description": "an action has a paired/sibling guard (approve vs disapprove, add vs remove) but one side omits the check, enabling contradictory state",
+      "agent": "logic",
+      "prompt_section": null,
+      "status": "caught",
+      "awarded_examples": [
+        "munchables-2024-05-holdout:M-01"
+      ]
+    },
+    "remainder-carryover": {
+      "description": "per-unit remainder/dust carryover reused across calls or wrongly reset to 0, enabling inflation or unit bypass",
+      "agent": "logic",
+      "prompt_section": "logic.md#11",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "munchables-2024-05-holdout:M-02",
+        "munchables-2024-05-holdout:M-03"
+      ]
+    },
+    "accrual-parity": {
+      "description": "a state-changing setter skips the harvest/accrual that sibling mutators perform, desyncing rewards",
+      "agent": "behavioral_state_analysis",
+      "prompt_section": "behavioral_state_analysis.md#8",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "munchables-2024-05-holdout:M-04"
+      ]
+    },
+    "fee-accounting-shared-position": {
+      "description": "fees accrued on a shared LP/AMM position mis-attributed so most users cannot claim their share",
+      "agent": "economic_attack",
+      "prompt_section": "economic_attack.md#8",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "vultisig-2024-06-holdout:H-01"
+      ]
+    },
+    "self-whitelist-bypass": {
+      "description": "an access gate (whitelist/allowlist) can be satisfied by the caller themselves (e.g. via receive()/self-registration)",
+      "agent": "access_control",
+      "prompt_section": "access_control.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "vultisig-2024-06-holdout:H-02"
+      ]
+    },
+    "single-sided-liquidity-grief": {
+      "description": "a one-time lifecycle action (launch/finalize) can be permanently griefed by single-sided/asymmetric input",
+      "agent": "dos",
+      "prompt_section": null,
+      "status": "caught",
+      "awarded_examples": [
+        "vultisig-2024-06-holdout:H-03"
+      ]
+    },
+    "lp-burn-slippage": {
+      "description": "an LP burn/claim returns amounts without slippage bounds, exposing the caller to manipulation",
+      "agent": "token_integration",
+      "prompt_section": "token_integration.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "vultisig-2024-06-holdout:M-02"
+      ]
+    },
+    "transferable-position-cap-bypass": {
+      "description": "a per-user cap invariant is bypassed by transferring the position NFT/token between accounts",
+      "agent": "economic_attack",
+      "prompt_section": "economic_attack.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "vultisig-2024-06-holdout:M-03"
+      ]
+    },
+    "hand-rolled-index": {
+      "description": "hand-rolled array/index bookkeeping (overlap checks, swap-pop, per-selector lists) mishandles boundaries -> legitimate inputs revert",
+      "agent": "logic",
+      "prompt_section": "logic.md#8",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "kleidi-2024-10-holdout:M-02"
+      ]
+    },
+    "unbounded-array-griefing": {
+      "description": "an unbounded growable set iterated in a critical/single-shot path -> gas griefing/DoS by inflating the set",
+      "agent": "dos",
+      "prompt_section": "dos.md#10",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "kleidi-2024-10-holdout:M-01"
+      ]
+    },
+    "self-bricking-setter": {
+      "description": "a timelocked/guarded parameter setter whose own precondition makes the change un-executable (bricks its own update)",
+      "agent": "logic",
+      "prompt_section": "logic.md#9",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "kleidi-2024-10-holdout:M-03"
+      ]
+    },
+    "post-op-invariant-comparison": {
+      "description": "wrong comparison/operands in a post-operation health/invariant check (e.g. liquidation solvency)",
+      "agent": "logic",
+      "prompt_section": "logic.md#12",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "badger-2024-06-holdout:M-01"
+      ]
+    },
+    "external-call-return-check": {
+      "description": "assumes an external call/stake reverts on failure; missing return-value check -> silent failure",
+      "agent": "logic",
+      "prompt_section": "logic.md#13",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "badger-2024-06-holdout:M-02"
+      ]
+    },
+    "burnable-token-design": {
+      "description": "design-opinion finding (e.g. token should be burnable) \u2014 not a mechanical bug; not prompt-addressable",
+      "agent": null,
+      "prompt_section": null,
+      "status": "design",
+      "awarded_examples": [
+        "vultisig-2024-06-holdout:M-01"
+      ]
+    },
+    "cross-service-reentrancy": {
+      "description": "a per-entity reentrancy guard (zero the current id's field before transfer) doesn't stop re-entry via a SIBLING id/service/position against a shared pool",
+      "agent": "reentrancy",
+      "prompt_section": "reentrancy.md#6",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "olas-2026-01-blind:H-05"
+      ]
+    },
+    "signature-missing-deadline": {
+      "description": "signed (EIP-712) operation omits a deadline from the signed struct \u2192 signature valid forever / replayable",
+      "agent": "access_control",
+      "prompt_section": "access_control.md#7",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "olas-2026-01-blind:H-07"
+      ]
+    },
+    "signature-missing-parameter": {
+      "description": "an outcome-affecting parameter (e.g. max bond, amount, recipient) is consumed by the call but not bound into the signed struct \u2192 submitter controls it",
+      "agent": "access_control",
+      "prompt_section": "access_control.md#7",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "olas-2026-01-blind:H-09"
+      ]
+    },
+    "effectivebond-no-downward-correction": {
+      "description": "a monotonic accumulator is credited upward when recomputed>stored but has no symmetric downward branch \u2192 over-credits permanently",
+      "agent": "logic",
+      "prompt_section": "logic.md#16",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "olas-2026-01-blind:M-09"
+      ]
+    },
+    "checkpoint-timing-manipulation": {
+      "description": "permissionless checkpoint/settlement of rate*elapsed rewards lets the caller time it (around droughts/refills or eligibility snapshots) to capture undeserved rewards",
+      "agent": "economic_attack",
+      "prompt_section": "economic_attack.md#9",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "olas-2026-01-blind:M-10"
+      ]
+    },
+    "init-once-guard-missing": {
+      "description": "a standalone/cloned helper deployed uninitialized exposes init()/initialize() with no init-once guard and no caller restriction \u2192 attacker seizes admin and drains",
+      "agent": "access_control",
+      "prompt_section": "access_control.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "panoptic-2025-12-strict-eval:H-01"
+      ]
+    },
+    "default-sentinel-reward-routing-jit": {
+      "description": "a fee/commission/reward share routed by a default/sentinel code (==0) is claimable by anyone \u2192 JIT-captured right before distribution with no prior contribution",
+      "agent": "economic_attack",
+      "prompt_section": "economic_attack.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "panoptic-2025-12-strict-eval:M-15"
+      ]
+    },
+    "critical-path-math-revert-dos": {
+      "description": "valuation/collateral/health math on a critical path (mint/liquidate/withdraw) reverts on legitimate edge inputs (div-by-zero at zero distance, out-of-domain getSqrtRatioAtTick, unchecked threshold-balance subtraction underflow for insolvent accounts) \u2192 position unmanageable/unliquidatable",
+      "agent": "dos",
+      "prompt_section": "dos.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "panoptic-2025-12-strict-eval:M-05",
+        "panoptic-2025-12-strict-eval:M-08",
+        "panoptic-2025-12-strict-eval:M-01"
+      ]
+    },
+    "unreachable-guard-branch-ordering": {
+      "description": "a safety/divergence/solvency guard is present in source but rendered unreachable (dead code) by condition placement / branch ordering / early-return \u2192 protection never fires (partial->strong: complete the reachability trace instead of hedging on guard effectiveness)",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "panoptic-2025-12-strict-eval:M-17",
+        "panoptic-2025-12-strict-eval:M-18"
+      ]
+    },
+    "bad-debt-socialization-par-exit": {
+      "description": "a withdraw/redeem prices shares at a stale par rate that excludes unrealized bad debt \u2192 first-mover exits whole and socializes the shortfall onto remaining LPs (bank-run race)",
+      "agent": "economic_attack",
+      "prompt_section": "economic_attack.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "panoptic-2025-12-strict-eval:M-19"
+      ]
+    },
+    "position-nft-callback-liquidation-dos": {
+      "description": "safeTransferFrom of a position-NFT to the owner on a must-complete path (liquidation cleanup) hands control to onERC721Received which REVERTS to make the owner un-liquidatable (DoS variant of the re-enter-to-mutate hook bug)",
+      "agent": "reentrancy",
+      "prompt_section": "reentrancy.md#6",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "revert-lend-2024-03-strict-eval:H-06"
+      ]
+    },
+    "oracle-decimal-scaling-overflow": {
+      "description": "oracle price scaling by 10**decimals / mulDiv overflows for high-decimal reference tokens \u2192 oracle unusable (revert) for legitimate tokens",
+      "agent": "oracle",
+      "prompt_section": "oracle.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "revert-lend-2024-03-strict-eval:M-07"
+      ]
+    },
+    "no-min-position-size-dust-baddebt": {
+      "description": "no minimum loan/position size \u2192 dust positions are unprofitable to liquidate \u2192 underwater dust accumulates into protocol bad debt (sprayable)",
+      "agent": "economic_attack",
+      "prompt_section": "economic_attack.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "revert-lend-2024-03-strict-eval:M-03"
+      ]
+    },
+    "wrong-router-method-integration-revert": {
+      "description": "an integration calls a DEX/router with the wrong method/selector/param-struct for the deployed target \u2192 the core path (swap/zap/migrate) always reverts; verify against the target's actual ABI, not an assumed interface",
+      "agent": "token_integration",
+      "prompt_section": "token_integration.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "zetachain-2023-10-holdout:H-10"
+      ]
+    },
+    "cross-chain-inbound-source-unauthenticated": {
+      "description": "an inbound cross-chain message handler fails to verify BOTH the local canonical endpoint caller AND the encoded trusted-remote (srcChain,srcAddr) \u2192 anyone forges/executes bridged messages (receiveFromBridge no caller gate; onlyOrigin can't bind msg.sender through a gateway callback)",
+      "agent": "cross_chain",
+      "prompt_section": "cross_chain.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "centrifuge-2023-09-holdout:M-01",
+        "decent-2024-01-holdout:M-03"
+      ]
+    },
+    "approve-zero-reverts-blocks-teardown": {
+      "description": "approve(_,0)/safeApprove(_,0) in a market-removal/integration-teardown path reverts for tokens that disallow zero approval \u2192 removal permanently bricked (sibling of transfer-on-zero-revert)",
+      "agent": "token_integration",
+      "prompt_section": "token_integration.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "silo-finance-2025-03-strict-eval:M-03"
+      ]
+    },
+    "stale-intermediate-state-gate": {
+      "description": "a close/reset/finalize decision reads state computed mid-operation, before the op's own later effect (health checked after repay but before slash) \u2192 gate fires on stale state, enabling window reset/grief",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "cap-2025-07-eval:M-1"
+      ]
+    },
+    "multiplier-default-zero-not-one": {
+      "description": "a multiplicative accumulator/index/multiplier left at storage-default 0 instead of ONE (1e27/1e18) \u2192 zeroes the whole product until a branch sets a floor (first borrowers pay 0 rate)",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "cap-2025-07-eval:M-6"
+      ]
+    },
+    "pause-blocks-derisk-path": {
+      "description": "a pause/guard meant for risk-adding actions also blocks the risk-reducing path (repay/liquidate/withdraw), often via a transitive helper (interest realization/index sync) \u2192 users can't cure positions \u2192 forced bad debt",
+      "agent": "dos",
+      "prompt_section": "dos.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "cap-2025-07-eval:M-4"
+      ]
+    },
+    "stranded-reward-swept-by-next-caller": {
+      "description": "rewards pushed to a distributor that early-returns on a zero-state (zero coverage/stake) without refund/revert are stranded, then swept to a different recipient by the next distribute() that reads balanceOf(this)",
+      "agent": "economic_attack",
+      "prompt_section": "economic_attack.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "cap-2025-07-eval:M-8"
+      ]
+    },
+    "liquidation-sizing-ignores-bonus": {
+      "description": "max-liquidatable/target-repay sized to reach target health omits the bonus/penalty collateral the liquidation also removes \u2192 post-liquidation health still below target \u2192 repeated/over-liquidation",
+      "agent": "economic_attack",
+      "prompt_section": "economic_attack.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "cap-2025-07-eval:M-10"
+      ]
+    },
+    "zero-amount-external-call-reverts": {
+      "description": "an unconditional external deposit/distribute/swap/borrow with a computed amount that can be 0, to a protocol that rejects zero (Symbiotic DefaultStakerRewards InsufficientReward) \u2192 DoS of the calling flow",
+      "agent": "token_integration",
+      "prompt_section": "token_integration.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "cap-2025-07-eval:M-3"
+      ]
+    },
+    "bps-sqrt-precision-loss": {
+      "description": "a bps/percentage param transformed through integer sqrt (100*sqrt(10000\u00b1bps)) and cached as a price bound loses precision \u2192 realized bound deviates from configured %",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "numa-2024-12-eval:M-10"
+      ]
+    },
+    "round-boundary-decay-reset": {
+      "description": "a linear decay/accrual n=elapsed*step/period that resets time-ref only when n<=0 is gameable by interacting when n rounds to 1 (elapsed<<period) \u2192 banks a full step for a fraction of the period, halving the decay period",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "numa-2024-12-eval:M-1"
+      ]
+    },
+    "controller-fed-pre-fee-amount": {
+      "description": "a fee/PID/rate controller updated post-trade is fed the pre-fee gross amount instead of the actual settled (post-fee minted/received) amount \u2192 controller drifts (fee grows wrong)",
+      "agent": "economic_attack",
+      "prompt_section": "economic_attack.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "numa-2024-12-eval:M-13"
+      ]
+    },
+    "pct-cap-below-abs-floor": {
+      "description": "a relative cap MAX=pct*balance and an absolute floor require(input>MIN) co-gate the same input \u2192 dust balance makes MAX<MIN so no input is valid \u2192 soft DoS / vault brick",
+      "agent": "dos",
+      "prompt_section": "dos.md",
+      "status": "reincorporated",
+      "awarded_examples": [
+        "numa-2024-12-eval:M-14"
+      ]
+    },
+    "lz-ordered-execution-option-missing": {
+      "description": "a LayerZero OApp enforces ordered/sequential inbound delivery on the RECEIVE side (require nonce==inbound_nonce+1) but the SEND side builds options WITHOUT addExecutorOrderedExecutionOption() (only addExecutorLzReceiveOption gas/value). LZ then does not guarantee ordered delivery -> out-of-order messages hit the strict nonce check and revert, while the source chain already committed the state change -> cross-chain balance/state desync, stuck funds. Check BOTH sides agree: ordered-execution option on send <-> nonce enforcement on receive. e.g. Orderly SolConnector.withdraw omits the ordered-execution option while the Solana vault enforces inbound_nonce+1 under order_delivery.",
+      "agent": "solana_cpi",
+      "prompt_section": "solana_cpi.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "orderly-solana-2024-10-eval:M-1"
+      ]
+    },
+    "solana-account-count-config-mismatch-panic": {
+      "description": "the number of accounts a handler slices/iterates is derived from a DIFFERENT quantity than the one actually provided/needed (e.g. a threshold vs a length, or a stored count vs the passed remaining_accounts), so indexing runs out of bounds and PANICS -> liveness/DoS (and on Solana the whole tx fails). Distinct from generic remaining_accounts-trust: here the COUNT arithmetic is wrong, not the per-account validation. LZ uln M-3.3.",
+      "agent": "solana_cpi",
+      "prompt_section": "solana_cpi.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "lz-solana-endpoint-zellic-2024:M-3.3"
+      ]
+    },
+    "solana-ed25519-introspection-data-unbound": {
+      "description": "a Solana program verifies a signature by INTROSPECTING a sibling ed25519_program (or secp256k1) instruction (sysvar instructions), but the pubkey/message the program ultimately TRUSTS is read from a SEPARATE source (an instruction ARG / a different account) that is bound to the verified bytes ONLY by offset arithmetic \u2014 with no check that the trusted bytes ARE the bytes the precompile verified. An attacker adjusts the attacker-controlled offset (e.g. message_offset) + calldata layout so the ed25519 program verifies a VALID signature for THEIR key over THEIR bytes, while the program reads a TRUSTED signer's pubkey + arbitrary payload from the separate source -> SIGNATURE BYPASS / oracle forgery. Pyth Lazer 3.1 (Critical). RULE: read the pubkey+message the program trusts FROM the precompile-verified instruction data itself, or assert the trusted buffer is byte-identical to (and at the claimed offset within) the verified instruction data.",
+      "agent": "solana_cpi",
+      "prompt_section": "solana_cpi.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "pyth-lazer-solana-2024-eval:3.1"
+      ]
+    },
+    "solana-anchor-idl-instructions-enabled": {
+      "description": "Anchor by default injects on-chain IDL instructions into every program; the IDL is stored at a PDA managed by those instructions. If the IDL account is left UNINITIALIZED, ANY entity can call the IDL instruction to create it and become its AUTHORITY, then store arbitrary buffers \u2014 and program-owned PDAs are often treated as trusted/verified by clients, so a malicious IDL can mislead integrators. RULE: disable the IDL instructions in production (no-idl / no-default-idl build, or `anchor idl close`/init it under program control), or initialize+lock the IDL PDA authority at deploy. Drift (Zellic). Generalizes to ANY Anchor program.",
+      "agent": "solana_account_model",
+      "prompt_section": "solana_account_model.md",
+      "status": "reincorporated",
+      "language": "rust",
+      "awarded_examples": [
+        "drift-zellic-2022:anchor-idl-enabled"
+      ]
+    },
+    "vote-power-stranded-on-gauge-removal": {
+      "description": "users allocate a consumable resource (voting power/weight/allowance) to a registry entry, but the de-allocation/withdraw path require()s the entry still be valid -> removing/disabling the entry strands the allocation forever (user also can't re-allocate elsewhere). Fix: allow the set-to-zero/withdraw branch on removed entries. neobase H-01 (vote_for_gauge_weights require gauge_type>=0).",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "neobase-2024-03-blind:H-01"
+      ]
+    },
+    "slope-underflow-dos": {
+      "description": "a time-decay checkpoint loop does `slope -= changes[t]` assuming slope was built via the same increment path; an admin direct-setter that writes bias/weight WITHOUT the matching slope makes the decrement underflow -> permanent revert bricking every read-path consumer (claims/withdraws). neobase M-01 (change_gauge_weight sets bias not slope -> _get_weight underflow). Underflow-guard decrements + admin setters must maintain the same invariants.",
+      "agent": "dos",
+      "prompt_section": "dos.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "neobase-2024-03-blind:M-01"
+      ]
+    },
+    "governance-weight-override": {
+      "description": "an admin setter writes a value that is normally DERIVED/accumulated by user actions (votes->gauge weight, deposits->total), bypassing the conservation invariant and letting the aggregate exceed what backs it -> reward/allocation skew. neobase M-03 (change_gauge_weight). Prefer adjusting inputs or removing the setter.",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "neobase-2024-03-blind:M-03"
+      ]
+    },
+    "masterchef-rewarddebt-rounding": {
+      "description": "MasterChef rewardDebt adjustment on deposit/transfer rounds DOWN (floor) instead of in the protocol's favor -> repeated tiny position changes undercount debt and bank dust rewards (free claim); cumulative shortfall can revert the last claimer. neobase M-05 (sync_ledger rewardDebt += delta*accPerShare/1e18 floor). Round the debt-add UP.",
+      "agent": "economic_attack",
+      "prompt_section": "economic_attack.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "neobase-2024-03-blind:M-05"
+      ]
+    },
+    "unlock-override-free-vote": {
+      "description": "a global early-exit/override flag relaxes the EXIT (withdraw/unlock) constraint but the ENTRY functions (createLock/deposit/increase) are not also guarded -> user enters, consumes the time-weighted benefit (vote/boost), and exits in one tx for free (flash-loaned benefit). neobase M-07 (unlockOverride checked in withdraw not createLock/increaseAmount -> free gauge vote). Guard entry+benefit with the same flag or snapshot net of same-block exit.",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "neobase-2024-03-blind:M-07"
+      ]
+    },
+    "memory-copy-state-write-lost": {
+      "description": "a storage struct is loaded into MEMORY then a field (status/flag) is written on the copy -> not persisted; the security-relevant effect (cancel/disable/mark-used) silently no-ops and the entity stays active. init-capital M-02 (fillOrder cancels `Order memory` copy not storage). Write to storage.",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "init-capital-2024-01-blind:M-02"
+      ]
+    },
+    "unconditional-native-refund-dos": {
+      "description": "a refund/sweep modifier unconditionally unwraps WNATIVE and pushes native to msg.sender with require(success) on EVERY call -> reverts for contract callers without payable receive, even on non-native ops. init-capital M-01 (refundNative). Make native refunds conditional/pull-based, don't hard-revert.",
+      "agent": "dos",
+      "prompt_section": "dos.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "init-capital-2024-01-blind:M-01"
+      ]
+    },
+    "strict-equality-balance-dos": {
+      "description": "strict `==` equality on a post-external-call/post-swap balance reverts on any over-delivery/dust/rounding -> DoS. init-capital M-03 (coreCallback CloseExactOut require(balanceOf==amtOut)). Use >= and handle surplus.",
+      "agent": "dos",
+      "prompt_section": "dos.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "init-capital-2024-01-blind:M-03"
+      ]
+    },
+    "deadline-blocktimestamp-noop": {
+      "description": "DEX/router call passed deadline=block.timestamp -> deadline always satisfied -> no mempool/delay protection. Thread a user deadline. particle M-02.",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "particle-2023-12-blind:M-02"
+      ]
+    },
+    "missing-liquidity-slippage": {
+      "description": "Uni mint/increase/decrease/collect or swap with amount*Min:0 / amountOutMinimum:0 -> no slippage/sandwich protection. Thread user mins. particle M-15.",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "particle-2023-12-blind:M-15"
+      ]
+    },
+    "global-param-change-affects-open-positions": {
+      "description": "admin setter changes a global term (loan duration/threshold/fee) read by ALREADY-OPEN positions' eligibility math -> instant default/reprice. Snapshot per-position at open or timelock. particle M-05 (updateLoanTerm).",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "particle-2023-12-blind:M-05"
+      ]
+    },
+    "reward-folded-into-liquidation-condition": {
+      "description": "liquidation reward deducted from premium/collateral BEFORE the eligibility comparison -> positions liquidatable earlier than true collateralization warrants. Evaluate eligibility pre-reward. particle M-06.",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "particle-2023-12-blind:M-06"
+      ]
+    },
+    "stale-snapshot-before-mutation": {
+      "description": "a value snapshotted+persisted BEFORE a same-function mutating call that changes it -> stale baseline used later (e.g. feeGrowthInside read before decrease/collect). Snapshot after mutations. particle H-02.",
+      "agent": "logic",
+      "prompt_section": "logic.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "particle-2023-12-blind:H-02"
+      ]
+    },
+    "ported-uni-0.8-underflow-revert": {
+      "description": "Uni-V3 fee-growth/tick math relies on intentional 0.7 wraparound; ported to >=0.8 WITHOUT `unchecked` the subtractions revert -> DoS of fee/close/liquidate ops. Wrap ported uni math in unchecked. particle H-04.",
+      "agent": "arithmetic",
+      "prompt_section": "arithmetic.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "particle-2023-12-blind:H-04"
+      ]
+    },
+    "blacklist-token-push-refund-dos": {
+      "description": "mandatory PUSH of a blacklistable token (USDC/USDT) to a fixed/counterparty recipient on a withdraw/close/refund path -> permanent DoS if recipient blacklisted (blocks both legs / the LP's liquidity). Pull-over-push + per-token recipient. particle H-01/M-08.",
+      "agent": "dos",
+      "prompt_section": "dos.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "particle-2023-12-blind:H-01"
+      ]
+    },
+    "act-on-unowned-external-asset": {
+      "description": "entrypoint operates on an external NFT/position by id without verifying the contract owns/registered it -> state/credit created against an unheld/foreign asset. Gate on ownership/registration. particle M-12.",
+      "agent": "access_control",
+      "prompt_section": "access_control.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "particle-2023-12-blind:M-12"
+      ]
+    },
+    "oz-quorum-fraction-percent-misuse": {
+      "description": "OZ GovernorVotesQuorumFraction(N) = N% of supply (N/100), NOT 1/N; passing a small N intending a large fraction (comment says '25%' but arg 4 => 4%) lets adversaries pass proposals with tiny voting power. General: verify security-critical constants against the LIBRARY's actual unit, don't trust the inline comment/NatSpec. iq-ai H-01.",
+      "agent": "access_control",
+      "prompt_section": "access_control.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "iq-ai-2025-01-blind:H-01"
+      ]
+    },
+    "aa-wallet-cross-chain-address": {
+      "description": "cross-chain reward/refund/credit attributed to a source-chain userAddress/beneficiary and paid on the destination chain assumes the address is the same user everywhere -- true ONLY for EOAs. Account-abstraction / smart-contract wallets (Safe, ERC-4337, smart-wallet factories) have a DIFFERENT address per chain, so the destination payout is stranded or seizable. Require an explicit destination-recipient or EOA/counterfactual-equivalence check. nudgexyz M-03.",
+      "agent": "cross_chain",
+      "prompt_section": "cross_chain.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "nudgexyz-2025-03-blind:M-03"
+      ]
+    },
+    "tx-initiator-not-verified": {
+      "description": "a trusted relayer/router/executor (SWAP_CALLER, paymaster, solver) forwards a caller-supplied beneficiary/userAddress that is NOT bound to the real action initiator -> attacker sets an arbitrary beneficiary (e.g. a Uniswap V2 pool) and harvests the full reward/credit. Privilege of the CALLER is conflated with authorization of the BENEFICIARY. Bind the beneficiary via signature / token-source proof / participant registry. nudgexyz M-04.",
+      "agent": "access_control",
+      "prompt_section": "access_control.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "nudgexyz-2025-03-blind:M-04"
+      ]
+    },
+    "division-as-percentage-fee": {
+      "description": "a fee/share computed as `amount / feeParam` is `amount*(1/feeParam)`, NOT a percentage; it only matches intent at the one default value and breaks silently when the (often misleadingly-named: taxCut/feePercent) param is changed. Use amount*rate/DENOMINATOR. traitforge H-03 (NukeFund.receive devShare=msg.value/taxCut, EntityForging devFee=forgingFee/taxCut).",
+      "agent": "arithmetic",
+      "prompt_section": "arithmetic.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "traitforge-2024-07-blind:H-03"
+      ]
+    },
+    "stale-owner-snapshot-reward-attribution": {
+      "description": "reward/airdrop/credit keyed on a captured-at-creation address (initialOwner/firstMinter) that a LATER holder's action (burn/nuke/withdraw) can decrement -> the later owner griefs the original beneficiary. Verify the actor IS the beneficiary, or move the credit on transfer. traitforge H-02 (burn/nuke -> airdrop.subUserAmount(initialOwners[id])).",
+      "agent": "logic",
+      "prompt_section": "logic.md#35",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "traitforge-2024-07-blind:H-02"
+      ]
+    },
+    "counter-reset-ignores-preexisting-entries": {
+      "description": "a per-period cap enforced by a counter reset to 0 at rollover, while entries can be pre-seeded into the NEXT bucket (parallel path) before the reset -> the reset wipes the pre-seeded count and the new period exceeds its cap. Reset to the pre-seeded count, not 0. traitforge H-04 (_incrementGeneration sets generationMintCounts[gen]=0, discarding forged-into-next-gen entities -> >10k per gen).",
+      "agent": "logic",
+      "prompt_section": "logic.md#36",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "traitforge-2024-07-blind:H-04"
+      ]
+    },
+    "cap-enforced-one-path-not-sibling": {
+      "description": "a max/limit checked in one entry function but omitted in a sibling function that mutates the same bounded variable -> the bound is bypassable via the unguarded path. Enumerate EVERY writer of a capped variable and confirm each enforces the bound (sibling-parity). traitforge H-05 (forge() checks newGeneration<=maxGeneration but _incrementGeneration increments currentGeneration with no cap -> infinite generations).",
+      "agent": "logic",
+      "prompt_section": "logic.md#37",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "traitforge-2024-07-blind:H-05"
+      ]
+    },
+    "read-before-init-zero-default": {
+      "description": "a store filled incrementally (batched/lazy init) and consumed by a separate function with no completeness guard returns the zero/default for not-yet-written slots. Gate consumers on an initialized flag / index-bound, or init fully in the constructor. traitforge M-01 (getNextEntropy reads entropySlots before writeEntropyBatch* completes -> 0-entropy mint).",
+      "agent": "logic",
+      "prompt_section": "logic.md#38",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "traitforge-2024-07-blind:M-01"
+      ]
+    },
+    "missing-slippage-dynamic-price-op": {
+      "description": "a mint/buy/redeem/claim whose price or payout is computed from mutable on-chain state (bonding curve, supply-based price, fund-share redemption) with no caller-supplied slippage bound (maxPrice/minOut/minClaim) -> adverse-movement + sandwich/front-run exposure. traitforge M-04 (mintWithBudget no max price) + M-16 (nuke() no minClaim).",
+      "agent": "economic_attack",
+      "prompt_section": "economic_attack.md#11",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "traitforge-2024-07-blind:M-04",
+        "traitforge-2024-07-blind:M-16",
+        "phi-2024-08-blind:M-03"
+      ]
+    },
+    "no-exit-path-fund-lockup": {
+      "description": "pooled value whose ONLY withdrawal is gated on a condition that can become permanently unreachable (last NFT/share burned, expired deadline) with no admin/emergency drain -> indefinite lockup. Enumerate all exits; ensure one is always reachable or add gated emergency withdraw. traitforge M-02 (NukeFund fund exits only via nuke() requiring a live mature NFT).",
+      "agent": "dos",
+      "prompt_section": "dos.md#18",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "traitforge-2024-07-blind:M-02"
+      ]
+    },
+    "signature-missing-chainid-replay": {
+      "description": "an off-chain signature consumed on-chain that does NOT commit to block.chainid (nor an EIP-712 domain that includes chainId) is replayable across every chain the protocol is deployed to. Confirm chainId is actually inside the signed struct; also require a nonce (same-chain replay) + deadline. phi H-01 (signatureClaim).",
+      "agent": "access_control",
+      "prompt_section": "access_control.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "phi-2024-08-blind:H-01"
+      ]
+    },
+    "signature-scope-gap-unsigned-params": {
+      "description": "a signature/merkle proof is verified over SOME fields but the function acts on ADDITIONAL caller-supplied params not covered by the signed/proven set -> those params are attacker-malleable (impersonation/param-swap/frontrun). Diff signed fields vs acted-on fields; any acted-on field outside the signature is the bug. phi H-02 (createArt artist/receiver not bound) + M-05 (ref/artId/imageURI unvalidated).",
+      "agent": "access_control",
+      "prompt_section": "access_control.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "phi-2024-08-blind:H-02",
+        "phi-2024-08-blind:M-05"
+      ]
+    },
+    "map-entry-zeroed-not-removed-gas-dos": {
+      "description": "on full close, code does map.set(key,0) (or leaves a 0 entry) instead of map.remove(key), so the key stays in the enumerable structure forever; any function iterating the collection grows unbounded and eventually reverts on gas -> DoS. .remove() on exit; bound every loop over an enumerable structure. phi H-03 (Cred sets shareBalance to 0 -> CuratorRewardsDistributor.distribute bloats).",
+      "agent": "dos",
+      "prompt_section": "dos.md#19",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "phi-2024-08-blind:H-03"
+      ]
+    },
+    "wrong-pausable-base-no-transfer-block": {
+      "description": "a token contract inherits generic PausableUpgradeable (only the whenNotPaused modifier) but NOT the token-specific pausable (ERC1155/ERC20/ERC721 Pausable) and never guards _update/_beforeTokenTransfer -> pause() does not actually block transfers (no-op emergency control). Confirm the transfer hook is whenNotPaused. phi M-01 (PhiNFT1155).",
+      "agent": "dos",
+      "prompt_section": "dos.md#20",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "phi-2024-08-blind:M-01"
+      ]
+    },
+    "reentrancy-refund-before-state-finalize": {
+      "description": "a create/buy path refunds excess ETH (or makes any external call) BEFORE incrementing the id counter / writing the final record, so an attacker re-enters mid-write to overwrite or double-use the slot -- reentrant even though token/share balances were updated first. CEI must cover counters/records, not just balances; asymmetric guards (batch has nonReentrant, create doesn't) are a red flag. phi H-06 (createCred first-buy refund before credIdCounter++).",
+      "agent": "reentrancy",
+      "prompt_section": "reentrancy.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "phi-2024-08-blind:H-06"
+      ]
+    },
+    "post-commitment-config-mutation": {
+      "description": "a creator/admin setter mutates terms users relied on when committing (soulbound, royalties, URI, mint window, fee, supply) with no immutability-after-start/timelock -> retroactive rug; also a require(endTime>=now) forces reopening a CLOSED window when editing. Terms holders depend on must be locked once the first participant commits. phi H-07 (post-mint settings) + H-04 (forced endTime reopen).",
+      "agent": "logic",
+      "prompt_section": "logic.md#39",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "phi-2024-08-blind:H-07",
+        "phi-2024-08-blind:H-04"
+      ]
+    },
+    "param-sanity-cap-wrong-unit": {
+      "description": "a require(param <= CONST) sanity guard in a setter where CONST is in the WRONG unit/scale vs the param's actual downstream use (a bps-looking 10_000/1e4 cap guarding an absolute wei amount, or vice-versa) -> the guard is meaningless or blocks legitimate config updates. Confirm MAX/MIN matches the param's real unit. CAP-site cousin of division-as-percentage-fee. phi M-02 (fee cap 10_000 vs wei fee).",
+      "agent": "arithmetic",
+      "prompt_section": "arithmetic.md",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "phi-2024-08-blind:M-02"
+      ]
+    },
+    "cached-config-not-refetched": {
+      "description": "a mutable config value (fee destination, rate, dependency address) is copied from a source/registry into local storage at init; later source updates are not reflected -> stale config keeps routing funds to the old target. Read through to the source at use-time or add a refresh path. phi M-06 (PhiNFT1155 caches protocolFeeDestination from factory).",
+      "agent": "logic",
+      "prompt_section": "logic.md#40",
+      "status": "reincorporated",
+      "language": "solidity",
+      "awarded_examples": [
+        "phi-2024-08-blind:M-06"
+      ]
+    },
+    "move-clmm-liquidity-overflow": {
+      "description": "wrong overflow/shift check or under-width intermediate in a CLMM wide-math/liquidity helper (checked_shlw/full_math/get_liquidity_from_amount/get_delta_*) lets an attacker mint oversized liquidity or pay ~dust for a large position (the Cetus $220M class)",
+      "agent": "move_clmm_math",
+      "prompt_section": "move_clmm_math.md",
+      "status": "seeded",
+      "language": "move",
+      "awarded_examples": []
+    },
+    "move-rounding-direction": {
+      "description": "swap/liquidity/fee-growth division rounds the wrong way (toward the user) so a swapper or LP extracts value per call; pool-receives and user-receives legs must round in opposite, pool-favoring directions",
+      "agent": "move_clmm_math",
+      "prompt_section": "move_clmm_math.md",
+      "status": "seeded",
+      "language": "move",
+      "awarded_examples": []
+    },
+    "move-signed-int-tick-math": {
+      "description": "i32/i64/i128 signed-int emulation or fee-growth-inside wrapping is mis-handled (abs/neg of MIN, wrong width, checked-subtract where Uniswap-v3 wrap is required, unbounded tick) -> wrong tick/fee accounting or position DoS",
+      "agent": "move_clmm_math",
+      "prompt_section": "move_clmm_math.md",
+      "status": "seeded",
+      "language": "move",
+      "awarded_examples": []
+    },
+    "move-coin-balance-conservation": {
+      "description": "Coin/Balance split/join/zero handling breaks conservation: value created, dropped/locked, fee taken from wrong leg, or change/output sent to the wrong recipient",
+      "agent": "move_object_capability",
+      "prompt_section": "move_object_capability.md",
+      "status": "seeded",
+      "language": "move",
+      "awarded_examples": []
+    },
+    "move-hot-potato-bypass": {
+      "description": "flash-loan/deferred-settlement hot-potato receipt is droppable (has drop/store) or repayment isn't enforced / is computed from manipulable state -> free flash loan or under-repayment",
+      "agent": "move_object_capability",
+      "prompt_section": "move_object_capability.md",
+      "status": "seeded",
+      "language": "move",
+      "awarded_examples": []
+    },
+    "move-capability-safety": {
+      "description": "privileged entry lacks a genuine capability/witness/admin gate, or checks a Cap by type only without binding it to the specific object; or a witness/cap is forgeable; or version/upgrade gate missing -> unauthorized privileged action",
+      "agent": "move_object_capability",
+      "prompt_section": "move_object_capability.md",
+      "status": "seeded",
+      "language": "move",
+      "awarded_examples": []
+    },
+    "move-object-ownership": {
+      "description": "function mutates/credits a per-user object (Position NFT, balance) without binding it to the caller -> attacker passes a shared or another user's object; shared-vs-owned confusion",
+      "agent": "move_object_capability",
+      "prompt_section": "move_object_capability.md",
+      "status": "seeded",
+      "language": "move",
+      "awarded_examples": []
+    },
+    "move-constant-product-invariant-recheck": {
+      "description": "a swap/liquidity state-mutating math path never RE-ASSERTS the core conservation invariant (constant-product K = reserve_x*reserve_y non-decreasing, or the analogous curve invariant) on the post-mutation state; the absence of the guard is the finding even when current pricing is conservative -> a future pricing/fee/rounding change silently drains a reserve",
+      "agent": "move_clmm_math",
+      "prompt_section": "move_clmm_math.md#7",
+      "status": "reincorporated",
+      "language": "move",
+      "awarded_examples": ["sui-amm-swap-2022-11-eval:M-1"]
+    },
+    "move-public-helper-visibility": {
+      "description": "a SIDE-EFFECTING helper (event emitter, log/notify, state-touching util) is declared public fun instead of public(friend)/entry-guarded, so any external module/PTB can call it; for event emitters this forges protocol events without the underlying action, poisoning off-chain indexers/accounting/airdrop bots (distinct from move-capability-safety which is about privileged mutators)",
+      "agent": "move_object_capability",
+      "prompt_section": "move_object_capability.md#7",
+      "status": "reincorporated",
+      "language": "move",
+      "awarded_examples": ["sui-amm-swap-2022-11-eval:M-4"]
+    }
+  }
+}

@@ -1,0 +1,52 @@
+P141 — runtime output (key steps; measurement only, no production code changed)
+
+=== A. Noya SolvencyV2 fresh blind run ===
+Fresh uncontaminated subagent aa6d4aac2a89ed1b9, neutral packet only (no repo/answer-key).
+Decision: strong_clear (high) — single-index provenance consistent; out-of-family decimals concern not over-flagged.
+
+switch -> noya; readlink output = audits/noya-2024-04-eval/output
+rebuild jobs -> queued: ['VP-SolvencyV2.convertAmountsToValues', 'VP-NoyaValueOracle._getValue']
+wrote 2 completion artifacts (SolvencyV2=strong_clear, NoyaValueOracle=finding[P137])
+
+$ run_value_provenance_advisories.py --ingest-results
+accepted 2, rejected 0, unmatched 0 · completed 2, pending 0 · advisory_only
+  VP-SolvencyV2.convertAmountsToValues | completed | strong_clear | conf high | triplet True False True
+  VP-NoyaValueOracle._getValue         | completed | finding      | conf high | triplet True False True
+$ generate_review_gate.py -> Confirmed findings: 0
+isolation: SolvencyV2 in Validated False | NoyaValueOracle._getValue in Validated False | VP section present True
+(noya restored to prior ran:False; manual dir removed)
+
+=== B. Blackhole (eval_only_manual_queue) ===
+switch -> blackhole; created eval-only queue (3 jobs) + 3 reused-P138 completion artifacts
+$ --ingest-results -> accepted 3, rejected 0, unmatched 0 · completed 3, pending 0
+  VP-RewardsDistributor.claim_many | completed | finding      | high
+  VP-RewardsDistributor.claim      | completed | strong_clear | high
+  VP-RewardsDistributor.claimable  | completed | strong_clear | high
+$ generate_review_gate.py -> Confirmed findings: 0
+isolation: any RewardsDistributor in Validated False | VP section True | claim_many "NOT confirmed" True
+(blackhole VP artifacts removed)
+
+=== C. Size (eval_only_manual_queue) ===
+switch -> size; created eval-only queue (2 jobs) + 2 reused-P138 completion artifacts
+$ --ingest-results -> accepted 2, rejected 0, unmatched 0 · completed 2, pending 0
+  VP-SellCreditMarket.validateSellCreditMarket          | completed | needs_human  | medium
+  VP-AccountingLibrary.debtTokenAmountToCollateralTokenAmount | completed | strong_clear | high
+$ generate_review_gate.py -> Confirmed findings: 0
+isolation: any size fn in Validated False | VP section True | needs_human rendered True
+(size VP artifacts removed)
+
+=== Restore + integrity ===
+switch -> quantamm-2024-12-eval; readlink output = audits/quantamm-2024-12-eval/output
+all 3 audits: no manual dir (restored)
+$ bash -n run_pipeline.sh -> OK
+$ scripts/assisted/rank_signal_probe.py --self-test -> SELF-TEST: OK
+$ python -m pytest -q
+2 failed, 1637 passed, 4 skipped in 60.73s
+  (identical to P140; 2 failures = pre-existing deep_solidity frozen-snapshot tests, output/ symlink coupling)
+
+=== Totals ===
+7 queued / 7 completed / 0 pending / 0 rejected / 0 unmatched
+finding 2 · likely_exploitable 0 · needs_human 1 · strong_clear 4 · error 0
+clean strong_clear 4 · clean false finding 0 · confirmed Δ 0 · Validated Δ 0 · render OK 3/3
+prompt-derived 7 · runtime-confirmed 0
+DECISION: MEASUREMENT_EXPANDS_LOOP

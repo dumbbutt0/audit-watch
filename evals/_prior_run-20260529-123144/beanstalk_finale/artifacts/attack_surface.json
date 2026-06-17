@@ -1,0 +1,479 @@
+{
+  "agent": "attacker_mindset",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-28T23:30:08.305711+00:00",
+  "summary": {
+    "total_functions": 25,
+    "by_class": {
+      "admin": 5,
+      "user": 8,
+      "view": 2,
+      "internal": 10
+    },
+    "high_value_targets": 22,
+    "note": "Beanstalk Diamond proxy (~219 files). Scoring driven by static.json tainted-sinks (65) + 15 High slither hits, source-confirmed for priority clusters. fundsSafu/noNetFlow/noOutFlow/oneOutFlow are INVARIANT guards (Invariable.sol), NOT access guards \u2014 permissionless functions carrying them are still open attack surface. Most arbitrary-send-erc20 High flags are call-site-mitigated (facets pass LibTractor._user() as sender); the live attack surface is reentrancy ordering (CEI) in market/claim flows and oracle-driven season minting."
+  },
+  "functions": [
+    {
+      "name": "sunrise",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "user",
+      "attack_surface_score": 5,
+      "modifiers": [
+        "fundsSafu",
+        "noOutFlow"
+      ],
+      "moves_funds": true,
+      "reads_external_state": true,
+      "source_file": "contracts/beanstalk/sun/SeasonFacet/SeasonFacet.sol",
+      "ite": {
+        "intent": "Manipulate the BEAN price oracle in the same block that sunrise() reads it, so deltaB is wrong and Beanstalk mints/burns the wrong supply, profiting the caller via mispriced soil/pods/rewards.",
+        "technique": "Permissionless call to sunrise()->gm() at SeasonFacet.sol#37/48; gm() calls stepOracle() (deltaB) then stepSun() (Sun.sol#41) which mints Beans (C.bean().mint at Sun.sol#46) and sets soil/pod issuance; an attacker who skews the Well/pump reserves immediately before the season boundary biases deltaB and the freshly-minted supply distribution.",
+        "evasion": "Beanstalk relies on TWA pump reserves rather than spot price to resist single-block manipulation; gap is whether the TWA window and the once-per-season cadence fully neutralise a multi-block or first-after-gap manipulation \u2014 oracle specialist must confirm the pump freshness/window."
+      }
+    },
+    {
+      "name": "gm",
+      "visibility": "public",
+      "mutability": "payable",
+      "class": "user",
+      "attack_surface_score": 5,
+      "modifiers": [
+        "fundsSafu",
+        "noOutFlow"
+      ],
+      "moves_funds": true,
+      "reads_external_state": true,
+      "source_file": "contracts/beanstalk/sun/SeasonFacet/SeasonFacet.sol",
+      "ite": {
+        "intent": "Same as sunrise() but with attacker-chosen reward recipient \u2014 drive season advancement on manipulated oracle state to mint Beans and set soil/pod issuance in attacker's favour.",
+        "technique": "gm(account,mode) at SeasonFacet.sol#48 runs stepOracle()->stepSun()->incentivize(); the whole season step (germination, gauge, sun minting) executes off one oracle read of deltaB. Caller controls timing relative to mempool/Well state.",
+        "evasion": "require(seasonTime()>current) limits to one call per season; reward is the only direct payout. The economic risk is the indirect mint/soil sizing, not the incentive \u2014 needs economic_attack + oracle confirmation of TWA robustness."
+      }
+    },
+    {
+      "name": "claimPlenty",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "user",
+      "attack_surface_score": 4,
+      "modifiers": [
+        "fundsSafu",
+        "noSupplyChange",
+        "oneOutFlow",
+        "nonReentrant"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/silo/SiloFacet/ClaimFacet.sol",
+      "ite": {
+        "intent": "Re-enter Beanstalk during the SOP token payout to double-claim Flood plenty, draining the protocol's plentyPerSopToken balance for a non-Bean (possibly hook-bearing) well token.",
+        "technique": "claimPlenty()->_claimPlenty() (ClaimFacet.sol#95): LibTransfer.sendToken(sopToken,...) at L100 transfers the SOP token to the user BEFORE s.accts[account].sop.perWellPlenty[well].plenty is zeroed at L101 and plentyPerSopToken decremented at L104 \u2014 a CEI violation. If sopToken or its To.INTERNAL path yields control, the stale non-zero plenty can be re-read.",
+        "evasion": "nonReentrant on the external claimPlenty()/claimAllPlenty() blocks classic same-facet reentrancy; gaps are (a) read-only/cross-function reentrancy if another facet reads perWellPlenty mid-flow, and (b) reliance on the SOP well token being a plain ERC-20 with no transfer hook. reentrancy specialist to confirm guard scope and token type."
+      }
+    },
+    {
+      "name": "claimAllPlenty",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "user",
+      "attack_surface_score": 4,
+      "modifiers": [
+        "fundsSafu",
+        "noSupplyChange",
+        "nonReentrant"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/silo/SiloFacet/ClaimFacet.sol",
+      "ite": {
+        "intent": "Loop-claim every whitelisted well's plenty; same CEI/reentrancy surface as claimPlenty across all SOP tokens at once.",
+        "technique": "claimAllPlenty() iterates getWhitelistedWellLpTokens() calling _claimPlenty per token (ClaimFacet.sol#79); each iteration repeats the send-before-zero ordering at ClaimFacet.sol#100-104. Note: unlike claimPlenty(), this lacks the oneOutFlow invariant guard.",
+        "evasion": "nonReentrant present but no oneOutFlow flow-accounting guard; if a SOP token has a transfer hook, the unbounded token loop is also a DoS/gas vector. reentrancy + dos specialists to confirm."
+      }
+    },
+    {
+      "name": "fillPodOrder",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "user",
+      "attack_surface_score": 4,
+      "modifiers": [
+        "fundsSafu",
+        "noSupplyChange",
+        "oneOutFlow"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/market/MarketplaceFacet/MarketplaceFacet.sol",
+      "ite": {
+        "intent": "Re-enter the marketplace during the Bean payout to a filler to refill/cancel the same order twice, extracting Beans escrowed in podOrders beyond what the order funded.",
+        "technique": "fillPodOrder()->_fillPodOrder() (Order.sol#79): order balance is decremented at L105 then LibTransfer.sendToken(C.bean(),costInBeans,filler,mode) at L107, THEN _transferPlot at L113 and delete at L115-117. The plot transfer and order deletion happen AFTER the outbound token send; with To.INTERNAL or a Bean-side hook the post-send state is reachable.",
+        "evasion": "oneOutFlow(C.BEAN) invariant bounds net Bean outflow, and order amount is debited before the send (partial CEI). No nonReentrant on this entry (unlike transferPlot). reentrancy specialist must confirm whether oneOutFlow fully blocks a second fill within the same tx."
+      }
+    },
+    {
+      "name": "fillPodListing",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "user",
+      "attack_surface_score": 4,
+      "modifiers": [
+        "fundsSafu",
+        "noSupplyChange",
+        "oneOutFlow"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/market/MarketplaceFacet/MarketplaceFacet.sol",
+      "ite": {
+        "intent": "Pay for a pod listing and re-enter before the listing/plot bookkeeping settles, acquiring pods without full payment.",
+        "technique": "fillPodListing() at MarketplaceFacet.sol#31 calls LibTransfer.transferToken(C.bean(), user, lister, beanAmount, ...) (which may use safeTransferFrom on Bean) BEFORE _fillListing settles the plot split; transferToken from L1Libraries flagged arbitrary-send-erc20 because 'sender' is a parameter.",
+        "evasion": "sender is forced to LibTractor._user() by the facet, so the arbitrary-from slither flag is mitigated at the call site; residual risk is ordering of transfer vs _fillListing. Confirm with reentrancy/logic."
+      }
+    },
+    {
+      "name": "transferToken",
+      "visibility": "internal",
+      "mutability": "nonpayable",
+      "class": "internal",
+      "attack_surface_score": 4,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/migration/L1Libraries/LibTransfer.sol",
+      "ite": {
+        "intent": "If any facet ever calls LibTransfer.transferToken with an attacker-controllable 'sender', an attacker could move tokens out of an arbitrary holder who has approved Beanstalk (arbitrary safeTransferFrom).",
+        "technique": "transferToken()->safeTransferFrom(sender,recipient,amount) at LibTransfer.sol#42 uses the caller-supplied 'sender' as the from address (slither arbitrary-send-erc20, High). Exploitable only if a public entry passes a user-controlled sender rather than LibTractor._user().",
+        "evasion": "All audited call sites (MarketplaceFacet.fillPodListing, etc.) pass LibTractor._user() as sender, so the from address is authenticated. Gap: any new/forgotten caller that forwards a raw address param. access_control + token_integration to grep all callers for a non-_user() sender."
+      }
+    },
+    {
+      "name": "receiveToken",
+      "visibility": "internal",
+      "mutability": "nonpayable",
+      "class": "internal",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/migration/L1Libraries/LibTransfer.sol",
+      "ite": {
+        "intent": "Same arbitrary-from class as transferToken \u2014 pull tokens from an arbitrary approver into Beanstalk if a caller passes an unauthenticated sender.",
+        "technique": "receiveToken()->safeTransferFrom(sender,address(this),amount-receivedAmount) at LibTransfer.sol#67 trusts the 'sender' param (slither arbitrary-send-erc20, High).",
+        "evasion": "Mitigated at call sites that pass LibTractor._user(); the function also supports fee-on-transfer accounting via before/after balance diff. token_integration: verify the balance-diff handles FoT/rebasing and that no caller passes a raw sender."
+      }
+    },
+    {
+      "name": "claimFertilized",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "user",
+      "attack_surface_score": 4,
+      "modifiers": [
+        "fundsSafu",
+        "noSupplyChange",
+        "oneOutFlow"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/barn/FertilizerFacet.sol",
+      "ite": {
+        "intent": "Re-enter Beanstalk through the Fertilizer ERC-1155 update/payFertilizer callback path to over-claim rinsable Beans (Sprouts).",
+        "technique": "claimFertilized() (FertilizerFacet.sol#47) calls C.fertilizer().beanstalkUpdate(...) which (Fertilizer._update at Fertilizer.sol#77) calls back into the diamond via IBS(owner()).payFertilizer(); fertilizedPaidIndex is updated at L52 and Beans sent at L53. The cross-contract callback (Beanstalk->Fertilizer->Beanstalk) is the reentrancy seam.",
+        "evasion": "No nonReentrant on claimFertilized (only oneOutFlow); the Fertilizer side methods are onlyOwner so only the diamond can invoke them, but the payFertilizer re-entry into the diamond mid-update is the gap. reentrancy specialist to trace the diamond<->Fertilizer round trip."
+      }
+    },
+    {
+      "name": "addMigratedUnderlying",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "admin",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "fundsSafu",
+        "noNetFlow",
+        "noSupplyChange",
+        "nonReentrant"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/barn/UnripeFacet.sol",
+      "ite": {
+        "intent": "(Privileged) Owner pulls migrated underlying tokens in; risk is mis-accounting of incrementUnderlying vs the actual received amount, not a permissionless drain.",
+        "technique": "addMigratedUnderlying() (UnripeFacet.sol#284) enforceIsContractOwner() then safeTransferFrom(LibTractor._user(),this,amount) at L289 and LibUnripe.incrementUnderlying(amount) at L294. amount is trusted rather than measured via balance diff \u2014 fee-on-transfer underlying would over-credit balanceOfUnderlying.",
+        "evasion": "LibDiamond.enforceIsContractOwner() + nonReentrant make this privileged; arbitrary-send-erc20 flag is a false positive (from is the owner). token_integration/logic: check incrementUnderlying vs received-amount for non-standard tokens."
+      }
+    },
+    {
+      "name": "_claimPlenty",
+      "visibility": "internal",
+      "mutability": "nonpayable",
+      "class": "internal",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/silo/SiloFacet/ClaimFacet.sol",
+      "ite": {
+        "intent": "Drain protocol SOP-token reserves by re-entering before plenty is zeroed (the actual CEI-violating body behind claimPlenty/claimAllPlenty).",
+        "technique": "sendToken(sopToken,plenty,user) at ClaimFacet.sol#100 precedes plenty=0 (L101) and plentyPerSopToken-=plenty (L104).",
+        "evasion": "Reachable only through nonReentrant-guarded externals; cross-function/read-only reentrancy is the residual path. reentrancy specialist."
+      }
+    },
+    {
+      "name": "_fillPodOrder",
+      "visibility": "internal",
+      "mutability": "nonpayable",
+      "class": "internal",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/market/MarketplaceFacet/Order.sol",
+      "ite": {
+        "intent": "Acquire pods or refund Beans twice by re-entering between sendToken and _transferPlot/order-delete.",
+        "technique": "Order.sol#79: decrement order (L105) -> sendToken (L107) -> _transferPlot (L113) -> delete (L115). Outbound send precedes plot settlement.",
+        "evasion": "oneOutFlow on the external entry; no nonReentrant. reentrancy/logic to confirm whether oneOutFlow blocks a second fill."
+      }
+    },
+    {
+      "name": "_cancelPodOrder",
+      "visibility": "internal",
+      "mutability": "nonpayable",
+      "class": "internal",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/market/MarketplaceFacet/Order.sol",
+      "ite": {
+        "intent": "Re-enter during the Bean refund to cancel/refund the same order more than once, draining escrowed order Beans.",
+        "technique": "Order.sol#134: amountBeans=podOrders[id]; sendToken(C.bean(),amountBeans,orderer) at L137 BEFORE delete podOrders[id] at L138 \u2014 classic send-before-delete CEI violation.",
+        "evasion": "External cancelPodOrder has oneOutFlow but no nonReentrant; _createPodOrder also calls _cancelPodOrder internally. reentrancy specialist: prioritise this send-before-delete."
+      }
+    },
+    {
+      "name": "beanstalkUpdate",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "admin",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "onlyOwner"
+      ],
+      "moves_funds": false,
+      "reads_external_state": true,
+      "source_file": "contracts/tokens/Fertilizer/Fertilizer.sol",
+      "ite": {
+        "intent": "(Cross-contract reentrancy seam) Re-enter the Beanstalk diamond via payFertilizer during a fertilizer update to corrupt fert accounting / over-pay Beans.",
+        "technique": "beanstalkUpdate()->__update; the sibling _update (Fertilizer.sol#77) calls IBS(owner()).payFertilizer(account,amount) \u2014 an external call back into the diamond \u2014 before/while balances[].lastBpf is being written.",
+        "evasion": "onlyOwner restricts the caller to the diamond, but the diamond->Fertilizer->diamond round trip is unguarded by a shared reentrancy lock across contracts. reentrancy specialist to trace the round trip."
+      }
+    },
+    {
+      "name": "beanstalkMint",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "admin",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "onlyOwner"
+      ],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "source_file": "contracts/tokens/Fertilizer/Fertilizer.sol",
+      "ite": {
+        "intent": "(Cross-contract reentrancy seam) Re-enter via the ERC-1155 _safeMint onERC1155Received hook to manipulate fertilizer balances mid-mint.",
+        "technique": "beanstalkMint() (Fertilizer.sol#47): _update(account,bpf) -> payFertilizer callback, then _safeMint(account,id,amount) at L59 which triggers IERC1155Receiver(to).onERC1155Received (Fertilizer1155.sol#104). lastBpf set at L58 before the mint hook.",
+        "evasion": "onlyOwner; standard ERC-1155 receiver hook is the gap if the recipient is a contract. reentrancy/token_integration."
+      }
+    },
+    {
+      "name": "_pipeMem",
+      "visibility": "internal",
+      "mutability": "payable",
+      "class": "internal",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/pipeline/Pipeline.sol",
+      "ite": {
+        "intent": "Arbitrary external call with attacker-controlled target/value/data executed in the context that calls Pipeline \u2014 move ETH/tokens to any address.",
+        "technique": "_pipeMem() (Pipeline.sol#82): target.call{value:value}(data) at L88 with fully caller-supplied target/value/data (slither arbitrary-send-eth, High). Reached via pipe()/multiPipe()/advancedPipe() externals.",
+        "evasion": "Pipeline is a stateless pass-through holding no user funds by design; danger is only if invoked via delegatecall/Farm with the diamond's balance. dos/access_control/logic: confirm no delegatecall path exposes Beanstalk's own ETH/approvals."
+      }
+    },
+    {
+      "name": "refundEth",
+      "visibility": "internal",
+      "mutability": "nonpayable",
+      "class": "internal",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/migration/L1Libraries/LibEth.sol",
+      "ite": {
+        "intent": "Sweep the contract's full ETH balance to msg.sender \u2014 if reachable with residual diamond ETH, drain it.",
+        "technique": "refundEth() (LibEth.sol#16): msg.sender.call{value:address(this).balance}(\"\") at L19 sends the entire balance (slither arbitrary-send-eth, High). Called by DepotFacet/FarmFacet/TokenFacet after farm batches.",
+        "evasion": "Intended to refund leftover msg.value within a single farm() call; gap is whether address(this).balance can include pre-existing protocol ETH (forced send / other deposits) so the refund over-pays. dos/logic to check for forced-ETH inflation."
+      }
+    },
+    {
+      "name": "unwrap",
+      "visibility": "internal",
+      "mutability": "nonpayable",
+      "class": "internal",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/migration/L1Libraries/LibWeth.sol",
+      "ite": {
+        "intent": "Withdraw WETH to ETH and forward to msg.sender \u2014 drain if balance accounting is loose.",
+        "technique": "unwrap() (LibWeth.sol#23): after WETH.withdraw, msg.sender.call{value:amount}(\"\") at L26 (arbitrary-send-eth, High).",
+        "evasion": "amount is the just-unwrapped amount, scoped to the caller's flow. logic to confirm amount cannot exceed the caller's contribution."
+      }
+    },
+    {
+      "name": "unwrapAndSendETH",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "user",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/pipeline/junctions/UnwrapAndSendETH.sol",
+      "ite": {
+        "intent": "Unwrap this junction's entire WETH balance and send all ETH to an arbitrary 'to' \u2014 steal WETH parked in the junction.",
+        "technique": "unwrapAndSendETH(to) (UnwrapAndSendETH.sol#26): to.call{value:address(this).balance}(\"\") at L30 sends the FULL balance to a caller-supplied address (arbitrary-send-eth, High).",
+        "evasion": "Junction is meant to be used atomically inside a pipe with no resting balance; gap is any WETH left in the junction between calls becomes claimable by anyone. logic/dos/access_control: confirm balance is always 0 outside a pipe call."
+      }
+    },
+    {
+      "name": "init(ReseedBarn)",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "admin",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "(none \u2014 diamondCut gated)"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/init/reseed/L2/ReseedBarn.sol",
+      "ite": {
+        "intent": "(Privileged migration) Mis-seed fertilizer supply or front-run the one-time L2 reseed initializer to corrupt barn accounting before normal operation.",
+        "technique": "ReseedBarn.init() (line 47) deploys a TransparentUpgradeableProxy for Fertilizer (L58) and calls mintFertilizers (L64), writing fert.fertFirst/fertLast/bpf/activeFertilizer (L66-69). Runs as a diamondCut init step; if callable out of band the fert ledger is attacker-set.",
+        "evasion": "Intended to run exactly once via the diamond upgrade; gap is the standard uninitialized-proxy/init-front-run class. upgrade_storage to confirm init guard and proxy admin."
+      }
+    },
+    {
+      "name": "mintFertilizers",
+      "visibility": "internal",
+      "mutability": "nonpayable",
+      "class": "internal",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/init/reseed/L2/ReseedBarn.sol",
+      "ite": {
+        "intent": "(Privileged migration) Establish fertilizer balances during reseed; wrong inputs over/under-mint fertilizer.",
+        "technique": "mintFertilizers() (line 72): loops fertilizerProxy.beanstalkMint(account,fid,amount,lastBpf) (L88) seeding per-account fertilizer and the fert linked list (L80-82).",
+        "evasion": "Reached only from ReseedBarn.init(); trust depends entirely on the reseed data. upgrade_storage/logic to sanity-check the seeded totals against invariants."
+      }
+    },
+    {
+      "name": "mintAndSync",
+      "visibility": "internal",
+      "mutability": "nonpayable",
+      "class": "internal",
+      "attack_surface_score": 3,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/init/reseed/L2/ReseedBean.sol",
+      "ite": {
+        "intent": "(Privileged migration) Mint Beans and seed a Well's reserves during reseed; arbitrary-from transfer if OWNER approval is mis-set.",
+        "technique": "mintAndSync() (ReseedBean.sol#213): IERC20(nonBeanToken).safeTransferFrom(OWNER,address(well),tokenAmount) at L221 (arbitrary-send-erc20, High) plus a Bean mint to sync Well reserves.",
+        "evasion": "OWNER is a constant migration source, not attacker-controllable; runs once at reseed. logic/oracle: confirm seeded Well reserves match intended initial price (sets the starting oracle state)."
+      }
+    },
+    {
+      "name": "uri(Internalizer)",
+      "visibility": "external",
+      "mutability": "view",
+      "class": "view",
+      "attack_surface_score": 2,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "source_file": "contracts/tokens/Fertilizer/Internalizer.sol"
+    },
+    {
+      "name": "uri(MetadataFacet)",
+      "visibility": "external",
+      "mutability": "view",
+      "class": "view",
+      "attack_surface_score": 2,
+      "modifiers": [
+        "(none)"
+      ],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/metadata/MetadataFacet.sol"
+    },
+    {
+      "name": "init(ReseedL2Migration)",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "admin",
+      "attack_surface_score": 2,
+      "modifiers": [
+        "(none \u2014 diamondCut gated)"
+      ],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "source_file": "contracts/beanstalk/init/reseed/L1/ReseedL2Migration.sol"
+    }
+  ],
+  "agent_hints": {
+    "reentrancy": "Focus on: _cancelPodOrder() (Order.sol#137 send-before-delete), _claimPlenty() (ClaimFacet.sol#100 send-before-zero), _fillPodOrder() (Order.sol#107 send-before-_transferPlot), claimFertilized()/beanstalkUpdate()/beanstalkMint() (diamond<->Fertilizer round trip + onERC1155Received hook). market fill entries lack nonReentrant (only oneOutFlow); verify cross-function & read-only reentrancy and whether the SOP/Well token has transfer hooks.",
+    "access_control": "Focus on: transferToken()/receiveToken() (LibTransfer arbitrary-from \u2014 grep ALL callers for any sender != LibTractor._user()), Reseed init()/mintAndSync()/mintFertilizers() (one-shot diamondCut initializers \u2014 check init guard / proxy-admin / front-run), unwrapAndSendETH() (no caller restriction on full-balance send).",
+    "arithmetic": "Focus on: addMigratedUnderlying() (incrementUnderlying trusts 'amount' not balance-diff -> FoT over-credit), Sun.setSoilAbovePeg() (mul/div soil sizing), Fertilizer.__update() (deltaBpf*amount). check LibRedundantMath casts (toUint128 in setSoil) and decimal scaling.",
+    "oracle": "Focus on: sunrise()/gm() -> stepOracle() deltaB (Sun.stepSun mints Beans off this read). Verify the Well/pump TWA window resists single-block & first-after-gap manipulation; mintAndSync() seeds the initial Well reserves (starting oracle state).",
+    "flash_loan": "Focus on: sunrise()/gm() (flash-skew Well reserves before the season boundary to bias deltaB and minted supply/soil), fillPodOrder()/fillPodListing() (flash Beans to fill+re-enter). Pair with oracle TWA assessment.",
+    "logic": "Focus on: _fillPodOrder() ordering (sendToken before _transferPlot/delete), _cancelPodOrder() send-before-delete, refundEth()/unwrapAndSendETH() (full address(this).balance sends \u2014 forced-ETH inflation / leftover-balance theft), claimFertilized() fertilizedPaidIndex accounting.",
+    "dos": "Focus on: claimAllPlenty() (unbounded loop over whitelisted well tokens + external sends per iteration), mintFertilizers() (reseed loop), refundEth()/unwrapAndSendETH() (full-balance call can be griefed by a reverting recipient).",
+    "economic_attack": "Focus on: sunrise()/gm() (permissionless season step controls Bean mint, soil/pod issuance, and caller reward \u2014 MEV/timing around oracle), market fills (sandwich pod orders/listings), Fertilizer rinse vs Sun minting interplay."
+  }
+}

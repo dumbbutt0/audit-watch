@@ -1,0 +1,26 @@
+{
+  "surface": "InvestmentManager.processDeposit",
+  "mechanism_inventory": [
+    "stale accounting snapshot — calculateDepositPrice may return stale/epoch-lagged price",
+    "missing invariant enforcement — maxDeposit checked but no visible decrement in processDeposit (replay/over-issue)",
+    "precision/packing edge — _toUint128 truncation / _calculateTrancheTokenAmount rounding",
+    "access-control mismatch — msg.sender stored as liquidityPool, auth-gated",
+    "wrong lifecycle ordering — callable before fulfillment commit / double-claim",
+    "external-call DoS — _deposit external tranche-token transfer from Escrow"
+  ],
+  "selected_mechanisms": [
+    {"root_cause":"require(_currencyAmount<=maxDeposit) but no visible decrement of maxDeposit in processDeposit; if _deposit doesn't clear it, repeated calls re-issue tranche tokens for one fulfilled order","who_loses":"protocol/existing tranche holders (dilution), Escrow","who_gains":"user/malicious LP caller (excess tranche tokens)","why_carried":"check present, decrement not visible; double-claim if _deposit doesn't clear; critical"},
+    {"root_cause":"calculateDepositPrice may return stale epoch price -> wrong trancheTokenAmount","who_loses":"existing holders (dilution) if stale-favorable","who_gains":"depositing user","why_carried":"price freshness not shown; known epoch risk; different var than maxDeposit"}
+  ],
+  "unresolved_mechanisms": [
+    {"mechanism":"maxDeposit not decremented in visible source","unresolved_question":"does _deposit zero/decrement maxDeposit?","who_loses":"protocol/holders","status":"NEEDS_HARNESS"},
+    {"mechanism":"stale calculateDepositPrice","unresolved_question":"epoch-anchored or cross-epoch price?","who_loses":"holders or user","status":"NEEDS_HARNESS"},
+    {"mechanism":"_toUint128 truncation / rounding direction","unresolved_question":"revert-on-overflow? rounding favors whom?","who_loses":"user or protocol","status":"NEEDS_HARNESS"}
+  ],
+  "rejected_mechanisms": [
+    {"mechanism":"arbitrary liquidityPool injection via msg.sender","claimed_locus":"liquidityPool=msg.sender","rejecting_source_fact":"public auth -> only registered wards/LPs can call","why_unexploitable":"auth restricts callers to governance-set wards","leans_on_unproven_guard":false}
+  ],
+  "impact_direction":"user receives excess tranche tokens beyond epoch entitlement (uncleared maxDeposit or stale price); existing holders diluted; scales with epoch size; normal ward path",
+  "stop_condition":"more_mechanisms_pending: maxDeposit decrement + stale price + truncation NEEDS_HARNESS",
+  "verdict":"HIGH_THREAD"
+}

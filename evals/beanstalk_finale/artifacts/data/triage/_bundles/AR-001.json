@@ -1,0 +1,99 @@
+{
+  "finding_id": "AR-001",
+  "title": "getAverageGrownStalkPerBdv underflows when total stalk-per-BDV falls below STALK_BDV_PRECISION, reverting stepGauge and bricking season advancement",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/LibGauge.sol",
+    "function": "getAverageGrownStalkPerBdv",
+    "line_start": 347,
+    "line_end": 352
+  },
+  "description": "LibGauge.getAverageGrownStalkPerBdv computes `s.sys.silo.stalk.div(totalBdv).sub(STALK_BDV_PRECISION)` where STALK_BDV_PRECISION = 1e4. The subtraction uses LibRedundantMath256.sub (checked) and there is NO floor/guard ensuring `stalk/totalBdv >= 1e4`. The quotient `stalk/totalBdv` is the average stalk units per BDV unit; it is normally >= the base 1e4, but it can drop below 1e4 if the system stalk-to-BDV ratio is depressed. A depressed ratio is directly reachable post-migration: DT-002/ACC-002 zeroes `s.sys.silo.balances[token].deposited/depositedBdv` for migrated tokens while per-account stalk persists (and DT-001/ACC-001 overwrites per-account stalk), desyncing the global stalk and global BDV totals that feed getTotalBdv() and s.sys.silo.stalk. It is also approachable by large active-stalk burns (mass withdraw/convert) outpacing BDV reduction. When `stalk/totalBdv < 1e4`, the checked .sub reverts. getAverageGrownStalkPerBdv -> updateAverageStalkPerBdvPerSeason -> updateGrownStalkEarnedPerSeason -> stepGauge() reverts, and stepGauge is invoked during sunrise/gm, so every season advance reverts: a protocol-wide temporary freeze until the ratio is externally restored.",
+  "impact": "Checked-subtraction underflow reverts the seed-gauge update, which runs inside sunrise/gm. Season advancement DoS (temporary protocol freeze) whenever the global stalk/BDV ratio is pushed below 1e4. Immunefi v2.2: temporary freezing of season progression / core protocol function -> High when chained with the migration desync that makes it reachable; standalone (requires the ratio precondition) it is Medium.",
+  "ite": {
+    "intent": "Permanently or temporarily halt season advancement, or grief sunrise, via an underflow in the gauge average",
+    "technique": "Drive the global stalk/totalBdv ratio below STALK_BDV_PRECISION (1e4) so the checked subtraction in getAverageGrownStalkPerBdv reverts",
+    "evasion": "No min() floor on the quotient before subtracting; the migration accounting desync (ACC-001/ACC-002) supplies the precondition without an attacker"
+  },
+  "ice_chain": {
+    "corrupted_state": "return value of getAverageGrownStalkPerBdv (reverts) -> stepGauge",
+    "consumer_found": true,
+    "consumer_function": "LibGauge.stepGauge invoked by SeasonFacet.sunrise/gm",
+    "impact": "Season advancement DoS / temporary freeze of mints, gauge, and downstream silo accrual",
+    "exploit_path": "sunrise/gm -> stepGauge -> updateGrownStalkEarnedPerSeason -> updateAverageStalkPerBdvPerSeason -> getAverageGrownStalkPerBdv: stalk/totalBdv < 1e4 -> checked sub reverts"
+  },
+  "source_slice": "317:         // Will overflow if the average grown stalk per BDV exceeds 1.4e36,\n318:         // which is highly improbable assuming consistent new deposits.\n319:         // Thus, safeCast was determined is to be unnecessary.\n320:         s.sys.seedGauge.averageGrownStalkPerBdvPerSeason = uint128(\n321:             getAverageGrownStalkPerBdv().mul(BDV_PRECISION).div(\n322:                 s.sys.seedGaugeSettings.targetSeasonsToCatchUp\n323:             )\n324:         );\n325:         emit UpdateAverageStalkPerBdvPerSeason(s.sys.seedGauge.averageGrownStalkPerBdvPerSeason);\n326:     }\n327: \n328:     /**\n329:      * @notice Returns the total BDV in beanstalk.\n330:      * @dev The total BDV may differ from the instaneous BDV,\n331:      * as BDV is asyncronous.\n332:      * Note We get the silo Tokens, not the whitelisted tokens\n333:      * to account for grown stalk from dewhitelisted tokens.\n334:      */\n335:     function getTotalBdv() internal view returns (uint256 totalBdv) {\n336:         AppStorage storage s = LibAppStorage.diamondStorage();\n337:         address[] memory siloTokens = LibWhitelistedTokens.getSiloTokens();\n338:         for (uint256 i; i < siloTokens.length; ++i) {\n339:             totalBdv = totalBdv.add(s.sys.silo.balances[siloTokens[i]].depositedBdv);\n340:         }\n341:     }\n342: \n343:     /**\n344:      * @notice Returns the average grown stalk per BDV.\n345:      * @dev `totalBDV` refers to the total BDV deposited in the silo.\n346:      */\n347:     function getAverageGrownStalkPerBdv() internal view returns (uint256) {\n348:         AppStorage storage s = LibAppStorage.diamondStorage();\n349:         uint256 totalBdv = getTotalBdv();\n350:         if (totalBdv == 0) return 0;\n351:         return s.sys.silo.stalk.div(totalBdv).sub(STALK_BDV_PRECISION);\n352:     }\n353: \n354:     /**\n355:      * @notice Returns the ratio between the bean and\n356:      * the max LP gauge points per BDV.\n357:      * @dev s.sys.seedGauge.beanToMaxLpGpPerBdvRatio is a number between 0 and 100e18,\n358:      * where f(0) = MIN_BEAN_MAX_LPGP_RATIO and f(100e18) = MAX_BEAN_MAX_LPGP_RATIO.\n359:      * At the minimum value (0), beans should have half of the\n360:      * largest gauge points per BDV out of the LPs.\n361:      * At the maximum value (100e18), beans should have the same amount of\n362:      * gauge points per BDV as the largest out of the LPs.\n363:      */\n364:     function getBeanToMaxLpGpPerBdvRatioScaled(\n365:         uint256 beanToMaxLpGpPerBdvRatio\n366:     ) internal view returns (uint256) {\n367:         AppStorage storage s = LibAppStorage.diamondStorage();\n368:         uint256 beanMaxLpGpRatioRange = s.sys.seedGaugeSettings.maxBeanMaxLpGpPerBdvRatio -\n369:             s.sys.seedGaugeSettings.minBeanMaxLpGpPerBdvRatio;\n370:         return\n371:             beanToMaxLpGpPerBdvRatio.mul(beanMaxLpGpRatioRange).div(ONE_HUNDRED_PERCENT).add(\n372:                 s.sys.seedGaugeSettings.minBeanMaxLpGpPerBdvRatio\n373:             );\n374:     }\n375: }",
+  "gate_verdict": {
+    "finding_id": "AR-001",
+    "severity": "Medium",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.540301+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

@@ -1,0 +1,72 @@
+{
+  "agent": "snapshot",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T00:00:00+00:00",
+  "findings": [
+    {
+      "id": "SN-001",
+      "title": "Flood plenty paid on live roots vs fixed rain.roots divisor",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "Season-of-Plenty (Flood) rewards are distributed point-in-time, but the per-account root basis and the global divisor are snapshotted at two DIFFERENT points in time, and one of the per-account paths uses LIVE roots instead of the snapshot.\n\nGlobal divisor: `rewardSop()` computes plentyPerRoot for a well as `amount * SOP_PRECISION / s.sys.rain.roots` (LibFlood.sol#325). `s.sys.rain.roots` is set exactly once, at the season rain STARTS, to `s.sys.silo.roots` (LibFlood.sol#74 in `handleRain`), and is never refreshed for the duration of the rain. Conservation therefore requires that the sum over all accounts of (root-basis used to pay that account) equals `rain.roots`.\n\nPer-account basis: an account's plenty is credited in `handleRainAndSops()` -> `balanceOfPlenty()` (LibFlood.sol#115, #147). `balanceOfPlenty` has two payout branches:\n  (a) the rain branch (LibFlood.sol#154-171), which correctly multiplies plentyPerRoot by the SNAPSHOT `s.accts[account].sop.rainRoots`;\n  (b) the fallback branch (LibFlood.sol#178-181) `if (s.sys.season.lastSop > s.accts[account].lastUpdate) { plenty += (sops[lastSop]-previousPPR) * s.accts[account].roots / SOP_PRECISION; }` which multiplies by the account's LIVE current roots `s.accts[account].roots`.\n\nWhich account hits which branch is decided by the strict inequality in `handleRainAndSops` at LibFlood.sol#124: `if (s.sys.season.rainStart > lastUpdate)` snapshots `rainRoots = s.accts[account].roots` and sets `lastRain`. An account whose `lastUpdate == rainStart` (i.e. it mowed/interacted during the very season rain started) does NOT satisfy `rainStart > lastUpdate`, so it never captures `rainRoots` and never sets `lastRain` for this rain. When a Flood (SOP) then occurs in a later season of the same rain, that account's plenty is computed through fallback branch (b) on its LIVE roots, not on a rain-start snapshot.\n\nBecause roots grow over seasons (every `__mow` calls `mintActiveStalk`, LibSilo.sol#475/#180, which increases `s.accts[account].roots`), an account that was active at rain start and keeps mowing accrues more roots between rain start and the SOP. Its plenty is then paid on the inflated live root count while the divisor `rain.roots` reflects the smaller rain-start total. The fixed `plentyPerSopToken` pool (LibFlood.sol#331) is thereby over-allocated to these accounts, diluting accounts that were snapshotted via the correct `rainRoots` path. The two root bases (live vs snapshot) are mutually inconsistent against a single fixed divisor, so total credited plenty can exceed the tokens actually obtained in the sop swap, leaving some honest claimers unable to withdraw their full share (claimPlenty/claimAllPlenty draw from the shared `plentyPerSopToken[token]` balance).",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+        "function": "balanceOfPlenty / handleRainAndSops / rewardSop",
+        "line_start": 147,
+        "line_end": 182,
+        "code_snippet": "// rewardSop divisor (fixed at rain start):\n// sops[rainStart][well] += amount * SOP_PRECISION / s.sys.rain.roots;   // L325, rain.roots set once at L74\n\n// handleRainAndSops only snapshots rainRoots when STRICTLY greater:\nif (s.sys.season.rainStart > lastUpdate) {            // L124\n    s.accts[account].lastRain = s.sys.season.rainStart;\n    s.accts[account].sop.rainRoots = s.accts[account].roots; // L126\n}\n\n// balanceOfPlenty fallback uses LIVE roots, not the snapshot:\nif (s.sys.season.lastSop > s.accts[account].lastUpdate) {              // L178\n    uint256 plentyPerRoot = s.sys.sop.sops[s.sys.season.lastSop][well].sub(previousPPR);\n    plenty = plenty.add(plentyPerRoot.mul(s.accts[account].roots).div(C.SOP_PRECISION)); // L180 LIVE roots\n}"
+      },
+      "impact": "Flood (Season-of-Plenty) WETH/non-bean proceeds are mis-distributed. Accounts that were active at rain start (lastUpdate == rainStart) are paid plenty proportional to their LIVE, season-grown roots rather than their rain-start roots, while the global divisor rain.roots is the rain-start total. This over-credits those accounts and dilutes honest Stalkholders whose plenty is correctly computed from the rainRoots snapshot; in aggregate the credited plenty can exceed the tokens received from the sop sale, so the last claimers' claimPlenty/claimAllPlenty can revert or under-pay. The mis-accounting is permissionless and arises from normal silo use (mowing every season) during a rain.",
+      "proof_of_concept": "1. Season R: rain begins (handleRain sets s.sys.rain.roots = silo.roots, e.g. 1000; raining=true).\n2. Attacker A interacted in season R (e.g. mowed), so A.lastUpdate == R == rainStart, A holds roots r0.\n   Honest user H last interacted in season R-2, so H.lastUpdate < rainStart.\n3. Seasons R+1..R+k: A mows each season (or otherwise), each __mow mints grown-stalk roots so A.roots grows r0 -> r0' > r0. rain.roots stays 1000.\n4. Season R+k: still raining -> Flood. rewardSop writes sops[rainStart][well] += amountOut*PRECISION/1000.\n5. A's next mow: handleRainAndSops -> rainStart(R) > A.lastUpdate -> FALSE, so rainRoots/lastRain never set for A. lastSopSeason > A.lastUpdate -> TRUE -> balanceOfPlenty fallback L178 pays A: plentyPerRoot * A.roots(=r0', inflated) / PRECISION.\n6. H's next mow: rainStart(R) > H.lastUpdate(R-2) -> TRUE -> H captured rainRoots = roots-at-rain-start; H is paid via the snapshot path L168 on the smaller correct basis.\n   => A is paid on inflated live roots while the divisor reflects rain-start totals; sum of credited plenty > amountOut, draining the shared plentyPerSopToken pool from honest claimers.",
+      "recommendation": "Make the per-account root basis and the global divisor agree at a single timestamp (rain start). Either (a) change the snapshot condition at LibFlood.sol#124 to also capture rainRoots for accounts whose lastUpdate == rainStart (use `>=` and ensure rainRoots is recorded once per rain), and have balanceOfPlenty always use `sop.rainRoots` (never live `s.accts[account].roots`) for any SOP that occurred during the active rain; or (b) compute rain.roots as the sum of the rainRoots actually snapshotted per account. Add an invariant test asserting `sum_account(rainRoots used) == s.sys.rain.roots` and that total credited plenty for a well never exceeds the well's swap proceeds.",
+      "confidence": "Medium",
+      "attack_surface_rank": 4,
+      "human_review_required": true,
+      "human_review_reason": "Multi-season / multi-block economics around the germination+rain boundary (methodology flags time-based root accounting as LLM-unreliable). The qualitative snapshot inconsistency (live roots vs fixed rain.roots divisor, gated by the strict `rainStart > lastUpdate` inequality) is traced in source, but the exact net drain magnitude and exhaustive conservation proof require a Foundry simulation across several sunrise()/Flood seasons. Confirm whether any upstream guard forces lastUpdate < rainStart for all root-bearing accounts before a SOP.",
+      "ite": {
+        "intent": "A Stalkholder active at rain start over-claims Flood (SOP) WETH/non-bean proceeds proportional to its season-grown live roots, diluting honest Stalkholders and draining the shared plentyPerSopToken pool.",
+        "technique": "rain.roots is snapshotted once at rain start (LibFlood.sol#74) and used as the sole divisor in rewardSop (#325). handleRainAndSops only snapshots per-account rainRoots when rainStart > lastUpdate (#124, strict), so an account with lastUpdate == rainStart skips the snapshot and is paid in balanceOfPlenty via the fallback branch (#178-180) on LIVE roots s.accts[account].roots, which grows each season through __mow->mintActiveStalk. Live root basis vs fixed rain-start divisor breaks plenty conservation.",
+        "evasion": "The developer intended rainRoots (the rain-start snapshot, #126) to be the basis for all plenty during a rain, mirroring the rain.roots divisor. The gap is (1) the strict `>` at #124 excludes rain-start-active accounts from snapshotting, and (2) balanceOfPlenty's fallback at #178-180 falls back to live roots instead of the snapshot, so the two bases diverge against one fixed divisor."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[account].sop.perWellPlenty[well].plenty (credited from live roots instead of rainRoots snapshot); shared pool s.sys.sop.plentyPerSopToken[token]",
+        "consumer_found": true,
+        "consumer_function": "ClaimFacet._claimPlenty() / claimPlenty() / claimAllPlenty()",
+        "consumer_action": "transfers the credited plenty (WETH/non-bean sop token) out to the account from the shared plentyPerSopToken balance",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "cross_agent_refs": ["RE-001", "RE-002"]
+    },
+    {
+      "id": "SN-002",
+      "title": "rainRoots snapshot not re-anchored to rain start across germination boundary",
+      "severity": "Medium",
+      "vuln_type": "logic-error",
+      "description": "Within gm()/sunrise() the order is stepOracle -> calcCaseIdandUpdate (which calls LibFlood.handleRain, running the SOP and rewardSop against s.sys.rain.roots) -> LibGerminate.endTotalGermination (which increments s.sys.silo.roots with stalk that just finished germinating) (SeasonFacet.sol#55-59). The global SOP divisor s.sys.rain.roots is fixed at the season rain STARTED (LibFlood.sol#74) and is never updated, while individual accounts capture their sop.rainRoots at their first mow during the rain (LibFlood.sol#126), which can be a LATER season. Because roots that were germinating at rain start become active (added to both s.sys.silo.roots and, on the account's mow, s.accts[account].roots via endAccountGermination) AFTER rain start, an account that finishes germination between rain start and its rainRoots-capturing mow snapshots a rainRoots value that includes roots which did not exist (system-wide) when rain.roots was fixed. The sum of per-account rainRoots can therefore exceed the rain.roots divisor, so plenty credited via the snapshot path (LibFlood.sol#168) over-allocates the fixed sop proceeds. This is the germination-boundary variant of SN-001 and shares the same consumer drain.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+        "function": "handleRainAndSops / rewardSop",
+        "line_start": 122,
+        "line_end": 127,
+        "code_snippet": "if (s.sys.season.rainStart > lastUpdate) {\n    s.accts[account].lastRain = s.sys.season.rainStart;\n    s.accts[account].sop.rainRoots = s.accts[account].roots; // captured at FIRST mow during rain, may include post-rain-start germinated roots\n}\n// divisor fixed at rain start, never re-anchored:\n// s.sys.rain.roots = s.sys.silo.roots;   // LibFlood.sol#74"
+      },
+      "impact": "Per-account rainRoots snapshots can sum to more than the fixed rain.roots divisor when stalk germinating at rain start finishes before an account's rain-tracking mow, over-allocating the fixed Flood proceeds (plentyPerSopToken) and under-paying late claimers.",
+      "recommendation": "Re-anchor the per-account rainRoots basis to the same instant as rain.roots: exclude roots that finished germinating after rainStart from an account's rainRoots, or recompute rain.roots as the live sum of snapshotted account rainRoots. Add a conservation invariant test that sum(rainRoots) == rain.roots immediately before any sopWell distribution.",
+      "confidence": "Medium",
+      "attack_surface_rank": 4,
+      "human_review_required": true,
+      "human_review_reason": "Cross-subsystem timing (germination finishing vs rain-start snapshot) spanning multiple sunrise calls; methodology flags germination/multi-block boundary accounting as LLM-unreliable. The ordering (handleRain before endTotalGermination, fixed rain.roots) is confirmed in source, but proving the per-account rainRoots sum actually exceeds rain.roots requires a multi-season Foundry simulation with germinating deposits straddling rain start.",
+      "ice_chain": {
+        "corrupted_state": "s.accts[account].sop.rainRoots (may exceed the account's share of rain.roots due to post-rain-start germination)",
+        "consumer_found": true,
+        "consumer_function": "ClaimFacet._claimPlenty()",
+        "consumer_action": "transfers over-allocated sop token plenty from the shared plentyPerSopToken balance",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      },
+      "duplicate_of": "SN-001",
+      "cross_agent_refs": ["SN-001"]
+    }
+  ]
+}

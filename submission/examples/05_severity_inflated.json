@@ -1,0 +1,58 @@
+{
+  "finding_id": "SUB-005",
+  "title": "Unbounded loop in Registry.sweep can be griefed to revert on large arrays",
+  "root_cause": "Registry.sweep() iterates over the entire participants array with no pagination; once the array grows past the block gas limit, sweep() always reverts.",
+  "affected_contracts": ["contracts/Registry.sol"],
+  "affected_functions": ["Registry.sweep()"],
+  "attacker_entrypoint": "Attacker calls register() many times (permissionless) to grow participants until sweep() exceeds the block gas limit.",
+  "attacker_capabilities": ["call register() repeatedly from an EOA"],
+  "privilege_required": "none",
+  "scope_status": "in_scope",
+  "in_scope_asset": "Registry.sol (listed in program scope)",
+  "out_of_scope_risks": [],
+  "impact_category": "dos",
+  "severity_claim": "Critical",
+  "severity_justification": {
+    "worst_case": "sweep() can never execute again, freezing the sweep mechanism.",
+    "realistic_case": "Requires paying gas to register enough entries; sweep is a periodic maintenance call, not a funds path.",
+    "program_table_mapping": "Claimed against 'protocol insolvency' (Critical) — but no funds are lost or frozen."
+  },
+  "bounty_program_mapping": {
+    "program": "ExampleProtocol",
+    "platform": "Immunefi",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "https://immunefi.com/bounty/exampleprotocol/#scope"
+  },
+  "call_trace": [
+    "loop: for many accounts -> Registry.register()",
+    "Registry.sweep() -> for (i in participants) { ... }  // exceeds block gas limit and reverts"
+  ],
+  "state_transition": {
+    "before": "participants.length = N (small); sweep() succeeds",
+    "after": "participants.length = N + K (large); sweep() always reverts",
+    "slots_or_balances": ["participants.length"]
+  },
+  "asset_delta": "No funds lost or frozen; sweep() (a maintenance call) becomes unavailable.",
+  "proof_type": "runnable_poc",
+  "poc_path": "submission/examples/poc/RegistrySweepDoS.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "forge test --match-test test_sweep_gas_dos -vvv",
+    "Register entries until sweep() reverts with out-of-gas",
+    "Assert sweep() reverts after the array crosses the threshold"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "searched_clear",
+  "prior_audit_overlap": [],
+  "false_positive_risks": ["sweep() may be callable in paginated chunks via another entrypoint (verify)."],
+  "invalidating_conditions": ["Invalid if sweep() supports a start/end index for pagination."],
+  "defense_analysis": [
+    {"defense": "pagination / batched sweep", "blocks_path": true, "why_it_fails": "sweep() takes no index args and always iterates the full array (contracts/Registry.sol:88).", "uncertain": false}
+  ],
+  "assumptions": ["Attacker is willing to pay gas to inflate the array."],
+  "evidence_links": ["contracts/Registry.sol:80-96", "submission/examples/poc/RegistrySweepDoS.t.sol:1-90"],
+  "triager_summary": "Real griefing DoS on a maintenance function, but it is claimed as Critical 'protocol insolvency' when no funds are lost or frozen. Severity is inflated; this is at most a DoS-class issue.",
+  "recommended_status": "DO_NOT_SUBMIT",
+  "human_approval_required": true
+}

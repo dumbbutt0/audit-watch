@@ -1,0 +1,50 @@
+{
+  "phase": "P198",
+  "corpus": "centrifuge-2023-09-holdout",
+  "read_only": true,
+  "blind_model": "sonnet",
+  "awarded_total": 8,
+  "awarded_severity": "8 Medium / 0 High",
+  "bounded_sample_surfaces": 12,
+  "awarded_in_bounded_sample": 4,
+  "awarded_out_of_sample": 4,
+  "in_sample_scoring": {
+    "MISS_WRONG_MECHANISM": 1,
+    "PARTIAL": 1,
+    "HIT": 2
+  },
+  "in_sample_hits": 2,
+  "in_sample_partials": 1,
+  "in_sample_miss_wrong_mechanism": 1,
+  "exact_hits": [
+    "M-07 (IM-06 _calculateTrancheTokenAmount rounding-direction)",
+    "M-08 (RM-12 sender-not-checked restriction)"
+  ],
+  "partial": [
+    "M-05 (IM-04 Escrow-share conservation, related framing)"
+  ],
+  "miss_wrong_mechanism": [
+    "M-04 (IM-04 rejected access-control on auth-gated callee, missed public deposit wrapper)"
+  ],
+  "out_of_sample_awarded": [
+    "M-01 axelar gateway auth",
+    "M-02 requestRedeemWithPermit",
+    "M-03 DOMAIN_SEPARATOR",
+    "M-06 admin removePauser"
+  ],
+  "precision_calibration": {
+    "blind_HIGH_verdicts": 11,
+    "of_surfaces": 12,
+    "awarded_reality": "0 High / 8 Medium",
+    "selected_mechanisms_per_surface": "~2 (24+ selected across 12) + many NEEDS_HARNESS",
+    "verdict": "severity OVER-calibrated (11/12 HIGH on an all-Medium/0-High codebase); high enumeration volume / low precision on a clean corpus"
+  },
+  "decision": "PARTIAL_GENERALIZATION",
+  "decision_basis": "Adjudication RECALL generalizes to the RWA tranche/escrow/ERC4626 invariant core: on the 4 awarded findings the bounded sample actually covered, the stack scored 2 EXACT hits (M-07 rounding direction, M-08 restriction sender-check) + 1 PARTIAL (M-05 escrow-share conservation) + 1 wrong-mechanism (M-04). BUT precision/severity-calibration does NOT generalize cleanly (11/12 HIGH verdicts vs 8-Medium/0-High reality; over-enumeration), and M-04 shows a non-responsive-rejection on the wrong layer. 4/8 awarded were outside the bounded sample (coverage/sampling, not adjudication).",
+  "caveats": [
+    "bounded sample (12 surfaces) -> generalization signal on the invariant core, not full recall",
+    "Sonnet same-vendor (as P186); n small",
+    "awarded loci built from official report.md (read post-freeze); scoring is human-audited mapping",
+    "blind verdicts skew HIGH partly because deep_trace.md asks for worst-case threat framing"
+  ]
+}

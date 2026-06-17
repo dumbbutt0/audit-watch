@@ -1,0 +1,32 @@
+P145 — Level-3 runtime PoC execution (real blackhole RewardsDistributor)
+
+$ cd audits/blackhole-2025-05-eval/pocs/p145
+$ forge test -vv
+
+Compiling with Solc 0.8.13 (RewardsDistributor + local libs/interfaces; no OZ)
+
+Ran 4 tests for test/RewardsDistributorClaimManyRecipientParity.t.sol:RewardsDistributorClaimManyRecipientParity
+[PASS] test_batch_claim_many_routes_avm_managed_to_nft_owner_not_original() (gas: 130489)
+Logs:
+  claim_many_recipient: 0x000000000000000000000000000000000000A814   (AVM manager — WRONG recipient)
+  misdirected_amount: 1000000000000000000
+
+[PASS] test_corrected_behavior_matches_single_claim() (gas: 208174)
+[PASS] test_non_avm_control_both_paths_match() (gas: 183473)
+[PASS] test_single_claim_routes_avm_managed_to_original_owner() (gas: 140296)
+Logs:
+  claim_amount: 1000000000000000000
+  claim_recipient: 0x000000000000000000000000000000000000bEEF      (original owner — CORRECT)
+
+Suite result: ok. 4 passed; 0 failed; 0 skipped
+Ran 1 test suite: 4 tests passed, 0 failed, 0 skipped (4 total tests)
+
+Interpretation:
+- For an AVM-managed tokenId with an expired, non-permanent lock and a nonzero claimable amount:
+  * real claim(idA)        -> token.transfer(getOriginalOwner) = user 0xBEEF   (amount 1e18)
+  * real claim_many([idB]) -> token.transfer(ownerOf)          = AVM manager 0xA814 (1e18 misdirected)
+- The sibling functions diverge in recipient for equivalent inputs (test 3).
+- Non-AVM control (test 4): claim and claim_many both pay ownerOf == original owner; AVM manager never paid
+  => the divergence is isolated to AVM-managed tokenIds (the omitted getOriginalOwner correction in claim_many).
+- Per-claim payout (1e18) = R(1000e18) * balanceOfNFTAt(1e18) / totalSupplyAtT(1000e18); real _claim drove a
+  nonzero amount via checkpoint_token after funding + a 1-WEEK warp (WEEK=1800).

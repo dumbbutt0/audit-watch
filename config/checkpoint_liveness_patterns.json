@@ -1,0 +1,28 @@
+{
+  "_doc": "Signals for the checkpoint/queue/returndata liveness lens. Two-signal, FP-tight: flags functions where one malicious item can block progress of a checkpoint/batch/queue, returndata is unbounded, a compaction loop can skip entries, or confirmation state is floodable. Derived from Recall H-07/H-09/M-04. Advisory; high-risk → needs_deep_pass.",
+
+  "liveness_context_signals": [
+    "checkpoint", "\\bbatch\\b", "\\bqueue\\b", "submit", "propagate", "\\brelease\\b", "confirm",
+    "\\bretry\\b", "pending", "compact", "applyMessages", "applyCrossMessages", "execBottomUpMsgs",
+    "confirmChange", "changeLog", "release"
+  ],
+  "loop_signals": ["\\bfor\\s*\\(", "\\bwhile\\s*\\(", "\\+\\+\\s*i\\b", "\\bi\\+\\+", "unchecked\\s*\\{\\s*\\+\\+"],
+  "external_call_signals": [
+    "\\.call\\s*\\{", "\\.call\\s*\\(", "\\.delegatecall\\s*\\(", "performCall", "functionCall",
+    "safeTransfer", "sendValue", "\\.transfer\\s*\\(", "handleIpcMessage"
+  ],
+  "returndata_signals": [
+    "returndata", "returndatacopy", "returndatasize", "abi\\.decode\\s*\\(\\s*ret", "\\(bool\\s+\\w+,\\s*bytes\\s+memory"
+  ],
+  "compaction_signals": ["compact", "prune", "\\bdelete\\s+\\w+\\[", "retentionHeight", "\\bpop\\s*\\("],
+  "index_signals": ["\\bindex\\b", "\\bi\\b\\s*<", "\\[\\s*i\\s*\\]", "\\[\\s*\\w+\\s*\\+\\+\\s*\\]"],
+  "append_signals": ["\\.push\\s*\\(", "\\+=\\s*1", "\\+\\+", "recordChange", "addNew", "enqueue"],
+  "bound_signals": ["onlyOwner", "systemActorOnly", "max\\w*", "\\bMAX_", "rateLimit", "whenNotPaused", "require\\s*\\("],
+
+  "categories": {
+    "recipient_blocks_checkpoint": {"description": "An external call inside a checkpoint/batch loop lets one recipient revert or gas-bomb and block the whole batch/checkpoint.", "severity_ceiling_hint": "High"},
+    "unbounded_returndata": {"description": "Low-level call returndata is loaded into memory without a size bound, enabling a returndata gas bomb.", "severity_ceiling_hint": "High"},
+    "compaction_skip": {"description": "A compaction/prune loop can skip pending entries (index vs count mismatch).", "severity_ceiling_hint": "High"},
+    "floodable_state": {"description": "Per-call append to a queue/change-log with no rate limit lets a malicious actor flood and block confirmation/progress.", "severity_ceiling_hint": "Medium"}
+  }
+}

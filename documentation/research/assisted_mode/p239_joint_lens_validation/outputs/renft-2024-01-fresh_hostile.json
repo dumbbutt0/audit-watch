@@ -1,0 +1,79 @@
+{
+  "lens": "hostile_token_settlement",
+  "generated_at": "2026-06-08T21:53:22.964149+00:00",
+  "manifest": "audits/renft-2024-01-fresh/output/coverage_manifest.json",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "raw_candidates": 2,
+  "by_confidence": {
+    "high": 2
+  },
+  "high": 2,
+  "medium": 0,
+  "low": 0,
+  "candidates": [
+    {
+      "finding_shape": "hostile_token_settlement_dos",
+      "confidence": "high",
+      "cleanup_verb": "settle",
+      "transfer_primitive": "safetransfer(",
+      "token_source": "order/array/struct-selected token (item.token / consideration / items[])",
+      "explanation": "PaymentEscrow._settlePayment is a must-succeed settle settlement/cleanup flow that pushes a order/array/struct-selected token (item.token / consideration / items[]) via safetransfer( to a counterparty with NO containment (no try/catch, pull-payment, or allowlist). A hostile token (revert / blacklist / false-return / reentrancy) blocks the cleanup, permanently locking assets or denying service to another user (reNFT H-01 / #64 / #605 class).",
+      "signals": {
+        "S1_cleanup_verb": [
+          "settle"
+        ],
+        "S2_transfer": [
+          "safetransfer(",
+          "_safetransfer"
+        ],
+        "S3_attacker_sourced": true,
+        "S3_param_token": false,
+        "S4_no_containment": true,
+        "S5_counterparty": true
+      },
+      "contract": "PaymentEscrow",
+      "function": "_settlePayment",
+      "file": "audits/renft-2024-01-fresh/_src/smart-contracts/src/modules/PaymentEscrow.sol",
+      "lens_id": "PaymentEscrow:hostile_token_settlement_dos",
+      "in_scope": true,
+      "manifest_id": "function:PaymentEscrow:_settlePayment#4a57a11c",
+      "file_line_refs": "audits/renft-2024-01-fresh/_src/smart-contracts/src/modules/PaymentEscrow.sol:215",
+      "false_positive_controls": "five-signal (cleanup-verb fn + must-succeed token push + attacker/order-sourced token + missing containment + counterparty recipient); caller-own-asset / try-catch / pull-payment / allowlist / trusted-asset suppressed; admin-only downgraded"
+    },
+    {
+      "finding_shape": "hostile_token_settlement_dos",
+      "confidence": "high",
+      "cleanup_verb": "reclaim",
+      "transfer_primitive": "safetransferfrom",
+      "token_source": "order/array/struct-selected token (item.token / consideration / items[])",
+      "explanation": "Reclaimer.reclaimRentalOrder is a must-succeed reclaim settlement/cleanup flow that pushes a order/array/struct-selected token (item.token / consideration / items[]) via safetransferfrom to a counterparty with NO containment (no try/catch, pull-payment, or allowlist). A hostile token (revert / blacklist / false-return / reentrancy) blocks the cleanup, permanently locking assets or denying service to another user (reNFT H-01 / #64 / #605 class).",
+      "signals": {
+        "S1_cleanup_verb": [
+          "reclaim",
+          "claim"
+        ],
+        "S2_transfer": [
+          "safetransferfrom",
+          "_transfererc721",
+          "_transfererc1155",
+          "transferfrom("
+        ],
+        "S3_attacker_sourced": true,
+        "S3_param_token": false,
+        "S4_no_containment": true,
+        "S5_counterparty": true
+      },
+      "contract": "Reclaimer",
+      "function": "reclaimRentalOrder",
+      "file": "audits/renft-2024-01-fresh/_src/smart-contracts/src/packages/Reclaimer.sol",
+      "lens_id": "Reclaimer:hostile_token_settlement_dos",
+      "in_scope": true,
+      "manifest_id": "function:Reclaimer:reclaimRentalOrder#61e2ab10",
+      "file_line_refs": "audits/renft-2024-01-fresh/_src/smart-contracts/src/packages/Reclaimer.sol:71",
+      "false_positive_controls": "five-signal (cleanup-verb fn + must-succeed token push + attacker/order-sourced token + missing containment + counterparty recipient); caller-own-asset / try-catch / pull-payment / allowlist / trusted-asset suppressed; admin-only downgraded"
+    }
+  ]
+}

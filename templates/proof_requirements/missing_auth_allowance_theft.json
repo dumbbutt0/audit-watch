@@ -1,0 +1,38 @@
+{
+  "bug_class": "missing_auth_allowance_theft",
+  "description": "Missing require_auth allows impersonation; may escalate to allowance theft depending on victim state",
+  "required_for_medium": [
+    "missing_require_auth_proven",
+    "impersonated_address_recorded"
+  ],
+  "required_for_high": [
+    "missing_require_auth_proven",
+    "impersonated_address_recorded",
+    "victim_allowance_consumed",
+    "victim_loss_asserted"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "public execute_liquidation entrypoint called with impersonated address",
+    "L3B": "on-chain record falsified; env.auths() confirms require_auth never fired",
+    "L3C": "victim allowance consumed; victim token balance decreases after impersonated call"
+  },
+  "poc_level_requirements": {
+    "L3A": ["missing_require_auth_proven"],
+    "L3B": ["missing_require_auth_proven", "impersonated_address_recorded"],
+    "L3C": ["missing_require_auth_proven", "impersonated_address_recorded",
+             "victim_allowance_consumed", "victim_loss_asserted"]
+  },
+  "proof_signatures": {
+    "missing_require_auth_proven":     ["env.auths()", "liquidator_auth_was_required", "!liquidator_auth_was_required", "require_auth"],
+    "impersonated_address_recorded":   ["assert_eq!(record.liquidator", "record.liquidator", "assert_eq!(stored.unwrap().liquidator"],
+    "victim_allowance_consumed":       ["transfer_from", "spend_allowance", "token_allowance", "mock_token", "MockToken"],
+    "victim_loss_asserted":            [
+      "victim_balance_after < victim_balance_before",
+      "victim_token_balance_after",
+      "assert!(victim_loss",
+      "victim_debt_token"
+    ]
+  },
+  "high_severity_rationale": "High requires proving token allowance theft: a victim with an open debt-token approval to the router loses those tokens when an attacker calls execute_liquidation impersonating the victim. Without token flow proof, the finding is record-falsification + griefing (Medium).",
+  "negative_control_template": "Add liquidator.require_auth() as the first line. Assert the call panics (auth not satisfied) when called without victim's signature. Assert victim balance unchanged."
+}

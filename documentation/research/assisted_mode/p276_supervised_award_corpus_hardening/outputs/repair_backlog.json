@@ -1,0 +1,81 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "note": "General, source-derived repairs only. NO target-specific hard-coding (no contest names / award titles / award text). Each signal is a structural source pattern that would catch a FAMILY of awards. This phase PROPOSES only; module edits are a separate explicitly-approved phase.",
+  "repairs": [
+    {
+      "id": "R1",
+      "failed_stage": "COVERAGE_CLASS_GAP",
+      "count": 41,
+      "affected_classes": ["ACCOUNTING_LIQUIDATION_BAD_DEBT", "ACCESS_CONTROL_AUTHORIZATION", "UNKNOWN_OTHER", "DOS_LIVENESS"],
+      "diagnosis": "Awarded loci were surfaced as advisory candidates but their class was not routed into the triage handoff. Root cause: class signals are derived from locus NAME tokens only, so a surfaced function whose award-class is carried in its BODY (not its name) is mis-classed or out-competed within its class.",
+      "general_signal": "Derive coverage class signals from the candidate's generated-mechanism BODY fields (source_backed_trigger, affected_state_assets_permissions, attacker_action) in addition to name tokens; widen coverage to KEEP more class reps when multiple plausible classes share a locus.",
+      "knob": "coverage-class",
+      "expected_recall_lift": "high",
+      "fp_risk": "low (still advisory; only widens upstream representation)",
+      "priority": 1
+    },
+    {
+      "id": "R2",
+      "failed_stage": "RECALL_GAP",
+      "count": 30,
+      "affected_classes": ["ACCOUNTING_LIQUIDATION_BAD_DEBT", "ACCESS_CONTROL_AUTHORIZATION", "UNKNOWN_OTHER"],
+      "diagnosis": "Award locus is present in the coverage manifest but no advisory candidate surfaced it: the checkpoint-driven sweep (accounting + state-transition) plus top-N prioritizer did not reach it.",
+      "general_signal": "Add recall sweep clauses for the under-covered structural primitives observed (authorization-modifier presence, external-call-before-state-write, signature/nonce checks) and raise the top-N / checkpoint-keyword breadth; these are source-derivable without award text.",
+      "knob": "recall",
+      "expected_recall_lift": "high",
+      "fp_risk": "medium (wider pool -> more advisory candidates; gate stays strict so no severe-FP impact)",
+      "priority": 2
+    },
+    {
+      "id": "R3",
+      "failed_stage": "MANIFEST_GAP",
+      "count": 16,
+      "affected_classes": ["ACCESS_CONTROL_AUTHORIZATION", "ORACLE_PRICING", "EXTERNAL_INTEGRATION"],
+      "diagnosis": "Award locus is not enumerated in the coverage manifest at all (scope/enumeration gap): library/abstract/interface-inherited functions and externally-defined integration points fall outside the manifest's in-scope set.",
+      "general_signal": "Extend the manifest builder to enumerate inherited/library/abstract functions reachable from in-scope contracts and integration entrypoints (oracle adapters, external hooks) as in-scope surface.",
+      "knob": "manifest",
+      "expected_recall_lift": "medium",
+      "fp_risk": "low",
+      "priority": 3
+    },
+    {
+      "id": "R4",
+      "failed_stage": "COVERAGE_CLASS_GAP",
+      "count": 6,
+      "affected_classes": ["ORACLE_PRICING", "EXTERNAL_INTEGRATION"],
+      "diagnosis": "ORACLE_PRICING (0/4 surfaced) and EXTERNAL_INTEGRATION (1/2) are the weakest classes corpus-wide: their checkpoint/template coverage is thin, so few candidates and no class representation.",
+      "general_signal": "Add oracle/pricing checkpoint markers (latestRoundData/getReserves/slot0/twap staleness) and external-integration markers (hook/bridge/adapter/wrap) to the recall templates and coverage class signals.",
+      "knob": "coverage-class",
+      "expected_recall_lift": "medium",
+      "fp_risk": "low",
+      "priority": 4
+    },
+    {
+      "id": "R5",
+      "failed_stage": "COMPLETION_GAP",
+      "count": 57,
+      "affected_classes": ["ALL"],
+      "diagnosis": "57 awards reached MECHANISM_GENERATED but completion/runtime-PoC was not sampled (the expensive tail; this phase mapped upstream corpus-wide). This is an EXPECTED throughput limit, not a precision defect.",
+      "general_signal": "Build reusable per-class PoC scaffolds (the P271 lending scaffold generalized to access/order/share/DoS) so the mechanism->exact bridge can be applied at higher throughput on the surfaced+routed set.",
+      "knob": "PoC-scaffold",
+      "expected_recall_lift": "high (converts already-surfaced mechanisms to exact)",
+      "fp_risk": "low (gate stays strict: exact mechanism + attacker path + delta + victim/gainer + runtime + FP refutation)",
+      "priority": 2
+    },
+    {
+      "id": "R6",
+      "failed_stage": "DUPLICATE_OR_REPORT_ONLY_AMBIGUITY",
+      "count": 105,
+      "affected_classes": ["title-only-corpora"],
+      "diagnosis": "Two corpora (raw_answer_key 'captured_rows' schema) provide award title+severity but NO affected-contract/function, so locus-funnel mapping is impossible. These are count-only.",
+      "general_signal": "Backfill affected-contract/function for title-only award keys (one-time eval-data enrichment) so they become locus-mappable; not a pipeline repair.",
+      "knob": "eval-data",
+      "expected_recall_lift": "n/a (measurement enablement)",
+      "fp_risk": "none",
+      "priority": 5
+    }
+  ]
+}

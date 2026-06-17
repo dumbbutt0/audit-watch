@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AssistedCandidateIntake",
+  "description": "P98 assisted-mode candidate intake. A human or external tool supplies a candidate invariant / bug hypothesis; Audit-Watch then VALIDATES it with the proven components (depth trace, adversarial ordering, maximal consequence, hygiene, severity gate). RESEARCH-ONLY, advisory, UN-WIRED. The system never auto-submits, never sets production severity, never routes. candidate_invariant is REQUIRED and non-empty: P97 showed the failing step was autonomous invariant SELECTION, so assisted-mode requires the invariant to be supplied.",
+  "type": "object",
+  "required": [
+    "subject",
+    "contract",
+    "function",
+    "candidate_invariant",
+    "supplied_by",
+    "requested_check"
+  ],
+  "properties": {
+    "subject": {"type": "string", "description": "Audit subject identifier, e.g. secondswap-2024-12"},
+    "repo": {"type": "string", "description": "Source repository (optional)"},
+    "commit": {"type": "string", "description": "Pinned source commit (optional but recommended)"},
+    "contract": {"type": "string", "description": "Contract holding the suspected mechanism"},
+    "function": {"type": "string", "description": "Function holding the suspected mechanism"},
+    "candidate_invariant": {
+      "type": "string",
+      "minLength": 1,
+      "description": "REQUIRED, non-empty. The invariant the candidate relies on being TRUE (the property the suspected bug would break). This is the input P97 showed the system cannot reliably pick autonomously."
+    },
+    "suspected_break": {"type": "string", "description": "How the invariant is suspected to break (the bug hypothesis)"},
+    "affected_actor": {"type": "string", "description": "Who is harmed (victim)"},
+    "attacker_or_trigger_actor": {"type": "string", "description": "Who triggers the break (attacker / third party / sequencing)"},
+    "entrypoint": {"type": "string", "description": "EOA-reachable entrypoint that initiates the path"},
+    "source_refs": {
+      "type": "array",
+      "description": "Concrete source references (file:line) grounding the claim",
+      "items": {"type": "string"}
+    },
+    "expected_impact": {
+      "type": "string",
+      "description": "Expected worst-case impact class wording, e.g. 'High - users under-withdraw'"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "Supplier's confidence in the hypothesis"
+    },
+    "supplied_by": {
+      "type": "string",
+      "enum": ["human", "static_tool", "fuzzing", "previous_eval", "external_report", "manual_review"],
+      "description": "Origin of the candidate"
+    },
+    "known_unknowns": {
+      "type": "array",
+      "description": "Open questions / unresolved dependencies the supplier is aware of",
+      "items": {"type": "string"}
+    },
+    "requested_check": {
+      "type": "string",
+      "enum": ["VALIDATE", "FALSIFY", "TRACE_ONLY", "POC_HANDOFF", "SUBMISSION_PACKAGE"],
+      "description": "What the supplier wants Audit-Watch to do with the candidate"
+    },
+    "is_gate": {"type": "boolean", "const": false},
+    "research_only": {"type": "boolean", "const": true},
+    "review_only": {"type": "boolean", "const": true},
+    "routes_in_production": {"type": "boolean", "const": false},
+    "routed_manifest_ids": {"type": "array", "maxItems": 0}
+  },
+  "additionalProperties": true
+}

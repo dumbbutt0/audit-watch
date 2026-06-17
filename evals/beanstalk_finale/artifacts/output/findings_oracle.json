@@ -1,0 +1,249 @@
+{
+  "agent": "oracle",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle",
+  "timestamp": "2026-05-29T20:40:00Z",
+  "findings": [
+    {
+      "id": "OR-001",
+      "title": "LibChainlinkOracle.getTokenPrice ternary inverted: TWAP requests silently return spot",
+      "severity": "Medium",
+      "vuln_type": "oracle-manipulation",
+      "description": "getTokenPrice routes the two helper calls backwards: `lookback > 0 ? getPrice(...) : getTwap(..., lookback)`. When a caller asks for a manipulation-resistant TWAP (lookback>0) it receives the instantaneous Chainlink answer from getPrice() instead; when a caller asks for the instantaneous price (lookback==0) it calls getTwap(...,0). The compare oracle in the same repo, LibEthUsdOracle.getEthUsdPrice(lookback) (lines 53-65), has the CORRECT orientation (lookback>0 => getTwap), confirming this branch is reversed, not intentional. Tracing the lookback==0 case: getTwap sets endTimestamp = block.timestamp - 0 = block.timestamp; the first round's `timestamp <= endTimestamp` is essentially always true, so it returns `answer*PRECISION/10**decimals` (spot) and never reaches the `.div(lookback)` line. Net effect: BOTH branches return the spot Chainlink answer, so any consumer expecting a smoothed TWAP gets the raw latest answer. (Note: this corrects deep-trace DT-006, which claimed the spot path divides by zero; it does not \u2014 both paths return spot.) Because the source is Chainlink (not an AMM), the result is not flash-loan manipulable, but the requested TWAP smoothing against legitimate single-round volatility, depeg spikes, or a single bad print is silently lost.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibChainlinkOracle.sol",
+        "function": "getTokenPrice",
+        "line_start": 39,
+        "line_end": 48,
+        "code_snippet": "return lookback > 0 ? getPrice(priceAggregatorAddress, maxTimeout) : getTwap(priceAggregatorAddress, maxTimeout, lookback);"
+      },
+      "impact": "Every TWAP request through this function returns the instantaneous Chainlink answer. Consumers that pass lookback>0 specifically for manipulation/volatility resistance (LibUsdOracle.getTokenPriceFromExternal encodeType 0x01/0x02, and the public OracleFacet/UsdOracle TWAP getters) lose that protection. A single anomalous Chainlink round (or a momentary depeg) is consumed at face value instead of being averaged out.",
+      "proof_of_concept": "OracleFacet.getTokenPrice(token, 3600) on a token whitelisted with a Chainlink oracle impl (encodeType 0x01) -> LibUsdOracle.getTokenPriceFromExternal(token, 3600) -> LibChainlinkOracle.getTokenPrice(aggregator, FOUR_HOUR_TIMEOUT, 3600) -> because lookback>0 the inverted ternary calls getPrice() and returns the single latest round answer, not a 3600s TWAP. Assert returned value equals latestRoundData().answer scaled to 6dp, not the multi-round average.",
+      "recommendation": "Swap the branches to match LibEthUsdOracle: `return lookback > 0 ? getTwap(priceAggregatorAddress, maxTimeout, lookback) : getPrice(priceAggregatorAddress, maxTimeout);`",
+      "confidence": "High",
+      "invariant_violated": "ARITH-001",
+      "attack_surface_rank": 3,
+      "ice_chain": {
+        "corrupted_state": "return value of LibChainlinkOracle.getTokenPrice (spot returned when TWAP requested)",
+        "consumer_found": true,
+        "consumer_function": "LibUsdOracle.getTokenPriceFromExternal / OracleFacet.getTokenPrice(token,lookback)",
+        "consumer_action": "feeds USD price into ratio/pricing math for any Chainlink-impl token and into external view consumers",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      },
+      "ite": {
+        "intent": "Caller requesting a TWAP receives the smoothed price; the protocol's stated manipulation resistance holds for Chainlink-impl tokens.",
+        "technique": "The ternary in getTokenPrice (LibChainlinkOracle.sol L44-48) is reversed relative to the correct LibEthUsdOracle.getEthUsdPrice; lookback>0 calls getPrice (spot) and lookback==0 calls getTwap (which returns spot anyway).",
+        "evasion": "NatSpec documents 'lookback>0 for a TWAP', and the sibling LibEthUsdOracle is correct, so reviewers assume parity; the gap is the literal branch order only in this function."
+      },
+      "critical_assumptions": [
+        "A token is whitelisted with a Chainlink oracle implementation (encodeType 0x01/0x02) AND a consumer requests lookback>0, OR an external integrator calls OracleFacet/UsdOracle TWAP getters. The two current wells (BEAN:WETH, BEAN:WSTETH) route through LibEthUsdOracle/LibWstethUsdOracle, not this path, so the live sunrise/deltaB mint path is not currently affected."
+      ],
+      "assumption_count": 1,
+      "thread_id": "DT-006",
+      "thread_refs": [
+        "T-006"
+      ],
+      "thread_note": "T-006: High (score=?) \u2014 "
+    },
+    {
+      "id": "OR-002",
+      "title": "LibUsdOracle.getTokenPrice WSTETH branch drops lookback, always returns spot wstETH/USD",
+      "severity": "Medium",
+      "vuln_type": "oracle-manipulation",
+      "description": "In getTokenPrice(token, lookback), the WETH branch (line 79) correctly forwards `lookback` to LibEthUsdOracle.getEthUsdPrice(lookback), but the WSTETH branch (line 84) hardcodes LibWstethUsdOracle.getWstethUsdPrice(0), discarding the caller-supplied lookback. Any caller asking for a TWAP wstETH price through getTokenPrice receives the instantaneous price instead. This is an independent dropped-lookback bug from OR-001 (different function, different token). getUsdPrice (line 56) does forward lookback for WSTETH, so the two sibling functions are inconsistent, confirming line 84 is an oversight, not intent.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibUsdOracle.sol",
+        "function": "getTokenPrice",
+        "line_start": 83,
+        "line_end": 87,
+        "code_snippet": "if (token == C.WSTETH) {\n    uint256 wstethUsdPrice = LibWstethUsdOracle.getWstethUsdPrice(0);\n    ..."
+      },
+      "impact": "TWAP requests for wstETH via getTokenPrice silently return spot, removing the intended smoothing. The Uniswap V3 wstETH:ETH leg inside LibWstethEthOracle is AMM-based, so forcing its short FIFTEEN_MINUTES window (spot path) rather than the requested longer lookback weakens manipulation resistance for that token relative to what the caller asked for.",
+      "proof_of_concept": "OracleFacet.getTokenPrice(C.WSTETH, 3600) -> LibUsdOracle.getTokenPrice(WSTETH, 3600) -> branch ignores 3600 and calls getWstethUsdPrice(0) -> 15-minute Uniswap window + Chainlink spot. Assert result == getTokenPrice(WSTETH, 0).",
+      "recommendation": "Forward the lookback: `LibWstethUsdOracle.getWstethUsdPrice(lookback);` to match the WETH branch and getUsdPrice.",
+      "confidence": "High",
+      "attack_surface_rank": 3,
+      "ice_chain": {
+        "corrupted_state": "return value of LibUsdOracle.getTokenPrice for WSTETH (spot returned when TWAP requested)",
+        "consumer_found": true,
+        "consumer_function": "OracleFacet.getTokenPrice(token,lookback) / UsdOracle.getTokenPrice / LibWell.getTwaLiquidity (getTokenPrice path)",
+        "consumer_action": "uses wstETH USD price for liquidity/pricing reads",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      },
+      "ite": {
+        "intent": "getTokenPrice(WSTETH, lookback) returns a wstETH price averaged over the requested lookback.",
+        "technique": "Line 84 passes the literal 0 instead of the `lookback` parameter, so the TWA window is always the spot/15-minute default.",
+        "evasion": "The adjacent WETH branch and the sibling getUsdPrice both forward lookback, masking the single hardcoded 0."
+      },
+      "critical_assumptions": [
+        "A consumer calls getTokenPrice for WSTETH with lookback>0 expecting a TWAP."
+      ],
+      "assumption_count": 1,
+      "thread_refs": [
+        "T-006"
+      ],
+      "thread_note": "T-006: High (score=?) \u2014 "
+    },
+    {
+      "id": "OR-003",
+      "title": "LibUsdOracle custom-oracle staticcall decodes returndata via unchecked assembly mload",
+      "severity": "Medium",
+      "vuln_type": "oracle-manipulation",
+      "description": "For oracle implementations that are neither encodeType 0x01 nor 0x02 (custom path, lines 164-174), getTokenPriceFromExternal performs target.staticcall(abi.encodeWithSelector(selector, lookback)) and decodes the result with `assembly { tokenPrice := mload(add(data, 0x20)) }` without validating that `data.length >= 32` or that the type is a uint256. A custom oracle that returns empty/short data (e.g. a contract that does not implement the selector but has a fallback returning success with <32 bytes, or returns bool/dynamic data) yields an attacker- or garbage-controlled tokenPrice that is then inverted into a USD price by getUsdPrice (1e24/tokenPrice). The success branch is also not checked for empty returndata: a staticcall to an EOA or a target with no code returns success=true with empty data, decoding tokenPrice=0.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibUsdOracle.sol",
+        "function": "getTokenPriceFromExternal",
+        "line_start": 163,
+        "line_end": 175,
+        "code_snippet": "(bool success, bytes memory data) = target.staticcall(abi.encodeWithSelector(oracleImpl.selector, lookback));\nif (!success) return 0;\nassembly { tokenPrice := mload(add(data, add(0x20, 0))) }"
+      },
+      "impact": "If a custom oracle implementation is registered (admin/governance action) that returns malformed or shorter-than-32-byte returndata, an arbitrary or zero price is decoded with no sanity bound and flows into getUsdPrice / pricing math. With target==address(0) defaulting to address(this) (the diamond), a selector that resolves to an unintended function could also return non-price data. Bounded by the trust placed in registered oracle implementations, hence Medium.",
+      "proof_of_concept": "Register oracleImplementation[token] = {target: maliciousImpl, selector: s, encodeType: 0x00}. maliciousImpl.s(lookback) returns abi.encode(uint256(1)) on some calls and short data on others. getTokenPriceFromExternal mloads the first word with no length check; getUsdPrice returns 1e24/1 = 1e24 (a 1e24x mispricing) with no min/max bound to reject it.",
+      "recommendation": "Require `success && data.length >= 32` before decoding; prefer `tokenPrice = abi.decode(data, (uint256));`. Add sanity min/max bounds on the decoded price and reject 0.",
+      "confidence": "Medium",
+      "attack_surface_rank": 3,
+      "ice_chain": {
+        "corrupted_state": "tokenPrice decoded from unchecked staticcall returndata",
+        "consumer_found": true,
+        "consumer_function": "LibUsdOracle.getUsdPrice / getTokenPrice -> pricing & ratio consumers",
+        "consumer_action": "computes USD price (1e24/tokenPrice) consumed by ratio/liquidity math",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      },
+      "ite": {
+        "intent": "Read a uint256 price from a configured custom oracle implementation.",
+        "technique": "Raw mload of the first returndata word with no length or type validation, and no empty-returndata guard on success.",
+        "evasion": "Requires a privileged oracle-implementation registration; if that registration is loosely governed or points at the diamond via address(0), the gap widens."
+      },
+      "critical_assumptions": [
+        "A custom (non-0x01/0x02) oracle implementation is registered for some token via governance/admin."
+      ],
+      "assumption_count": 1,
+      "thread_id": "DT-008",
+      "thread_refs": [
+        "T-008"
+      ],
+      "thread_note": "T-008: Medium (score=?) \u2014 "
+    },
+    {
+      "id": "OR-004",
+      "title": "LibWstethEthOracle returns 0 when Chainlink and Uniswap diverge >1% (no documented fallback)",
+      "severity": "Medium",
+      "vuln_type": "oracle-manipulation",
+      "description": "getWstethEthPrice computes a Chainlink-derived price and a Uniswap V3 TWAP price, then only assigns wstethEthPrice inside `if (getPercentDifference(chainlinkPrice, uniswapPrice) < MAX_DIFFERENCE)` (1%). When the two sources differ by >=1%, the if-block is skipped and the function returns the default 0. The NatSpec (L29-35) documents a richer policy ('minimum of (3) and either the average of (1) and (2) ... or (1)'), but the implemented code has NO else branch and NO fall-through to source (1) or (3): it simply returns 0. A returned 0 propagates as an oracle-failure sentinel (getUsdPrice/getWstethUsdPrice return 0; LibWell.getRatiosAndBeanIndex sets success=false; LibWellMinting.twaDeltaB treats the minting oracle as 'off' and returns deltaB=0; LibDeltaB.calculateDeltaBFromReserves reverts 'USD Oracle call failed').",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibWstethEthOracle.sol",
+        "function": "getWstethEthPrice",
+        "line_start": 93,
+        "line_end": 97,
+        "code_snippet": "if (getPercentDifference(chainlinkPrice, uniswapPrice) < MAX_DIFFERENCE) { wstethEthPrice = (chainlinkPrice + uniswapPrice)/2; ... } // no else -> returns 0 on divergence"
+      },
+      "impact": "Any time the Chainlink wstETH:ETH feed and the Uniswap wstETH:ETH TWAP diverge by >=1% (plausible during volatility, a stETH depeg, or sustained Uniswap manipulation pressure), the wstETH oracle returns 0. For the BEAN:WSTETH well this turns the minting/deltaB oracle off (deltaB=0 in sunrise) or reverts convert deltaB pricing (LibDeltaB), pausing wstETH-well minting and conversions until the sources re-converge. Availability/DoS impact on the wstETH well during exactly the market conditions where pricing matters most. Whether this is the intended conservative behavior or a missing fallback cannot be inferred from comments (which describe a different policy); flagged as a behavioral/availability gap.",
+      "proof_of_concept": "Drive the Uniswap wstETH:ETH 15-min TWAP >1% away from the Chainlink stETH:ETH-derived price (sustained directional flow over the window, or read during a depeg). getWstethEthPrice skips the if-block and returns 0 -> getWstethUsdPrice returns 0 -> getRatiosAndBeanIndex success=false -> twaDeltaB returns deltaB 0 (minting off) for BEAN:WSTETH; currentDeltaB path reverts 'USD Oracle call failed'.",
+      "recommendation": "Implement the documented fallback explicitly: on divergence, fall back to the redemption-rate price (source 3) or to Chainlink (source 1) with the min() cap, rather than returning 0. If returning 0 (oracle-off) is intended, update NatSpec to state it and confirm every consumer degrades safely.",
+      "confidence": "Medium",
+      "attack_surface_rank": 3,
+      "ice_chain": {
+        "corrupted_state": "wstethEthPrice (returns 0 on >1% source divergence)",
+        "consumer_found": true,
+        "consumer_function": "LibWstethUsdOracle.getWstethUsdPrice -> LibUsdOracle.getUsdPrice -> LibWell.getRatiosAndBeanIndex -> LibWellMinting.twaDeltaB / LibDeltaB.calculateDeltaBFromReserves",
+        "consumer_action": "minting oracle treated as off (deltaB=0) or convert deltaB pricing reverts for the BEAN:WSTETH well",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      },
+      "ite": {
+        "intent": "Produce a manipulation-resistant wstETH:ETH price, falling back across 3 sources per the documented policy.",
+        "technique": "The if-block guarding the average assignment has no else; on >=1% divergence the function returns the default 0 instead of any fallback source.",
+        "evasion": "The 1% MAX_DIFFERENCE check looks like a manipulation guard, but the failure mode is silent oracle-off rather than the documented min/fallback."
+      },
+      "critical_assumptions": [
+        "Chainlink and Uniswap wstETH:ETH sources diverge by >=1% (volatility, depeg, or sustained Uniswap pressure) at read time.",
+        "The BEAN:WSTETH well is whitelisted/active for minting and converts."
+      ],
+      "assumption_count": 2
+    },
+    {
+      "id": "OR-005",
+      "title": "Chainlink oracle ignores answeredInRound and has no min/max price bounds",
+      "severity": "Low",
+      "vuln_type": "oracle-manipulation",
+      "description": "LibChainlinkOracle validates latestRoundData only via roundId!=0 and checkForInvalidTimestampOrAnswer (timestamp non-zero/not-future, within maxTimeout, answer>0). It never checks `answeredInRound >= roundId`, so a carried-over/stale answer from a prior round that still satisfies the timeout passes as fresh. It also applies no min/max sanity bounds on the returned answer, so during a Chainlink mispricing or a feed pinned at its circuit-breaker min/max the out-of-range value is consumed at face value (the protocol has no minAnswer/maxAnswer rejection). Heartbeat handling is coarse: FOUR_HOUR_TIMEOUT (14400s) is applied to feeds the comments describe as 1-hour heartbeat, accepting answers up to 4h stale.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibChainlinkOracle.sol",
+        "function": "getPrice",
+        "line_start": 71,
+        "line_end": 84,
+        "code_snippet": "try priceAggregator.latestRoundData() returns (uint80 roundId, int256 answer, uint256, uint256 timestamp, uint80 /* answeredInRound */) { if (roundId == 0) return 0; ... }"
+      },
+      "impact": "Stale (carried) Chainlink rounds within the 4h timeout and out-of-band circuit-breaker prices are accepted without rejection, feeding slightly-wrong USD prices into pricing/ratio math. Lower severity because Chainlink is the trusted source, the 0-on-failure design already handles outright outages, and the timeout bounds gross staleness.",
+      "proof_of_concept": "A feed that stops updating but whose last round is <4h old returns the same (stale) answer; getPrice returns it as valid. No answeredInRound<roundId rejection and no min/max bound means a circuit-breaker-pinned or carried answer is consumed.",
+      "recommendation": "Reject when answeredInRound < roundId; add per-feed min/maxAnswer bounds and reject answers at the bounds; size maxTimeout to each feed's actual heartbeat (use a 1h-class timeout for 1h-heartbeat feeds).",
+      "confidence": "Medium",
+      "attack_surface_rank": 2,
+      "ice_chain": {
+        "corrupted_state": "answer accepted as fresh/in-range without answeredInRound or min/max checks",
+        "consumer_found": true,
+        "consumer_function": "LibChainlinkOracle.getPrice/getTwap -> LibUsdOracle / LibEthUsdOracle pricing",
+        "consumer_action": "slightly-wrong USD price consumed in ratio/pricing math",
+        "severity_ceiling": "Low",
+        "search_method": "manual_trace"
+      },
+      "ite": {
+        "intent": "Reject stale or out-of-range Chainlink answers so only fresh, sane prices are used.",
+        "technique": "answeredInRound is decoded but discarded; no min/max bound; coarse 4h timeout.",
+        "evasion": "The presence of roundId!=0 + timeout + answer>0 checks gives the appearance of full staleness validation while answeredInRound and bounds are missing."
+      },
+      "critical_assumptions": [
+        "Chainlink carries a stale answer within the timeout window or pins at a circuit-breaker bound."
+      ],
+      "assumption_count": 1,
+      "thread_refs": [
+        "T-006"
+      ],
+      "thread_note": "T-006: High (score=?) \u2014 "
+    },
+    {
+      "id": "OR-006",
+      "title": "LibUsdOracle 1e24/price inversion can DoS via division-by-zero only when price feed returns 0",
+      "severity": "Low",
+      "vuln_type": "oracle-manipulation",
+      "description": "getUsdPrice and getTokenPriceFromExternal divide 1e24 by an oracle price (uint256(1e24).div(LibChainlinkOracle.getTokenPrice(...)) at L120-127; uint256(1e24).div(tokenPrice) at L64). The WETH/WSTETH branches in getUsdPrice guard the 0 case (L52,L57) and the external generic branch guards it (L63), but the encodeType 0x01 branch (L120-127) divides by LibChainlinkOracle.getTokenPrice directly with NO zero-guard. Since LibChainlinkOracle is contractually allowed to return 0 on a broken/frozen feed, a frozen Chainlink feed for a 0x01-registered token causes 1e24/0 to revert instead of returning the 0 sentinel that getUsdPrice's other branches use. (deep-trace DT-007 rated this Medium; downgraded to Low here: the affected path is the chainlink-impl token branch, which the current live wells do not traverse, and the consumer LibWell.getRatiosAndBeanIndex/LibWellMinting wraps failures gracefully only when a 0 is returned, not when the call reverts.)",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibUsdOracle.sol",
+        "function": "getTokenPriceFromExternal",
+        "line_start": 120,
+        "line_end": 127,
+        "code_snippet": "return uint256(1e24).div(LibChainlinkOracle.getTokenPrice(chainlinkOraclePriceAddress, LibChainlinkOracle.FOUR_HOUR_TIMEOUT, lookback));"
+      },
+      "impact": "For a token registered with the chainlink (0x01) oracle implementation, a frozen/broken feed makes getUsdPrice revert (1e24/0) instead of returning 0. Callers that expected the documented 0-sentinel graceful path (e.g. minting success=false) instead get a revert, which can propagate to DoS the calling flow during a feed outage. Low because the live BEAN:WETH/WSTETH wells route through the explicitly-guarded WETH/WSTETH branches, not this one.",
+      "proof_of_concept": "Register token T with encodeType 0x01. Freeze/break its Chainlink feed so LibChainlinkOracle.getTokenPrice returns 0. Call OracleFacet.getUsdPrice(T) -> getTokenPriceFromExternal 0x01 branch -> 1e24/0 reverts. Contrast getUsdPrice(WETH) which returns 0 gracefully.",
+      "recommendation": "Mirror the WETH/WSTETH guard in the 0x01 branch: capture the chainlink price, `if (price == 0) return 0;` before dividing. Apply the same to the 0x02 branch's chainlinkTokenPrice.",
+      "confidence": "Medium",
+      "attack_surface_rank": 2,
+      "ice_chain": {
+        "corrupted_state": "n/a (revert) instead of 0 sentinel",
+        "consumer_found": true,
+        "consumer_function": "OracleFacet.getUsdPrice / LibWell.getRatiosAndBeanIndex for a 0x01-registered token",
+        "consumer_action": "reverts during a feed outage instead of degrading to success=false",
+        "severity_ceiling": "Low",
+        "search_method": "manual_trace"
+      },
+      "ite": {
+        "intent": "Return 0 on feed failure so callers degrade gracefully (per the file's 'returns 0 rather than reverting' contract).",
+        "technique": "Unguarded division 1e24/price in the 0x01 branch where price can legitimately be 0.",
+        "evasion": "The sibling branches all guard 0, so the one unguarded division is easy to miss."
+      },
+      "critical_assumptions": [
+        "A token is registered with the chainlink (0x01) oracle implementation and its feed freezes/breaks (returns 0)."
+      ],
+      "assumption_count": 1,
+      "thread_id": "DT-007",
+      "thread_refs": [
+        "T-007",
+        "T-006"
+      ],
+      "thread_note": "T-007: Medium (score=?) \u2014 ; T-006: High (score=?) \u2014 "
+    }
+  ]
+}

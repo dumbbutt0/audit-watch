@@ -1,0 +1,203 @@
+{
+  "research_only": true,
+  "phase": "P97",
+  "subject": "secondswap-2024-12",
+  "leads": [
+    {
+      "lead": "SecondSwap_StepVesting.claim",
+      "incl": "both",
+      "localized": true,
+      "ldt": "REJECT(honored)",
+      "ao": "n/a (no invariant-break ordering; standard step accrual, final-step branch returns remainder)",
+      "disp": "REJECT",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_StepVesting.claimable",
+      "incl": "both",
+      "localized": true,
+      "ldt": "REJECT(honored)",
+      "ao": "REJECT_CONFIRMED(F4 releaseRate bounded)",
+      "disp": "REJECT(bounded -> Low/QA)",
+      "consequence": "bounded self-correct"
+    },
+    {
+      "lead": "SecondSwap_Marketplace.unlistVesting",
+      "incl": "top16",
+      "localized": true,
+      "ldt": "REJECT(honored)",
+      "ao": "REJECT_CONFIRMED(R1 conservation, 6 orderings)",
+      "disp": "REJECT",
+      "consequence": "sold/balance accounting conserves; penalty path admin-bounded"
+    },
+    {
+      "lead": "SecondSwap_Marketplace.spotPurchase(via C-chain of unlistVesting)",
+      "incl": "transitive",
+      "localized": true,
+      "ldt": "PASS(F1 referral)",
+      "ao": "n/a (missing-transfer, not ordering)",
+      "disp": "POC_REQUIRED (F1)",
+      "consequence": "referral reward not distributed"
+    },
+    {
+      "lead": "SecondSwap_Marketplace.addCoin",
+      "incl": "both",
+      "localized": true,
+      "ldt": "REJECT",
+      "ao": "n/a",
+      "disp": "REJECT (admin-gated; decimals try/catch commented out -> non-decimals token reverts later, bounded)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_Marketplace.doesFunctionExist",
+      "incl": "both",
+      "localized": true,
+      "ldt": "REJECT",
+      "ao": "n/a",
+      "disp": "REJECT (view staticcall probe)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_Marketplace.setMarketplaceSettingAddress",
+      "incl": "top16",
+      "localized": true,
+      "ldt": "REJECT",
+      "ao": "n/a",
+      "disp": "REJECT (onlyAdmin, zero-check)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_VestingManager.setBuyerFee",
+      "incl": "both",
+      "localized": true,
+      "ldt": "REJECT",
+      "ao": "n/a",
+      "disp": "REJECT (onlyAdmin, bounded <=5000)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_VestingManager.setSellerFee",
+      "incl": "both",
+      "localized": true,
+      "ldt": "REJECT",
+      "ao": "n/a",
+      "disp": "REJECT (onlyAdmin, bounded <=5000)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_VestingManager.listVesting(via C-chain)",
+      "incl": "transitive",
+      "localized": true,
+      "ldt": "REJECT(honored)",
+      "ao": "REJECT_CONFIRMED(R1 sellLimit/conservation, 6 orderings incl sybil wash)",
+      "disp": "REJECT",
+      "consequence": "maxSellPercent not bypassable by sybil"
+    },
+    {
+      "lead": "SecondSwap_MarketplaceSetting.setBuyerFee",
+      "incl": "both",
+      "ldt": "REJECT",
+      "disp": "REJECT (onlyAdmin)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_MarketplaceSetting.setPenaltyFee",
+      "incl": "top16",
+      "ldt": "REJECT",
+      "disp": "REJECT (onlyAdmin)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_MarketplaceSetting.setSellerFee",
+      "incl": "top16",
+      "ldt": "REJECT",
+      "disp": "REJECT (onlyAdmin)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_MarketplaceSetting.setManager",
+      "incl": "top16",
+      "ldt": "REJECT",
+      "disp": "REJECT (onlyAdmin)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_MarketplaceSetting.setMarketplaceStatus",
+      "incl": "top16",
+      "ldt": "REJECT",
+      "disp": "REJECT (onlyAdmin pause)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_MarketplaceSetting.setMinListingDuration",
+      "incl": "top16",
+      "ldt": "REJECT",
+      "disp": "REJECT (onlyAdmin)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_MarketplaceSetting.setReferral",
+      "incl": "top16",
+      "ldt": "REJECT",
+      "disp": "REJECT (onlyAdmin, bounded)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_VestingDeployer.setManager",
+      "incl": "per_contract_floor",
+      "ldt": "REJECT",
+      "disp": "REJECT (onlyAdmin)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_VestingDeployer.transferVesting(via C-chain)",
+      "incl": "transitive",
+      "localized": true,
+      "ldt": "PASS(privileged)",
+      "ao": "n/a",
+      "disp": "PRIVILEGED caveat (token-issuer can move arbitrary beneficiary vesting); NOT a permissionless promotion",
+      "consequence": "centralization/seizure (privileged)"
+    },
+    {
+      "lead": "SecondSwap_Whitelist.whitelistAddress",
+      "incl": "per_contract_floor",
+      "localized": true,
+      "ldt": "PASS(F2)",
+      "ao": "n/a (missing-auth, not ordering)",
+      "disp": "POC_REQUIRED (F2)",
+      "consequence": "private-not-private + sybil-fill grief"
+    },
+    {
+      "lead": "SecondSwap_MarketplaceSetting.setFeeAccount",
+      "incl": "control",
+      "ldt": "REJECT",
+      "disp": "CONTROL rejected (onlyAdmin, zero+same checks)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_VestingDeployer.setAdmin",
+      "incl": "control",
+      "ldt": "REJECT",
+      "disp": "CONTROL rejected (onlyAdmin)",
+      "consequence": "none"
+    },
+    {
+      "lead": "SecondSwap_Whitelist.setMaxWhitelist",
+      "incl": "control",
+      "ldt": "REJECT",
+      "disp": "CONTROL rejected (onlyLotOwner, monotonic-increase)",
+      "consequence": "none"
+    }
+  ],
+  "NOT_RUN": 0,
+  "promoted_permissionless": [
+    "F1_referral_not_distributed (Medium, POC_REQUIRED)",
+    "F2_permissionless_whitelist (Medium, POC_REQUIRED)"
+  ],
+  "privileged_caveat": [
+    "F3 VestingDeployer.transferVesting arbitrary grantor (token issuer)"
+  ],
+  "bounded_low": [
+    "F4 StepVesting releaseRate denominator"
+  ]
+}

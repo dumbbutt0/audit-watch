@@ -1,0 +1,69 @@
+{
+  "research_only": true,
+  "phase": "P85",
+  "subject": "munchables-2024-07",
+  "commit": "e9056afd7dbdc3b2c6a25602231af87da6da4bc7",
+  "blindness": "repo-key-blind (findings repo cloned only AFTER prekey_freeze.json) + web-blind; residual model-training contamination acknowledged (public C4 contest) — trustworthy core = safety / severity-gate / controls / isolated key-blind adversarial.",
+  "answer_key": {
+    "high": 5, "medium": 1,
+    "H-01": "transferToUnoccupiedPlot does not update plotId in ToilerState -> single plot multiple renters",
+    "H-02": "_farmPlots invalid validation -> repeated farming without locked funds",
+    "H-03": "_farmPlots finalBonus miscalculation -> unable to unstake all NFTs",
+    "H-04": "_getNumPlots underflow when PRICE_PER_PLOT increased -> freeze of funds (NFT)",
+    "H-05": "dirty flag not reset in transferToUnoccupiedPlot -> permanent loss of reward accrual on valid plot",
+    "M-01": "stakeMunchable does not verify plotMetadata set -> farm on zero-tax land",
+    "low_02": "updateTaxRate bypasses lastUpdated/timestamp refresh -> distorts schnibble calc (LOW)"
+  },
+  "metrics": {
+    "blind_lead_recall": {
+      "in_scope_files": 1,
+      "lens_surfaced_functions_for_awarded": "6/6 (single contract; lens enumerated all 8 external entrypoints; every awarded finding's function was surfaced and investigated)",
+      "note": "recall bottleneck here is NOT surface (full coverage) but conversion depth + severity calibration"
+    },
+    "safety": {
+      "C_SOURCE_FALSE": 0,
+      "C_unsupported_READY": 0,
+      "C_HARD_FAIL": 0,
+      "C_detector_to_finding": 0,
+      "C_severity_FP": 1,
+      "all_C_promotions_adversarially_reviewed": true,
+      "note": "1 severity FP: updateTaxRate promoted POC_REQUIRED/Medium but judged LOW ([02]). Gate did not demote because impact_class was fed as 'medium' (blind mis-calibration), not a gate-logic fault."
+    },
+    "mechanism_correctness": {
+      "correct_mechanism_promotions": 2,
+      "wrong_mechanism_promotions": 0,
+      "note": "both promotions name the correct source mechanism; updateTaxRate's mechanism is real but Low-severity (over-rated)."
+    },
+    "conversion": {
+      "clean_or_strong": 1,
+      "hits": ["H-05"],
+      "CLEAN_HIT": ["H-05 (dirty-flag-never-reset -> permanent reward loss; same root-cause invariant + High severity; isolated adversarial reviewer independently identified the exact transferToUnoccupiedPlot reset-omission locus)"],
+      "note": "1 CLEAN_HIT on H-05 (High). updateTaxRate is NOT a conversion of an awarded H/M (maps to LOW [02])."
+    },
+    "severity_gate_behavior": {
+      "severity_FP_prevented": [],
+      "severity_FP_survived": ["updateTaxRate: promoted Medium, judged Low [02] -> over-calibration"],
+      "false_demotions": [],
+      "note": "Inverse-direction recurrence of the P81e calibration signal (P81e UNDER-rated a DoS; P85 OVER-rates a bounded/lazy accounting issue). Named generic failure."
+    },
+    "controls": {
+      "privileged_rejected": "2/2 (configUpdated onlyConfigStorage; updatePlotMetadata onlyConfiguredContract) rejected at DEFENSE_TRACED",
+      "controls_promoted_incorrectly": 0
+    }
+  },
+  "honest_misses": {
+    "H-01": "REJECTED transferToUnoccupiedPlot as 'harmless'; missed the plotId-not-updated -> multi-renter bug",
+    "H-02": "missed (repeated-farming validation)",
+    "H-03": "near-miss: considered finalBonus int16 path but abstained (config-dependent)",
+    "H-04": "near-miss: surfaced numPlots-drop + finalBonus underflow mechanisms but did not promote the PRICE_PER_PLOT-increase underflow->freeze",
+    "M-01": "near-miss: considered the tax-zero-if-no-metadata mechanism in stakeMunchable but REJECTED as 'landlord misconfig' (judges = Medium); UNDER-rated"
+  },
+  "verdict": "QUALIFIED — NOT A CLEAN PASS. PASS-level on: sealed-key discipline preserved, >=1 blind CLEAN_HIT (H-05 High), controls 2/2 clean, isolated key-blind adversarial PASS on both promotions, P84 generator produced a reject-first bundle for the CLEAN_HIT. BUT the strict '0 severity FPs in C' condition is NOT met: 1 severity FP survived C (updateTaxRate Medium vs awarded Low), which is listed under FAIL ('severity FP survives C'). Net: a productive run that surfaced a real, named, generic weakness (severity OVER-calibration on bounded/lazy accounting issues). Conversion recall modest (1/6 awarded H/M) — bottleneck is conversion depth + severity calibration, not surface (6/6 surfaced).",
+  "named_generic_failure": "severity over-calibration: bounded / lazy-settlement accounting issues (in-game yield mis-accrual) promoted at Medium when judged Low. Recurs (inverse direction) with the P81e DoS under-rating -> severity calibration is the cross-eval bottleneck.",
+  "action_per_constraints": "STOP and report. No scanner-machinery tuning. No retroactive post-key demotion (would violate 'do not tune after opening the key'). Frozen blind result kept as-is.",
+  "caveats": [
+    "training-contamination residual (unquantifiable; subject not studied in-project; key opened only post-freeze)",
+    "single in-scope contract -> high surface recall is partly a function of small scope",
+    "H-05 CLEAN_HIT: my primary lead trigger was the landlord-lock-dip path; the canonical award + my isolated adversarial reviewer both pin the transferToUnoccupiedPlot reset-omission as the locus (same root-cause invariant + High severity)"
+  ]
+}

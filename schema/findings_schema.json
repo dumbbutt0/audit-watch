@@ -1,0 +1,395 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SmartContractAuditFindings",
+  "description": "Canonical output shape for all specialist subagents",
+  "type": "object",
+  "required": [
+    "agent",
+    "contract",
+    "findings"
+  ],
+  "properties": {
+    "agent": {
+      "type": "string",
+      "description": "Name of the specialist agent that produced this file",
+      "enum": [
+        "reentrancy",
+        "access_control",
+        "arithmetic",
+        "oracle",
+        "flash_loan",
+        "logic",
+        "protocol_context",
+        "report_synthesis",
+        "dos",
+        "snapshot",
+        "deep_trace",
+        "behavioral_state_analysis",
+        "semantic_guard",
+        "erc4626",
+        "transient_storage",
+        "economic_attack",
+        "token_integration",
+        "cross_chain",
+        "upgrade_storage",
+        "compound_synthesis",
+        "attacker_mindset",
+        "fuzz_attacker_synthesis",
+        "supply_chain_check",
+        "multi_pass_confirm",
+        "cross_agent"
+      ]
+    },
+    "contract": {
+      "type": "string",
+      "description": "Path to the audited contract file"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Finding"
+      }
+    }
+  },
+  "definitions": {
+    "Finding": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "severity",
+        "vuln_type",
+        "description",
+        "location",
+        "impact",
+        "recommendation",
+        "confidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique finding ID: <AGENT_PREFIX>-<THREE_DIGIT_NUMBER>. e.g. RE-001, AC-002. DS- for dos, SN- for snapshot",
+          "pattern": "^[A-Z]{2,3}-[0-9]{3}$"
+        },
+        "title": {
+          "type": "string",
+          "description": "One-line summary of the finding. Max 80 chars.",
+          "maxLength": 80
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "Critical",
+            "High",
+            "Medium",
+            "Low",
+            "Informational"
+          ]
+        },
+        "vuln_type": {
+          "type": "string",
+          "description": "Taxonomy tag matching Solodit knowledge base categories",
+          "enum": [
+            "reentrancy",
+            "access-control",
+            "arithmetic",
+            "oracle-manipulation",
+            "flash-loan",
+            "logic-error",
+            "gas-griefing",
+            "dos",
+            "signature-replay",
+            "storage-collision",
+            "proxy-upgrade",
+            "unchecked-return",
+            "front-running",
+            "price-manipulation",
+            "other"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "description": "Full explanation of the vulnerability: what it is, why it exists, and what an attacker can do with it."
+        },
+        "location": {
+          "type": "object",
+          "required": [
+            "file",
+            "function"
+          ],
+          "properties": {
+            "file": {
+              "type": "string"
+            },
+            "function": {
+              "type": "string"
+            },
+            "line_start": {
+              "type": "integer"
+            },
+            "line_end": {
+              "type": "integer"
+            },
+            "code_snippet": {
+              "type": "string",
+              "description": "The exact vulnerable lines from the contract"
+            }
+          }
+        },
+        "impact": {
+          "type": "string",
+          "description": "Concrete worst-case outcome: funds drained, access gained, contract bricked, etc."
+        },
+        "proof_of_concept": {
+          "type": "string",
+          "description": "Optional: attack scenario or Foundry test skeleton demonstrating exploitability"
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Specific, actionable fix with corrected code where possible"
+        },
+        "references": {
+          "type": "array",
+          "description": "Related Solodit findings or EIPs that informed this finding",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "solodit",
+                  "eip",
+                  "docs",
+                  "other"
+                ]
+              }
+            }
+          }
+        },
+        "confidence": {
+          "type": "string",
+          "description": "How certain is the agent that this is a real issue, not a false positive",
+          "enum": [
+            "High",
+            "Medium",
+            "Low"
+          ]
+        },
+        "duplicate_of": {
+          "type": "string",
+          "description": "If this finding overlaps another, set to the other finding's ID. Report generator will merge them."
+        },
+        "invariant_violated": {
+          "type": "string",
+          "description": "Invariant ID from data/invariants/protocol_invariants.json if this finding violates a named invariant"
+        },
+        "thread_id": {
+          "type": "string",
+          "description": "Deep trace thread ID if this finding originated from the deep_trace stage"
+        },
+        "interaction_chain_id": {
+          "type": "string",
+          "description": "Call graph chain ID from the interaction mapper if applicable"
+        },
+        "trace_depth": {
+          "type": "integer",
+          "description": "How many contract hops deep the vulnerability is (from deep trace hop_traces)"
+        },
+        "ite": {
+          "type": "object",
+          "description": "ITE framework decomposition (Jason Hadex methodology): Intent, Technique, Evasion",
+          "properties": {
+            "intent": {
+              "type": "string",
+              "description": "What the attacker achieves — one sentence naming the victim and the loss"
+            },
+            "technique": {
+              "type": "string",
+              "description": "How the attack is executed — specific call sequence with line references"
+            },
+            "evasion": {
+              "type": "string",
+              "description": "What protection the developer intended and what the exact gap is"
+            }
+          }
+        },
+        "confirmation_passes": {
+          "type": "integer",
+          "description": "Number of multi-pass confirmation runs that returned YES",
+          "minimum": 0
+        },
+        "confirmation_score": {
+          "type": "number",
+          "description": "Fraction of confirmation passes that returned YES (0.0–1.0)",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "human_review_required": {
+          "type": "boolean",
+          "description": "True if this finding requires human auditor validation before submission"
+        },
+        "human_review_reason": {
+          "type": "string",
+          "description": "Why human review is required (confirmation_score too low, novel pattern, etc.)"
+        },
+        "attack_surface_rank": {
+          "type": "integer",
+          "description": "Attack surface score 1–5 from attacker_mindset agent for the affected function",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "manifest_refs": {
+          "type": "array",
+          "description": "Coverage-manifest item ids this finding targets (from output/coverage_manifest.json). Populated by agents or best-effort by scripts/link_findings_to_manifest.py. Used by the coverage gate (disposition status 'finding') and min_confirm_gate. Optional in the schema; strictness is enforced at gate time via coverage_policy.finding_requires_manifest_refs.",
+          "items": { "type": "string" }
+        },
+        "bsa_metadata": {
+          "type": "object",
+          "description": "Behavioral State Analysis metadata — only set by the behavioral_state_analysis agent",
+          "properties": {
+            "stated_intent": {
+              "type": "string",
+              "description": "The intent expressed in NatSpec or comments"
+            },
+            "actual_behavior": {
+              "type": "string",
+              "description": "What the code actually does"
+            },
+            "divergence_type": {
+              "type": "string",
+              "enum": [
+                "modifier_missing",
+                "invariant_violated",
+                "logic_mismatch",
+                "doc_lie",
+                "role_asymmetry"
+              ]
+            }
+          }
+        },
+        "defense_mapping": {
+          "type": "object",
+          "description": "Defense coverage assessment produced by defense_mapper.py. Set after Step 1.5.",
+          "properties": {
+            "applicable_defenses": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "modifier":   { "type": "string" },
+                  "class":      { "type": "string" },
+                  "strength":   { "type": "string", "enum": ["strong", "weak"] },
+                  "defined_in": { "type": "string" },
+                  "inherited":  { "type": "boolean" }
+                }
+              }
+            },
+            "coverage": {
+              "type": "string",
+              "enum": ["full", "partial", "none", "unknown"]
+            },
+            "evasion_path": {
+              "type": "string",
+              "description": "How the attack bypasses the defense, or empty string if no bypass identified"
+            },
+            "inherited_from": {
+              "type": "string",
+              "description": "Parent contract name if the blocking defense is inherited"
+            }
+          }
+        },
+        "invalidation_tags": {
+          "type": "array",
+          "description": "Hard invalidation tags applied by pre_submission_gate.py. Any tag blocks submission.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "already_guarded",
+              "admin_only",
+              "impossible_state",
+              "no_profitability",
+              "non_exploitable",
+              "unrealistic_liquidity",
+              "requires_compromised_key",
+              "unverifiable_assumption",
+              "duplicate_pattern",
+              "duplicate_finding"
+            ]
+          }
+        },
+        "assumption_count": {
+          "type": "integer",
+          "description": "Number of preconditions the exploit requires that are not guaranteed by the protocol. Low = more reliable exploit, high = brittle FP candidate.",
+          "minimum": 0
+        },
+        "critical_assumptions": {
+          "type": "array",
+          "description": "Named preconditions the exploit depends on that are not protocol-guaranteed. Feeds ground-truth calibration.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cross_agent_refs": {
+          "type": "array",
+          "description": "IDs of findings from other specialist agents that touch the same function or state variable. Populated by specialist agents during Step 2. Used by cross_agent_connector and synthesize_compound_findings to prioritize pair evaluation.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "compound_with": {
+          "type": "array",
+          "description": "IDs of other findings that combine with this one into a compound exploit path. Set by cross_agent_connector.py when severity does not escalate (annotation-only mode).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cross_agent_note": {
+          "type": "string",
+          "description": "Human-readable description of the compound path when compound_with is set but no new CC_CA finding was created."
+        },
+        "ice_chain": {
+          "type": "object",
+          "description": "Impact Chain Escalation metadata. Agents SHOULD populate this before submitting a finding. If consumer_found=false, the finding is auto-routed to poc_required at triage.",
+          "properties": {
+            "corrupted_state": {
+              "type": "string",
+              "description": "The state variable or storage slot that the vulnerability corrupts (e.g. 'balances[attacker]', '_isManager[addr]')"
+            },
+            "consumer_found": {
+              "type": "boolean",
+              "description": "Whether a trusted protocol consumer of the corrupted state was identified. false = auto-routes to poc_required."
+            },
+            "consumer_function": {
+              "type": "string",
+              "description": "The function that reads/uses the corrupted state (e.g. 'withdraw()', 'isInManagement()')"
+            },
+            "consumer_action": {
+              "type": "string",
+              "description": "What the consumer does with the corrupted state — the worst-case protocol action (e.g. 'transfers ETH', 'grants mint rights')"
+            },
+            "severity_ceiling": {
+              "type": "string",
+              "enum": ["Critical", "High", "Medium", "Low", "Informational"],
+              "description": "Maximum severity supported by the identified consumer chain. Caps claimed severity."
+            },
+            "search_method": {
+              "type": "string",
+              "description": "How the consumer was found: 'static_search', 'manual_trace', 'llm_inference', 'not_searched'"
+            }
+          },
+          "required": []
+        }
+      }
+    }
+  }
+}

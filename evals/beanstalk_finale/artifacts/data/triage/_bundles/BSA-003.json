@@ -1,0 +1,99 @@
+{
+  "finding_id": "BSA-003",
+  "title": "ReseedSilo @dev 're-issues all stalk to holders' but per-token '= ' assignment overwrites prior tokens, so multi-token holders keep only their last token's stalk",
+  "agent": "",
+  "claimed_severity": "High",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+    "function": "reseedSiloDeposit",
+    "line_start": 159,
+    "line_end": 165
+  },
+  "description": "ReseedSilo.init NatSpec (lines 70-74) documents the invariant: the function '- re-issues all stalk to holders.' init calls reseedSiloDeposit six times (bean, beanEth, beanWstEth, bean3Crv, urBean, urBeanLp) against the same s.accts mapping. Inside reseedSiloDeposit the comment on line 163 reads '// set stalk for account' and the code is `s.accts[deposits.accounts].stalk = accountStalk;` \u2014 a plain assignment, not an increment. Because the six token passes share the same account keys, any holder with deposits in more than one token has their stalk overwritten on each subsequent pass, leaving only the last token's (urBeanLp) stalk. This directly contradicts the contract-level documented guarantee of re-issuing ALL stalk. Notably the sibling migration path L2ContractMigrationFacet.setStalk uses `+=` for exactly this accumulation, confirming the intended semantics and revealing an asymmetry between the two reseed/migration code paths.",
+  "impact": "The documented 'all stalk re-issued' guarantee is violated for every multi-token depositor: they receive only the last token's stalk on L2, permanently losing the rest of their governance weight and earned-Bean share after migration.",
+  "ite": {
+    "intent": "Stated intent: re-issue each holder's full (summed across tokens) stalk during the L1->L2 reseed.",
+    "technique": "Per-token loop assigns (=) account stalk; later token passes overwrite earlier ones for the same account.",
+    "evasion": "No attacker; the divergence self-triggers during the migration upgrade for every multi-token holder."
+  },
+  "ice_chain": {
+    "corrupted_state": "s.accts[account].stalk (set to last-token value, not the documented sum)",
+    "impact": "Loss of stalk -> loss of yield (earned-Bean share) and governance voting power",
+    "consumer_found": true,
+    "consumer_function": "LibSilo earned-Bean distribution and governance vote-weight reads of s.accts[].stalk",
+    "exploit_path": "init -> reseedSiloDeposit(token1) sets stalk -> reseedSiloDeposit(token2) overwrites stalk -> ... -> account retains only urBeanLp stalk"
+  },
+  "source_slice": "129:                 totalBdvForAccount += deposits.dd[j].bdv;\n130: \n131:                 // increment by grown stalk of deposit.\n132:                 accountStalk += uint96(siloDeposit.stemTip - stem) * deposits.dd[j].bdv;\n133: \n134:                 // increment totalCalcDeposited and totalCalcDepositedBdv.\n135:                 totalCalcDeposited += deposits.dd[j].amount;\n136:                 totalCalcDepositedBdv += deposits.dd[j].bdv;\n137: \n138:                 // emit events.\n139:                 emit AddDeposit(\n140:                     deposits.accounts,\n141:                     siloDeposit.token,\n142:                     stem,\n143:                     deposits.dd[j].amount,\n144:                     deposits.dd[j].bdv\n145:                 );\n146:                 emit TransferSingle(\n147:                     deposits.accounts, // operator\n148:                     address(0), // from\n149:                     deposits.accounts, // to\n150:                     depositId, // depositID\n151:                     deposits.dd[j].amount // token amount\n152:                 );\n153:             }\n154:             // update mowStatuses for account and token.\n155:             s.accts[deposits.accounts].mowStatuses[siloDeposit.token].bdv = totalBdvForAccount;\n156:             s.accts[deposits.accounts].mowStatuses[siloDeposit.token].lastStem = siloDeposit\n157:                 .stemTip;\n158: \n159:             // increment stalkForAccount by the stalk issued per BDV.\n160:             // placed outside of loop for gas effiency.\n161:             accountStalk += stalkIssuedPerBdv * totalBdvForAccount;\n162: \n163:             // set stalk for account.\n164:             s.accts[deposits.accounts].stalk = accountStalk;\n165:         }\n166: \n167:         // verify that the total deposited and total deposited bdv are correct.\n168:         require(\n169:             totalCalcDeposited == siloDeposit.totalDeposited,\n170:             \"ReseedSilo: INVALID_TOTAL_DEPOSITS\"\n171:         );\n172:         require(\n173:             totalCalcDepositedBdv == siloDeposit.totalDepositedBdv,\n174:             \"ReseedSilo: INVALID_TOTAL_DEPOSITED_BDV\"\n175:         );\n176: \n177:         // set global state\n178:         s.sys.silo.balances[siloDeposit.token].deposited = siloDeposit.totalDeposited;\n179:         s.sys.silo.balances[siloDeposit.token].depositedBdv = siloDeposit.totalDepositedBdv;\n180:     }\n181: }",
+  "gate_verdict": {
+    "finding_id": "BSA-003",
+    "severity": "High",
+    "vuln_type": "behavioral_state_divergence",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.536009+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

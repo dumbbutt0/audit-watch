@@ -1,0 +1,99 @@
+{
+  "finding_id": "CC-005",
+  "title": "Migration EIP-712 domain separator hardcodes L1 chainId and lacks any per-message nonce or destination-L2 binding, enabling cross-deployment/multi-L2 signature reuse",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "Medium",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+    "function": "_domainSeparatorV4",
+    "line_start": 136,
+    "line_end": 241
+  },
+  "description": "The migration permit is signed on L1 and verified on L2. _domainSeparatorV4() builds the domain with C.getLegacyChainId() (a hardcoded constant = 1, Ethereum mainnet) and address(this). The struct hash covers only (owner, reciever, deadline) \u2014 there is no nonce and no field identifying the specific destination L2 / L2 Beanstalk deployment. Consequently a single owner signature is valid on any L2 deployment whose migration facet shares the same address(this) and the same hardcoded legacy chainId domain, and it carries no monotonically increasing nonce to bound reuse. This is the cross-chain authorization-scoping weakness underlying CC-001/CC-003: the permit is not scoped to a single chain/deployment nor to a single use. If Beanstalk migrates to (or redeploys on) more than one L2, or the diamond address is deterministic across L2s, the same signature is replayable across each.",
+  "impact": "Cross-deployment / multi-L2 replay of a single migration signature and absence of a nonce that would otherwise bound CC-001. On a single-L2 deployment the practical impact is subsumed by CC-001; the standalone severity (signature not scoped to destination chain + no nonce) is Medium. The hardcoded legacy chainId also means the domain does not reflect the actual L2, so any future chainId-based replay protection is absent.",
+  "ite": {
+    "intent": "Scope each migration permit to exactly one chain, one deployment, and one use",
+    "technique": "Domain uses a hardcoded legacy chainId and address(this); struct hash omits nonce and destination-L2 identifier",
+    "evasion": "Reuse the same signature across deployments / repeatedly because nothing in the signed payload binds chain or usage count"
+  },
+  "ice_chain": {
+    "corrupted_state": "authorization scope: a single signature is valid across deployments and reusable",
+    "consumer_found": true,
+    "consumer_function": "verifySignature -> redeemDepositsAndInternalBalances credit path",
+    "impact": "Cross-L2 / repeated acceptance of one signature -> amplifies CC-001 replay and CC-003 redirection",
+    "exploit_path": "obtain one L1 signature -> present it on any matching deployment / repeatedly -> verifySignature passes each time (no nonce, no destination binding)"
+  },
+  "source_slice": "106:         // set deposits for `reciever`.\n107:         uint256 accountStalk;\n108:         for (uint256 i; i < deposits.length; i++) {\n109:             accountStalk += addMigratedDepositsToAccount(reciever, deposits[i]);\n110:         }\n111: \n112:         // set stalk for account.\n113:         setStalk(reciever, accountStalk, ownerRoots);\n114:     }\n115: \n116:     /**\n117:      * @notice verfies that the input parameters for deposits\n118:      * are correct.\n119:      */\n120:     function verifyDepositsAndInternalBalances(\n121:         address account,\n122:         AccountDepositData[] calldata deposits,\n123:         AccountInternalBalance[] calldata internalBalances,\n124:         uint256 ownerRoots,\n125:         bytes32[] calldata proof\n126:     ) internal pure {\n127:         bytes32 leaf = keccak256(abi.encode(account, deposits, internalBalances, ownerRoots));\n128:         require(MerkleProof.verify(proof, MERKLE_ROOT, leaf), \"Migration: invalid proof\");\n129:     }\n130: \n131:     /**\n132:      * @notice verifies that the signature came from the owner.\n133:      * @dev the signature is signed on the L1 blockchain.\n134:      * the deposit data itself is not needed, as the signature\n135:      */\n136:     function verifySignature(\n137:         address owner,\n138:         address reciever,\n139:         uint256 deadline,\n140:         bytes calldata signature\n141:     ) internal view {\n142:         require(block.timestamp <= deadline, \"Migration: permit expired deadline\");\n143:         bytes32 structHash = keccak256(\n144:             abi.encode(REDEEM_DEPOSIT_TYPE_HASH, owner, reciever, deadline)\n145:         );\n146: \n147:         bytes32 hash = _hashTypedDataV4(structHash);\n148:         address signer = ECDSA.recover(hash, signature);\n149:         require(signer == owner, \"Migration: permit invalid signature\");\n150:     }\n151: \n152:     function addMigratedDepositsToAccount(\n153:         address account,\n154:         AccountDepositData calldata depositData\n155:     ) internal returns (uint256 accountStalk) {\n156:         int96 stemTip = LibTokenSilo.stemTipForToken(depositData.token);\n157:         uint256 stalkIssuedPerBdv = s.sys.silo.assetSettings[depositData.token].stalkIssuedPerBdv;\n158:         uint128 totalBdvForAccount;\n159:         uint128 totalDeposited;\n160:         uint128 totalDepositedBdv;\n161:         for (uint256 i; i < depositData.depositIds.length; i++) {\n162:             // verify that depositId is valid.\n163:             uint256 depositId = depositData.depositIds[i];\n164:             (address depositToken, int96 stem) = depositId.unpackAddressAndStem();\n165:             require(depositToken == depositData.token, \"Migration: INVALID_DEPOSIT_ID\");\n166:             require(stemTip >= stem, \"Migration: INVALID_STEM\");\n167: \n168:             // add deposit to account.\n169:             s.accts[account].deposits[depositId].amount = depositData.amounts[i];\n170:             s.accts[account].deposits[depositId].bdv = depositData.bdvs[i];\n171: \n172:             // increment totalBdvForAccount by bdv of deposit:\n173:             totalBdvForAccount += depositData.bdvs[i];\n174: \n175:             // increment by grown stalk of deposit.\n176:             accountStalk += uint96(stemTip - stem) * depositData.bdvs[i];\n177: \n178:             // emit events.\n179:             emit AddDeposit(\n180:                 account,\n181:                 depositData.token,\n182:                 stem,\n183:                 depositData.amounts[i],\n184:                 depositData.bdvs[i]\n185:             );\n186:             emit TransferSingle(msg.sender, address(0), account, depositId, depositData.amounts[i]);\n187:         }\n188: \n189:         // update mowStatuses for account and token.\n190:         s.accts[account].mowStatuses[depositData.token].bdv = totalBdvForAccount;\n191:         s.accts[account].mowStatuses[depositData.token].lastStem = stemTip;\n192: \n193:         // set global state\n194:         s.sys.silo.balances[depositData.token].deposited = totalDeposited;\n195:         s.sys.silo.balances[depositData.token].depositedBdv = totalDepositedBdv;\n196: \n197:         // increment stalkForAccount by the stalk issued per BDV.\n198:         // placed outside of loop for gas effiency.\n199:         accountStalk += stalkIssuedPerBdv * totalBdvForAccount;\n200:     }\n201: \n202:     /**\n203:      * @notice increments the stalk and roots for an account.\n204:      */\n205:     function setStalk(address account, uint256 accountStalk, uint256 accountRoots) internal {\n206:         s.accts[account].stalk += accountStalk;\n207:         s.accts[account].roots += accountRoots;\n208: \n209:         // emit event.\n210:         emit StalkBalanceChanged(account, int256(accountStalk), int256(accountRoots));\n211:     }\n212: \n213:     /**\n214:      * @notice Hashes in an EIP712 compliant way.\n215:      * @dev Returns an Ethereum Signed Typed Data, created from a\n216:      * `domainSeparator` and a `structHash`. This produces hash corresponding\n217:      * to the one signed with the\n218:      * https://eips.ethereum.org/EIPS/eip-712[`eth_signTypedData`]\n219:      * JSON-RPC method as part of EIP-712.\n220:      *\n221:      * Sourced from OpenZeppelin 0.8 ECDSA lib.\n222:      */\n223:     function _hashTypedDataV4(bytes32 structHash) internal view returns (bytes32) {\n224:         return keccak256(abi.encodePacked(\"\\x19\\x01\", _domainSeparatorV4(), structHash));\n225:     }\n226: \n227:     /**\n228:      * @notice Returns the domain separator for the current chain.\n229:      */\n230:     function _domainSeparatorV4() internal view returns (bytes32) {\n231:         return\n232:             keccak256(\n233:                 abi.encode(\n234:                     EIP712_TYPE_HASH,\n235:                     MIGRATION_HASHED_NAME,\n236:                     MIGRATION_HASHED_VERSION,\n237:                     C.getLegacyChainId(),\n238:                     address(this)\n239:                 )\n240:             );\n241:     }\n242: }",
+  "gate_verdict": {
+    "finding_id": "CC-005",
+    "severity": "Medium",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.541033+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

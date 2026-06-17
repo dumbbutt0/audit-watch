@@ -1,0 +1,65 @@
+{
+  "bug_class": "shared_position_fee_routing",
+  "description": "A pooled/shared position (e.g. one Uniswap V3 position) is shared across many internal accounting shares; a per-user action collects the WHOLE position's accrued fees and routes the other users' share to a third party (or fails to credit it), so later claimants lose fees or their claim reverts. Anchored on the Vultisig 2024-06 H-01 ILOPool.claim case.",
+  "required_for_medium": [
+    "order_independence_invariant_broken",
+    "fee_diversion_to_third_party_proven"
+  ],
+  "required_for_high": [
+    "order_independence_invariant_broken",
+    "fee_diversion_to_third_party_proven",
+    "later_claim_revert_or_underpay_proven",
+    "loss_magnitude_quantified"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "two+ users hold internal shares of one shared position; fees accrue via normal trading",
+    "L3B": "first user's claim collects the whole position's fees and the other users' share is routed away / not credited (assert recipient balance delta)",
+    "L3C": "a later user's claim pays strictly less than the order-independent baseline, or reverts (assert before/after balances across both orderings)"
+  },
+  "poc_level_requirements": {
+    "L3A": [
+      "order_independence_invariant_broken"
+    ],
+    "L3B": [
+      "order_independence_invariant_broken",
+      "fee_diversion_to_third_party_proven"
+    ],
+    "L3C": [
+      "order_independence_invariant_broken",
+      "fee_diversion_to_third_party_proven",
+      "later_claim_revert_or_underpay_proven",
+      "loss_magnitude_quantified"
+    ]
+  },
+  "proof_signatures": {
+    "order_independence_invariant_broken": [
+      "claiming FIRST",
+      "claiming SECOND",
+      "order-independent",
+      "vm.snapshot",
+      "vm.revertTo"
+    ],
+    "fee_diversion_to_third_party_proven": [
+      "feeTaker",
+      "residual",
+      "balanceOf(feeTaker)",
+      "routed to",
+      "third party balance delta"
+    ],
+    "later_claim_revert_or_underpay_proven": [
+      "REVERT",
+      "claim reverts",
+      "receives 0",
+      "underpaid",
+      "fewer tokens"
+    ],
+    "loss_magnitude_quantified": [
+      "USDC lost",
+      "loss =",
+      "delta",
+      "amount lost"
+    ]
+  },
+  "high_severity_rationale": "High requires proving that a non-first claimant either cannot withdraw their vested position (claim reverts -> funds locked) or is paid strictly less than the order-independent baseline, AND that the missing value is diverted to a third party. Medium is proven by showing the order-independence invariant is broken and fees are diverted, without a quantified principal-class loss.",
+  "negative_control_template": "Collect only the per-claim amounts the caller is owed (e.g. collect(uint128(amount0), uint128(amount1)) instead of collect(max, max)), or advance each internal share's fee checkpoint, so other users' fees stay in the position. Assert the later claim pays the same as the order-independent baseline and does not revert."
+}

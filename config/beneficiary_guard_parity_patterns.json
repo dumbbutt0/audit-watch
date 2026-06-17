@@ -1,0 +1,19 @@
+{
+  "lens": "beneficiary_guard_parity",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Generalized CLASS of the P304 centrifuge M-04 miss: within ONE contract, some state-mutating functions guard a beneficiary param with an owner-tied check (a withApproval(owner) modifier / require(msg.sender==owner)) while SIBLING functions take a beneficiary param of the same role UNGUARDED -> a third party can act for the beneficiary (deposit/claim-for-others griefing/DoS). Two-signal: S1 the contract has >=1 owner-guarded beneficiary function (establishes the intended guard); S2 a sibling beneficiary function is external + state-mutating + NOT owner-guarded + NOT admin-access-controlled. Suppress: views; admin-guarded (auth/onlyX) functions; contracts with no owner-guarded sibling (a uniformly permissionless vault has no asymmetry). Anchor: centrifuge LiquidityPool.deposit/mint (unguarded receiver) vs requestDeposit/withdraw/redeem (withApproval(owner)). Does NOT assert exploitability — flags the guard asymmetry surface.",
+
+  "beneficiary_roles": ["owner", "receiver", "user", "account", "beneficiary", "onbehalfof", "holder", "depositor", "investor"],
+  "owner_guard_modifiers": ["withapproval", "onlyowner", "onlyself", "onlyaccountowner", "onlyholder", "owneronly", "onlybeneficiary", "withpermission"],
+  "inline_self_check": ["msg.sender == owner", "msg.sender==owner", "_msgsender() == owner", "msg.sender == _owner", "msg.sender==_owner", "msg.sender == account", "msg.sender == receiver", "require(msg.sender == owner", "require(owner == msg.sender"],
+  "admin_access_modifiers": ["auth", "onlygateway", "onlyrouter", "onlypoolmanager", "onlyinvestmentmanager", "onlyrole", "onlyadmin", "onlyward", "restricted", "onlyclaimer", "onlyliquidationpair", "onlyyieldfeerecipient", "canpause", "onlymanager", "onlykeeper", "ongovernance", "onlygovernance"],
+  "view_markers": [" view ", " pure ", "view returns", "pure returns", " view\n", " pure\n"],
+  "suppress_contract_suffixes": ["like"],
+
+  "fp_controls": {
+    "two_signal_required": "S1 a sibling owner-guarded beneficiary function exists AND S2 this beneficiary function is external + state-mutating + neither owner-guarded nor admin-access-controlled.",
+    "no_guarded_sibling_suppression": "a contract that never owner-guards a beneficiary param (a uniformly permissionless vault) -> no asymmetry -> silent.",
+    "admin_guard_suppression": "functions carrying an admin modifier (auth/onlyGateway/onlyRole/...) are access-controlled, not an open beneficiary surface -> suppressed.",
+    "view_suppression": "view/pure functions -> suppressed."
+  }
+}

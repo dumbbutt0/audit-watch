@@ -1,0 +1,74 @@
+{
+  "_doc": "Phase-81b surface-recall lens taxonomy (RESEARCH-ONLY, un-wired). GENERIC vocab only — NO subject-specific identifiers. A surface class is a SECURITY-RELEVANT ENTRYPOINT SHAPE, not a bug. The lens is recall-biased: any in-scope public/external function (+ receive/fallback) matching >=1 class becomes a STATIC_LEAD with mechanism left uncertain; precision is the downstream P77/P78 job.",
+  "_flags": {"is_gate": false, "research_only": true, "review_only": true, "routes_in_production": false, "routed_manifest_ids": []},
+
+  "surface_classes": {
+    "bridge_receive": {
+      "why": "inbound bridge/cross-chain callback that EXECUTES on an attacker-influenced payload from a relayer (state-changing, not a view/math helper). P81c: tightened to a real bridge-callback NAME or a cross-chain SHAPE; abi.decode/bare-bytes no longer trigger it.",
+      "name_substr": ["receive", "sgreceive", "lzreceive", "oncredit", "credit", "compose", "onoftreceived", "lzcompose", "onflashloan"],
+      "exclude_view_pure": true,
+      "require_any": ["name", "crosschain_shape"],
+      "crosschain_shape_needs_bytes_param": true,
+      "crosschain_body_substr": ["srcchain", "srcaddress", "srcpoolid", "origin", "remote", "_nonce", "lzendpoint"],
+      "weight": 3
+    },
+    "external_executor": {
+      "why": "executes/forwards an arbitrary target+data call supplied (directly or indirectly) by the caller",
+      "name_substr": ["execute", "forward", "relay", "dispatch", "perform", "run", "proxycall", "multicall", "batch"],
+      "body_substr": [".call(", ".call{", ".delegatecall(", "functioncall", "(success", "bool success"],
+      "weight": 3
+    },
+    "admin_config_setter": {
+      "why": "authority-boundary mutation of routing/ownership/oracle/fee config. P81f: NO LONGER requires an auth modifier — an UNGUARDED state-changing config setter (the missing-access-control bug class, e.g. H-01 unguarded setRouter) is exactly the interesting case and must be captured. The signals.auth_gated flag distinguishes guarded vs unguarded downstream; exclude_view_pure keeps view 'set'-named getters out.",
+      "name_prefix": ["set", "update", "add", "remove", "register", "config", "change", "grant", "revoke", "enable", "disable"],
+      "exclude_view_pure": true,
+      "weight": 2
+    },
+    "fee_path": {
+      "why": "fee collection / redemption / recipient transfer",
+      "name_substr": ["fee", "collect", "redeem", "claim", "skim", "tip", "commission"],
+      "weight": 2
+    },
+    "refund_path": {
+      "why": "refund / leftover / excess / sweep return of residual value",
+      "name_substr": ["refund", "sweep", "rescue", "recover", "withdrawexcess", "returnvalue"],
+      "body_substr": ["leftover", "excess", "remaining", "refund"],
+      "weight": 2
+    },
+    "value_exit": {
+      "why": "moves value out of the contract (possibly to a caller-controlled recipient)",
+      "name_substr": ["withdraw", "redeem", "claim", "bridge", "swap", "send", "transfer", "pay", "unwrap", "deposit"],
+      "body_substr": ["transfer(", "transferfrom(", "safetransfer", ".call{value", "sendvalue", ".transfer(", "_mint(", "_burn("],
+      "weight": 2
+    },
+    "calldata_forward": {
+      "why": "user-controlled bytes payload forwarded into an external/low-level call",
+      "shape_bytes_param": true,
+      "body_substr": [".call(", ".call{", ".delegatecall(", "abi.decode", "functioncall"],
+      "weight": 2,
+      "requires_both_shape_and_body": true
+    },
+    "auth_boundary": {
+      "why": "trusted-caller / role / owner gate (or an UNGATED state-changing entry, which is itself the interesting case)",
+      "auth_modifier_regex": "^only[a-z]",
+      "body_substr": ["msg.sender", "hasrole", "require(owner", "_checkowner", "isoperable", "operator"],
+      "weight": 1
+    }
+  },
+
+  "auth_modifier_regex": "^(only[a-z_]|requires?[a-z_]|restricted|auth)",
+  "mutability_keywords": ["view", "pure", "payable", "nonpayable", "constant"],
+  "visibility_keywords": ["public", "external", "internal", "private"],
+  "header_noise_tokens": ["virtual", "override", "returns", "memory", "calldata", "storage", "payable", "view", "pure", "public", "external", "internal", "private", "modifier"],
+
+  "exclusions": {
+    "skip_visibilities": ["internal", "private"],
+    "skip_interface_contracts": true,
+    "skip_no_body": true,
+    "skip_names_exact": ["constructor"],
+    "skip_pure_view_getter_unless_class": true,
+    "max_leads_per_contract": 40
+  },
+
+  "_no_subject_names_note": "This file MUST NOT contain any subject-specific contract/function identifier (asserted by tests). All tokens above are generic DeFi/bridge vocabulary or standard protocol-callback names (sgReceive/lzReceive are Stargate/LayerZero interface methods, not subject-specific)."
+}

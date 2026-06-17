@@ -1,0 +1,67 @@
+P140 — runtime output (key steps)
+
+=== bash -n + import ===
+bash -n OK
+json OK
+import OK; ingest_results present: True
+
+=== focused tests ===
+$ python -m pytest tests/mechanism_advisory/test_value_provenance_completion.py -q
+................                                                          [100%]
+16 passed in 0.09s
+
+$ python -m pytest tests/mechanism_advisory/ -q
+...................................................                      [100%]
+51 passed in 0.15s
+
+=== noya measurement (active audit -> noya) ===
+$ readlink output
+audits/noya-2024-04-eval/output
+
+$ python scripts/run_value_provenance_advisories.py            # rebuild P139 jobs
+[run_value_provenance_advisories] advisory_only · 2 jobs ({'pending_manual_execution': 2}), skipped 8, queued 0
+  VP-SolvencyV2.convertAmountsToValues pending_manual_execution pending
+  VP-NoyaValueOracle._getValue pending_manual_execution pending
+
+# created output/value_provenance_manual_results/VP-NoyaValueOracle._getValue.json
+#   from the P137 blind deep-pass result (finding/high, manual_in_session, neutral mechanism)
+
+$ python scripts/run_value_provenance_advisories.py --ingest-results
+[run_value_provenance_advisories --ingest-results] accepted 1, rejected 0, unmatched 0 · completed 1, pending 1 · advisory_only (never confirmed/submission-ready)
+
+  VP-SolvencyV2.convertAmountsToValues | pending_manual_execution | pending | advisory_only True sub_ready False req_hr True
+  VP-NoyaValueOracle._getValue         | completed                | finding | advisory_only True sub_ready False req_hr True
+
+ingestion report summary: {"accepted":1,"rejected":0,"unmatched":0,"completed":1,"pending_remaining":1,"by_decision":{"finding":1}}
+
+$ python scripts/generate_review_gate.py
+Review gate written: .../audits/noya-2024-04-eval/output/review_gate.md
+  Confirmed findings: 0
+PIPELINE PAUSED — Step 4 complete.
+
+review_gate.md VP subsection:
+| Status                   | Location                            | Decision               | Confidence | Next step   | Mechanism | Job |
+| pending_manual_execution | SolvencyV2.convertAmountsToValues   | pending                | -          | -           | ...       | VP-SolvencyV2.convertAmountsToValues.md |
+| completed                | NoyaValueOracle._getValue           | finding — NOT confirmed| high       | build_poc   | ...       | VP-NoyaValueOracle._getValue.md |
+
+NoyaValueOracle._getValue in Validated Findings table?: False
+
+=== idempotency ===
+diff run1 run2 -> IDEMPOTENT ✓
+re-render Confirmed findings: 0
+
+=== restore ===
+restored noya VP results (ran:False); manual dir removed ✓; noya session restored
+output symlink -> audits/quantamm-2024-12-eval/output
+agent_policy.active_audit field = flare-network-2026-05 (vestigial/decoupled; unchanged)
+P140 config keys survived: True True True
+
+=== rank_signal_probe self-test ===
+$ python scripts/assisted/rank_signal_probe.py --self-test
+  [PASS] deterministic on re-run
+SELF-TEST: OK
+
+=== full suite ===
+$ python -m pytest -q
+2 failed, 1637 passed, 4 skipped in 60.91s
+  (2 failures = pre-existing deep_solidity frozen-snapshot tests, output/ symlink coupling, unrelated to P140)

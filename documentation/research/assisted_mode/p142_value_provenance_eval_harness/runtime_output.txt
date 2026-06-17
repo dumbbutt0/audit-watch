@@ -1,0 +1,36 @@
+P142 — runtime output (research-only, un-wired; no production code changed)
+
+=== harness end-to-end ===
+$ python scripts/research/value_provenance_eval_harness.py all
+[all] totals={'queued': 11, 'completed': 11, 'finding': 3, 'likely_exploitable': 0, 'needs_human': 1,
+      'strong_clear': 7, 'error': 0, 'clean_strong_clear': 6, 'clean_false_finding': 0, 'buggy': 5, 'clean': 6,
+      'buggy_useful': 4, 'buggy_strict': 3, 'rejected': 0, 'useful_recall': 0.8, 'strict_recall': 0.6,
+      'clean_false_finding_rate': 0.0} · clean_FP_rate=0.0
+
+scorecard.md:
+| arch      | queued | completed | finding | needs_human | strong_clear | clean_FP | useful_recall |
+| blackhole | 3      | 3         | 1       | 0           | 2            | 0.0      | 1.0           |
+| noya      | 6      | 6         | 2       | 0           | 4            | 0.0      | 0.667         |
+| size      | 2      | 2         | 0       | 1           | 1            | 0.0      | 1.0           |
+| TOTAL     | 11     | 11        | 3       | 1           | 7            | 0.0      | 0.8           |
+
+flags on scorecard.json: is_gate=False research_only=True routes_in_production=False routed_manifest_ids=[] routing_allowed=False
+
+=== un-wired check ===
+$ grep -rn value_provenance_eval_harness run_pipeline.sh config/agent_policy.json
+UN-WIRED ✓ (no production reference)
+
+=== tests ===
+$ python -m pytest tests/research/test_value_provenance_eval_harness.py -q
+..............                                                            [100%]
+14 passed in 0.10s
+
+=== integrity ===
+$ bash -n run_pipeline.sh -> OK
+$ python scripts/assisted/rank_signal_probe.py --self-test -> SELF-TEST: OK
+$ readlink output -> audits/quantamm-2024-12-eval/output   (unchanged)
+$ python -m pytest -q
+2 failed, 1651 passed, 4 skipped in 61.77s
+  (1651 = 1637 baseline + 14 new; 2 failures = pre-existing deep_solidity frozen-snapshot tests, output/ symlink coupling)
+
+DECISION: ACCEPT_STANDING_HARNESS

@@ -1,0 +1,209 @@
+{
+  "agent": "token_integration",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-28T00:00:00Z",
+  "findings": [
+    {
+      "id": "TI-001",
+      "title": "EIP-712 domain hardcodes chainId=1, breaking Diamond permits/Tractor on L2",
+      "severity": "High",
+      "vuln_type": "signature-replay",
+      "description": "Beanstalk builds three independent EIP-712 domain separators inside the Diamond \u2014 LibSiloPermit (Silo Deposit permits), LibTokenPermit (farm-balance ERC20 permits), and LibTractor (Tractor blueprint signing). All three build the domain separator with `C.getChainId()` instead of the runtime `block.chainid`. `C.getChainId()` returns the constant `CHAIN_ID = 1` hardcoded in C.sol (line 22). EIP-712 requires the domain separator's `chainId` field to equal the chain the contract is actually executing on. The protocol is being redeployed to an L2 whose chainId is NOT 1 (e.g. Arbitrum 42161, Base 8453, Optimism 10). Every off-chain signer that follows EIP-712 correctly \u2014 MetaMask, ethers/viem `signTypedData`, and the Beanstalk SDK \u2014 will populate the domain `chainId` with the L2's real chainId. The on-chain verifier recomputes the digest with chainId=1, so `ECDSA.recover` returns an address that does not equal `owner`, and every permit/blueprint reverts with 'permit invalid signature'. Result: permit-based deposit approvals (ApprovalFacet.permitDeposit / permitDeposits), farm-balance ERC20 permits (TokenFacet.permitToken via TokenSupportFacet), and the entire Tractor blueprint/requisition system are non-functional on the L2 deployment. There is no on-chain setter to fix the constant; it would require a code upgrade. (Note: cross-chain replay against L1 Beanstalk is NOT possible because the domain also encodes `address(this)` and the L2 Diamond has a different address \u2014 the impact is functionality breakage / signature DoS, not replay.)",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/C.sol",
+        "function": "getChainId",
+        "line_start": 22,
+        "line_end": 22,
+        "code_snippet": "uint256 private constant CHAIN_ID = 1;  // used by LibSiloPermit._buildDomainSeparator (LibSiloPermit.sol:164), LibTokenPermit._buildDomainSeparator (LibTokenPermit.sol:82), LibTractor._domainSeparatorV4 (LibTractor.sol:180)"
+      },
+      "impact": "On the L2 redeployment, every Silo Deposit permit, farm-balance ERC20 permit, and Tractor blueprint/requisition signature fails verification (signer != owner). Permit-based UX and the entire Tractor automation subsystem are bricked until a contract upgrade re-points the chainId. Standard-compliant wallets cannot produce a signature that the contract will accept.",
+      "proof_of_concept": "1. Deploy Beanstalk Diamond to an L2 with block.chainid = 42161. 2. User signs a SiloDeposit permit with their wallet; the wallet uses domain {name:'SiloDeposit', version:'1', chainId:42161, verifyingContract: diamond}. 3. Submit ApprovalFacet.permitDeposit(owner, spender, token, value, deadline, v, r, s). 4. LibSiloPermit.permit -> _hashTypedDataV4 -> _domainSeparatorV4 -> _buildDomainSeparator encodes chainId = C.getChainId() = 1 (NOT 42161). 5. ECDSA.recover(hash, v, r, s) returns an address != owner. 6. require(signer == owner) reverts 'Silo: permit invalid signature'. Identical failure for LibTokenPermit.permit and any Tractor blueprint verified via LibTractor._domainSeparatorV4.",
+      "recommendation": "Replace the hardcoded `C.getChainId()` in all three domain-separator builders with the runtime opcode `block.chainid`, and follow the OpenZeppelin EIP712 pattern of caching the separator while re-deriving it whenever `block.chainid` changes (protects against L2 forks). Do not rely on a compile-time constant for chainId in any EIP-712 domain. Verify L2ContractMigrationFacet's use of `C.getLegacyChainId()` (=1) is intentional, since that signature is meant to be produced on L1.",
+      "references": [
+        {
+          "title": "EIP-712: Typed structured data hashing and signing",
+          "url": "https://eips.ethereum.org/EIPS/eip-712",
+          "source": "eip"
+        },
+        {
+          "title": "OpenZeppelin EIP712 _domainSeparatorV4 caches and rebuilds on chainid change",
+          "url": "https://docs.openzeppelin.com/contracts/utils#EIP712",
+          "source": "docs"
+        }
+      ],
+      "confidence": "High",
+      "attack_surface_rank": 5,
+      "ite": {
+        "intent": "Render permit-based approvals and the Tractor blueprint system unusable for every user on the L2 deployment.",
+        "technique": "LibSiloPermit.sol:164 / LibTokenPermit.sol:82 / LibTractor.sol:180 build the domain separator with C.getChainId() (C.sol:22 -> constant 1). On an L2 the wallet signs over the real block.chainid; the on-chain recompute uses 1, so ECDSA.recover != owner and the require at LibSiloPermit.sol:86 (and equivalents) reverts.",
+        "evasion": "The developer intended a per-chain domain separator (the comment on _domainSeparatorV4 reads 'domain separator for the current chain'), but wired it to a compile-time constant instead of block.chainid, so it is correct only on mainnet."
+      },
+      "ice_chain": {
+        "corrupted_state": "EIP-712 domain separator (chainId field) used in LibSiloPermit, LibTokenPermit, LibTractor",
+        "impact": "All signature-gated entrypoints (permitDeposit/permitDeposits, permitToken, Tractor publishRequisition/tractor) revert for standard-compliant signers on L2",
+        "consumer_found": true,
+        "consumer_function": "ApprovalFacet.permitDeposit / TokenFacet.permitToken / TractorFacet.tractor (via LibSiloPermit.permit, LibTokenPermit.permit, LibTractor verification)",
+        "exploit_path": "User produces an EIP-712 signature with their wallet using the L2 chainId -> submits to permit/tractor entrypoint -> contract recomputes digest with chainId=1 -> recover != owner -> revert; no permit can ever succeed on L2."
+      },
+      "human_review_required": false
+    },
+    {
+      "id": "TI-002",
+      "title": "Hardcoded mainnet WETH address bricks wrapEth/unwrapEth on L2",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "Both the active TokenFacet WETH wrapper (libraries/Token/LibWeth.sol) and the migration L1TokenFacet wrapper (beanstalk/migration/L1Libraries/LibWeth.sol) hardcode the Ethereum mainnet WETH9 address `0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2` as a `constant` (line 16 in each). The same value is the `C.WETH` constant in C.sol (line 64). TokenFacet imports the active Token/LibWeth and exposes wrapEth/unwrapEth guarded by `oneOutFlow(C.WETH)` (TokenFacet.sol:236). On the L2 target, the canonical WETH contract lives at a completely different address (Arbitrum 0x82aF...; Base 0x4200...0006; Optimism 0x4200...0006). On L2, `IWETH(WETH).deposit{value: amount}()` and `IWETH(WETH).withdraw(amount)` call code at the mainnet address \u2014 which on the L2 is either non-existent (call to an account with no code -> low-level call returns, but the contract has no fallback minting WETH, so the user pays ETH and receives nothing / interface call reverts) or, worse, an unrelated contract. ETH sent to a wrong/empty address during wrap is lost or trapped, and unwrap's subsequent `balanceOf`/`withdraw` accounting on the wrong token is meaningless.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Token/LibWeth.sol",
+        "function": "wrap/unwrap/deposit/withdraw",
+        "line_start": 16,
+        "line_end": 36,
+        "code_snippet": "address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;  // also duplicated in beanstalk/migration/L1Libraries/LibWeth.sol:16 and C.sol:64"
+      },
+      "impact": "On the L2 deployment, ETH<->WETH wrapping via TokenFacet is broken: wrapEth either reverts or routes user ETH to the wrong address (potential loss of the wrapped amount), and unwrapEth cannot retrieve real WETH. Any flow relying on internal WETH balances is corrupted.",
+      "proof_of_concept": "1. Deploy to Base (block.chainid=8453, canonical WETH = 0x4200000000000000000000000000000000000006). 2. User calls TokenFacet.wrapEth{value: 1 ether}(To.EXTERNAL). 3. LibWeth.wrap -> deposit -> IWETH(0xC02a...756Cc2).deposit{value:1 ether}(). 4. The mainnet WETH address has no/unrelated code on Base; deposit does not mint WETH to Beanstalk. 5. LibTransfer.sendToken then attempts to send 1 WETH the protocol never received -> reverts or transfers nothing; the 1 ETH is consumed by the failed/empty call path.",
+      "recommendation": "Do not hardcode WETH as a compile-time constant in a multi-chain codebase. Source WETH from a chain-configurable storage variable set at deployment (or from C with a per-chain build), and assert at init that the configured WETH address has code and matches the chain's canonical WETH. Consolidate the duplicated definitions in C.sol, Token/LibWeth.sol, and L1Libraries/LibWeth.sol to a single configurable source.",
+      "references": [
+        {
+          "title": "Hardcoded token addresses break on alternate chains",
+          "url": "https://eips.ethereum.org/EIPS/eip-3675",
+          "source": "other"
+        }
+      ],
+      "confidence": "High",
+      "attack_surface_rank": 4,
+      "ite": {
+        "intent": "Cause loss/locking of user ETH and break WETH wrapping for all users on the L2 deployment.",
+        "technique": "TokenFacet.wrapEth (TokenFacet.sol:236) -> LibWeth.wrap (Token/LibWeth.sol:18) -> IWETH(0xC02a...756Cc2).deposit on a chain where that address is not WETH.",
+        "evasion": "The developer relied on a single canonical WETH constant valid only on mainnet; there is no per-chain configuration or code-existence assertion before the external deposit/withdraw call."
+      },
+      "ice_chain": {
+        "corrupted_state": "WETH integration address (constant) used for deposit/withdraw and internal WETH balance accounting",
+        "impact": "wrapEth consumes ETH without minting WETH; unwrapEth cannot retrieve WETH; internal WETH balances are unbacked",
+        "consumer_found": true,
+        "consumer_function": "TokenFacet.wrapEth / TokenFacet.unwrapEth (LibWeth.wrap/unwrap)",
+        "exploit_path": "Any user calls wrapEth on L2 -> external deposit hits the mainnet WETH address (no/unrelated code on L2) -> ETH lost or call reverts; protocol-wide WETH flows fail."
+      },
+      "human_review_required": false
+    },
+    {
+      "id": "TI-003",
+      "title": "Hardcoded mainnet PIPELINE address routes convert funds to wrong address on L2",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "LibPipelineConvert.executePipelineConvert transfers the user's input token to the hardcoded mainnet Pipeline address `C.PIPELINE = 0xb1bE0000C6B3C62749b5F0c92480146452D15423` (C.sol:66) via `IERC20(inputToken).transfer(C.PIPELINE, fromAmount)` (line 53), executes advanced farm calls, then recovers the output by reading `IERC20(tokenOut).balanceOf(C.PIPELINE)` (line 136) and pulling tokens back with `IPipeline(C.PIPELINE).pipe(...)` (line 142). The Pipeline contract on the L2 will be deployed at a different address than mainnet (Pipeline is deterministically deployed but the address depends on deployer nonce/CREATE2 salt and is not guaranteed identical across chains; the codebase itself marks the closely-related BEAN_WSTETH_WELL as `// TODO: Set` at C.sol:73, evidence these constants are not yet finalized for the new deployment). If C.PIPELINE does not match the actual L2 Pipeline: (a) the input-token transfer at line 53 sends user funds to an address with no/unrelated code, so the farm calls operate on a Pipeline that never received the funds and `transferTokensFromPipeline` reverts on `require(amountOut > 0)` at best \u2014 or (b) if some unrelated contract sits at that address, funds are stranded. Additionally line 53 uses a raw `IERC20.transfer` (return value unchecked) rather than SafeERC20 \u2014 for non-reverting non-standard tokens this would silently proceed, though Bean/Well LP tokens revert on failure so this sub-issue is secondary.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Convert/LibPipelineConvert.sol",
+        "function": "executePipelineConvert / transferTokensFromPipeline",
+        "line_start": 53,
+        "line_end": 142,
+        "code_snippet": "IERC20(inputToken).transfer(C.PIPELINE, fromAmount);  // line 53; recovery reads IERC20(tokenOut).balanceOf(C.PIPELINE) (line 136) and IPipeline(C.PIPELINE).pipe(p) (line 142)"
+      },
+      "impact": "If the hardcoded C.PIPELINE constant does not equal the L2 Pipeline deployment, every pipeline-convert sends user deposit tokens to the wrong address; converts revert (DoS of the convert feature) or, if a contract occupies that address, user funds are lost/stranded. Convert is a core Silo operation, so this disables a major protocol function or risks fund loss on the L2.",
+      "proof_of_concept": "1. Deploy Beanstalk + Pipeline to L2; actual L2 Pipeline = 0xPIPE_L2 != C.PIPELINE. 2. User calls a convert that routes through LibPipelineConvert.executePipelineConvert. 3. Line 53: input token transferred to 0xb1bE...15423 (mainnet Pipeline addr) which is empty on L2. 4. executeAdvancedFarmCalls runs against pipeline logic that never received the tokens. 5. transferTokensFromPipeline reads balanceOf(0xb1bE...15423)=0 -> require(amountOut>0) reverts ('Convert: No output tokens left in pipeline'); the input transfer already moved user tokens to a dead address.",
+      "recommendation": "Make the Pipeline address a chain-configurable value set at deployment/init rather than a mainnet constant, and assert it has code. Replace the raw `IERC20(inputToken).transfer(...)` at line 53 with `SafeERC20.safeTransfer`. Finalize all `// TODO: Set` constants (e.g. BEAN_WSTETH_WELL, C.sol:73) before any L2 deployment and add an init-time invariant that every integration address in C has non-empty code on the target chain.",
+      "references": [
+        {
+          "title": "Unchecked ERC20 transfer return value",
+          "url": "https://eips.ethereum.org/EIPS/eip-20",
+          "source": "eip"
+        }
+      ],
+      "confidence": "Medium",
+      "attack_surface_rank": 3,
+      "ite": {
+        "intent": "Strand or revert user convert funds by routing them to a Pipeline address that is wrong on the L2.",
+        "technique": "LibPipelineConvert.executePipelineConvert line 53 transfers to C.PIPELINE (mainnet constant); recovery at lines 136/142 reads/pulls from the same wrong address; if it is empty on L2 the convert reverts after funds already left the Diamond.",
+        "evasion": "Pipeline integration is wired to a compile-time mainnet constant; there is no per-chain configuration nor a code-existence check, and adjacent constants are still marked TODO."
+      },
+      "ice_chain": {
+        "corrupted_state": "C.PIPELINE integration address used to push input tokens and recover output tokens during convert",
+        "impact": "Convert reverts or sends user tokens to a dead/unrelated address on L2",
+        "consumer_found": true,
+        "consumer_function": "LibConvert.convert -> LibPipelineConvert.executePipelineConvert / transferTokensFromPipeline",
+        "exploit_path": "User initiates a pipeline convert on L2 -> input token transferred to mainnet Pipeline address (no code on L2) -> recovery balanceOf=0 -> revert; tokens already moved out of the Diamond."
+      },
+      "human_review_required": true,
+      "human_review_reason": "Confidence depends on the actual L2 Pipeline deployment address vs the hardcoded constant; needs verification of the deploy plan / CREATE2 salt for the target chain."
+    },
+    {
+      "id": "TI-004",
+      "title": "Hardcoded mainnet oracle and token addresses break price feeds on L2",
+      "severity": "Medium",
+      "vuln_type": "oracle-manipulation",
+      "description": "LibUsdOracle and LibWstethEthOracle resolve prices using hardcoded mainnet addresses from C.sol: the Chainlink registry `chainlinkRegistry = 0x47Fb2585...` (LibUsdOracle.sol:36), the ETH/USD, wstETH/ETH, USDC/USD and USDT/USD Chainlink aggregators (C.sol:79-84), the wstETH/ETH Uniswap V3 0.01% pool (C.sol:87), and token-address branch comparisons against `C.WETH` / `C.WSTETH` (LibUsdOracle.sol:50,55,78,83 and LibWstethEthOracle.sol:76,85,86). On the L2 these aggregator/pool/registry addresses point to contracts that do not exist or are unrelated, and the token-identity comparisons (`if (token == C.WETH)`) will never match the L2's real WETH/wstETH tokens \u2014 so the oracle either reverts (call to non-contract / Chainlink registry missing the feed) or silently falls through to a wrong branch and returns an incorrect or zero price. Because USD pricing feeds Fertilizer minting (LibUsdOracle is used by FertilizerFacet via getBarnRaiseToken pricing) and Silo BDV/deltaB logic, a wrong/stale/zero price corrupts mint amounts and convert penalties. This is reported separately from the EIP-712 issue because the failure surface is the price layer, but it is the same root cause class: mainnet-only constants in C.sol used unchanged on L2.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibUsdOracle.sol",
+        "function": "getUsdPrice / chainlinkRegistry branches",
+        "line_start": 36,
+        "line_end": 83,
+        "code_snippet": "address constant chainlinkRegistry = 0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf; ... if (token == C.WETH) {...} if (token == C.WSTETH) {...}  // C.sol:79-87 aggregator/pool constants are mainnet-only"
+      },
+      "impact": "On L2, USD price resolution reverts or returns wrong/zero values. Downstream this corrupts Fertilizer mint sizing, deltaB/BDV calculations, and convert stalk penalties \u2014 leading to either DoS of pricing-dependent functions or mis-priced mints. Severity capped at Medium pending confirmation of which feeds exist on the target L2 and whether init re-points them.",
+      "proof_of_concept": "1. Deploy to L2 where Chainlink registry 0x47Fb2585... and ETH/USD aggregator 0x5f4eC3Df... do not exist. 2. Call any flow reaching LibUsdOracle.getUsdPrice(token). 3. The Chainlink call to the non-existent registry/aggregator reverts (staticcall to empty address returning no data) or the `token == C.WETH` branch never matches the L2 WETH token, returning a default/zero price. 4. FertilizerFacet.mintFertilizer / convert penalty math consumes the wrong price.",
+      "recommendation": "Move all oracle endpoints (Chainlink registry, per-asset aggregators, UniV3 pool) and token-identity constants (WETH, WSTETH, USDC, USDT) to chain-configurable storage set at init, and assert each has code and returns a fresh round on the target L2. Audit every `token == C.X` comparison so it references the L2 token addresses.",
+      "references": [
+        {
+          "title": "Chainlink feed registry availability varies by chain",
+          "url": "https://docs.chain.link/data-feeds",
+          "source": "docs"
+        }
+      ],
+      "confidence": "Medium",
+      "attack_surface_rank": 3,
+      "ite": {
+        "intent": "Cause mispriced mints or DoS of pricing-dependent functions for all users on the L2.",
+        "technique": "LibUsdOracle.sol:36/50/55/78/83 and LibWstethEthOracle.sol read mainnet Chainlink/UniV3 constants (C.sol:79-87) and compare against C.WETH/C.WSTETH; on L2 these addresses/identities are wrong so the call reverts or returns an incorrect price consumed by FertilizerFacet/convert.",
+        "evasion": "Oracle wiring assumes mainnet feed addresses; no per-chain feed configuration or freshness/existence assertion is performed at deployment."
+      },
+      "ice_chain": {
+        "corrupted_state": "USD/ETH price returned by LibUsdOracle/LibWstethEthOracle",
+        "impact": "Wrong or zero price feeds Fertilizer mint sizing and convert/deltaB penalty math",
+        "consumer_found": true,
+        "consumer_function": "FertilizerFacet.mintFertilizer (via LibUsdOracle) and LibConvert penalty/deltaB calculations",
+        "exploit_path": "Pricing-dependent function called on L2 -> oracle reads mainnet feed addresses absent on L2 -> revert or wrong price -> mint/convert outcomes corrupted."
+      },
+      "human_review_required": true,
+      "human_review_reason": "Requires confirming which Chainlink feeds / UniV3 pools exist on the specific L2 target and whether the deploy init re-points these constants."
+    },
+    {
+      "id": "TI-005",
+      "title": "Fertilizer ERC1155 safe-mint acceptance check can brick mintFertilizer",
+      "severity": "Medium",
+      "vuln_type": "dos",
+      "description": "Fertilizer1155._safeMint (Fertilizer1155.sol:79-89) always runs __doSafeTransferAcceptanceCheck on mint, which \u2014 when the recipient is a contract \u2014 calls `IERC1155Receiver(to).onERC1155Received(...)` and reverts the whole mint if the receiver returns a non-magic value or reverts (lines 95-116). beanstalkMint (Fertilizer.sol:47-60) is invoked by FertilizerFacet.mintFertilizer (FertilizerFacet.sol:85) with recipient `LibTractor._user()`. A smart-contract account (Safe, abstract-account wallet, or any contract that bought through the Barn Raise) that does not implement onERC1155Received will cause its OWN mintFertilizer call to revert after the LP/recapitalization side effects in addFertilizer have begun \u2014 making it impossible for such accounts to buy Fertilizer. Because Beanstalk increasingly targets contract/AA users on L2 and the Tractor system lets operators act on behalf of publishers, this is a realistic griefing/DoS surface for contract buyers, not merely self-inflicted. The acceptance check is correct per the ERC-1155 spec, but combined with a single-shot mint-and-recapitalize flow it converts an unsupported-receiver into a hard buy failure. This is the only Fertilizer ERC1155 correctness item found: the TransferSingle/TransferBatch event operator/from/to ordering (Fertilizer1155.sol:45,72,86) is spec-correct, and safeTransferFrom/safeBatchTransferFrom auth checks are present.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/tokens/Fertilizer/Fertilizer1155.sol",
+        "function": "_safeMint / __doSafeTransferAcceptanceCheck",
+        "line_start": 79,
+        "line_end": 116,
+        "code_snippet": "function _safeMint(...) { ... __doSafeTransferAcceptanceCheck(operator, address(0), to, id, amount, data); }  // reverts mint if `to` is a contract without IERC1155Receiver"
+      },
+      "impact": "Smart-contract accounts (Safes, AA wallets) that do not implement IERC1155Receiver cannot purchase Fertilizer \u2014 mintFertilizer reverts for them. On an L2 with heavy AA usage this denies a core protocol action to a class of users and can grief Tractor-operated purchases on behalf of contract publishers.",
+      "proof_of_concept": "1. A multisig/AA wallet (no onERC1155Received) calls FertilizerFacet.mintFertilizer with valid tokenAmountIn. 2. _getMintFertilizerOut passes, addFertilizer runs. 3. C.fertilizer().beanstalkMint(user=multisig, ...) -> _safeMint -> __doSafeTransferAcceptanceCheck -> IERC1155Receiver(multisig).onERC1155Received reverts (no such function / fallback reverts). 4. Entire mintFertilizer transaction reverts; the contract account can never buy Fertilizer.",
+      "recommendation": "Either document that Fertilizer recipients MUST implement IERC1155Receiver, or relax the mint path to not enforce the acceptance check on mint to non-receiver contracts (e.g. mint without the callback, mirroring how some protocols separate mint from safeTransfer), or expose a buy-for-EOA path. Confirm that all integration constants used in the same flow (BEAN_WSTETH_WELL is `// TODO: Set` in C.sol:73) are finalized before L2 deployment to avoid a separate addFertilizer revert.",
+      "references": [
+        {
+          "title": "ERC-1155 safeTransferFrom acceptance check",
+          "url": "https://eips.ethereum.org/EIPS/eip-1155",
+          "source": "eip"
+        }
+      ],
+      "confidence": "Medium",
+      "attack_surface_rank": 3,
+      "ite": {
+        "intent": "Deny Fertilizer purchase to contract/AA accounts that do not implement IERC1155Receiver.",
+        "technique": "FertilizerFacet.mintFertilizer (FertilizerFacet.sol:85) -> Fertilizer.beanstalkMint -> Fertilizer1155._safeMint -> __doSafeTransferAcceptanceCheck calls onERC1155Received on the contract recipient and reverts the whole tx if unsupported.",
+        "evasion": "The acceptance check is intended to protect against tokens locked in non-receiver contracts, but on a one-shot mint-and-recapitalize path it turns an unsupported receiver into a hard buy failure with no alternative path."
+      },
+      "ice_chain": {
+        "corrupted_state": "Fertilizer mint transaction control flow (reverts) for contract recipients",
+        "impact": "Contract/AA accounts cannot buy Fertilizer; potential griefing of Tractor-operated purchases",
+        "consumer_found": true,
+        "consumer_function": "FertilizerFacet.mintFertilizer",
+        "exploit_path": "Contract account without onERC1155Received calls mintFertilizer -> _safeMint acceptance check reverts -> purchase impossible."
+      },
+      "human_review_required": false
+    }
+  ]
+}

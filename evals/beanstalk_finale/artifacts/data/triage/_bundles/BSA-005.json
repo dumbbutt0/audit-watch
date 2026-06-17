@@ -1,0 +1,99 @@
+{
+  "finding_id": "BSA-005",
+  "title": "ReseedBarn struct @dev 'fertilizerIds MUST be in acsending order' is never enforced in mintFertilizers, allowing a malformed nextFid linked list",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedBarn.sol",
+    "function": "mintFertilizers",
+    "line_start": 72,
+    "line_end": 96
+  },
+  "description": "The Fertilizers struct NatSpec (line 34) states a hard requirement using 'MUST': '@dev fertilizerIds MUST be in acsending order.' mintFertilizers builds the fertilizer linked list relying on this order: it sets s.sys.fert.fertFirst on i==0, s.sys.fert.nextFid[fertilizerIds[i-1].fertilizerId] = fid for i!=0, and s.sys.fert.fertLast on the last element. No require or comparison enforces that f.fertilizerId values are strictly ascending. If the upgrade input is out of order (or contains duplicate ids), the nextFid mapping is wired incorrectly \u2014 producing a chain that skips ids, points backward, or forms a cycle \u2014 while fertFirst/fertLast are taken from positional (not value) extremes. The documented invariant is stated with 'MUST' but enforced only by trust in the caller's input ordering.",
+  "impact": "A non-ascending or duplicate-id input yields a malformed/cyclic fertilizer linked list. Sun fertilizer payout traverses nextFid in id order to pay Beans to fertilizer holders; a corrupted chain strands or mispays fertilizer (holders past the break never get paid, or a cycle disrupts iteration). Bounded by trusted upgrade-caller input, hence Medium per Immunefi v2.2 (incorrect protocol behavior / griefing of payouts rather than directly attacker-permissionless).",
+  "ite": {
+    "intent": "Stated intent ('MUST be ascending'): build a correctly ordered ascending fertilizer linked list.",
+    "technique": "Ordering enforced by NatSpec comment only; no require/comparison on consecutive fertilizerId values.",
+    "evasion": "No attacker; depends on upgrade-caller input correctness \u2014 a documented invariant left structurally unguarded."
+  },
+  "ice_chain": {
+    "corrupted_state": "s.sys.fert.nextFid / fertFirst / fertLast (malformed/cyclic chain on unsorted input)",
+    "impact": "Mispaid or stranded fertilizer rewards during Sun payout iteration",
+    "consumer_found": true,
+    "consumer_function": "Sun/LibFertilizer fertilizer payout traversal of nextFid in id order",
+    "exploit_path": "init with non-ascending/duplicate ids -> nextFid chain malformed -> Sun payout iteration breaks/strands holders"
+  },
+  "source_slice": "42: \n43:     /**\n44:      * @notice deploys Fertilizer and Fertilizer proxy,\n45:      * reissues Fertilizer to each holder.\n46:      */\n47:     function init(\n48:         Fertilizers[] calldata fertilizerIds,\n49:         uint256 activeFertilizer,\n50:         uint256 fertilizedIndex,\n51:         uint256 unfertilizedIndex,\n52:         uint128 bpf\n53:     ) external {\n54:         // deploy fertilizer implmentation.\n55:         Fertilizer fertilizer = new Fertilizer();\n56: \n57:         // deploy fertilizer proxy. Set owner to beanstalk.\n58:         TransparentUpgradeableProxy fertilizerProxy = new TransparentUpgradeableProxy(\n59:             address(fertilizer),\n60:             address(this),\n61:             abi.encode(IFertilizer.init.selector)\n62:         );\n63: \n64:         mintFertilizers(Fertilizer(address(fertilizerProxy)), fertilizerIds);\n65:         s.sys.season.fertilizing = true;\n66:         s.sys.fert.activeFertilizer = activeFertilizer;\n67:         s.sys.fert.fertilizedIndex = fertilizedIndex;\n68:         s.sys.fert.unfertilizedIndex = unfertilizedIndex;\n69:         s.sys.fert.bpf = bpf;\n70:     }\n71: \n72:     function mintFertilizers(\n73:         Fertilizer fertilizerProxy,\n74:         Fertilizers[] calldata fertilizerIds\n75:     ) internal {\n76:         for (uint i; i < fertilizerIds.length; i++) {\n77:             Fertilizers memory f = fertilizerIds[i];\n78:             // set s.firstFid, s.nextFid, s.lastFid\n79:             uint128 fid = f.fertilizerId;\n80:             if (i == 0) s.sys.fert.fertFirst = fid;\n81:             if (i != 0) s.sys.fert.nextFid[fertilizerIds[i - 1].fertilizerId] = fid;\n82:             if (i == fertilizerIds.length - 1) s.sys.fert.fertLast = fid;\n83: \n84:             // reissue fertilizer to each holder.\n85:             for (uint j; j < f.accountData.length; j++) {\n86:                 // `id` only needs to be set once per account, but is set on each fertilizer\n87:                 // as `Fertilizer` does not have a function to set `id` once on a batch.\n88:                 fertilizerProxy.beanstalkMint(\n89:                     f.accountData[j].account,\n90:                     fid,\n91:                     f.accountData[j].amount,\n92:                     f.accountData[j].lastBpf\n93:                 );\n94:             }\n95:         }\n96:     }\n97: }",
+  "gate_verdict": {
+    "finding_id": "BSA-005",
+    "severity": "Medium",
+    "vuln_type": "behavioral_state_divergence",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.540600+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

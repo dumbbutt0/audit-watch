@@ -1,0 +1,120 @@
+{
+  "agent": "protocol_context",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T21:20:00+00:00",
+  "protocol_type": [
+    "amm",
+    "vault",
+    "staking",
+    "governance",
+    "other"
+  ],
+  "protocol_characterization": "Beanstalk 'The Finale' is a credit-based, oracle-free stablecoin (BEAN ~= $1) implemented as an EIP-2535 Diamond. Value/peg flows: Sun (sunrise/gm advances seasons; stepOracle->deltaB->LibWellMinting mints BEAN to Silo/Field/Barn via Multi-Flow Pump TWAP over Wells/Basin), Silo (deposits -> BDV -> stalk + roots = governance weight + earned-BEAN share), Field (sow BEAN -> pods/debt, harvested in season order), Barn (Fertilizer/unripe pays down debt). Tractor/Pipeline/Farm/Depot provide permissionless arbitrary/batched call execution into the diamond. This snapshot is the L1->L2 (Arbitrum) migration + reseed: L1 burns/locks, L2 Reseed*.init() and L2ContractMigrationFacet bulk-write all subsystem state.",
+  "standards": [
+    "ERC-20 (BEAN)",
+    "ERC-1155 (Fertilizer)",
+    "ERC-2612-style permit (LibSiloPermit)",
+    "EIP-712 (migration sigs, permits)",
+    "EIP-2535 (Diamond)",
+    "EIP-1967-adjacent diamond storage"
+  ],
+  "compiler_version": "^0.8.20",
+  "trust_model": "Diamond owner controls diamondCut and the one-shot Reseed*.init()/InitReseed delegatecalls that seed all L2 state; reseed input data is trusted (off-chain computed from L1). Whitelisted tokens, oracle implementations, and well/pump addresses are admin-configured. Users are untrusted and interact permissionlessly with Silo/Field/Barn/Sun/Convert/Tractor/Pipeline. Cross-chain trust: an Arbitrum bridge contract (msg.sender==BRIDGE, xDomainMessageSender==L1BEANSTALK) gates L1-origin Bean remint.",
+  "privileged_roles": [
+    {
+      "role": "Diamond owner / diamondCut",
+      "powers": "wires facets and triggers reseed init delegatecalls; full upgrade authority"
+    },
+    {
+      "role": "Reseed init callers (one-shot via diamondCut)",
+      "powers": "bulk-seed silo/field/barn/stalk/internal-balance state from trusted L1 snapshot data"
+    },
+    {
+      "role": "Oracle/whitelist admin",
+      "powers": "registers Chainlink feeds, custom oracle implementations, whitelisted tokens, gauge params"
+    }
+  ],
+  "external_integrations": [
+    {
+      "protocol": "Basin / Wells (Multi-Flow Pump)",
+      "usage": "AMM reserves + cumulative TWAP feeding deltaB / sunrise mint and convert valuation"
+    },
+    {
+      "protocol": "Chainlink",
+      "usage": "LibChainlinkOracle price feeds (ETH/USD, token/USD) for USD pricing and peg math"
+    },
+    {
+      "protocol": "Pipeline / Depot",
+      "usage": "permissionless arbitrary external-call execution composed into convert/farm/tractor"
+    },
+    {
+      "protocol": "Arbitrum canonical bridge",
+      "usage": "L1->L2 message relay for migrated Beans (BeanL1RecieverFacet / BeanL2MigrationFacet)"
+    },
+    {
+      "protocol": "WETH / wstETH / 3CRV / unripe tokens",
+      "usage": "whitelisted silo deposit assets and convert legs"
+    }
+  ],
+  "protocol_invariants_spanning_subsystems": [
+    "Stalk conservation: s.sys.silo.stalk (global) MUST equal the sum of all s.accts[].stalk; roots conservation likewise. Enforced as a safety net by Invariable.noNetFlow/noOutFlow which read s.sys.silo.stalk as baseline.",
+    "Per-token solvency (Invariable.fundsSafu): contract token balance >= entitlements = silo.balances[token].deposited + germinating + internal balances + (for BEAN) unrinsed fertilized + unripe underlying + unharvested harvestable.",
+    "Silo global total == sum of accounts: s.sys.silo.balances[token].deposited/.depositedBdv MUST equal sum of per-account deposits.",
+    "Migration completeness/conservation: total L1 stalk/roots/deposits/pods/fertilizer/internal balances reseeded on L2 == their L1 values, exactly once, with no inflation or loss.",
+    "Peg integrity: BEAN issuance (sunrise mint) and convert valuation MUST be driven by manipulation-resistant pump TWAP, not single-block spot."
+  ],
+  "external_dependencies_note": "No third-party deps surfaced by static crossref; integrations are in-repo libs (LibWellMinting, LibChainlinkOracle, LibUsdOracle) wrapping external Wells/Chainlink/bridge contracts.",
+  "agent_hints": {
+    "logic": "Reseed sequence completeness is the protocol-level theme: confirm every global aggregate (silo.stalk, silo.roots, silo.balances[token], field.pods, fert chain) is reconciled to the sum of reseeded per-account values across the FULL init set, not per file.",
+    "oracle": "Confirm sunrise mint + convert valuation read pump cumulative TWAP, and whether the inverted LibChainlinkOracle ternary (DT-006) reaches a financial consumer feeding peg/mint.",
+    "economic_attack": "Roots desync after reseed lets the first post-migration mower capture a disproportionate roots/earned-BEAN share vs the reseeded population.",
+    "snapshot": "Global stalk = governance quorum baseline; a zero/understated global total mis-scales every vote and the Invariable stalk-decrease guard.",
+    "access_control": "Reseed*.init() are external with no access modifier (ACCESS-001) \u2014 confirm one-shot diamondCut wiring so they are not re-callable post-upgrade."
+  },
+  "findings": [
+    {
+      "id": "PC-001",
+      "title": "L1->L2 reseed never initializes global Silo total stalk/roots (s.sys.silo.stalk / s.sys.silo.roots), breaking the protocol-wide stalk-conservation invariant and corrupting roots/earned-Bean accounting for the entire migrated population",
+      "severity": "High",
+      "confidence": "High",
+      "description": "Stalk and roots are governance weight and earned-Bean share. The protocol-wide invariant is that the global totals s.sys.silo.stalk and s.sys.silo.roots equal the sum of all per-account s.accts[].stalk / .roots; Invariable.noNetFlow/noOutFlow even enforce 'global stalk does not decrease' against s.sys.silo.stalk as a safety net. During the L1->L2 reseed, ReseedSilo.reseedSiloDeposit issues per-account stalk (s.accts[account].stalk = accountStalk) and per-token global balances, but NEVER writes the global aggregates s.sys.silo.stalk or s.sys.silo.roots. Tracing the entire beanstalk/init/ tree (InitReseed.init, ReseedSilo, ReseedSun, ReseedWhitelist, ReseedField, ReseedBarn, ReseedInternalBalances) confirms there is no write to s.sys.silo.stalk or s.sys.silo.roots anywhere in the reseed/init sequence (grep over beanstalk/init/ returns only the per-account s.accts[].stalk assignment). DT-009 raised this symptom as Medium 'pending a trace of where total stalk is set'; that trace is now complete and the global totals are confirmed to remain zero after migration. Consequences span subsystems: (1) Roots minting breaks \u2014 LibSilo.mintActiveStalk and LibGerminate take the `s.sys.silo.roots == 0` branch and mint roots = stalk * ROOTS_BASE as if the first post-migration actor were the genesis depositor, while every reseeded account holds stalk but ZERO roots; since roots (not stalk) determine earned-Bean distribution, the entire migrated population earns near-zero yield and the first mower/depositor captures a grossly disproportionate root share. (2) Global stalk is understated to 0 while Sigma(accts.stalk) is large, violating stalk conservation; LibGauge (s.sys.silo.stalk.div(totalBdv)) computes wrong gauge output, and the Invariable noNetFlow/noOutFlow baseline is wrong from genesis. (3) LibReceiving sunrise earned-Bean shipping increments global stalk by minted Beans only, so the desync between account stalk and global stalk/roots is permanent. This is a protocol-level, cross-subsystem (Silo + Sun + migration-completeness) invariant break not owned by any single specialist's per-account finding.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+        "function": "reseedSiloDeposit / init",
+        "line_start": 109,
+        "line_end": 180,
+        "related": [
+          "beanstalk/init/InitReseed.sol (init: sets paused/season/flags, no global stalk/roots)",
+          "beanstalk/init/reseed/L2/ReseedSun.sol (init: seedGauge/weather/season, no global stalk/roots)",
+          "libraries/Silo/LibSilo.sol#183-197 (mintActiveStalk roots==0 branch / roots = roots*stalk/silo.stalk)",
+          "libraries/Silo/LibGerminate.sol#100-114 (roots==0 branch / div by silo.stalk)",
+          "libraries/LibGauge.sol#351 (silo.stalk.div(totalBdv))",
+          "beanstalk/Invariable.sol#52-92 (noNetFlow/noOutFlow read s.sys.silo.stalk baseline)"
+        ]
+      },
+      "impact": "Permanent post-migration corruption of the global Silo stalk/roots accounting for the whole protocol: reseeded depositors hold stalk with zero roots and therefore earn near-zero share of all future earned-Bean (sunrise) distributions, while the first post-migration actor mints genesis-scale roots and captures a disproportionate yield/voting share; governance quorum (vote weight aggregate) and LibGauge output are mis-scaled; the Invariable stalk-conservation safety net operates against a wrong baseline. Affects every migrated holder with no attacker required (self-triggers on the reseed), with an additional opportunistic economic upside for the first mower.",
+      "proof_of_concept": "Static/trace-level (no fork run in-session): (1) grep -rn 'sys.silo.stalk|sys.silo.roots' over beanstalk/init/ returns no assignment (only s.accts[].stalk in ReseedSilo:164). (2) ReseedSilo.reseedSiloDeposit writes per-account stalk and per-token silo.balances but no global total. (3) Post-reseed state therefore has s.sys.silo.stalk == 0 and s.sys.silo.roots == 0 while Sigma(s.accts[].stalk) > 0. (4) First post-migration silo interaction calling mow -> mintActiveStalk hits the roots==0 branch (LibSilo:184) minting stalk*ROOTS_BASE roots to that single actor; all reseeded accounts retain 0 roots. (5) Earned-Bean distribution (germination/LibReceiving) allocates by roots, so reseeded population earns ~0 while the genesis-root actor earns the bulk. Foundry PoC to confirm: fork/deploy reseed fixture, assert vm.load(silo.stalk slot)==0 and silo.roots slot==0 after init while an account stalk slot is non-zero (L2 state-flip), then call mow as a fresh EOA and assert that account receives ROOTS_BASE-scaled roots and a reseeded account's earned-Bean share is ~0 (L3 outcome).",
+      "ite": {
+        "intent": "After the L1->L2 reseed the global Silo total stalk and roots must equal the sum of all reseeded per-account stalk/roots, so earned-Bean distribution, governance weight, gauge math, and the Invariable safety net all operate on a consistent base.",
+        "technique": "The reseed writes only per-account stalk (and per-token deposited balances) and omits initializing the global aggregates s.sys.silo.stalk and s.sys.silo.roots; downstream roots minting branches on roots==0 and divides by silo.stalk.",
+        "evasion": "No attacker is needed to trigger the corruption (it self-triggers on the migration upgrade); an opportunistic first-mover can additionally capture genesis-scale roots before others mow."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.silo.stalk == 0 and s.sys.silo.roots == 0 after reseed, while Sigma(s.accts[].stalk) > 0 (conservation invariant broken)",
+        "consumer_found": true,
+        "consumer_function": "LibSilo.mintActiveStalk / LibGerminate (roots minting), earned-Bean distribution by roots, LibGauge, Invariable.noNetFlow/noOutFlow",
+        "impact": "Reseeded population earns ~0 earned-Bean and holds 0 roots; first post-migration actor mints disproportionate genesis-scale roots; gauge/governance/safety-net all mis-scaled",
+        "exploit_path": "diamondCut runs Reseed* init set -> per-account stalk seeded, global silo.stalk/roots left 0 -> first mow -> mintActiveStalk roots==0 branch mints stalk*ROOTS_BASE to caller -> subsequent earned-Bean shipments distribute by roots, starving reseeded holders"
+      },
+      "attack_surface_rank": 4,
+      "verdict": "unresolved_invariant",
+      "ownership_note": "Cross-subsystem protocol-level invariant (Silo total stalk/roots conservation across migration). Generalizes and confirms DT-009 (which was Medium/unconfirmed). Distinct from the per-account specialist findings DT-001 (= vs += per-account overwrite) and DT-002 (per-token global deposited zeroing); PC-001 concerns the never-initialized GLOBAL stalk/roots aggregates, which no Step-2 specialist file currently owns.",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-006",
+          "note": "score-3 invariant covers same state vars (s.accts[account].stalk); not traced \u2014 consider manual review"
+        }
+      ]
+    }
+  ]
+}

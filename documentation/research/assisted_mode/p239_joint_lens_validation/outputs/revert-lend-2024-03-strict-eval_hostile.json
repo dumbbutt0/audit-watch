@@ -1,0 +1,46 @@
+{
+  "lens": "hostile_token_settlement",
+  "generated_at": "2026-06-08T21:53:23.903318+00:00",
+  "manifest": "audits/revert-lend-2024-03-strict-eval/output/coverage_manifest.json",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "raw_candidates": 1,
+  "by_confidence": {
+    "medium": 1
+  },
+  "high": 0,
+  "medium": 1,
+  "low": 0,
+  "candidates": [
+    {
+      "finding_shape": "hostile_token_settlement_dos",
+      "confidence": "medium",
+      "cleanup_verb": "withdraw",
+      "transfer_primitive": "safetransfer(",
+      "token_source": "untrusted token parameter",
+      "explanation": "AutoCompound._withdrawBalanceInternal is a must-succeed withdraw settlement/cleanup flow that pushes a untrusted token parameter via safetransfer( to a counterparty with NO containment (no try/catch, pull-payment, or allowlist). A hostile token (revert / blacklist / false-return / reentrancy) blocks the cleanup, permanently locking assets or denying service to another user (reNFT H-01 / #64 / #605 class).",
+      "signals": {
+        "S1_cleanup_verb": [
+          "withdraw"
+        ],
+        "S2_transfer": [
+          "safetransfer("
+        ],
+        "S3_attacker_sourced": false,
+        "S3_param_token": true,
+        "S4_no_containment": true,
+        "S5_counterparty": true
+      },
+      "contract": "AutoCompound",
+      "function": "_withdrawBalanceInternal",
+      "file": "audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/transformers/AutoCompound.sol",
+      "lens_id": "AutoCompound:hostile_token_settlement_dos",
+      "in_scope": true,
+      "manifest_id": "function:AutoCompound:_withdrawBalanceInternal#a262865c",
+      "file_line_refs": "audits/revert-lend-2024-03-strict-eval/contracts/2024-03-revert-lend/src/transformers/AutoCompound.sol:266",
+      "false_positive_controls": "five-signal (cleanup-verb fn + must-succeed token push + attacker/order-sourced token + missing containment + counterparty recipient); caller-own-asset / try-catch / pull-payment / allowlist / trusted-asset suppressed; admin-only downgraded"
+    }
+  ]
+}

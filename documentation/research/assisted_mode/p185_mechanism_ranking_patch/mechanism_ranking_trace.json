@@ -1,0 +1,48 @@
+{
+  "phase": "P185",
+  "type": "mechanism_carry_forward_ranking_patch_blind_rerun",
+  "read_only": true,
+  "protocol": "blind subagent per function with the UPDATED deep_trace.md prompt (carry-forward rule + selected/unresolved/rejected schema + bound menu line); source only, no answer key. Scorer (answer-aware) checks whether M-02/M-17 are now CARRIED. Raw outputs preserved verbatim below.",
+  "blindness": {"answer_key_in_prompt": false, "finding_ids_in_prompt": false, "subagent_cited_answer_key_ids": false,
+                "residual_caveat": "same model family; n=2 functions re-run; firewall-sealed fresh-model run = gold standard"},
+  "functions": [
+    {
+      "function": "UpliftOnlyExample.onAfterRemoveLiquidity",
+      "targets_here": ["M-02 (primary)", "M-17 (secondary)", "H-07 (already selected in P184)"],
+      "blind_verdict": "VULNERABLE",
+      "blind_selected_mechanisms": [
+        "userData-controlled userAddress -> operate on victim's poolsFeeData; lpNFT.burn + delete/pop victim entries (= H-07)",
+        "unsigned reverse-loop underflow (i=length-1;i>=0;--i) -> DoS/OOB",
+        "lpTokenDepositValueChange = (now-deposit)/deposit integer-divides BEFORE multiply -> uplift fee truncates to 0 for sub-100% appreciation (= M-02)"],
+      "blind_unresolved_mechanisms": [
+        "feePerLP/fee can exceed 100% — upliftFeeBps has no visible clamp vs 10000 and lpTokenDepositValueChange can exceed 1 (= M-17)",
+        "feePercentage normalization mismatch (feeAmount/bptAmountIn scaling)",
+        "manipulable price snapshot (getData inside remove)"],
+      "blind_rejected_mechanisms": [
+        "hook caller/timing spoof — rejected by onlySelfRouter (router==address(this)); leans_on_unproven_guard=false (clean source-backed rejection)"],
+      "blind_stop_condition": "satisfied (3 selected + 3 unresolved)",
+      "scoring": {
+        "M-02": {"P184": "enumerated but FOLDED into rejection_table (demoted)", "P185": "CARRIED as selected_mechanism #3", "fixed": true},
+        "M-17": {"P184": "NOT enumerated", "P185": "enumerated + CARRIED in unresolved_mechanisms", "improved": true},
+        "H-07": {"P184": "selected", "P185": "selected", "stable": true},
+        "demoted_unresolved_flag": {"P184_via_updated_checker": 1, "P185": 0},
+        "selected_count": {"P184": 3, "P185": 3, "noise": "stable"}
+      }
+    },
+    {
+      "function": "UpliftOnlyExample.onAfterSwap",
+      "targets_here": ["H-03 (loose)"],
+      "blind_verdict": "VULNERABLE",
+      "blind_selected_mechanisms": [
+        "adminFee = hookFee/(1e18/quantAMMFeeTake) double-division -> admin overcharge / wrong owner-admin split (= H-03, loose; same region as found-PARTIAL H-02)",
+        "div-by-zero DoS when quantAMMFeeTake>1e18 (missing upper bound) -> all swaps revert"],
+      "blind_unresolved_mechanisms": ["quantAMMFeeTake unbounded <=1e18 (setter upstream)", "hookSwapFeePercentage cap (mulUp could exceed amount)"],
+      "blind_rejected_mechanisms": [
+        "reentrancy via sendTo — no state after sendTo (leans_on_unproven_guard=partial)",
+        "unauthorized caller — onlyVault (clean)"],
+      "blind_stop_condition": "2 selected carried",
+      "scoring": {"H-03": {"P184": "selected (loose)", "P185": "selected (loose) + div-by-zero carried as 2nd", "stable": true},
+                  "selected_count": {"P184": 2, "P185": 2, "noise": "stable"}}
+    }
+  ]
+}

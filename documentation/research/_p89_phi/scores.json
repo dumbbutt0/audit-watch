@@ -1,0 +1,51 @@
+{
+  "research_only": true,
+  "phase": "P89",
+  "subject": "phi-2024-08",
+  "commit": "2465e04364b759c721f1a0aebace69920411f8aa",
+  "purpose": "Validate the COMBINED P86 (over-rating) + P88 (under-rating/liveness) severity calibration on a fresh subject, holding 0-severity-FP.",
+  "blindness": "repo-key-blind (findings cloned only AFTER prekey_freeze.json) + web-blind; training contamination acknowledged.",
+  "severity_gate_under_test": "193abf9f03f138c8 (P88)",
+  "answer_key": {"high": 7, "medium": 8},
+  "metrics": {
+    "blind_surface_recall": {
+      "selected_set": "8 conversion + 3 control = 11 (from 67 lens leads over 9 contracts); 6 conversion fully investigated (2 promoted, 2 rejected, +3 controls), 4 conversion NOT_RUN (signatureClaim/merkleClaim/depositBatch/claimFromFactory)",
+      "note": "selected value-movers covered H-05 (Cred helpers), M-07 (buyShareCredFor); awarded H-01 sig-replay was in signatureClaim (NOT_RUN); H-02/H-04/H-06/H-07 + several M in unselected/uninvestigated surface -> partial recall over the full 15 H/M set"
+    },
+    "investigation_safety": {"C_SOURCE_FALSE": 0, "C_unsupported_READY": 0, "C_HARD_FAIL": 0, "C_detector_to_finding": 0, "all_promotions_adversarially_reviewed": true},
+    "severity_FP_after_P88_gate": 0,
+    "false_demotions": "0 of a SURFACED true M/H (both promotions kept; no bounded issue over-promoted)",
+    "under_ratings": ["H-05 (public _add/_removeCredIdPerAddress): CLEAN_HIT on exact functions but I + adversarial rated Medium; judges = High. The adversarial layer correctly falsified my reward-distribution-DoS impact path (that is a SEPARATE finding, H-03, via shareBalance bloat) and settled on Medium -> one-tier severity under-rating of the access-control finding. Kept, not demoted."],
+    "mechanism_correctness": {"correct_mechanism_promotions": 2, "wrong_mechanism_promotions": 0,
+      "note": "adversarial PASS on both; it CORRECTED my Claim-1 downstream-impact over-reach (reward-dist via the cred-list arrays) to the real sell-DoS/bookkeeping path -- the over-claimed path was falsified PRE-FREEZE (adversarial layer working)."},
+    "conversion": {
+      "clean_or_strong": 2,
+      "CLEAN_HIT": [
+        "H-05 = Cred.batchSellShareCred promotion: public `_addCredIdPerAddress`/`_removeCredIdPerAddress` (L685/L695) verbatim; same mechanism + index-revert sell-DoS the adversarial independently found. Awarded High; blind-rated Medium (under-rated).",
+        "M-07 = Cred.batchBuyShareCred promotion: buyShareCredFor resets victim lastTradeTimestamp -> third-party sell-DoS. Exact mechanism + exact severity (Medium)."
+      ]
+    },
+    "controls": {"privileged_rejected": "3/3 (setProtocolFeePercent, setProtocolFee, setProtocolFeeDestination) rejected at DEFENSE_TRACED", "controls_promoted_incorrectly": 0},
+    "p84_taxonomy_coverage": "H-05 (access-control) fits access_control_privileged; M-07 (involuntary sell-DoS) fits validation_liveness_counter_scope — both seed types now cover the converted candidates (no taxonomy gap this run).",
+    "calibration_validation": {
+      "P86_over_rating_direction": "HELD: 0 severity FP; no bounded/lazy issue survived as M/H; controls rejected.",
+      "P88_under_rating_direction": "VALIDATED POSITIVE: M-07 (INVOLUNTARY third-party sell-DoS) was KEPT via the P88 elevation (involuntary + denial_of_asset_movement) and matched the awarded Medium -- exactly the false-demotion class P88 was built to prevent. H-05 access-control kept via concrete unauthorized_execution.",
+      "residual": "H-05 severity under-LABELLED Medium vs awarded High (judgment-depth, not a gate failure: the access-control corruption was not tagged with liveness/high markers, so the gate kept it at the asserted Medium). Same class as P87 H-01."
+    }
+  },
+  "honest_misses": {
+    "H-03": "shareBalance EnumerableMap never removes zero-balance entries -> bloats -> CuratorRewardsDistributor.distribute hits block gas limit (the REAL reward-distribution DoS). I over-reached toward this via the wrong arrays in Claim1; adversarial falsified my path; I did not separately promote H-03. MISS.",
+    "H-01": "signatureClaim replay (NOT_RUN — surfaced as a lead, not investigated due to budget).",
+    "H-02/H-04/H-06/H-07": "createArt replay / endTime extension / Cred-creation reentrancy / token-settings — unselected or uninvestigated surface.",
+    "M-03/M-05/M-08": "claim mintFee-change loss / claim data-validation bypass / refund mis-address — claim path rejected at the wrapper (depth) or unselected."
+  },
+  "verdict": "QUALIFIED PASS (strongest blind result so far). Meets EVERY strict clean-PASS bullet: sealed-key preserved; 0 SOURCE_FALSE / 0 unsupported-READY / 0 HARD_FAIL / 0 detector->finding; 0 severity FP after the P88 gate; controls 3/3 clean; 2 CLEAN_HITs (H-05, M-07); no false-demotion of a surfaced true M/H. Reaches Strong-PASS mechanics (P84 reject-first bundle). QUALIFIED by named non-blocking caveats: H-05 under-rated Medium-vs-High; H-03 reward-dist-DoS missed (my over-reach falsified by adversarial); partial recall with Highs in NOT_RUN.",
+  "both_directions_conclusion": "BOTH calibration directions validated on fresh material: P86 held the 0-severity-FP bar; P88 correctly KEPT an involuntary third-party DoS (M-07) that the pre-P88 gate would have risked false-demoting as self-inflicted. No regression in either direction.",
+  "action_per_constraints": "STOP and report. No machinery change. No post-key tuning. No retroactive re-score.",
+  "caveats": [
+    "training-contamination residual (key opened only post-freeze)",
+    "H-05 severity under-label (Medium vs High) — judgment depth on access-control impact, kept not demoted",
+    "the adversarial layer falsified my Claim-1 reward-distribution over-reach pre-freeze (correct); the real reward-dist DoS is the separate, un-promoted H-03",
+    "4 conversion leads NOT_RUN (incl signatureClaim = awarded H-01) — budget, excluded from denominators"
+  ]
+}

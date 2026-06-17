@@ -1,0 +1,99 @@
+{
+  "finding_id": "EA-002",
+  "title": "floodPodline mints 0.1% of Bean supply to the Field every Flood season, harvestable in pod (FIFO) order \u2014 front-runnable by buying the front of the pod line before an Oversaturation streak",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "Medium",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+    "function": "floodPodline",
+    "line_start": 187,
+    "line_end": 210
+  },
+  "description": "LibFlood.floodPodline() makes up to FLOOD_PODLINE_PERCENT_DENOMINATOR^-1 = 0.1% of total Bean supply worth of Pods Harvestable on every flood season (it runs first in the flood branch, before the well SOP). Harvestable Pods are consumed strictly in pod-line (FIFO) index order. Because a Flood is permissionlessly triggerable via sunrise/gm() once Beanstalk has been Oversaturated for a season, and because the marketplace lets Pods near the front of the line be purchased, a well-capitalized actor who anticipates an Oversaturation streak can accumulate the front-most Pods (or sow into the front) cheaply and then permissionlessly drive the flood seasons to ripen 0.1% of supply per season directly into those positions. The reward is bounded (0.1% of supply per season, capped by maxHarvestable) and the front-of-line Pods are a public, priced market, so this is opportunistic value capture / reward-timing rather than theft of others' principal \u2014 hence Medium, not High.",
+  "impact": "An actor timing the controllable Flood schedule can convert held Beans into a near-deterministic stream of Field harvest at the front of the pod line, advantaging informed/MEV-capable participants over passive Pod holders. Bounded to 0.1% of supply per flood season and to the front of the line; no protocol insolvency, but a recurring incentive-timing edge.",
+  "ite": {
+    "intent": "Capture the per-flood 0.1%-of-supply Field mint by controlling the front of the pod line and the (permissionless) flood timing",
+    "technique": "Acquire front-of-line Pods, then permissionlessly trigger successive flood seasons via sunrise/gm() so floodPodline() ripens supply into those positions FIFO",
+    "evasion": "Flood ripening is intended protocol behavior; the edge is informational/timing, leaving no invariant violated"
+  },
+  "ice_chain": {
+    "corrupted_state": "s.sys.fields[activeField].harvestable (advanced by 0.1% of supply each flood, FIFO)",
+    "impact": "Front-line Pod holders capture a controllable, recurring Bean harvest stream ahead of other Pod holders",
+    "consumer_found": true,
+    "consumer_function": "FieldFacet.harvest -> reads s.sys.fields[activeField].harvestable and pays the front of the pod line",
+    "exploit_path": "buy front pods -> permissionless sunrise/gm() each season during Oversaturation -> floodPodline() ripens 0.1% of supply -> attacker harvests front-line pods"
+  },
+  "source_slice": "157:             if (a.lastSop == a.lastRain) {\n158:                 previousPPR = a.sop.perWellPlenty[well].plentyPerRoot;\n159:             } else {\n160:                 previousPPR = s.sys.sop.sops[a.lastSop][well];\n161:             }\n162:             uint256 lastRainPPR = s.sys.sop.sops[s.accts[account].lastRain][well];\n163: \n164:             // If there has been a SOP duing the rain sesssion since last update, process SOP.\n165:             if (lastRainPPR > previousPPR) {\n166:                 uint256 plentyPerRoot = lastRainPPR - previousPPR;\n167:                 previousPPR = lastRainPPR;\n168:                 plenty = plenty.add(\n169:                     plentyPerRoot.mul(s.accts[account].sop.rainRoots).div(C.SOP_PRECISION)\n170:                 );\n171:             }\n172:         } else {\n173:             // If it was not raining, just use the PPR at previous SOP.\n174:             previousPPR = s.sys.sop.sops[s.accts[account].lastSop][well];\n175:         }\n176: \n177:         // Handle and SOPs that started + ended before after last Silo update.\n178:         if (s.sys.season.lastSop > s.accts[account].lastUpdate) {\n179:             uint256 plentyPerRoot = s.sys.sop.sops[s.sys.season.lastSop][well].sub(previousPPR);\n180:             plenty = plenty.add(plentyPerRoot.mul(s.accts[account].roots).div(C.SOP_PRECISION));\n181:         }\n182:     }\n183: \n184:     /**\n185:      * @notice Floods the field, up to 0.1% of the total Bean supply worth of pods.\n186:      */\n187:     function floodPodline() private {\n188:         AppStorage storage s = LibAppStorage.diamondStorage();\n189:         // Make 0.1% of the total bean supply worth of pods harvestable.\n190: \n191:         uint256 totalBeanSupply = C.bean().totalSupply();\n192:         uint256 sopFieldBeans = totalBeanSupply.div(FLOOD_PODLINE_PERCENT_DENOMINATOR); // 1/1000 = 0.1% of total supply\n193: \n194:         // Note there may be cases where zero harvestable pods are available. For clarity, the code will still emit an event\n195:         // but with zero sop field beans.\n196:         uint256 maxHarvestable = s.sys.fields[s.sys.activeField].pods.sub(\n197:             s.sys.fields[s.sys.activeField].harvestable\n198:         );\n199: \n200:         sopFieldBeans = sopFieldBeans > maxHarvestable ? maxHarvestable : sopFieldBeans;\n201: \n202:         s.sys.fields[s.sys.activeField].harvestable = s\n203:             .sys\n204:             .fields[s.sys.activeField]\n205:             .harvestable\n206:             .add(sopFieldBeans);\n207:         C.bean().mint(address(this), sopFieldBeans);\n208: \n209:         emit SeasonOfPlentyField(sopFieldBeans);\n210:     }\n211: \n212:     function getWellsByDeltaB()\n213:         internal\n214:         view\n215:         returns (\n216:             WellDeltaB[] memory wellDeltaBs,\n217:             uint256 totalPositiveDeltaB,\n218:             uint256 totalNegativeDeltaB,\n219:             uint256 positiveDeltaBCount\n220:         )\n221:     {\n222:         address[] memory wells = LibWhitelistedTokens.getCurrentlySoppableWellLpTokens();\n223:         wellDeltaBs = new WellDeltaB[](wells.length);\n224: \n225:         for (uint i = 0; i < wells.length; i++) {\n226:             wellDeltaBs[i] = WellDeltaB(wells[i], LibDeltaB.currentDeltaB(wells[i]));\n227:             if (wellDeltaBs[i].deltaB > 0) {\n228:                 totalPositiveDeltaB += uint256(wellDeltaBs[i].deltaB);\n229:                 positiveDeltaBCount++;\n230:             } else {\n231:                 totalNegativeDeltaB += uint256(-wellDeltaBs[i].deltaB);\n232:             }\n233:         }\n234: \n235:         // Sort the wellDeltaBs array\n236:         quickSort(wellDeltaBs, 0, int(wellDeltaBs.length - 1));\n237:     }\n238: \n239:     // Reviewer note: This works, but there's got to be a way to make this more gas efficient\n240:     function quickSort(",
+  "gate_verdict": {
+    "finding_id": "EA-002",
+    "severity": "Medium",
+    "vuln_type": "",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.542661+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

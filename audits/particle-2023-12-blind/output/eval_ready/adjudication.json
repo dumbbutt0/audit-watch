@@ -1,0 +1,45 @@
+{
+  "audit_id": "particle-2023-12-blind",
+  "set": "holdout",
+  "language": "solidity",
+  "generated_at": "2026-06-12",
+  "awarded_source": "_sealed_answer_key/report.md (C4 2023-12-particle, 4H/15M)",
+  "auto_heuristic": false,
+  "_do_not_auto_overwrite": "Hand-adjudicated GENUINE-BLIND FULL-COVERAGE cold pass (9/9 in-scope). Only counts + scope peeked; titles SEALED until reveal. Cutoff waived.",
+  "awarded": [
+    {"id": "H-01", "severity": "High", "title": "Borrower token-blacklist -> LP may never retrieve liquidity", "label": "MISSED", "read_file": true, "mechanism_class": "blacklist-stuck-liquidity", "source": "human", "note": "MISS (reasoning): didn't consider blacklistable-token (USDC/USDT) DoS on the close/repay refund path."},
+    {"id": "H-02", "severity": "High", "title": "openPosition uses stale feeGrowthInside0/1LastX128", "label": "MISSED", "read_file": true, "mechanism_class": "stale-feegrowth-snapshot", "source": "human", "note": "MISS (reasoning): prepareLeverage snapshots feeGrowthInside BEFORE decreaseLiquidity -> stale lien snapshot; I read prepareLeverage/openPosition but didn't flag the ordering."},
+    {"id": "H-03", "severity": "High", "title": "liquidatePosition liquidator constructs malicious data to steal borrower's profit", "label": "STRONG", "read_file": true, "mechanism_class": "swap-zero-minout-caller-routed", "source": "human", "matched_candidate": "P-01", "note": "STRONG: my P-01 named the exact bug — liquidatePosition's swap is minOut=0 with liquidator-controlled params.data/amountSwap -> liquidator routes/sandwiches to steal the borrower's profit."},
+    {"id": "H-04", "severity": "High", "title": "Underflow in Uniswap V3 fee-growth calculation can cause reverts", "label": "MISSED", "read_file": true, "mechanism_class": "uni-feegrowth-underflow-revert-0.8", "source": "human", "note": "MISS (reasoning, notable): I READ Base.getFeeGrowthInside and explicitly DISMISSED the subtractions as 'expected wraps like Uni' — but in Solidity 0.8.23 without `unchecked` they REVERT, DoSing operations. Wrong call; a real miss."},
+    {"id": "M-01", "severity": "Medium", "title": "Zero-amount token transfers DoS during liquidation", "label": "MISSED", "read_file": true, "mechanism_class": "zero-transfer-revert-dos", "source": "human"},
+    {"id": "M-02", "severity": "Medium", "title": "Dangerous use of deadline parameter (block.timestamp)", "label": "MISSED", "read_file": true, "mechanism_class": "deadline-blocktimestamp-noop", "source": "human", "note": "MISS: increase/decrease/mint use deadline: block.timestamp -> no deadline protection; I read these calls."},
+    {"id": "M-03", "severity": "Medium", "title": "increaseLiquidity in close may not cover original borrowed liquidity", "label": "MISSED", "read_file": true, "mechanism_class": "close-liquidity-shortfall", "source": "human"},
+    {"id": "M-04", "severity": "Medium", "title": "addPremium doesn't collect fees", "label": "MISSED", "read_file": true, "mechanism_class": "addpremium-no-fee-collect", "source": "human"},
+    {"id": "M-05", "severity": "Medium", "title": "Modifying loan term setting can default existing loans", "label": "MISSED", "read_file": true, "mechanism_class": "global-param-change-affects-open-positions", "source": "human", "note": "MISS: updateLoanTerm changes LOAN_TERM used in the liquidation condition for already-open liens."},
+    {"id": "M-06", "severity": "Medium", "title": "Liquidation condition should not factor liquidation reward into premiums", "label": "MISSED", "read_file": true, "mechanism_class": "liq-reward-folded-into-premium", "source": "human", "note": "MISS (reasoning): I READ the `premium -= liquidationReward` before the `premium < owed` condition but didn't flag that it makes positions liquidatable earlier than they should be."},
+    {"id": "M-07", "severity": "Medium", "title": "Impossible to open a position with a large marginTo", "label": "MISSED", "read_file": true, "mechanism_class": "open-marginto-underflow", "source": "human"},
+    {"id": "M-08", "severity": "Medium", "title": "collectLiquidity lacks recipient -> can't retrieve token1 after token0 blacklist", "label": "MISSED", "read_file": true, "mechanism_class": "collect-no-recipient-blacklist", "source": "human"},
+    {"id": "M-09", "severity": "Medium", "title": "reclaimLiquidity: borrower close+reopen before expiry blocks LP reclaim", "label": "MISSED", "read_file": true, "mechanism_class": "reclaim-grief-reopen", "source": "human"},
+    {"id": "M-10", "severity": "Medium", "title": "reclaimLiquidity then addPremium invalidates renewalCutoffTime", "label": "MISSED", "read_file": true, "mechanism_class": "renewalcutoff-bypass-addpremium", "source": "human"},
+    {"id": "M-11", "severity": "Medium", "title": "openPosition lacks minimum token0/token1 PremiumPortion limit", "label": "SAME_AREA", "read_file": true, "mechanism_class": "premium-portion-uint24-truncation", "source": "human", "matched_candidate": "P-02", "note": "SAME_AREA: my P-02 flagged the premium uint24 portion can floor to 0 / be too small (premium effectively lost); M-11 is the no-protocol-minimum variant of the same premium-portion weakness."},
+    {"id": "M-12", "severity": "Medium", "title": "Position can be opened even when manager doesn't hold the Uniswap NFT", "label": "MISSED", "read_file": true, "mechanism_class": "open-without-nft-ownership-check", "source": "human"},
+    {"id": "M-13", "severity": "Medium", "title": "Malicious lender can manipulate fee to force borrower pay high premium", "label": "MISSED", "read_file": true, "mechanism_class": "lender-fee-manipulation", "source": "human"},
+    {"id": "M-14", "severity": "Medium", "title": "Excess tokens not accounted in premium portion stuck in manager", "label": "SAME_AREA", "read_file": true, "mechanism_class": "premium-portion-uint24-truncation", "source": "human", "matched_candidate": "P-02", "note": "SAME_AREA: my P-02 named the uint24-portion truncation leaving unaccounted premium dust; M-14 is the 'excess stuck in contract' consequence of that accounting."},
+    {"id": "M-15", "severity": "Medium", "title": "increase/decrease liquidity missing slippage protection", "label": "MISSED", "read_file": true, "mechanism_class": "missing-liquidity-slippage", "source": "human", "note": "MISS (reasoning): I READ amount0Min:0/amount1Min:0 in increase/decreaseLiquidity but didn't raise the slippage finding."}
+  ],
+  "candidates": [
+    {"id": "P-01", "matched": "H-03 (STRONG)"},
+    {"id": "P-02", "matched": "M-11 + M-14 (SAME_AREA)"},
+    {"id": "P-03", "title": "LP withdraw ignores outstanding liens", "matched": null, "note": "adjacent to M-03 but not the awarded mechanism"},
+    {"id": "P-04", "title": "arbitrary aggregator calldata", "matched": null},
+    {"id": "P-05", "title": "spot collateral/repay sizing", "matched": null}
+  ],
+  "summary": {
+    "awarded_total": 19, "adjudicated": 19, "pending": 0,
+    "recall_of_surfaced": 0.158, "strong_only": 0.053,
+    "missed": 16, "missed_coverage_gap": 0, "missed_reasoning_gap": 16,
+    "by_label": {"STRONG": 1, "SAME_AREA": 2, "SUBSYSTEM_ONLY": 0, "MISSED": 16, "UNADJUDICATED": 0},
+    "complete": true, "blind": true, "full_coverage": true,
+    "note": "GENUINE-BLIND FULL-COVERAGE (9/9). recall_of_surfaced 0.158 (3/19), strong 0.053 (1/19); ALL 16 misses are REASONING gaps (0 coverage). STRONG H-03 liquidator-steal (P-01). SAME_AREA M-11+M-14 premium-portion (P-02). Particle is exceptionally finding-dense + subtle (19 awarded) -> honest LOW recall; this is the value of full-coverage scoring: it surfaces the long tail of reasoning gaps (stale-feegrowth, 0.8-underflow-revert, deadline=block.timestamp, missing liquidity slippage, blacklist DoS, global-param-changes-open-loans, liq-reward-folded-into-premium, etc.) that thin passes would hide."
+  }
+}

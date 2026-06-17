@@ -1,0 +1,2018 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "SUPERVISED_EVAL_DERIVED_EVIDENCE",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "packages": [
+    {
+      "candidate_id": "coverage_manifest:StakingRewards:claimAllRewards:1",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "StakingRewards.claimAllRewards",
+      "source_refs": "StakingRewards.claimAllRewards function claimAllRewards( bytes32[] calldata poolIDs ) external nonReentrant returns (uint256 claimableRewards) {",
+      "mechanism_hypothesis": "[T2] StakingRewards.claimAllRewards: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "StakingRewards.claimAllRewards function claimAllRewards( bytes32[] calldata poolIDs ) external nonReentrant returns (uint256 claimableRewards) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls StakingRewards.claimAllRewards with chosen inputs (function claimAllRewards( bytes32[] calldata poolIDs ) exter)",
+      "attacker_controlled_inputs": "msg.sender + args of function claimAllRewards( bytes32[] calldata poolIDs ) external nonReentrant ret",
+      "victim_gainer": "victim = users/LPs of StakingRewards (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in StakingRewards via claimAllRewards (value-moving op)",
+      "invariant_expected": "rewards via StakingRewards.claimAllRewards go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "StakingRewards.claimAllRewards mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls StakingRewards.claimAllRewards with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert StakingRewards.claimAllRewards pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=[]"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "+=",
+          "safetransfer",
+          "transfer"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/staking/StakingRewards.sol",
+        "source_span": [
+          147,
+          171
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "+=",
+          "safetransfer",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [147, 171] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/staking/StakingRewards.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "StakingRewards.claimAllRewards",
+            "callee": "StakingRewards.userRewardForPool",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "StakingRewards.userRewardForPool",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "mapping",
+          "returns",
+          "safeTransfer"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from StakingRewards.claimAllRewards",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:Pools:withdraw:5",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "Pools.withdraw",
+      "source_refs": "Pools.withdraw function withdraw( IERC20 token, uint256 amount ) external nonReentrant {",
+      "mechanism_hypothesis": "[T2] Pools.withdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "Pools.withdraw function withdraw( IERC20 token, uint256 amount ) external nonReentrant {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls Pools.withdraw with chosen inputs (function withdraw( IERC20 token, uint256 amount ) external n)",
+      "attacker_controlled_inputs": "msg.sender + args of function withdraw( IERC20 token, uint256 amount ) external nonReentrant {",
+      "victim_gainer": "victim = users/LPs of Pools (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in Pools via withdraw (value-moving op)",
+      "invariant_expected": "Pools.withdraw preserves the relevant protocol invariant",
+      "invariant_broken": "Pools.withdraw violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls Pools.withdraw with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert Pools.withdraw produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "-=",
+          "safetransfer",
+          "transfer"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/pools/Pools.sol",
+        "source_span": [
+          219,
+          230
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "-=",
+          "safetransfer",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [219, 230] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/pools/Pools.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_UNRESOLVED",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "TokenWithdrawal",
+          "safeTransfer"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from Pools.withdraw",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:CollateralAndLiquidity:withdrawCollateralAndClaim:7",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "CollateralAndLiquidity.withdrawCollateralAndClaim",
+      "source_refs": "CollateralAndLiquidity.withdrawCollateralAndClaim function withdrawCollateralAndClaim( uint256 collateralToWithdraw, uint256 minReclaimedWBTC, uint256 minReclaimedWETH, uint256 deadline ) external nonReentrant ensureNotExpired(deadline) returns (uint256 reclaimedWBTC, uint256 reclaimedWETH) {",
+      "mechanism_hypothesis": "[T2] CollateralAndLiquidity.withdrawCollateralAndClaim: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "CollateralAndLiquidity.withdrawCollateralAndClaim function withdrawCollateralAndClaim( uint256 collateralToWithdraw, uint256 minReclaimedWBTC, uint256 minReclaimedWETH, uint256 deadline ) external nonReentrant ensureNotExpired(deadline) returns (uint256 reclaimedWBTC, uint256 reclaimedWETH) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls CollateralAndLiquidity.withdrawCollateralAndClaim with chosen inputs (function withdrawCollateralAndClaim( uint256 collateralToWit)",
+      "attacker_controlled_inputs": "msg.sender + args of function withdrawCollateralAndClaim( uint256 collateralToWithdraw, uint256 minRe",
+      "victim_gainer": "victim = users/LPs of CollateralAndLiquidity (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in CollateralAndLiquidity via withdrawCollateralAndClaim (value-moving op)",
+      "invariant_expected": "post-CollateralAndLiquidity.withdrawCollateralAndClaim accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "CollateralAndLiquidity.withdrawCollateralAndClaim leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls CollateralAndLiquidity.withdrawCollateralAndClaim with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-CollateralAndLiquidity.withdrawCollateralAndClaim accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant', 'ensureNotExpired', 'deadline'], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant', 'ensureNotExpired', 'deadline'], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": true,
+        "state_markers": [
+          "expired"
+        ],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [
+          "collateral"
+        ],
+        "state_write": false,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/stable/CollateralAndLiquidity.sol",
+        "source_span": [
+          80,
+          90
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [
+          "collateral"
+        ],
+        "value_movement_or_accounting_write": false,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [80, 90] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/stable/CollateralAndLiquidity.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "CollateralAndLiquidity.withdrawCollateralAndClaim",
+            "callee": "CollateralAndLiquidity.maxWithdrawableCollateral",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "CollateralAndLiquidity.maxWithdrawableCollateral",
+            "callee": "CollateralAndLiquidity.userCollateralValueInUSD",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "CollateralAndLiquidity.maxWithdrawableCollateral",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 2,
+        "unresolved_callees": [
+          "ensureNotExpired",
+          "initialCollateralRatioPercent",
+          "returns",
+          "userShareForPool"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from CollateralAndLiquidity.withdrawCollateralAndClaim",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:Upkeep:step2:8",
+      "award_class": "UNKNOWN_OTHER",
+      "contract_function": "Upkeep.step2",
+      "source_refs": "Upkeep.step2 function step2(address receiver) public onlySameContract {",
+      "mechanism_hypothesis": "[T3] Upkeep.step2: An external call/transfer/callback may occur before accounting/index/share/debt state is finalized.",
+      "root_cause": "Upkeep.step2 function step2(address receiver) public onlySameContract {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "Upkeep.step2 is guarded by modifier(s) ['onlySameContract']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function step2(address receiver) public onlySameContract {",
+      "victim_gainer": "unclear from manifest signals",
+      "state_value_liveness_delta": "state mutation in Upkeep.step2",
+      "invariant_expected": "Upkeep.step2 preserves the relevant protocol invariant",
+      "invariant_broken": "Upkeep.step2 violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls Upkeep.step2 with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Is there a call/transfer to an arbitrary party before all relevant state is written?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert Upkeep.step2 produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "a bypass of ['onlySameContract'] would be the CORE exploitability claim - needs source review"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlySameContract'], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlySameContract'], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "victim_gainer": {
+          "confidence": "LOW",
+          "source_basis": "no value-movement signal"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [
+          {
+            "token": "modifier_auth(only*)",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "",
+            "source_basis": "modifier or custom-error revert",
+            "reason": "modifier / custom-error revert gates execution"
+          }
+        ],
+        "guard_markers": [
+          "modifier_auth(only*)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "safetransfer",
+          "transfer"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/Upkeep.sol",
+        "source_span": [
+          112,
+          123
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "safetransfer",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [112, 123] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/Upkeep.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_TOO_DYNAMIC",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "dao",
+          "safeTransfer",
+          "upkeepRewardPercent",
+          "withdrawArbitrageProfits"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from Upkeep.step2",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:Airdrop:allowClaiming:9",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "Airdrop.allowClaiming",
+      "source_refs": "Airdrop.allowClaiming function allowClaiming() external {",
+      "mechanism_hypothesis": "[T2] Airdrop.allowClaiming: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "Airdrop.allowClaiming function allowClaiming() external {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls Airdrop.allowClaiming with chosen inputs (function allowClaiming() external {)",
+      "attacker_controlled_inputs": "msg.sender + args of function allowClaiming() external {",
+      "victim_gainer": "victim = users/LPs of Airdrop (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in Airdrop via allowClaiming (value-moving op)",
+      "invariant_expected": "rewards via Airdrop.allowClaiming go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "Airdrop.allowClaiming mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls Airdrop.allowClaiming with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert Airdrop.allowClaiming pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=[]"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [
+          {
+            "token": "msg.sender",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "external     \t{     \trequire( msg.sender == address(exchangeConfig.ini",
+            "source_basis": "offset 59; in execution-gate span",
+            "reason": "token gates execution (require/if-revert/return/modifier)"
+          }
+        ],
+        "guard_markers": [
+          "msg.sender==/!= (either side)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "balanceof"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/launch/Airdrop.sol",
+        "source_span": [
+          56,
+          70
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "balanceof"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [56, 70] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/launch/Airdrop.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_PARTIAL",
+        "trace_path": [
+          {
+            "caller": "Airdrop.allowClaiming",
+            "callee": "Airdrop.numberAuthorized",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "approve",
+          "balanceOf",
+          "initialDistribution",
+          "returns"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from Airdrop.allowClaiming",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:CollateralAndLiquidity:liquidateUser:10",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "CollateralAndLiquidity.liquidateUser",
+      "source_refs": "CollateralAndLiquidity.liquidateUser function liquidateUser( address wallet ) external nonReentrant {",
+      "mechanism_hypothesis": "[T1] CollateralAndLiquidity.liquidateUser: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "CollateralAndLiquidity.liquidateUser function liquidateUser( address wallet ) external nonReentrant {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls CollateralAndLiquidity.liquidateUser with chosen inputs (function liquidateUser( address wallet ) external nonReentra)",
+      "attacker_controlled_inputs": "msg.sender + args of function liquidateUser( address wallet ) external nonReentrant {",
+      "victim_gainer": "victim = users/LPs of CollateralAndLiquidity (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in CollateralAndLiquidity via liquidateUser (value-moving op)",
+      "invariant_expected": "post-CollateralAndLiquidity.liquidateUser accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "CollateralAndLiquidity.liquidateUser leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls CollateralAndLiquidity.liquidateUser with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-CollateralAndLiquidity.liquidateUser accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [
+          {
+            "token": "msg.sender",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "rant \t\t{ \t\trequire( wallet != msg.sender, \"Cannot liquidate self\" );",
+            "source_basis": "offset 89; in execution-gate span",
+            "reason": "token gates execution (require/if-revert/return/modifier)"
+          }
+        ],
+        "guard_markers": [
+          "msg.sender==/!= (either side)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "collateral",
+          "safetransfer",
+          "shares",
+          "transfer"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/stable/CollateralAndLiquidity.sol",
+        "source_span": [
+          140,
+          188
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "collateral",
+          "safetransfer",
+          "shares",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [140, 188] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/stable/CollateralAndLiquidity.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "CollateralAndLiquidity.liquidateUser",
+            "callee": "CollateralAndLiquidity.canUserBeLiquidated",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "CollateralAndLiquidity.liquidateUser",
+            "callee": "StakingRewards._decreaseUserShare",
+            "edge": "library_or_inherited",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": true,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "CollateralAndLiquidity.canUserBeLiquidated",
+            "callee": "CollateralAndLiquidity.userCollateralValueInUSD",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "CollateralAndLiquidity.canUserBeLiquidated",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 3,
+        "unresolved_callees": [
+          "UserShareDecreased",
+          "dao",
+          "minimumCollateralRatioPercent",
+          "modificationCooldown",
+          "removeLiquidity",
+          "returns",
+          "safeTransfer",
+          "userShareForPool"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from CollateralAndLiquidity.liquidateUser",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [
+          "totalShares"
+        ],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": "totalSharesAfter - totalSharesBefore == minted/burned amount",
+        "confidence": "LOW",
+        "source_basis": "local conservation equation extracted (assertion scaffold only; no deviation)",
+        "unresolved_assumptions": [
+          "before/after equation present but no deviation detector corroborates"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:Pools:deposit:13",
+      "award_class": "EXTERNAL_INTEGRATION",
+      "contract_function": "Pools.deposit",
+      "source_refs": "Pools.deposit function deposit( IERC20 token, uint256 amount ) external nonReentrant {",
+      "mechanism_hypothesis": "[T8] Pools.deposit: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "Pools.deposit function deposit( IERC20 token, uint256 amount ) external nonReentrant {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker exercises integration path in Pools.deposit",
+      "attacker_controlled_inputs": "msg.sender + args of function deposit( IERC20 token, uint256 amount ) external nonReentrant {",
+      "victim_gainer": "victim = users/LPs of Pools (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in Pools via deposit (value-moving op)",
+      "invariant_expected": "the external call/callback reached from Pools.deposit cannot break Pools internal accounting",
+      "invariant_broken": "a malicious external return/callback desyncs Pools state or redirects value",
+      "tx_sequence": [
+        "attacker calls Pools.deposit with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Is the external target trusted/whitelisted? Is there reentrancy/return-value validation?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted external/callback response leaves Pools state inconsistent or value misrouted",
+      "unresolved_assumptions": [
+        "no external-call signal in manifest"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "+=",
+          "safetransfer",
+          "transfer"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/pools/Pools.sol",
+        "source_span": [
+          205,
+          215
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "+=",
+          "safetransfer",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [205, 215] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/pools/Pools.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_UNRESOLVED",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "TokenDeposit",
+          "safeTransferFrom"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from Pools.deposit",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:USDS:mintTo:14",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "USDS.mintTo",
+      "source_refs": "USDS.mintTo function mintTo( address wallet, uint256 amount ) external {",
+      "mechanism_hypothesis": "[T8] USDS.mintTo: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "USDS.mintTo function mintTo( address wallet, uint256 amount ) external {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls USDS.mintTo with chosen inputs (function mintTo( address wallet, uint256 amount ) external {)",
+      "attacker_controlled_inputs": "msg.sender + args of function mintTo( address wallet, uint256 amount ) external {",
+      "victim_gainer": "victim = users/LPs of USDS (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in USDS via mintTo (value-moving op)",
+      "invariant_expected": "share<->asset conversion in USDS.mintTo conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "USDS.mintTo rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls USDS.mintTo with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through USDS.mintTo nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'oracle']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'oracle']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [
+          {
+            "token": "msg.sender",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "unt ) external \t\t{ \t\trequire( msg.sender == address(collateralAndLiqui",
+            "source_basis": "offset 75; in execution-gate span",
+            "reason": "token gates execution (require/if-revert/return/modifier)"
+          }
+        ],
+        "guard_markers": [
+          "msg.sender==/!= (either side)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "_mint",
+          "collateral"
+        ],
+        "state_write": false,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/stable/USDS.sol",
+        "source_span": [
+          40,
+          48
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [
+          "_mint",
+          "collateral"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [40, 48] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/stable/USDS.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_UNRESOLVED",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "USDSMinted",
+          "_mint"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from USDS.mintTo",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:Liquidity:depositLiquidityAndIncreaseShare:15",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "Liquidity.depositLiquidityAndIncreaseShare",
+      "source_refs": "Liquidity.depositLiquidityAndIncreaseShare function depositLiquidityAndIncreaseShare( IERC20 tokenA, IERC20 tokenB, uint256 maxAmountA, uint256 maxAmountB, uint256 minLiquidityReceived, uint256 deadline, bool useZapping ) external nonReentrant ensureNotExpired(deadline) returns (uint256 addedAmountA, uint256 addedAmountB, uint256 addedLiquid",
+      "mechanism_hypothesis": "[T8] Liquidity.depositLiquidityAndIncreaseShare: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "Liquidity.depositLiquidityAndIncreaseShare function depositLiquidityAndIncreaseShare( IERC20 tokenA, IERC20 tokenB, uint256 maxAmountA, uint256 maxAmountB, uint256 minLiquidityReceived, uint256 deadline, bool useZapping ) external nonReentrant ensureNotExpired(deadline) returns (uint256 addedAmountA, uint256 addedAmountB, uint256 addedLiquid",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls Liquidity.depositLiquidityAndIncreaseShare with chosen inputs (function depositLiquidityAndIncreaseShare( IERC20 tokenA, IE)",
+      "attacker_controlled_inputs": "msg.sender + args of function depositLiquidityAndIncreaseShare( IERC20 tokenA, IERC20 tokenB, uint256",
+      "victim_gainer": "victim = users/LPs of Liquidity (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in Liquidity via depositLiquidityAndIncreaseShare (value-moving op)",
+      "invariant_expected": "share<->asset conversion in Liquidity.depositLiquidityAndIncreaseShare conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "Liquidity.depositLiquidityAndIncreaseShare rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls Liquidity.depositLiquidityAndIncreaseShare with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through Liquidity.depositLiquidityAndIncreaseShare nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant', 'ensureNotExpired', 'deadline'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['nonReentrant', 'ensureNotExpired', 'deadline'], external_calls=False, has_loop=False, tags=['accounting', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": true,
+        "state_markers": [
+          "expired"
+        ],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [
+          "collateral"
+        ],
+        "state_write": false,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": true,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/staking/Liquidity.sol",
+        "source_span": [
+          146,
+          151
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow lives in a delegated callee (out of this span)",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [
+          "collateral"
+        ],
+        "value_movement_or_accounting_write": false,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [146, 151] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/staking/Liquidity.sol",
+        "unresolved_assumptions": [
+          "value-flow is in a delegated callee; needs cross-function tracing (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "Liquidity.depositLiquidityAndIncreaseShare",
+            "callee": "PoolUtils._poolID",
+            "edge": "library_or_inherited",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "Liquidity.depositLiquidityAndIncreaseShare",
+            "callee": "Liquidity._depositLiquidityAndIncreaseShare",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": true,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "Liquidity._depositLiquidityAndIncreaseShare",
+            "callee": "Liquidity._dualZapInLiquidity",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "Liquidity._depositLiquidityAndIncreaseShare",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 3,
+        "unresolved_callees": [
+          "ensureNotExpired",
+          "returns",
+          "safeTransferFrom",
+          "uint160",
+          "walletHasAccess"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from Liquidity.depositLiquidityAndIncreaseShare",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:DAOConfig:changePercentPolRewardsBurned:18",
+      "award_class": "ACCESS_CONTROL_AUTHORIZATION",
+      "contract_function": "DAOConfig.changePercentPolRewardsBurned",
+      "source_refs": "DAOConfig.changePercentPolRewardsBurned function changePercentPolRewardsBurned(bool increase) external onlyOwner {",
+      "mechanism_hypothesis": "[T2] DAOConfig.changePercentPolRewardsBurned: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "DAOConfig.changePercentPolRewardsBurned function changePercentPolRewardsBurned(bool increase) external onlyOwner {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "DAOConfig.changePercentPolRewardsBurned is guarded by modifier(s) ['onlyOwner']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function changePercentPolRewardsBurned(bool increase) external onlyOwner {",
+      "victim_gainer": "victim = users/LPs of DAOConfig (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in DAOConfig via changePercentPolRewardsBurned (value-moving op)",
+      "invariant_expected": "only an authorized principal may execute the state-changing path in DAOConfig.changePercentPolRewardsBurned",
+      "invariant_broken": "an unauthorized caller mutates protected state via DAOConfig.changePercentPolRewardsBurned",
+      "tx_sequence": [
+        "attacker calls DAOConfig.changePercentPolRewardsBurned with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is there an internal/inherited guard not captured as a modifier? Is the mutated state actually sensitive?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert an unauthorized EOA can call DAOConfig.changePercentPolRewardsBurned and change protected state that should be restricted",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyOwner'] would be the CORE exploitability claim - needs source review"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyOwner'], external_calls=False, has_loop=False, tags=['accounting', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['onlyOwner'], external_calls=False, has_loop=False, tags=['accounting', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [
+          {
+            "token": "modifier_auth(only*)",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "",
+            "source_basis": "modifier or custom-error revert",
+            "reason": "modifier / custom-error revert gates execution"
+          }
+        ],
+        "guard_markers": [
+          "modifier_auth(only*)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "+=",
+          "-="
+        ],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/dao/DAOConfig.sol",
+        "source_span": [
+          81,
+          95
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "+=",
+          "-="
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [81, 95] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/salty-2024-01-holdout/contracts/src/dao/DAOConfig.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_UNRESOLVED",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "PercentPolRewardsBurnedChanged"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from DAOConfig.changePercentPolRewardsBurned",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

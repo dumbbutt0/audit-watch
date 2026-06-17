@@ -1,0 +1,285 @@
+{
+  "phase": "P187",
+  "research_only": true,
+  "is_gate": false,
+  "routes_in_production": false,
+  "corpus": "quantamm-2024-12-eval",
+  "no_recall_claim": true,
+  "outcome_legend": [
+    "SELECTED_VALID",
+    "SELECTED_NEEDS_HARNESS",
+    "UNRESOLVED_CARRY_FORWARD",
+    "REJECTED_VALIDLY",
+    "REJECTED_INCORRECTLY"
+  ],
+  "stable_selections": [
+    "H-07",
+    "M-03",
+    "M-10",
+    "L-01",
+    "L-02",
+    "H-03"
+  ],
+  "p186_flips": [
+    "M-02",
+    "M-06"
+  ],
+  "flip_resolution_path": {
+    "M-02": "execution_required",
+    "M-06": "severity_boundary_static"
+  },
+  "rows": [
+    {
+      "finding": "H-07",
+      "function": "onAfterRemoveLiquidity",
+      "awarded": {
+        "severity": "High",
+        "failure_mode": "unauthorized deletion via attacker-controlled userData identity (access control)"
+      },
+      "opus_view": "selected (P184/P185)",
+      "sonnet_view": "selected",
+      "sonnet_rejecting_fact": null,
+      "source_evidence": "line 208: address userAddress = address(bytes20(userData));",
+      "outcome": "SELECTED_VALID",
+      "reason": "model selected the awarded mechanism with a named victim; checks 2-6 hold",
+      "settling_check": "none (already selected)",
+      "harness_required": false,
+      "checks": {
+        "alleged_families": [
+          "AUTH"
+        ],
+        "lowest_tier_cleared": "High",
+        "who_loses_named": true
+      },
+      "is_stable_selection": true,
+      "is_p186_flip": false
+    },
+    {
+      "finding": "M-02",
+      "function": "onAfterRemoveLiquidity",
+      "awarded": {
+        "severity": "Medium",
+        "failure_mode": "lpTokenDepositValueChange integer-division truncation/underflow in uplift fee calc"
+      },
+      "opus_view": "carried/selected (P185)",
+      "sonnet_view": "rejected",
+      "sonnet_rejecting_fact": "feePerLP 1e18 units, feeAmount 1e18 units, mulDown cancels scale; floors favour LP (documented)",
+      "source_evidence": "lines 241-243: lpTokenDepositValueChange = (int(now) - int(deposit)) / int(deposit) \u2014 integer division truncates the ratio toward 0 (no 1e18 scaling)",
+      "outcome": "REJECTED_INCORRECTLY",
+      "reason": "non_responsive: rejecting fact does not reference the alleged bug locus",
+      "settling_check": "differential / corrected-reference: recompute lpTokenDepositValueChange with 1e18 scaling and compare to the on-chain integer-division result on one concrete (now, deposit) input; assert fee != bypassed",
+      "harness_required": true,
+      "checks": {
+        "alleged_families": [
+          "DIRECTION_UNDERFLOW",
+          "PRECISION"
+        ],
+        "lowest_tier_cleared": "Medium",
+        "responsiveness": {
+          "locus_referenced": false,
+          "rejection_families": [
+            "UNITS"
+          ],
+          "family_match": false,
+          "leans_on_unproven_guard": false,
+          "responsive": false
+        },
+        "applies_too_high_severity_bar": false
+      },
+      "is_stable_selection": false,
+      "is_p186_flip": true
+    },
+    {
+      "finding": "M-17",
+      "function": "onAfterRemoveLiquidity",
+      "awarded": {
+        "severity": "Medium",
+        "failure_mode": "feePerLP can exceed 100% (value exceeds a logical/economic bound)"
+      },
+      "opus_view": "carried (P185); not enumerated (P184)",
+      "sonnet_view": "unresolved",
+      "sonnet_rejecting_fact": null,
+      "source_evidence": "lines 247-281: feePerLP / feePercentage computed with no upper bound (<= 1e18) enforced",
+      "outcome": "SELECTED_NEEDS_HARNESS",
+      "reason": "carried (not rejected); a minimal check would confirm the open precondition/bound",
+      "settling_check": "static bound assertion: can feePerLP/feePercentage exceed 1e18 for in-range inputs?",
+      "harness_required": false,
+      "checks": {
+        "alleged_families": [
+          "BOUND"
+        ],
+        "lowest_tier_cleared": "Medium",
+        "carried_not_rejected": true,
+        "settling_check_feasible": true
+      },
+      "is_stable_selection": false,
+      "is_p186_flip": false
+    },
+    {
+      "finding": "M-03",
+      "function": "afterUpdate",
+      "awarded": {
+        "severity": "Medium",
+        "failure_mode": "poolsFeeData[_to] length unchecked on transfer (push past the 100-deposit cap)"
+      },
+      "opus_view": "selected (P184)",
+      "sonnet_view": "unresolved",
+      "sonnet_rejecting_fact": null,
+      "source_evidence": "afterUpdate pushes to recipient FeeData array with no >100 check (addLiquidity has one)",
+      "outcome": "SELECTED_NEEDS_HARNESS",
+      "reason": "carried (not rejected); a minimal check would confirm the open precondition/bound",
+      "settling_check": "harness: transfer NFTs to push recipient array past 100; assert downstream iteration cost",
+      "harness_required": true,
+      "checks": {
+        "alleged_families": [
+          "BOUND"
+        ],
+        "lowest_tier_cleared": "Medium",
+        "carried_not_rejected": true,
+        "settling_check_feasible": true
+      },
+      "is_stable_selection": true,
+      "is_p186_flip": false
+    },
+    {
+      "finding": "M-10",
+      "function": "afterUpdate",
+      "awarded": {
+        "severity": "Medium",
+        "failure_mode": "attacker permanently DoSes a victim from managing LP NFTs (malicious transfer)"
+      },
+      "opus_view": "selected (P184, loose)",
+      "sonnet_view": "unresolved",
+      "sonnet_rejecting_fact": null,
+      "source_evidence": "same cap-bypass: attacker sends many NFTs, bloating victim array -> withdrawal bricks",
+      "outcome": "SELECTED_NEEDS_HARNESS",
+      "reason": "carried (not rejected); a minimal check would confirm the open precondition/bound",
+      "settling_check": "harness: grief victim array, assert their removeLiquidity reverts on gas/iteration",
+      "harness_required": true,
+      "checks": {
+        "alleged_families": [
+          "LIVENESS_DOS"
+        ],
+        "lowest_tier_cleared": "Medium",
+        "carried_not_rejected": true,
+        "settling_check_feasible": true
+      },
+      "is_stable_selection": true,
+      "is_p186_flip": false
+    },
+    {
+      "finding": "L-01",
+      "function": "afterUpdate",
+      "awarded": {
+        "severity": "Low",
+        "failure_mode": "blockTimestampDeposit = block.number instead of block.timestamp / wrong type"
+      },
+      "opus_view": "selected (P184)",
+      "sonnet_view": "selected",
+      "sonnet_rejecting_fact": null,
+      "source_evidence": "line 242: blockTimestampDeposit = uint32(block.number) vs deposit-path uint40(timestamp)",
+      "outcome": "SELECTED_VALID",
+      "reason": "model selected the awarded mechanism with a named victim; checks 2-6 hold",
+      "settling_check": "none (already selected)",
+      "harness_required": false,
+      "checks": {
+        "alleged_families": [
+          "LIVENESS_DOS",
+          "TIMING_TYPE"
+        ],
+        "lowest_tier_cleared": "Low",
+        "who_loses_named": true
+      },
+      "is_stable_selection": true,
+      "is_p186_flip": false
+    },
+    {
+      "finding": "H-03",
+      "function": "onAfterSwap",
+      "awarded": {
+        "severity": "High",
+        "failure_mode": "missing/improper fee application in swap logic (admin over-allocation)"
+      },
+      "opus_view": "selected (P184/P185, loose)",
+      "sonnet_view": "selected",
+      "sonnet_rejecting_fact": null,
+      "source_evidence": "double integer truncation adminFee = hookFee/(1e18/quantAMMFeeTake) over-allocates admin",
+      "outcome": "SELECTED_VALID",
+      "reason": "model selected the awarded mechanism with a named victim; checks 2-6 hold",
+      "settling_check": "none (already selected)",
+      "harness_required": false,
+      "checks": {
+        "alleged_families": [],
+        "lowest_tier_cleared": "High",
+        "who_loses_named": true
+      },
+      "is_stable_selection": true,
+      "is_p186_flip": false
+    },
+    {
+      "finding": "M-06",
+      "function": "UpdateWeightRunner._getData",
+      "awarded": {
+        "severity": "Medium",
+        "failure_mode": "unhandled Chainlink revert locks all price-oracle access (external-call DoS)"
+      },
+      "opus_view": "selected (P184)",
+      "sonnet_view": "rejected",
+      "sonnet_rejecting_fact": "revert propagates and reverts the weight-update; view function, no state mutation before/after \u2014 liveness/DoS not fund-loss; no inconsistent state (view)",
+      "source_evidence": "ChainlinkOracle._getData line 201: priceFeed.latestRoundData() with no try/catch; UpdateWeightRunner line 157: revert('No fresh oracle values available') propagates",
+      "outcome": "REJECTED_INCORRECTLY",
+      "reason": "severity_floor: rejection rebuts only a higher tier; the mechanism clears Medium (e.g. DoS = Medium per the scale)",
+      "settling_check": "static: a DoS that locks all oracle access clears Medium per the severity scale; the 'not fund-loss' rebuttal addresses only the High bar",
+      "harness_required": false,
+      "checks": {
+        "alleged_families": [
+          "LIVENESS_DOS"
+        ],
+        "lowest_tier_cleared": "Medium",
+        "responsiveness": {
+          "locus_referenced": true,
+          "rejection_families": [
+            "LIVENESS_DOS"
+          ],
+          "family_match": true,
+          "leans_on_unproven_guard": false,
+          "responsive": true
+        },
+        "applies_too_high_severity_bar": true
+      },
+      "is_stable_selection": false,
+      "is_p186_flip": true
+    },
+    {
+      "finding": "L-02",
+      "function": "MultiHopOracle._getData",
+      "awarded": {
+        "severity": "Low",
+        "failure_mode": "precision loss across hops (sequential floor-division truncation)"
+      },
+      "opus_view": "selected (P184)",
+      "sonnet_view": "selected",
+      "sonnet_rejecting_fact": null,
+      "source_evidence": "((A*B)/1e18*C)/1e18 sequential truncation across N hops grows with hop count",
+      "outcome": "SELECTED_VALID",
+      "reason": "model selected the awarded mechanism with a named victim; checks 2-6 hold",
+      "settling_check": "none (already selected)",
+      "harness_required": false,
+      "checks": {
+        "alleged_families": [
+          "DIRECTION_UNDERFLOW",
+          "PRECISION"
+        ],
+        "lowest_tier_cleared": "Low",
+        "who_loses_named": true
+      },
+      "is_stable_selection": true,
+      "is_p186_flip": false
+    }
+  ],
+  "re_surface_only": true,
+  "frozen_output_consistency": {
+    "consistent": true,
+    "notes": []
+  }
+}

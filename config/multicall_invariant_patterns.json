@@ -1,0 +1,27 @@
+{
+  "lens": "multicall_invariant",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Batch / multicall / delegatecall-loop executors where a per-call accounting invariant (balanceOf / totalSupply / supply-cap / credit / debt) can be bypassed or broken across a sequence of sub-calls. Seed: Size Credit M-01 (Multicall.multicall validates the borrow-aToken cap with balanceOf(this) instead of totalSupply()). Two-signal gate (batch-executor signal AND accounting-invariant signal) + thin-wrapper / pure-view / admin-setter suppression. Mirrors the liquidation_health_accounting research-prototype convention.",
+  "name_gate": ["multicall", "batch", "aggregate", "executebatch", "batchcall", "multidelegatecall", "multisend", "multiexecute", "batchexecute"],
+  "exclude_names": ["initialize", "setconfig", "configparams", "setter"],
+  "batch_executor_calls": ["functiondelegatecall", "delegatecall", "functioncall", ".call("],
+  "supply_terms": ["balanceof", "totalsupply", "supplycap"],
+  "cap_word_terms": ["cap", "limit", "ceiling"],
+  "accounting_terms": ["credit", "debt", "collateral", "shares", "balance", "supply", "borrow"],
+  "state_reuse_terms": ["nonce", "shares", "debt", "credit", "position", "balance", "supply", "reserve"],
+  "batch_flag_terms": ["ismulticall", "inbatch", "isbatch", "batching", "_inmulticall"],
+  "check_terms": ["validate", "require", "check", "invariant", "assert"],
+  "self_context_terms": ["address(this)", "address (this)"],
+  "bytes_array_terms": ["bytes[]"],
+  "view_terms": ["staticcall", ".staticcall(", "view returns", "pure returns"],
+  "setter_call_re": "\\b_?set[A-Z]",
+  "fp_controls": {
+    "two_signal_required": "batch-executor signal (name OR call/delegatecall loop) AND accounting-invariant signal (supply/cap/credit/debt terms)",
+    "pure_view_aggregate_suppression": "staticcall/view-only aggregate with no mutation and no invariant terms -> suppressed",
+    "admin_setter_suppression": "batch of setX()/config setters with no balanceOf/totalSupply read and no before/after capture -> suppressed",
+    "thin_wrapper_suppression": "name-gated multicall with no call-loop, no delegatecall, and no invariant terms (delegates to a library) -> suppressed",
+    "non_executing_loop_suppression": "a for/while loop that does not execute a call/delegatecall is not a batch executor",
+    "encode_decode_lib_suppression": "libraries that only abi.encode/decode calls (no execution) -> suppressed",
+    "unresolved_mutator_demotion": "batch over opaque external targets (.call to non-self) or a validate in an unresolved helper with no local before/after -> needs_context (not high)"
+  }
+}

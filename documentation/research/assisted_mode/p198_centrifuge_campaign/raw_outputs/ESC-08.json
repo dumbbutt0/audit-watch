@@ -1,0 +1,11 @@
+{"surface":"UserEscrow.transferOut",
+ "mechanism_inventory":["access-control mismatch — allowance check accepts ONLY type(uint256).max; forces destination to grant unlimited, irrevocable by UserEscrow","victim accounting direction — destinations decremented before safeTransfer (benign via atomic revert)","missing invariant — no per-call cap; full-balance single drain","external-call DoS — safeTransfer to blacklisted/paused receiver reverts","allowance race/downgrade — max-allowance once set can't be reduced by UserEscrow","stale accounting — destinations credited by gateway flow may diverge from real balance"],
+ "selected_mechanisms":[
+  {"root_cause":"receiver allowance check passes only if ERC20 allowance(destination,receiver)==type(uint256).max; once granted it's irrevocable by UserEscrow, so an auth-compromised caller can drain destination's full balance to any max-allowance receiver","who_loses":"destination (full escrow balance)","who_gains":"attacker receiver","why_carried":"max-only allowance + auth-only gate; fund-loss under auth compromise; High"},
+  {"root_cause":"no per-call/epoch cap; single transferOut drains entire destinations[token][destination]","who_loses":"destination (all funds one tx)","who_gains":"receiver","why_carried":"missing-cap axis independent of allowance mechanism"}],
+ "unresolved_mechanisms":[
+  {"mechanism":"safeTransfer DoS to blacklisted/paused receiver","unresolved_question":"do pool tokens have blacklist/pause?","who_loses":"destination (blocked withdrawal)","status":"NEEDS_HARNESS"},
+  {"mechanism":"destinations[] vs real balance divergence (gateway credit)","unresolved_question":"is gateway credit atomic/consistent?","who_loses":"protocol/other users","status":"NEEDS_HARNESS"}],
+ "rejected_mechanisms":[{"mechanism":"decrement-before-transfer permanent loss on revert","claimed_locus":"destinations -= amount before safeTransfer","rejecting_source_fact":"SafeTransferLib reverts on failure; EVM unwinds state atomically","why_unexploitable":"both decrement+transfer succeed or both revert","leans_on_unproven_guard":false}],
+ "impact_direction":"attacker drains victim destination's full escrow balance to a max-allowance receiver; real RWA redemption proceeds; not dust/self-funded",
+ "stop_condition":"more_mechanisms_pending: DoS + stale-accounting NEEDS_HARNESS","verdict":"HIGH_THREAD"}

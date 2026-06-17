@@ -1,0 +1,55 @@
+{
+  "mechanism_inventory": [
+    "credits overwrite — unbounded multi-leg iteration silently overwrites credits (credits = not +=)",
+    "missing invariant enforcement — tokenRequired unchecked accumulation overflow",
+    "precision / packing / normalization edge — getAmountsMoved(false) excludes fees, mis-sizes credits",
+    "wrong lifecycle ordering / stale snapshot — credits vs tokenRequired tick mismatch",
+    "victim accounting direction — under-counted credits cause over-collateralization or spurious liquidation"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "credits is unconditionally overwritten each loop iteration passing tokenType filter and zero-width long-leg check (credits = ..., not +=). Multi-leg TokenId with >=2 matching legs discards prior credits; only last leg survives -> credits understated.",
+      "attacker_model": "Any caller; TokenId is caller-controlled; usable against a victim in liquidation or to demonstrate undercount. Unprivileged.",
+      "exploit_path": "pass TokenId with >=2 legs (width==0,isLong==1,tokenType match) -> iter0 credits=leg0 -> iter1 overwrites credits=leg1 -> returned credits omits leg0 -> caller sees under-collateralized -> unjust liquidation.",
+      "who_loses": "Position holder (under-counted credits -> excess collateral or liquidation while solvent).",
+      "who_gains": "Liquidators (spurious liquidation); distorted protocol accounting.",
+      "why_carried": "Source shows credits = (not +=) in loop with no accumulation; affects victim accounting variable distinct from tokenRequired; Medium/High; no downstream guard proven."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "tokenRequired unchecked overflow across legs",
+      "source_evidence": "unchecked block wraps loop incl tokenRequired += _getRequiredCollateralSingleLeg; no overflow guard.",
+      "unresolved_question": "Can per-leg requirement * leg count overflow uint256? Depends on positionSize/tick math not shown.",
+      "who_loses": "Protocol/other holders if tokenRequired wraps small -> under-collateralized positions.",
+      "who_gains": "Attacker with near-zero required collateral.",
+      "status": "NEEDS_HARNESS"
+    },
+    {
+      "mechanism": "precision/normalization edge getAmountsMoved(false) excludes fees",
+      "source_evidence": "getAmountsMoved(tokenId, positionSize, index, false) last arg false; semantics not shown.",
+      "unresolved_question": "Does false exclude fees causing systematic credit undercount?",
+      "who_loses": "Position holder (less credit than entitled).",
+      "who_gains": "Protocol/liquidators.",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [
+    {
+      "mechanism": "wrong lifecycle ordering / stale tick — atTick mismatch",
+      "claimed_locus": "atTick passed to getAmountsMoved and _getRequiredCollateralSingleLeg",
+      "rejecting_source_fact": "Both computed within a single internal view call with same atTick/positionSize; no external call/hop between; view (no state mutation).",
+      "why_unexploitable": "atTick is a fixed parameter; view function; no tick update can interleave within one call.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    }
+  ],
+  "impact_direction": {
+    "attacker_receives": "Liquidators receive unjust liquidation proceeds from a position appearing under-collateralized.",
+    "attacker_preserves": "Own under-stated required collateral if tokenRequired overflows.",
+    "victim_loses": "Position holder loses entitled credits -> excess collateral or liquidation while solvent.",
+    "invariant_violated": "Returned credits must equal sum across all qualifying legs, not last leg only.",
+    "not_self_funded_or_dust_or_admin_or_timing": "Affects real collateral credit on multi-leg positions; loss proportional to discarded legs; permissionless."
+  },
+  "stop_condition": "more_mechanisms_pending: tokenRequired overflow + getAmountsMoved(false) NEEDS_HARNESS; different accounting variables, possibly higher severity.",
+  "verdict": "HIGH_THREAD"
+}

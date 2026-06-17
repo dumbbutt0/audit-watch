@@ -1,0 +1,170 @@
+{
+  "audit_id": "vultisig-2024-06-holdout",
+  "set": "training",
+  "generated_at": "2026-06-12T13:44:02Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": false,
+  "awarded": [
+    {
+      "id": "H-01",
+      "severity": "High",
+      "title": "Most users won't be able to claim their share of Uniswap fees",
+      "label": "STRONG",
+      "matched_candidate_id": null,
+      "mechanism_class": "fee-accounting-shared-position",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "H-02",
+      "severity": "High",
+      "title": "Vultisig whitelisting can be bypassed by anyone",
+      "label": "STRONG",
+      "matched_candidate_id": null,
+      "mechanism_class": "self-whitelist-bypass",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "H-03",
+      "severity": "High",
+      "title": "Adversary can prevent the launch of any ILO pool with enough raised capital at any moment by providing single-sided liquidity",
+      "label": "STRONG",
+      "matched_candidate_id": null,
+      "mechanism_class": "single-sided-liquidity-grief",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Vultisig should be burnable",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "burnable-token-design",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "`claim` function lacks slippage controls for `amount0` and `amount1` returned by `pool.burn` function call",
+      "label": "SAME_AREA",
+      "matched_candidate_id": null,
+      "mechanism_class": "lp-burn-slippage",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "Transfer of `ILOPool` NFT token to different account allows for users to bypass the pool's `maxCapPerUser` invariant",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": null,
+      "mechanism_class": "transferable-position-cap-bypass",
+      "read_file": true,
+      "source": "preserved"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "F-001",
+      "title": "ILOPool.claim(): per-NFT fee accounting over a single shared Uniswap position; feeGrowthInsideLast starts at 0 so first claim over-credits whole-pool fee growth",
+      "severity": "High",
+      "file": "src/ILOPool.sol",
+      "contract": "ILOPool",
+      "function": "claim",
+      "description": "claim() computes fees0/1 = mulDiv(pool.feeGrowthInside - position.feeGrowthInsideLast, positionLiquidity, Q128). position.feeGrowthInsideLastX128 is never initialized at buy()/launch() (defaults 0), so the first claim for any position credits the ENTIRE fee growth accumulated by the pool position since creation, scaled by that position's full liquidity. Because all ILO NFT positions share one underlying Uniswap V3 position over [TICK_LOWER,TICK_UPPER], the first claimer drains fees that belong to all positions. Fees are also computed on full positionLiquidity rather than liquidity2Claim."
+    },
+    {
+      "id": "F-002",
+      "title": "ILOPool.claim(): amountCollected - amount underflow / fee-taker over-distribution under 0.7.6 unchecked math",
+      "severity": "Medium",
+      "file": "src/ILOPool.sol",
+      "contract": "ILOPool",
+      "function": "claim",
+      "description": "After pool.collect() returns amountCollected0/1, the contract sends amount0/1 (burned liquidity value + computed fees0/1) to the user and amountCollected0-amount0 / amountCollected1-amount1 to FEE_TAKER. Under solidity 0.7.6 (no overflow checks) if computed amount0>amountCollected0 (possible given F-001 fee over-credit) the subtraction wraps to a huge value and the transfer reverts (claim DoS) or mis-pays. Fee distribution couples user payout and fee-taker payout to the broken fee math."
+    },
+    {
+      "id": "F-003",
+      "title": "ILOManager.initialize(): unprotected initializer can be front-run to seize the manager",
+      "severity": "High",
+      "file": "src/ILOManager.sol",
+      "contract": "ILOManager",
+      "function": "initialize",
+      "description": "initialize() is external whenNotInitialized() with NO onlyOwner/auth guard. The constructor sets owner=tx.origin, but the very first caller of initialize() sets PLATFORM_FEE/PERFORMANCE_FEE/FEE_TAKER/UNIV3_FACTORY/WETH9/ILO_POOL_IMPLEMENTATION and calls transferOwnership(initialOwner). If the deployer does not call initialize atomically with deployment, an attacker front-runs it, becomes owner and sets a malicious ILO_POOL_IMPLEMENTATION / FEE_TAKER."
+    },
+    {
+      "id": "F-004",
+      "title": "ILOManager.launch() is permissionless and gated on slot0==initialPoolPriceX96; price nudge griefs launch (DoS)",
+      "severity": "Medium",
+      "file": "src/ILOManager.sol",
+      "contract": "ILOManager",
+      "function": "launch",
+      "description": "launch() requires the live Uniswap pool slot0 sqrtPrice to exactly equal initialPoolPriceX96. The pool is a real Uniswap V3 pool that anyone can swap against before the ILO liquidity is deployed; an attacker performs a tiny swap to move slot0 away from the initial price, making launch() revert (UV3P) and blocking the launch indefinitely (griefing / DoS). Symmetric: front-run sandwich around launch."
+    },
+    {
+      "id": "F-005",
+      "title": "UniswapV3Oracle.peek(): short-window TWAP on a young pool is cheaply manipulable, loosening the Whitelist ETH cap",
+      "severity": "Medium",
+      "file": "hardhat-vultisig/contracts/oracles/uniswap/UniswapV3Oracle.sol",
+      "contract": "UniswapV3Oracle",
+      "function": "peek",
+      "description": "peek() clamps the TWAP window to getOldestObservationSecondsAgo(pool); for a freshly created/low-cardinality VULT/WETH pool this collapses toward spot price. The result drives Whitelist.checkWhitelist's _maxAddressCap check. An attacker can push VULT price down (or exploit the short window) so estimatedETHAmount is undervalued and buy more VULT than the 3-ETH cap intends."
+    },
+    {
+      "id": "F-006",
+      "title": "Whitelist: free unlimited self-whitelist via receive() + _contributed never decremented",
+      "severity": "Medium",
+      "file": "hardhat-vultisig/contracts/Whitelist.sol",
+      "contract": "Whitelist",
+      "function": "receive/checkWhitelist",
+      "description": "receive() self-whitelists msg.sender (assigning a sequential index) and refunds the ETH, so an attacker can whitelist unlimited Sybil addresses at zero cost (only gas), splitting purchases across them to bypass the per-address _maxAddressCap entirely. Separately _contributed[to] only increases (never decremented on sells), so the cap is consumed permanently across buy/sell cycles."
+    },
+    {
+      "id": "F-007",
+      "title": "ILOPool._unlockedLiquidity(): vest.shares * totalLiquidity overflows under 0.7.6 unchecked math",
+      "severity": "Medium",
+      "file": "src/ILOPool.sol",
+      "contract": "ILOPool",
+      "function": "_unlockedLiquidity",
+      "description": "In the partial-vest branch, liquidityUnlocked += mulDiv(vest.shares * totalLiquidity, elapsed, span*BPS). vest.shares (uint16) is promoted to uint128 and multiplied by totalLiquidity (uint128) BEFORE being passed to FullMath.mulDiv; under solidity 0.7.6 this intermediate multiplication is unchecked and overflows uint128 when totalLiquidity is large, yielding wrong (too-small or wrapped) unlocked liquidity and corrupting vesting math."
+    },
+    {
+      "id": "F-008",
+      "title": "UniswapV3Oracle.peek(): 5% factor applied as a reduction under-quotes ETH cost (cap loosened ~5%)",
+      "severity": "Low",
+      "file": "hardhat-vultisig/contracts/oracles/uniswap/UniswapV3Oracle.sol",
+      "contract": "UniswapV3Oracle",
+      "function": "peek",
+      "description": "Comment says 'add 5% slippage' but the math multiplies by 95/100, REDUCING the estimated ETH amount. Since estimatedETHAmount gates the contribution cap (contributed+estimate > cap), under-quoting lets buyers exceed the intended cap by ~5%."
+    },
+    {
+      "id": "F-009",
+      "title": "ILOManager constructor uses tx.origin for initial ownership",
+      "severity": "Low",
+      "file": "src/ILOManager.sol",
+      "contract": "ILOManager",
+      "function": "constructor",
+      "description": "constructor calls transferOwnership(tx.origin) (deployed via a deployer). tx.origin-based ownership is fragile and combined with the unguarded initialize() (F-003) widens the takeover window."
+    }
+  ],
+  "summary": {
+    "awarded_total": 6,
+    "awarded_source": "report.md",
+    "adjudicated": 6,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 1,
+    "recall_of_surfaced": 0.833,
+    "strong_only": 0.5,
+    "by_label": {
+      "MISSED": 1,
+      "SAME_AREA": 1,
+      "STRONG": 3,
+      "SUBSYSTEM_ONLY": 1,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

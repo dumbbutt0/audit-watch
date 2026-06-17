@@ -1,0 +1,37 @@
+{
+  "phase": "P120",
+  "candidate": "ramses-2024-10::FeeCollector.collectProtocolFees",
+  "novel": true,
+  "terminal_state": "KILLED_RUNTIME",
+  "question": "Can a permissionless caller of collectProtocolFees(pool) redirect or extract protocol fees to an attacker-controlled address, or break fee accounting via the balanceOf(this) notify amount?",
+  "answer": "No. The permissionless trigger cannot extract or redirect fees to the caller; all recipients are hardcoded treasury / address(this) / voter-resolved feeDist. The balanceOf quirk causes cross-pool misattribution only on a donation (self-loss), not attacker-profitable theft.",
+  "harness": {
+    "type": "standalone Foundry project, no fork",
+    "path": "/tmp/p120-feecollector-harness",
+    "command": "forge test --use 0.8.26 --match-contract FeeCollectorRuntime -vvv",
+    "solc": "0.8.26",
+    "evm": "cancun",
+    "via_ir": true,
+    "contract_under_test": "real FeeCollector behind ERC1967Proxy (initializers disabled on impl)",
+    "mocks": ["MockPool (IRamsesV3Pool subset)", "MockVoter (IVoter subset)", "MockFeeDist (IFeeDistributor, pulls via transferFrom)", "MockERC20 x2"]
+  },
+  "cases": [
+    {"id": "A", "scenario": "live gauge + arbitrary attacker caller, 20% treasuryFees", "result": "PASS", "attacker_gain": 0, "recipients": "treasury 20% + feeDist 80%; FeeCollector drained"},
+    {"id": "B", "scenario": "no gauge", "result": "PASS", "attacker_gain": 0, "recipients": "all to treasury (collectProtocol recipient == treasury)"},
+    {"id": "C", "scenario": "attacker-deployed fake pool", "result": "PASS", "attacker_gain": 0, "recipients": "treasury (hardcoded), not attacker"},
+    {"id": "D", "scenario": "balanceOf residual sweep (donation)", "result": "PASS", "attacker_gain": 0, "observation": "residual misattributed to collected pool's feeDist; requires self-loss donation"}
+  ],
+  "all_cases_pass": true,
+  "runtime_proven": true,
+  "source_only_proof_used": false,
+  "awarded": false,
+  "submittable": false,
+  "severity_assigned": null,
+  "report_written": false,
+  "submission_package": false,
+  "ready_for_human_review": false,
+  "production_wiring": false,
+  "research_only": true,
+  "src_mutated": false,
+  "ramses_src": "unmutated (imported via remapping; harness lives in /tmp/p120-feecollector-harness)"
+}

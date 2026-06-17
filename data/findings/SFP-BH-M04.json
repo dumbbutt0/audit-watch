@@ -1,0 +1,21 @@
+{
+  "finding_id": "SFP-BH-M04",
+  "title": "claim_many() omits the AVM owner-resolution that claim() performs, so AVM-managed-lock rewards are sent to the wrong recipient",
+  "bug_class": "sibling_function_parity",
+  "claimed_severity": "medium",
+  "claimed_impact": "RewardsDistributor.claim() resolves the true beneficiary of an AVM-managed lock before transferring rewards: when avm is set and the tokenId is AVM-managed it sets _nftOwner = avm.getOriginalOwner(tokenId). Its sibling claim_many() runs the same _claim / ownerOf / transfer flow in a loop but omits the avm.getOriginalOwner branch entirely, so for AVM-managed locks it transfers the rewards to the raw ownerOf(tokenId) (the AVM contract) instead of the original owner. The original owner permanently loses the rewards. This is a sibling-function parity gap: the batch variant drops a recipient-resolution component the singular variant enforces on a shared transfer path. Confirmed HIGH-confidence recovery by the sibling_function_parity research detector (recipient_parity, missing component avm.getOriginalOwner); 0 high/medium false positives across the 16-subject eval corpus.",
+  "location": {
+    "file": "audits/blackhole-2025-05-eval/contracts/2025-05-blackhole/contracts/RewardsDistributor.sol",
+    "function": "claim_many",
+    "line_start": 219,
+    "line_end": 247,
+    "code_snippet": "// claim() (L197) resolves the AVM original owner before transfer:\n//   if (address(avm) != address(0) && avm.tokenIdToAVMId(_tokenId) != 0) {\n//       _nftOwner = avm.getOriginalOwner(_tokenId);\n//   }\n//   IERC20(token).transfer(_nftOwner, amount);\n//\n// claim_many() (L219) omits that branch entirely:\nfunction claim_many(uint[] memory _tokenIds) external returns (bool) {\n    ...\n    for (uint i = 0; i < _tokenIds.length; i++) {\n        ...\n        if (_locked.end < block.timestamp && !_locked.isPermanent) {\n            address _nftOwner = IVotingEscrow(_voting_escrow).ownerOf(_tokenId);\n            // MISSING: no avm.getOriginalOwner(_tokenId) resolution here\n            IERC20(token).transfer(_nftOwner, amount);\n        } else {\n            IVotingEscrow(_voting_escrow).deposit_for(_tokenId, amount);\n        }\n        ...\n    }\n}"
+  },
+  "immunefi_v22_severity": "medium",
+  "kb_primitive": "PRIM-021",
+  "detector": "sibling_function_parity",
+  "detector_confidence": "high",
+  "parity_type": "recipient_parity",
+  "missing_component": "avm.getOriginalOwner",
+  "source": "research_detector_confirmed_hit"
+}

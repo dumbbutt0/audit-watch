@@ -1,0 +1,147 @@
+{
+  "agent": "behavioral_state_analysis",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-28T23:40:00+00:00",
+  "findings": [
+    {
+      "id": "BSA-001",
+      "title": "Reseed order: ReseedSilo reads stalkIssuedPerBdv before ReseedWhitelist sets it",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "The reseed pipeline runs facet init() calls in a fixed sequence (reseed/reseed.js): reseed5 -> ReseedSilo.init, reseed6 -> ReseedInternalBalances.init, reseed7 -> ReseedWhitelist.init. ReseedSilo.reseedSiloDeposit computes each migrated account's base Stalk from `stalkIssuedPerBdv` read out of `s.sys.silo.assetSettings[siloDeposit.token].stalkIssuedPerBdv` (ReseedSilo.sol#112), then `accountStalk += stalkIssuedPerBdv * totalBdvForAccount` (#161) and `s.accts[account].stalk = accountStalk` (#164). However, `assetSettings[token].stalkIssuedPerBdv` is ONLY ever populated by LibWhitelist.whitelistToken (LibWhitelist.sol#161), which is invoked by ReseedWhitelist.init — two pipeline steps AFTER ReseedSilo. At the time ReseedSilo runs, assetSettings is still zero-initialized, so `stalkIssuedPerBdv` reads 0 for every token. The base-stalk term collapses to 0, and because the per-deposit grown-stalk term is also ~0 at reseed (every deposit's stem equals the supplied stemTip, so `stemTip - stem == 0` at #132), each migrated holder is reseeded with effectively zero Stalk. This is a cross-step state-consistency / lifecycle-ordering defect: state written in a later reseed step (asset settings) is a precondition for a calculation performed in an earlier step. It is distinct from the sibling logic findings (LG-002 stalk overwrite via `=`, LG-003 missing roots/global totals): even if those were fixed, the value being assigned would still be ~0 because the multiplicand is read before it is initialized.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+        "function": "reseedSiloDeposit",
+        "line_start": 109,
+        "line_end": 165,
+        "code_snippet": "uint256 stalkIssuedPerBdv = s.sys.silo.assetSettings[siloDeposit.token].stalkIssuedPerBdv; // reads 0 (ReseedWhitelist runs later)\n...\naccountStalk += stalkIssuedPerBdv * totalBdvForAccount; // == 0\ns.accts[deposits.accounts].stalk = accountStalk; // account reseeded with ~0 stalk"
+      },
+      "impact": "Every migrated Silo depositor is initialized on L2 with effectively zero base Stalk (instead of bdv * stalkIssuedPerBdv, normally >= 1 Stalk per BDV). Stalk is Beanstalk's core governance weight and the basis for Earned-Bean (root) accrual; reseeding it to ~0 silently strips all migrated holders of the voting power and yield entitlement they held on L1, while their deposit amounts/BDV are preserved. Protocol-wide accounting (per-account Stalk vs global stalk/roots) is left permanently inconsistent at genesis of the new chain.",
+      "proof_of_concept": "Pipeline order (reseed/reseed.js -> reseed5..reseed7):\n  reseed5: ReseedSilo.init  -> reseedSiloDeposit reads assetSettings[token].stalkIssuedPerBdv == 0\n  reseed7: ReseedWhitelist.init -> LibWhitelist.whitelistToken sets assetSettings[token].stalkIssuedPerBdv = X\nFor a holder with totalBdvForAccount = B and all deposits at stemTip:\n  accountStalk = 0 (grown) + 0 (= 0 * B) = 0\n  s.accts[holder].stalk = 0   // expected: X * B\nAfter reseed7 sets stalkIssuedPerBdv, ReseedSilo is never re-run, so the stalk stays 0.",
+      "recommendation": "Reorder the reseed pipeline so ReseedWhitelist (assetSettings population) runs BEFORE ReseedSilo, or have ReseedSilo carry the per-token stalkIssuedPerBdv in its own calldata struct (like it already does for stemTip/totalDeposited) instead of reading it from assetSettings. Add a post-reseed invariant check asserting sum(account.stalk) reconciles with sum(bdv * stalkIssuedPerBdv) + grown stalk for each token. Also reset s.accts[account].lastUpdate to the reseed season during ReseedSilo so the first post-migration _mow does not treat migrated accounts as season-0 (currently left at default 0 against a large season.current).",
+      "confidence": "High",
+      "attack_surface_rank": 4,
+      "cross_agent_refs": ["LG-002", "LG-003"],
+      "ite": {
+        "intent": "Strip every migrated L1 Silo depositor of their Stalk (governance weight + Earned-Bean accrual) at L2 genesis.",
+        "technique": "ReseedSilo.reseedSiloDeposit (reseed5) reads s.sys.silo.assetSettings[token].stalkIssuedPerBdv at ReseedSilo.sol#112, but that slot is only written by ReseedWhitelist.init (reseed7) via LibWhitelist.whitelistToken#161. At #161/#164 accountStalk = 0*totalBdvForAccount = 0 and is stored as the holder's entire Stalk; ReseedSilo never re-runs after whitelisting.",
+        "evasion": "The require() checks at #168-#175 only validate totalDeposited/totalDepositedBdv (amounts), not Stalk, so the zeroed-stalk state passes the only guard in the routine. There is no cross-step ordering assertion that assetSettings is populated before silo stalk is computed."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[account].stalk (per migrated depositor) and the per-account-vs-global stalk/roots ratio",
+        "consumer_found": true,
+        "consumer_function": "LibSilo._balanceOfEarnedBeans / ClaimFacet.plant / governance vote weight",
+        "consumer_action": "Computes Earned Beans and governance voting weight from account stalk/roots; zeroed stalk yields zero rewards and zero vote weight for migrated holders",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "bsa_metadata": {
+        "stated_intent": "@dev '- re-issues all stalk to holders' / '- re-deposits all deposits to the silo' (ReseedSilo.sol#73-75): each holder's full L1 Stalk is re-issued on L2.",
+        "actual_behavior": "Base stalk multiplicand (stalkIssuedPerBdv) is read from assetSettings before ReseedWhitelist populates it, so it is 0; holders are re-issued ~0 Stalk despite preserved deposits.",
+        "divergence_type": "invariant_violated"
+      },
+      "references": [
+        {
+          "title": "PoolRevisionFourInitialize.initialize does not initialize new logic for already-frozen assets (upgrade-script init order)",
+          "url": "https://cdn.cantina.xyz/reports/cantina_competition_aave_may2024.pdf",
+          "source": "solodit"
+        }
+      ]
+    },
+    {
+      "id": "BSA-002",
+      "title": "L2 migration redeem replayable: no nonce, stalk and roots re-credited each call",
+      "severity": "High",
+      "vuln_type": "signature-replay",
+      "description": "L2ContractMigrationFacet.redeemDepositsAndInternalBalances is a permissionless, one-time-intended migration routine for L1 contract-owned positions. It authorizes via (a) a Merkle proof over keccak256(owner, deposits, internalBalances, ownerRoots) and (b) an EIP-712 signature over (REDEEM_DEPOSIT_TYPE_HASH, owner, reciever, deadline). Neither path includes a nonce, and the function stores NO per-(owner) or per-(owner,reciever) 'already redeemed' marker — the Migration storage struct (System.sol#375) contains only `migratedL1Beans` and a buffer. Both the proof and the signature are fully deterministic for fixed inputs, so they remain valid until `deadline`. Because addMigratedDepositsToAccount writes deposits with `=` (idempotent) and overwrites mowStatuses, but setStalk (#205-#211) does `s.accts[reciever].stalk += accountStalk; s.accts[reciever].roots += accountRoots;` (INCREMENT), an attacker (or the receiver) can call the function repeatedly with the identical valid proof+signature before the deadline. Each replay re-adds the full accountStalk and ownerRoots while the deposit set stays fixed. This is an idempotency/lifecycle-ordering failure in a routine documented and named as a single redemption.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "redeemDepositsAndInternalBalances",
+        "line_start": 88,
+        "line_end": 114,
+        "code_snippet": "function redeemDepositsAndInternalBalances(...) external payable fundsSafu noSupplyChange nonReentrant {\n    verifyDepositsAndInternalBalances(owner, deposits, internalBalances, ownerRoots, proof); // static merkle proof, no nonce\n    verifySignature(owner, reciever, deadline, signature);                                  // static EIP-712, no nonce\n    uint256 accountStalk;\n    for (...) accountStalk += addMigratedDepositsToAccount(reciever, deposits[i]);\n    setStalk(reciever, accountStalk, ownerRoots); // setStalk does stalk += / roots += each call\n}"
+      },
+      "impact": "Stalk and Roots can be inflated without bound (up to the deadline) for the receiver of any migrating L1 contract. Stalk is governance weight and the denominator for Earned-Bean distribution; Roots directly entitle the holder to a pro-rata share of newly minted Beans. Replaying the redemption N times grants ~N x the legitimate stalk/roots, letting the receiver capture a disproportionate share of all future Bean mints and outvote the rest of the DAO, breaking the global stalk/roots conservation invariant and effectively draining yield from honest holders. Anyone can submit the replay since the proof and signature are public once the first redemption is broadcast.",
+      "proof_of_concept": "1. Legitimate migrator broadcasts redeemDepositsAndInternalBalances(owner, reciever, deposits, ib, ownerRoots, proof, deadline, sig). Tx succeeds; reciever gets stalk S and roots R.\n2. Attacker copies the identical calldata from the mempool/chain (no privileged setup, EOA tx).\n3. Attacker re-submits the same call before `deadline`. verifyDepositsAndInternalBalances passes (proof unchanged), verifySignature passes (sig unchanged, block.timestamp <= deadline). deposits[id] re-written to same values; setStalk adds S, R again -> reciever stalk = 2S, roots = 2R.\n4. Repeat until deadline -> stalk/roots = kS, kR with deposits still = original.",
+      "recommendation": "Record redemption completion: add a mapping (e.g. s.sys.migration redeemed[owner] or redeemed[keccak256(owner,reciever)]) set on first successful redemption and require(!redeemed[...]) at entry. Include a per-owner nonce in both the Merkle leaf and the EIP-712 struct hash. Make setStalk idempotent-safe (set vs add) or guard it behind the one-time marker. Bind the deposit/internalBalance payload into the signature (currently the signature covers only owner/reciever/deadline, while the proof covers the data — the two are not cross-bound).",
+      "confidence": "High",
+      "attack_surface_rank": 4,
+      "cross_agent_refs": [],
+      "ite": {
+        "intent": "Inflate a receiver's Stalk and Roots arbitrarily to capture a dominant share of Bean mints and DAO votes.",
+        "technique": "Re-submit the identical (proof, signature, deposits, ownerRoots) calldata of redeemDepositsAndInternalBalances multiple times before `deadline`; setStalk (L2ContractMigrationFacet.sol#206-207) increments stalk/roots on each call while there is no redeemed-marker and no nonce in either the Merkle leaf (#127) or the EIP-712 hash (#143-145).",
+        "evasion": "Developers relied on the Merkle proof + EIP-712 signature for authorization but provided no replay protection: the Migration struct (System.sol#375) has no per-account redeemed flag, and verifySignature only bounds expiry via `deadline`, which does not prevent reuse within the window."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[reciever].stalk and s.accts[reciever].roots (incremented per replay)",
+        "consumer_found": true,
+        "consumer_function": "LibSilo._balanceOfEarnedBeans / Sun reward distribution / governance weight",
+        "consumer_action": "Distributes minted Beans pro-rata to roots and weights DAO votes by stalk; inflated roots/stalk drain yield and governance from honest holders",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "bsa_metadata": {
+        "stated_intent": "@notice 'allows an contract that owns deposits and bean-asset internal balances to redeem onto an address on L2' (L2ContractMigrationFacet.sol#77) — a one-time redemption of an L1 position.",
+        "actual_behavior": "The redemption can be replayed indefinitely before the deadline; each replay re-adds stalk/roots because setStalk increments and no redeemed-marker/nonce exists.",
+        "divergence_type": "invariant_violated"
+      },
+      "references": [
+        {
+          "title": "57373 [SC-Medium] Signature replay due to missing nonce and deadline checks (Belong)",
+          "url": "https://reports.immunefi.com/belong/57373-sc-medium-signature-replay-vulnerability-due-to-missing-nonce-and-deadline-checks",
+          "source": "other"
+        },
+        {
+          "title": "57279 [SC-High] Signature replayability: repeated use of signed access tokens allows duplicate mints (Belong)",
+          "url": "https://reports.immunefi.com/belong/57279",
+          "source": "other"
+        }
+      ]
+    },
+    {
+      "id": "BSA-003",
+      "title": "Migration redeem ignores verified internalBalances and zeroes global silo totals",
+      "severity": "Medium",
+      "vuln_type": "logic-error",
+      "description": "Two behavioral divergences in the same redemption routine. (1) Name/intent vs implementation: the function is named redeemDepositsAndInternalBalances and its @notice promises redemption of 'deposits and bean-asset internal balances'; the AccountInternalBalance[] internalBalances array is even committed into and validated by the Merkle leaf (verifyDepositsAndInternalBalances, #127-128). But the function body never credits internal balances anywhere — there is no write to s.accts[reciever].internalTokenBalance. Migrating contracts that present (and prove) internal balances have those balances silently dropped. (2) Cross-step global-state drift: addMigratedDepositsToAccount declares local `uint128 totalDeposited; uint128 totalDepositedBdv;` (#159-160) that are never incremented, then writes them to the GLOBAL aggregates `s.sys.silo.balances[token].deposited = totalDeposited;` and `.depositedBdv = totalDepositedBdv;` (#194-195) — i.e. it assigns 0, and uses `=` rather than `+=`. Any contract redemption therefore overwrites the global deposited/depositedBdv totals (set earlier by ReseedSilo) to 0 for that token, while the per-account deposit mappings remain populated. This makes the per-account deposits and the global silo balance permanently inconsistent across the migration lifecycle.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "addMigratedDepositsToAccount",
+        "line_start": 152,
+        "line_end": 200,
+        "code_snippet": "uint128 totalDeposited;       // never incremented\nuint128 totalDepositedBdv;    // never incremented\n... (loop credits deposits per account but not internalBalances) ...\ns.sys.silo.balances[depositData.token].deposited = totalDeposited;       // = 0, overwrites ReseedSilo global total\ns.sys.silo.balances[depositData.token].depositedBdv = totalDepositedBdv; // = 0"
+      },
+      "impact": "Migrating L1 contracts permanently forfeit any internal (farm) balances they prove ownership of — those tokens are accounted nowhere on L2. Separately, the global s.sys.silo.balances[token].deposited / depositedBdv are reset to 0 by any contract redemption, desynchronizing global silo totals from the sum of per-account deposits set by ReseedSilo; downstream functions that read global deposited/depositedBdv (gauge/seed allocation, BDV-share math, totalDeposited getters) operate on corrupted aggregates. No reconciliation guard exists in this facet (unlike ReseedSilo's totals require()).",
+      "proof_of_concept": "Internal balances dropped:\n  redeemDepositsAndInternalBalances(owner, reciever, deposits, [ {token, 100} ], ...) with valid proof.\n  After call: s.accts[reciever].internalTokenBalance[token] == 0 (never written). 100 lost.\nGlobal totals zeroed:\n  Before: s.sys.silo.balances[BEAN].deposited == T (from ReseedSilo).\n  Any contract redemption for BEAN executes `s.sys.silo.balances[BEAN].deposited = 0;` (#194).\n  After: global deposited == 0 while per-account deposit crates still sum to >0.",
+      "recommendation": "Credit internal balances: loop over internalBalances and set/add s.accts[reciever].internalTokenBalance[token] and the global internalTokenBalanceTotal (mirroring ReseedInternalBalances.setInternalBalances). For global silo totals, increment the running totalDeposited/totalDepositedBdv inside the deposit loop and apply them with `+=` to s.sys.silo.balances[token], not `=` with uninitialized zeros. Add a post-redemption reconciliation require() as ReseedSilo has.",
+      "confidence": "High",
+      "attack_surface_rank": 4,
+      "cross_agent_refs": ["LG-003"],
+      "ite": {
+        "intent": "Cause migrated contracts to lose internal balances and corrupt the protocol's global deposited totals during migration.",
+        "technique": "redeemDepositsAndInternalBalances validates internalBalances in the Merkle leaf (#127) but the body never credits them; addMigratedDepositsToAccount writes zero-initialized locals to the global aggregates s.sys.silo.balances[token].deposited/.depositedBdv with `=` (#194-195).",
+        "evasion": "The Merkle check authenticates the internalBalances payload, creating the appearance they are processed; no invariant/require ties the global silo totals to the sum of credited per-account deposits in this facet, so the zeroing passes silently."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[reciever].internalTokenBalance[token] (never credited) and s.sys.silo.balances[token].deposited/.depositedBdv (overwritten to 0)",
+        "consumer_found": true,
+        "consumer_function": "SiloGettersFacet.getTotalDeposited/getTotalDepositedBdv, LibGauge seed/gauge allocation",
+        "consumer_action": "Reads global deposited/depositedBdv for gauge points, seed allocation, and BDV-share accounting; zeroed totals misallocate seeds/rewards and mis-report protocol TVL",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      },
+      "bsa_metadata": {
+        "stated_intent": "Function named redeemDepositsAndInternalBalances; @notice 'redeem ... deposits and bean-asset internal balances'; internalBalances bound into the verified Merkle leaf.",
+        "actual_behavior": "internalBalances are validated but never credited; global silo deposited/depositedBdv totals are overwritten to 0 by uninitialized locals.",
+        "divergence_type": "doc_lie"
+      },
+      "references": [
+        {
+          "title": "M-09 Users of Migration.sol may forfeit rebase rewards (migration accounting omission)",
+          "url": "https://github.com/solodit",
+          "source": "solodit"
+        }
+      ]
+    }
+  ]
+}

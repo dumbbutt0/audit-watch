@@ -1,0 +1,15 @@
+{
+  "model": "sonnet", "verdict": "HIGH_THREAD",
+  "mechanism_inventory": ["precision edge — double-truncation adminFee=hookFee/(1e18/quantAMMFeeTake) over-allocates admin","value exceeds bound — quantAMMFeeTake>=1e18 -> 1e18/take=0 -> hookFee/0 div-by-zero on every swap","missing invariant — no upper bound on quantAMMFeeTake","external-call DoS — _vault.sendTo to quantAMMAdmin may revert","hook-timing — quantAMMAdmin fetched dynamically (fee redirection)","victim accounting direction — EXACT_OUT increases user payment"],
+  "selected_mechanisms": [
+    {"root_cause":"no upper bound on quantAMMFeeTake; quantAMMFeeTake>=1e18 -> 1e18/take=0 -> hookFee/0 division-by-zero revert","who_loses":"all swap users (swaps DoS)","who_gains":"attacker blocks trading","why_carried":"hard revert, complete swap failure"},
+    {"root_cause":"double integer truncation adminFee=hookFee/(1e18/quantAMMFeeTake) over-allocates to admin (e.g. take=0.3e18 -> admin 33% not 30%)","who_loses":"hook owner (less fee than configured)","who_gains":"quantAMMAdmin (more than configured)","why_carried":"different actor (owner vs admin split), systematic"}],
+  "unresolved_mechanisms": [
+    {"mechanism":"external-call DoS via reverting quantAMMAdmin","source_evidence":"_vault.sendTo(feeToken,quantAMMAdmin,adminFee); admin from runner, no validation","unresolved_question":"vault sendTo revert-propagation unknown","who_loses":"all swap users","who_gains":"attacker controlling runner admin"},
+    {"mechanism":"dynamic admin fetch enables fee redirection","source_evidence":"getQuantAMMAdmin() at swap time","unresolved_question":"runner setter permissions","who_loses":"intended admin recipient","who_gains":"new admin address"}],
+  "rejected_mechanisms": [
+    {"mechanism":"ownerFee underflow","rejecting_source_fact":"ownerFee=hookFee-adminFee; adminFee<=hookFee for take<1e18; underflow case collapses into div-by-zero","why_unexploitable":"safe in valid range","who_loses":"n/a","who_gains":"n/a","leans_on_unproven_guard":false},
+    {"mechanism":"access-control direct caller","rejecting_source_fact":"onlyVault modifier","why_unexploitable":"vault-only","who_loses":"n/a","who_gains":"n/a","leans_on_unproven_guard":false}],
+  "impact_direction": {"attacker_receives":"no direct value (DoS); admin over-receives (rounding)","attacker_preserves":"control over swap availability","victim_loses":"all swap users lose trading; owner loses fee share","invariant_violated":"swap must succeed; admin gets exactly take/1e18 of hookFee","not_self_funded_or_dust_or_admin_or_timing":"DoS hits all users; rounding systematic"},
+  "stop_condition": "more_mechanisms_pending: reverting-admin DoS + dynamic-admin redirection"
+}

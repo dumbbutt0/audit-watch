@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "description": "P251 STATE_TRANSITION examine-time reasoning checkpoint — shape markers for the 5 state-transition families (S1-S5). RESEARCH-ONLY, default-off, un-wired. Mirrors the P249 accounting checkpoint: it OBSERVES these shapes and emits an interrogative STATE_TRANSITION_CHECKPOINT record (8 questions + empty hypothesis); it NEVER concludes a vulnerability or emits a finding. Markers are intentionally broad (observe, don't conclude) because firing only asks a question — adjudication happens later in the existing precision pipeline. No sixth family.",
+  "checkpoint_only": true,
+  "emits_findings": false,
+  "concludes_vulnerability": false,
+  "families": {
+    "S1_reset_overwrite_user_state": {
+      "critical_var_markers": ["unlocktime", "lastlocktime", "expir", "deadline", "status", "owner", "balance", "duration", "starttime", "endtime", "ratesatexpiry"],
+      "overwrite_markers": ["unlocktime =", "].unlocktime", "].status", "].balance", "].owner", "= uint32(block.timestamp", "playersettings[", "lockedtokens[", "onbehalf", "_recipient", "_onbehalfof"]
+    },
+    "S2_growable_set_unbounded_loop": {
+      "_comment": "two-signal = a loop AND a STORAGE-set operation (grow or iterate). Catches the consume-side loop (e.g. pause iterating _liveProposals) even when the grow-side (.add) is in another function; a generic memory-array loop has no set-op so stays silent.",
+      "set_markers": [".push(", ".add(", ".remove(", ".values()", "enumerableset", "_liveproposals", "_proposals", "configuredtokencontracts"],
+      "iteration_markers": ["for (", "for(", "while (", ".values()"]
+    },
+    "S3_dual_state_inconsistency": {
+      "_comment": "tightened: only genuinely-paired status/vote vocab (dropped generic lock/unlock/enable/disable/active to avoid noise).",
+      "opposing_markers": ["approv", "disapprov", "valid", "invalid", "frozen", "paused", "expired"],
+      "state_write_markers": ["[msg.sender] =", "approvals[", "disapprovals[", "= true", "= false", "count++", "[user] ="]
+    },
+    "S4_branch_consequence_not_traced": {
+      "_comment": "tightened: a genuine FAILURE/SHORTFALL branch (dropped generic else/return/bare-assign) AND a value-mutation.",
+      "branch_markers": ["< _amount", "< amount", "balanceof(address(this)) <", "!success", "if (!", "reserve", "insufficient", "shortfall", "catch", "< minreserve", "< reserves"],
+      "mutation_markers": [".transfer(", ".mint(", ".burn(", "_mint(", "_burn(", "safetransfer", "delete "]
+    },
+    "S5_time_window_expiry_interaction": {
+      "time_var_markers": ["expir", "duration", "window", "timestamp", "period", "block.timestamp", "maturity", "deadline"],
+      "interaction_markers": ["+ duration", "+ _duration", "newperiod", "newexpir", "updateexpir", "+ expirationperiod", "< expiry", ">= expiry", "+ expir", "lastlocktime +", "setlockduration"]
+    }
+  },
+  "questions": [
+    "Q1: Can an attacker choose the state transition?",
+    "Q2: Can the transition be repeated?",
+    "Q3: Does the transition overwrite another user's critical state?",
+    "Q4: Does the transition grow an unbounded set or loop?",
+    "Q5: Can two incompatible states both become true?",
+    "Q6: Does a failure/shortfall branch still update state?",
+    "Q7: Does a time-window change affect existing state?",
+    "Q8: Who is harmed if this state persists?"
+  ]
+}

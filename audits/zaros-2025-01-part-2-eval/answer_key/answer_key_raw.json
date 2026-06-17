@@ -1,0 +1,3320 @@
+{
+  "generated_at": "2026-05-30T08:00:59.954950+00:00",
+  "program": "Zaros Part 2",
+  "contest_slug": "2025-01-zaros-part-2",
+  "source": "CodeHawks final report (selected-for-report findings) embedded in results?t=report page payload",
+  "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+  "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+  "access_note": "Parsed POST-FREEZE from report.html captured after pre_answer_key_snapshot/MANIFEST.json. 70 report findings = official 16 High / 35 Medium / 19 Low.",
+  "counts": {
+    "High": 16,
+    "Medium": 35,
+    "Low": 19
+  },
+  "total": 70,
+  "findings": [
+    {
+      "answer_key_id": "H-01",
+      "report_finding_id": "cm89am55q0013l403212477o2",
+      "selected_issue_id": "cm6ejtvme0005saanwwltfftw",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Vaults weth reward is not distributed correctly",
+      "duplicate_count": 20,
+      "alt_titles": [
+        "Incorrect Naming Convention and Description for Market::wethRewardPerVaultShare",
+        " Discrepancy in how Market::wethRewardChangeX18 overallocates weth rewards per vault which allows users to withdraw more weth rewards than they should be allocated",
+        "[M-09] WETH Rewards Misallocation: getVaultAccumulatedValues Allows Vaults to Overclaim Rewards",
+        "Vault WETH reward change is calculated wrong",
+        "Missing multiplication in the logic",
+        "Incorrect WETH Reward Calculation",
+        "`receiveWethReward` does not calculate the reward on a per-share basis"
+      ],
+      "affected_contracts": [
+        "Collateral.sol",
+        "Constants.sol",
+        "CreditDelegation",
+        "CreditDelegationBranch",
+        "Distribution.sol",
+        "ERC4626.sol",
+        "EnumerableMap.sol",
+        "EnumerableSet.sol",
+        "Errors.sol",
+        "FeeDistributionBranch",
+        "LiveMarket",
+        "Market.sol",
+        "MarketMakingEngine",
+        "MarketMakingEngineConfiguration",
+        "MarketMakingEngineConfigurationBranch",
+        "MockEngine",
+        "MockPriceAdapter",
+        "MockVault",
+        "SD59x18.sol",
+        "SafeCast.sol",
+        "Test.sol",
+        "UD60x18.sol",
+        "Vault.sol",
+        "VaultRouterBranch",
+        "WethRewardDistribution",
+        "addMarket",
+        "connectVaultsAndMarket",
+        "getVault",
+        "handleWethRewardDistribution",
+        "indexToken",
+        "lastVault",
+        "liveMarket",
+        "mockEngine",
+        "numberOfVault",
+        "onlyRegisteredEngine",
+        "priceAdapter",
+        "realizedDebtUsdPerVault",
+        "recalculateVault",
+        "receiveMarket",
+        "receivedVault",
+        "s.sol",
+        "testWethRewardDistribution",
+        "totalVault",
+        "unrealizedDebtUsdPerVault",
+        "updateMarketCreditDelegation",
+        "wethDistribution",
+        "wethRewardDistribution",
+        "wethRewardPerVault"
+      ],
+      "affected_functions": [
+        "FeeDistributionBranch",
+        "Market",
+        "MarketMakingEngine",
+        "Solidity",
+        "Vault",
+        "_handleWethRewardDistribution",
+        "asset",
+        "diff",
+        "numberOfVaults",
+        "realizedDebtUsdPerVaultShare",
+        "receivedProtocolWethReward",
+        "receivedVaultWethReward"
+      ],
+      "root_cause": "Vaults weth reward is not distributed correctly",
+      "impact": "",
+      "proof_summary": "# Vaults weth reward is not distributed correctly\n\n### Severity\nHigh Risk\n\n## Summary\n\nWhen market receives fee in weth, `wethRewardPerVaultShare` is incremented by `receivedVaultWethReward` amount. However, as its name suggests, `wethRewardPerVaultShare` is reward per share, so it should be incremented by `receivedVaultWethReward / totalDelegatedCreditUsd`.\n\nThis inconsistency inflates `vault.wet",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "20 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-02",
+      "report_finding_id": "cm89am57q0017l403tpb5vdm3",
+      "selected_issue_id": "cm6smoyi3000x97qk5s410mkx",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "After an LP provider's initial stake, if they stake again in the same vault they lose all accumulated value from previous staked amount",
+      "duplicate_count": 18,
+      "alt_titles": [
+        "User will lose staking rewards if they stake again without claiming initial rewards",
+        "If user stakes again, he will lose all of his rewards",
+        "Unclaimed Rewards Are Lost During Re-Staking",
+        "Users will lose all their previous weth rewards when the add to their stake",
+        "Loss of Pending Rewards During Staking balance increase",
+        "Users will lose rewards when calling `stake`",
+        "Users can loose accumulated rewards because `Distribution::accumulateActor` doesn't store already accumulated rewards"
+      ],
+      "affected_contracts": [
+        "EmptyDistribution",
+        "VaultRouterBranch",
+        "recalculateVault",
+        "wethRewardDistribution"
+      ],
+      "affected_functions": [
+        "Distribute",
+        "Distribution",
+        "Distributor",
+        "Solidity",
+        "VaultRouterBranch",
+        "accumulateActor",
+        "actor",
+        "lastValuePerShare",
+        "recalculateVaultsCreditCapacity",
+        "setActorShares",
+        "shares",
+        "stake"
+      ],
+      "root_cause": "After an LP provider's initial stake, if they stake again in the same vault they lose all accumulated value from previous staked amount",
+      "impact": "",
+      "proof_summary": "# After an LP provider's initial stake, if they stake again in the same vault they lose all accumulated value from previous staked amount\n\n### Severity\nHigh Risk\n\n## Summary\n\nIn `VaultRouterBranch`- the `stake`function allows LP providers to stake the vault shares that they received from depositing collateral specific to the vaultId.\u00a0\n\nThe vault periodically, positively updates its `valuePerShare ",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "18 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-03",
+      "report_finding_id": "cm89am4wq000jl403u1402rj2",
+      "selected_issue_id": "cm6t773lk001h4m95t60g1wn7",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "No one can redeem LP shares for reasonably high lockedCreditRatio and sufficiently high share distribution",
+      "duplicate_count": 17,
+      "alt_titles": [
+        "Incorrect credit capacity check in `redeem()` ",
+        "Wrong check for credit capacity leads to opposite than intended behavior",
+        "Unvalidated Locked Credit Capacity During Redemption and incorrect comparision",
+        "Incorrect credit capacity checks in the `VaultRouterBranch::redeem` allows for over withdraw the vault",
+        "Locked Capacity Check Not Working",
+        "Incorrect logic for checking the credit capacity after a redeem",
+        "Locked credit capacity enforcement can be broken leading to vault inadequacy to cover debt position"
+      ],
+      "affected_contracts": [
+        "Collateral.sol",
+        "Constants.sol",
+        "CreditDelegation",
+        "Distribution.sol",
+        "ERC20.sol",
+        "ERC20Mock.sol",
+        "ERC4626.sol",
+        "EnumerableMap.sol",
+        "EnumerableSet.sol",
+        "Errors.sol",
+        "IMarketMakingEngine",
+        "LiveMarket",
+        "Market.sol",
+        "MarketMakingEngine",
+        "MarketMakingEngineConfiguration",
+        "MockEngine",
+        "MockPriceAdapter",
+        "MockZlpVault",
+        "SD59x18.sol",
+        "SafeCast.sol",
+        "Test.sol",
+        "UD60x18.sol",
+        "Vault.sol",
+        "VaultRouterBranch",
+        "ZlpVault",
+        "addMarket",
+        "connectVaultsAndMarket",
+        "getZlpVault",
+        "indexToken",
+        "liveMarket",
+        "marketMakingEngine",
+        "mockEngine",
+        "priceAdapter",
+        "recalculateVault",
+        "s.sol",
+        "updateMarketCreditDelegation",
+        "wethRewardDistribution",
+        "zlpVault"
+      ],
+      "affected_functions": [
+        "NotEnoughUnlockedCreditCapacity",
+        "Solidity",
+        "VaultRouterBranch",
+        "lockedCreditRatio",
+        "solidity",
+        "vault"
+      ],
+      "root_cause": "No one can redeem LP shares for reasonably high lockedCreditRatio and sufficiently high share distribution",
+      "impact": "",
+      "proof_summary": "# No one can redeem LP shares for reasonably high lockedCreditRatio and sufficiently high share distribution\n\n### Severity\nHigh Risk\n\n## Summary\n\nIncorrect credit capacity check in `VaultRouterBranch.redeem` allows LPs withdraw more collateral than allowed. Furthermore, it prevents small amount of asset movement. Thus, if everyone's LP share amount is less than `lockedCreditRatio * totalShare`, no",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "17 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-04",
+      "report_finding_id": "cm89am54b0011l4031lvfacx1",
+      "selected_issue_id": "cm6jfdily0009nplqt0qwzclu",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "recalculateVaultsCreditCapacity() function always reverts after first redeem causing protocol DoS",
+      "duplicate_count": 15,
+      "alt_titles": [
+        "Underflow when updating credit delegation will result protocol DoS",
+        "Critical Underflow inside of `Vault::_updateCreditDelegations`",
+        "`recalculateVaultsCreditCapacity` will revert when vault has lower creditCapacity than the previous one",
+        "Protocol DoS due to underflow error in `_updateCreditDelegations` ",
+        "If newCreditDelegationUsdX18 is lesser than previousCreditDelegationUsdX18 then panic error underflow.",
+        "Vault::_updateCreditDelegations Will Revert If When Credit Capacity is Zero or Negative",
+        "Underflow Risk in `Market::updateTotalDelegatedCredit` Function  "
+      ],
+      "affected_contracts": [
+        "CreditDelegation",
+        "NewCreditDelegation",
+        "PreviousCreditDelegation",
+        "RevertCreditDelegation",
+        "Vault.sol",
+        "VaultConfig",
+        "VaultRouterBranch",
+        "connectedMarket",
+        "connectedMarketsConfig",
+        "creditDelegation",
+        "fuzzVaultConfig",
+        "getFuzzVaultConfig",
+        "getVault",
+        "indexToken",
+        "marketMakingEngine",
+        "newCreditDelegation",
+        "previousCreditDelegation",
+        "recalculateVault",
+        "rehydratedConnectedMarket",
+        "t.sol",
+        "totalCreditDelegation",
+        "updateCreditDelegation",
+        "updatedConnectedMarket",
+        "user2Vault",
+        "userVault"
+      ],
+      "affected_functions": [
+        "NewCreditDelegation",
+        "PreviousCreditDelegation",
+        "Shell",
+        "Solidity",
+        "Vault",
+        "VaultRouterBranch",
+        "creditDeltaUsdX18",
+        "newCreditDelegationUsdX18",
+        "previousCreditDelegationUsdX18",
+        "revert",
+        "src",
+        "test"
+      ],
+      "root_cause": "recalculateVaultsCreditCapacity() function always reverts after first redeem causing protocol DoS",
+      "impact": "",
+      "proof_summary": "# recalculateVaultsCreditCapacity() function always reverts after first redeem causing protocol DoS\n\n### Severity\nHigh Risk\n\n## Summary\n\nAfter the first call of [VaultRouterBranch.sol:redeem()](https://github.com/Cyfrin/2025-01-zaros-part-2/blob/35deb3e92b2a32cd304bf61d27e6071ef36e446d/src/market-making/branches/VaultRouterBranch.sol#L486) value of `newCreditDelegationUsdX18` is less than `previou",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "15 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-05",
+      "report_finding_id": "cm89am5az001fl4037s7olt92",
+      "selected_issue_id": "cm6pirlum0005tzt9k3vb9oou",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "settleVaultDebts will increase vaults' debt/credit instead of settling it",
+      "duplicate_count": 11,
+      "alt_titles": [
+        "Wrong implementation of `settleVaultsDebt` ",
+        "Incorrect check for settling vault debt",
+        "Incorrect Debt Check in `CreditDelegationBranch::settleVaultsDebt` Function",
+        "Inefficient Conditional Logic in `settleVaultsDebt` Function",
+        "Reverse logic in `settleVaultsDebt` allows usdToken holders to steal Vault assets",
+        "CreditDelegationBranch::settleVaultsDebt cannot settle vault debt",
+        "The vault in the debt state was assessed incorrectly."
+      ],
+      "affected_contracts": [
+        "CreditDelegationBranch",
+        "dexAdapter",
+        "settleVault"
+      ],
+      "affected_functions": [
+        "CreditDelegationBranch",
+        "abs",
+        "diff",
+        "marketUnrealizedDebtUsd",
+        "unsettledRealizedDebtUsd",
+        "unsettledRealizedDebtUsdAfter",
+        "usdcIn",
+        "usdcOut",
+        "vault",
+        "vaultId"
+      ],
+      "root_cause": "settleVaultDebts will increase vaults' debt/credit instead of settling it",
+      "impact": "",
+      "proof_summary": "# settleVaultDebts will increase vaults' debt/credit instead of settling it\n\n### Severity\nHigh Risk\n\n## Summary\n\nComparator mistake in `CreditDelegationBranch.settleVaultDebts` will break the functionality and make it does the opposite of its intention.\n\n## Vulnerability Details\n\nAn overview of\u00a0`CreditDelegationBranch.settleVaultDebts` is like the following:\n\n1. For given `vaultId`, get `unsettled",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "11 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-06",
+      "report_finding_id": "cm89am5fp001rl4031glzkjl7",
+      "selected_issue_id": "cm6eazxnm000910psauhk0qur",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Incorrect calculation in CreditDelegationBranch::withdrawUsdTokenFromMarket allows attacker mint any amount of usdz",
+      "duplicate_count": 9,
+      "alt_titles": [
+        "Incorrect Credit Capacity Calculation",
+        "`getCreditCapacityUsd` should subtract the `totalDebtUsdX18`",
+        "Wrong implementation of `Market::getCreditCapacityUsd` allows infinite debt accumulation ",
+        "market's credit capacity is incorrectly calculated",
+        "Market::getCreditCapacityUsd Incorrectly Adds Debt Instead of Deducting It",
+        "Incorrect `CreditCapacity` Calculation",
+        "Market credit capacity is not correctly calculated"
+      ],
+      "affected_contracts": [
+        "CreditDelegation",
+        "CreditDelegationBranch",
+        "LogWithdrawUsdTokenFromMarket",
+        "MarketMakingEngineConfiguration",
+        "PerpMarketCreditConfig",
+        "UsdToken",
+        "VaultConfig",
+        "adjustedUsdToken",
+        "connectedMarket",
+        "connectedMarketsConfig",
+        "connectedVault",
+        "creditDelegation",
+        "depositCreditForMarket",
+        "fuzzMarketConfig",
+        "fuzzVaultConfig",
+        "getAdjustedProfitForMarket",
+        "getConnectedVault",
+        "getFuzzPerpMarketCreditConfig",
+        "getFuzzVaultConfig",
+        "getTotalMarket",
+        "indexToken",
+        "marketMakingEngine",
+        "marketMakingEngineConfiguration",
+        "newCreditDelegation",
+        "onlyRegisteredEngine",
+        "previousCreditDelegation",
+        "recalculateVault",
+        "rehydratedConnectedMarket",
+        "totalCreditDelegation",
+        "updateCreditDelegation",
+        "updateNetUsdToken",
+        "usdToken",
+        "usdTokenOfEngine",
+        "vaultsConfig",
+        "withdrawUsdTokenFromMarket"
+      ],
+      "affected_functions": [
+        "amount",
+        "marketId",
+        "solidity"
+      ],
+      "root_cause": "Incorrect calculation in CreditDelegationBranch::withdrawUsdTokenFromMarket allows attacker mint any amount of usdz",
+      "impact": "",
+      "proof_summary": "# Incorrect calculation in CreditDelegationBranch::withdrawUsdTokenFromMarket allows attacker mint any amount of usdz\n\n### Severity\nHigh Risk\n\n## Summary\n\nMarket::getCreditCapacityUsd function located in CreditDelegationBranch::withdrawUsdTokenFromMarket, which incorrectly calculates the credit capacity of a market by adding the total debt to the delegated credit instead of subtracting it. This fl",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "9 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-07",
+      "report_finding_id": "cm89am5et001pl403wn37w1cb",
+      "selected_issue_id": "cm6sosq86000badfy9id64f0e",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "`Market::getRealizedDebtUsd` calculates realized debt incorrectly",
+      "duplicate_count": 8,
+      "alt_titles": [
+        "`depositCreditForMarket` should not increase the debt when `depositCredit` is called",
+        "Liquidation providers will receive  less assets on redeem in spite of perps market's gain",
+        "Incorrect Realized Debt Calculation in Market::getRealizedDebtUsd",
+        " Critical Flaw in Market's Debt Calculation Logic",
+        "Total market debt > 0 when credit deposits > netusdissuance which breaks key protocol logic",
+        "Incorrect used of `creditDepositsValueUsd`",
+        "Incorrect calculation of realized debt in `getRealizedDebtUsd()`"
+      ],
+      "affected_contracts": [
+        "CreditDelegationBranch",
+        "Market.sol",
+        "MarketMakingEngineConfiguration",
+        "PerpsEngineConfigurationBranch",
+        "UsdToken",
+        "Vault.sol",
+        "adjustedUsdToken",
+        "creditDelegationBranch",
+        "depositCreditForMarket",
+        "getAdjustedProfitForMarket",
+        "getCreditCapacityForMarket",
+        "marketMakingEngineConfiguration",
+        "netUsdToken",
+        "onlyRegisteredEngine",
+        "recalculateConnectedMarket",
+        "setMarketMakingEngine",
+        "updateNetUsdToken",
+        "usdToken",
+        "usdTokenOfEngine",
+        "withdrawUsdTokenFromMarket"
+      ],
+      "affected_functions": [
+        "CreditDelegationBranch",
+        "Market",
+        "Solidity",
+        "credit",
+        "creditDelegationBranch",
+        "creditDeposits",
+        "diff",
+        "getAdjustedProfitForMarketId",
+        "getCreditCapacityForMarketId",
+        "getCreditDepositsValueUsd",
+        "getRealizedDebtUsd",
+        "market"
+      ],
+      "root_cause": "`Market::getRealizedDebtUsd` calculates realized debt incorrectly",
+      "impact": "",
+      "proof_summary": "# `Market::getRealizedDebtUsd` calculates realized debt incorrectly \n\n### Severity\nHigh Risk\n\n## Summary\n\nThe realized debt returned  by `getRealizedDebtUsd` is incorrectly calculated. This information is used all over the project, breaking the countability\n\n## Vulnerability Details\n\nUpon closing a profitable position trading engine calls `creditDelegationBranch::withdrawUsdTokenFromMarket` to rew",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "8 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-08",
+      "report_finding_id": "cm89am4ue000dl40302vlm513",
+      "selected_issue_id": "cm6t8ic230003pzcubzrec657",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "During _fillOrder with positive PnL, usdToken is minted less than trade account deposit amount",
+      "duplicate_count": 7,
+      "alt_titles": [
+        "Trader receives less credit due to deleveraging factor being applied twice",
+        "When there is a positive PnL event, deleveraging will be applied twice",
+        "Double-deducted the PnL in the `fillOrder` function.",
+        "Double deleveraging in `_fillOrder()`",
+        "The Deleverage Will apply twice on market USDtoken minting",
+        "Double adjustment causes discrepancy in internal balances"
+      ],
+      "affected_contracts": [
+        "CreditDelegationBranch",
+        "IMarketMakingEngine",
+        "SettlementBranch",
+        "adjustedUsdToken",
+        "getAdjustedProfitForMarket",
+        "marketMakingEngine",
+        "perpsEngineConfiguration",
+        "updateNetUsdToken",
+        "usdToken",
+        "withdrawUsdTokenFromMarket"
+      ],
+      "affected_functions": [
+        "SettlementBranch",
+        "Solidity",
+        "autoDeleverageEndThreshold",
+        "autoDeleverageFactor",
+        "autoDeleverageStartThreshold",
+        "ctx",
+        "diff",
+        "javascript",
+        "marginToAddX18",
+        "marketMakingEngine"
+      ],
+      "root_cause": "During _fillOrder with positive PnL, usdToken is minted less than trade account deposit amount",
+      "impact": "",
+      "proof_summary": "# During _fillOrder with positive PnL, usdToken is minted less than trade account deposit amount\n\n### Severity\nHigh Risk\n\n## Summary\n\nDuring `SettlementBranch._fillOrder`, profit adjustment is applied to positive PnL **twice.** This will lead market to loss funds gradually.\n\n## Vulnerability Details\n\nIn [`SettlementBranch._fillOrder`](https://github.com/Cyfrin/2025-01-zaros-part-2/blob/main/src/pe",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "7 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-09",
+      "report_finding_id": "cm89am5po002fl403gc5d71rj",
+      "selected_issue_id": "cm6qf5ovz000bvm4zjioyt66k",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "`rebalanceVaultsAssets` will always revert",
+      "duplicate_count": 6,
+      "alt_titles": [
+        "Incorrect vault debt validation logic in rebalanceVaultsAssets causes reverts",
+        "Reverse logic in `settleVaultsDebt` allows usdToken holders to steal Vault assets",
+        "CreditDelegationBranch::rebalanceVaultsAssets will revert when vaults are in correct state",
+        "The line 619 in the `rebalanceVaultsAssets` function is incorrect.",
+        "Wrong Implementation of `settleVaultsDebt` and `rebalanceVaultsAssets` Functions Leading to Incorrect Vault Debt States"
+      ],
+      "affected_contracts": [
+        "InvalidVault",
+        "inCreditVault",
+        "inDebtVault",
+        "rebalanceVault"
+      ],
+      "affected_functions": [
+        "Solidity",
+        "getUnsettledRealizedDebt",
+        "rebalanceVaultsAssets",
+        "unsettledRealizedDebt"
+      ],
+      "root_cause": "`rebalanceVaultsAssets` will always revert",
+      "impact": "",
+      "proof_summary": "# `rebalanceVaultsAssets` will always revert\n\n### Severity\nHigh Risk\n\n## Summary\n\nWrong logic in the\u00a0`rebalanceVaultsAssets` will cause the function to always revert.\n\n## Vulnerability Details\n\nIn the rebalanceVaultsAssets we can see that the function will assume that a vault is in debt when its `unsettledRealizedDebt` is negative. However this is actually wrong as a vault is in debt when the unse",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "6 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-10",
+      "report_finding_id": "cm89am4z2000pl403bpsxqzpd",
+      "selected_issue_id": "cm6ovsz8z000w12uzp786ilsj",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Amount Of Asset Out Wrong Calculation",
+      "duplicate_count": 6,
+      "alt_titles": [
+        "`getTotalCreditCapacityUsd` Does Not Support Low Decimals",
+        "Multiple instances where Vault's `totalAssets()` is not properly scaled to ZAROS precision",
+        "Decimal Mismatch in Deposit Cap Check Leads to Incorrect Maximum Deposit Calculations",
+        "Decimal precision issue with `totalAssets()`",
+        "Decimal Normalization Flaw in Vault Credit Capacity Calculation"
+      ],
+      "affected_contracts": [
+        "InsufficientVault",
+        "StabilityBranch",
+        "UsdTokenSwapConfig",
+        "indexToken"
+      ],
+      "affected_functions": [
+        "IERC4626",
+        "StabilityBranch",
+        "getAmountOfAssetOut",
+        "indexPriceX18",
+        "indexToken",
+        "solidity",
+        "vaultAssetsUsdX18"
+      ],
+      "root_cause": "Amount Of Asset Out Wrong Calculation",
+      "impact": "",
+      "proof_summary": "# Amount Of Asset Out Wrong Calculation\n\n### Severity\nHigh Risk\n\n## Summary\n\nIn `StabilityBranch` there is a function `getAmountOfAssetOut` used to calculate the amount of assets to be received in a swap based on the input USD amount, its current price and the premium or discount to be applied. However, the calculation is wrong.\n\n## Vulnerability Details\n\nIn `StabilityBranch` there is a function `",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "6 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-11",
+      "report_finding_id": "cm89am5d8001ll403ftwnerow",
+      "selected_issue_id": "cm6j8k77m000ht0tcia8xde9q",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Markets and vaults will not update their state until market fee is received, any deposits before market fee will not be reflected",
+      "duplicate_count": 4,
+      "alt_titles": [
+        "Vault's debt can never be settled as Vault::marketsRealizedDebtUsd is always returns zero",
+        "`getVaultAccumulatedValues` will not account new debt if previous one was 0",
+        "CreditDelegation values will always be 0 until market fee is received"
+      ],
+      "affected_contracts": [
+        "Collateral.sol",
+        "Constants.sol",
+        "CreditDelegation",
+        "CreditDelegationBranch",
+        "ERC4626.sol",
+        "EnumerableMap.sol",
+        "EnumerableSet.sol",
+        "Errors.sol",
+        "LiveMarket",
+        "Market.sol",
+        "MarketMakingConfigurationBranch",
+        "MarketMakingEngineConfiguration",
+        "MarketMakingEngineConfigurationBranch",
+        "MockEngine",
+        "MockPriceAdapter",
+        "MockVault",
+        "SD59x18.sol",
+        "SafeCast.sol",
+        "Test.sol",
+        "UD60x18.sol",
+        "Vault.sol",
+        "VaultRouterBranch",
+        "addMarket",
+        "connectVaultsAndMarket",
+        "creditDelegation",
+        "getVault",
+        "indexToken",
+        "lastVault",
+        "liveMarket",
+        "logCreditDelegation",
+        "logMarket",
+        "logVault",
+        "mockEngine",
+        "priceAdapter",
+        "realizedDebtUsdPerVault",
+        "recalculateVault",
+        "s.sol",
+        "unrealizedDebtUsdPerVault",
+        "updateMarketCreditDelegation",
+        "usdcCreditPerVault",
+        "wethRewardPerVault"
+      ],
+      "affected_functions": [
+        "Market",
+        "Solidity",
+        "Vault",
+        "console",
+        "creditDelegation",
+        "javascript",
+        "realizedDebtChangeUsdX18",
+        "solidity",
+        "wethRewardChangeX18",
+        "will"
+      ],
+      "root_cause": "Markets and vaults will not update their state until market fee is received, any deposits before market fee will not be reflected",
+      "impact": "",
+      "proof_summary": "# Markets and vaults will not update their state until market fee is received, any deposits before market fee will not be reflected\n\n### Severity\nHigh Risk\n\n## Summary\n\nWhen calculating accumulated vault values, the change is not acknowledged if previous value is zero. This will prevent some important vaules from getting updated.\n\n## Vulnerability Details\n\n### Root Cause\n\nDuring `Vault.recalculate",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "4 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-12",
+      "report_finding_id": "cm89am5zb0033l403pdn9b4kk",
+      "selected_issue_id": "cm6t9amdu0005qo5hsbw2x3to",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Incorrect WETH reward distribution in `FeeDistributionBranch.sol#_handleWethRewardDistribution()`",
+      "duplicate_count": 3,
+      "alt_titles": [
+        "The function FeeDistributionBranch::_handleWethRewardDistribution miscalculates rewards as follows.",
+        "The protocol is insolvent"
+      ],
+      "affected_contracts": [
+        "FeeDistributionBranch",
+        "MarketMakingEngine",
+        "WethRewardDistribution",
+        "handleWethRewardDistribution",
+        "receivedVault",
+        "testIncorrectWethDistribution"
+      ],
+      "affected_functions": [
+        "Constants",
+        "FeeDistributionBranch",
+        "Solidity",
+        "_handleWethRewardDistribution",
+        "feeRecipientsSharesX18",
+        "receivedProtocolWethRewardX18",
+        "receivedVaultsWethRewardX18",
+        "receivedWeth",
+        "receivedWethX18"
+      ],
+      "root_cause": "Incorrect WETH reward distribution in `FeeDistributionBranch.sol#_handleWethRewardDistribution()`",
+      "impact": "",
+      "proof_summary": "# Incorrect WETH reward distribution in `FeeDistributionBranch.sol#_handleWethRewardDistribution()` \n\n### Severity\nHigh Risk\n\n## Summary\n\nThe `_handleWethRewardDistribution` function contains a critical flaw in the way WETH rewards are distributed between protocol and vault fee recipients. The calculation directly multiplies the received WETH with the total fee shares without normalizing them, lea",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "3 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-13",
+      "report_finding_id": "cm89am64z003hl403a30i91jg",
+      "selected_issue_id": "cm6svsra8000brm4rg7fgjium",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Incorrect `AutoDeleverageFactor`.",
+      "duplicate_count": 2,
+      "alt_titles": [
+        "getAutoDeleverageFactor in Market.sol can return 1 even if it should never, while delaverage mode is triggered"
+      ],
+      "affected_contracts": [
+        "CreditDelegationBranch",
+        "IMarketMakingEngine",
+        "Market.sol",
+        "SettlementBranch",
+        "getAdjustedProfitForMarket",
+        "marketMakingEngine",
+        "perpsEngineConfiguration",
+        "usdToken",
+        "withdrawUsdTokenFromMarket"
+      ],
+      "affected_functions": [
+        "AutoDeleverageFactor",
+        "autoDeleverageFactor",
+        "diff",
+        "marketDebtRatio",
+        "marketRatio",
+        "solidity"
+      ],
+      "root_cause": "Incorrect `AutoDeleverageFactor`.",
+      "impact": "",
+      "proof_summary": "# Incorrect `AutoDeleverageFactor`.\n\n### Severity\nMedium Risk\n\n\n## Summary\nThe calculation of `AutoDeleverageFactor` is incorrect.\n\n## Vulnerability Details\nhttps://github.com/Cyfrin/2025-01-zaros-part-2/blob/main/src/market-making/leaves/Market.sol#L174\n```solidity\n    function getAutoDeleverageFactor(\n        ...\n    )   ...\n    {   ...\n        UD60x18 unscaledDeleverageFactor = Math.min(marketD",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "2 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-14",
+      "report_finding_id": "cm89am62n003bl4031m01v0ur",
+      "selected_issue_id": "cm6qjf49d0003is3garc70fwm",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "LPs will not recieve their full amount of collateral on redeem",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "VaultRouterBranch",
+        "getIndexToken",
+        "getVault",
+        "indexToken",
+        "totalAssetsMinusVault"
+      ],
+      "affected_functions": [
+        "IERC4626",
+        "SYSTEM_DECIMALS",
+        "Solidity",
+        "VaultRouterBranch",
+        "decimalOffset",
+        "decimals",
+        "diff",
+        "indexToken",
+        "sharesIn",
+        "solidity",
+        "totalSupply"
+      ],
+      "root_cause": "LPs will not recieve their full amount of collateral on redeem",
+      "impact": "",
+      "proof_summary": "# LPs will not recieve their full amount of collateral on redeem\n\n### Severity\nHigh Risk\n\n## Summary\n\nProtocol assumes that decimals of the share token during `VaultRouterBranch::getVaultAssetSwapRate` and `VaultRouterBranch::getIndexTokenSwapRate` is always 18.  That would lead to precision loss and liquidity providers who want to redeem their collateral will take much less than their initial dep",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-15",
+      "report_finding_id": "cm89am5bv001hl4038kj7xkly",
+      "selected_issue_id": "cm6g8htwo00052ilmhvdi75uc",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Market-vault disconnection will bring permanent inconsistent state",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "Collateral.sol",
+        "Constants.sol",
+        "CreditDelegation",
+        "CreditDelegationBranch",
+        "ERC4626.sol",
+        "EnumerableMap.sol",
+        "EnumerableSet.sol",
+        "Errors.sol",
+        "LiveMarket",
+        "Market.sol",
+        "MarketMakingConfigurationBranch",
+        "MarketMakingEngineConfiguration",
+        "MarketMakingEngineConfigurationBranch",
+        "MockEngine",
+        "MockPriceAdapter",
+        "MockVault",
+        "SD59x18.sol",
+        "SafeCast.sol",
+        "Test.sol",
+        "UD60x18.sol",
+        "Vault.sol",
+        "VaultRouterBranch",
+        "addMarket",
+        "connectVaultAndMarket",
+        "connectVaultsAndMarket",
+        "connectedMarket",
+        "creditDelegation",
+        "getConnectedVault",
+        "indexToken",
+        "liveMarket",
+        "logMarket",
+        "mockEngine",
+        "newCreditDelegation",
+        "previousCreditDelegation",
+        "priceAdapter",
+        "recalculateVault",
+        "s.sol",
+        "totalCreditDelegation",
+        "updateMarketCreditDelegation"
+      ],
+      "affected_functions": [
+        "MarketMakingEngineConfigurationBranch",
+        "Solidity",
+        "Vault",
+        "creditCapacityUsd",
+        "has",
+        "totalDelegatedCreditUsd"
+      ],
+      "root_cause": "Market-vault disconnection will bring permanent inconsistent state",
+      "impact": "",
+      "proof_summary": "# Market-vault disconnection will bring permanent inconsistent state\n\n### Severity\nHigh Risk\n\n## Summary\n\nIn the protocol, for the most of the time, market and vault's state vars are updated by deltas, not by direct updation. This delta-change operation does not work well when market and vault connection is changed. It doesn't recognize delta by broken connection. As a result, when a vault is unli",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "H-16",
+      "report_finding_id": "cm89am67b003nl403qq0wa520",
+      "selected_issue_id": "cm6saqmpo000n1i0n01kpefub",
+      "severity": "High",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "UsdTokenSwapConfig::Data::usdcAvailableForEngine Increases but Never Used, Locking USDC Forever",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "CreditDelegationBranch",
+        "StabilityBranch",
+        "UsdTokenSwapConfig",
+        "settleVault",
+        "usdcAvailableForEngine"
+      ],
+      "affected_functions": [
+        "CreditDelegationBranch",
+        "StabilityBranch",
+        "settleVaultsDebt",
+        "solidity",
+        "usdcAvailableForEngine"
+      ],
+      "root_cause": "UsdTokenSwapConfig::Data::usdcAvailableForEngine Increases but Never Used, Locking USDC Forever",
+      "impact": "",
+      "proof_summary": "# UsdTokenSwapConfig::Data::usdcAvailableForEngine Increases but Never Used, Locking USDC Forever\n\n### Severity\nHigh Risk\n\n### Summary\nThe `CreditDelegationBranch::settleVaultsDebt` updates `usdcAvailableForEngine[vault.engine]` by increasing the value:\n```solidity\n    UsdTokenSwapConfig.load().usdcAvailableForEngine[vault.engine] += ctx.usdcOutX18.intoUint256();\n```\nThis USDC is supposed to back ",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-01",
+      "report_finding_id": "cm89am4pq0003l403y7g636in",
+      "selected_issue_id": "cm6t9zkus00052hjer6ms3vlw",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Incorrect Logic in MarketMakingEngineConfigurationBranch::configureFeeRecipient can cause DOS when attempting to change share value of an existing address",
+      "duplicate_count": 12,
+      "alt_titles": [
+        "Owner cannot increment the recipients shares.",
+        "[M-07] Incorrect Total Share Calculation Allows Exceeding Maximum Fee Shares",
+        "Incorrect `totalFeeRecipientsShares` Calculation in `MarketMakingEngineConfigurationBranch::configureFeeRecipient` May Cause Share Updates for Existing Fee Recipients to Revert",
+        "Configuring Fee Recipient Can Revert Wrongfully",
+        "Fee recipient shares on Market Making Engine cannot be properly configured",
+        "Incorrect implementation in configureFeeRecipient() can revert when updating an existing recipient\u2019s shares",
+        "`MarketMakingEngineConfigurationBranch.sol#configureFeeRecipient()` checks if result total share will not exceed maximum shares as wrong way."
+      ],
+      "affected_contracts": [
+        "LogConfig",
+        "MarketMakingEngineConfiguration",
+        "MarketMakingEngineConfigurationBranch",
+        "marketMakingEngine",
+        "marketMakingEngineConfiguration"
+      ],
+      "affected_functions": [
+        "solidity"
+      ],
+      "root_cause": "Incorrect Logic in MarketMakingEngineConfigurationBranch::configureFeeRecipient can cause DOS when attempting to change share value of an existing address",
+      "impact": "",
+      "proof_summary": "# Incorrect Logic in MarketMakingEngineConfigurationBranch::configureFeeRecipient can cause DOS when attempting to change share value of an existing address\n\n### Severity\nMedium Risk\n\n## Summary\n\nThere is a logical error in the MarketMakingEngineConfigurationBranch::configureFeeRecipient  that causes unwanted reverts when attempting to decrease an existing fee recipient\u2019s share. The function check",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "12 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-02",
+      "report_finding_id": "cm89am50r000tl403f3x6ee40",
+      "selected_issue_id": "cm6f9irl30015r3exr7bhoown",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Incorrect weight assignment in Vault::updateVaultAndCreditDelegationWeight leads to overleveraging vault positions and insolvency",
+      "duplicate_count": 11,
+      "alt_titles": [
+        "One Market weight will considered as total Vault credit weight.",
+        "Market Credit Delegation Weights Are Incorrectly Distributed",
+        "All markets for a vault are having the same weight",
+        "`Vault.recalculateVaultsCreditCapacity` regards the shares of all connected markets as 100%.",
+        "Market's total delegated credit usd is inflated on 2x2 connection scenario",
+        "Incorrect weight calculation causes breaking of protocol functionality",
+        "Over-Allocation of Credit Delegation to Multiple Markets"
+      ],
+      "affected_contracts": [
+        "CreditDelegation",
+        "CreditDelegationBranch",
+        "PerpMarketCreditConfig",
+        "TreeProxy",
+        "Utils.sol",
+        "VaultConfig",
+        "VaultRouterBranch",
+        "connectVaultsAndMarket",
+        "connectedMarket",
+        "connectedMarketsConfig",
+        "creditDelegation",
+        "depositCreditForMarket",
+        "fuzzMarketConfig",
+        "fuzzVaultConfig",
+        "getFuzzPerpMarketCreditConfig",
+        "getFuzzVaultConfig",
+        "getTotalMarket",
+        "indexToken",
+        "marketMakingEngine",
+        "recalculateVault",
+        "totalCreditDelegation",
+        "updateVault",
+        "updateVaultAndCreditDelegation",
+        "vault.sol",
+        "weightPerMarket",
+        "withdrawUsdTokenFromMarket"
+      ],
+      "affected_functions": [
+        "Vault",
+        "solidity"
+      ],
+      "root_cause": "Incorrect weight assignment in Vault::updateVaultAndCreditDelegationWeight leads to overleveraging vault positions and insolvency",
+      "impact": "",
+      "proof_summary": "# Incorrect weight assignment in Vault::updateVaultAndCreditDelegationWeight leads to overleveraging vault positions and insolvency\n\n### Severity\nHigh Risk\n\n## Summary\n\nA critical vulnerability exists in the Vault::updateVaultAndCreditDelegationWeight, where the weight assigned to each connected market is incorrectly set to the total assets of the vault instead of a proportional share. This result",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "11 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-03",
+      "report_finding_id": "cm89am56v0015l40382cqvjoi",
+      "selected_issue_id": "cm67coan50005371sjazptka2",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "rebalanceVaultsAssets incorrectly accounts vaults' depositedUsdc",
+      "duplicate_count": 8,
+      "alt_titles": [
+        "Loss of Precision when rebalancing vault",
+        "`rebalanceVaultAssets` will not work correctly",
+        "Wrong accounting in the RebalanceVaultsAssets will lead to accounting errors in the vault",
+        "Wrong calculation of `usdDelta` in `CreditDelegationBranch.sol#rebalanceVaultsAssets()` will cause vaults' state to be different from real usd balance.",
+        "Discrepancy between actual USDC balance and vault state due to incorrect `usdDelta` calculation in `CreditDelegationBranch.sol#rebalanceVaultsAssets()`",
+        "The line 666 in the `rebalanceVaultsAssets` function is incorrect.",
+        "Improper Debt Accounting Due to Unvalidated DEX Swap Outputs in Credit Rebalancing"
+      ],
+      "affected_contracts": [
+        "BaseAdapter",
+        "CreditDelegationBranch",
+        "IDexAdapter",
+        "convertSd59x18ToToken",
+        "dexAdapter",
+        "inCreditVault",
+        "inDebtVault",
+        "rebalanceVault"
+      ],
+      "affected_functions": [
+        "CreditDelegationBranch",
+        "Solidity",
+        "amountOut",
+        "assetInputNative",
+        "depositedUsdc",
+        "diff",
+        "inDebtVault",
+        "marketRealizedDebtUsd",
+        "marketsRealizedDebtUsd",
+        "slippageToleranceBps",
+        "tokenOut",
+        "usdDelta"
+      ],
+      "root_cause": "rebalanceVaultsAssets incorrectly accounts vaults' depositedUsdc",
+      "impact": "",
+      "proof_summary": "# rebalanceVaultsAssets incorrectly accounts vaults' depositedUsdc\n\n### Severity\nMedium Risk\n\n## Summary\n\n`CreditDelegationBranch.rebalanceVaultsAssets` doesn't\u00a0take DEX swap slippage into consideration when swapping debt vault's collateral asset to credit vault's usdc.\n\n## Vulnerability Details\n\n[`CreditDelegationBranch.rebalanceVaultsAssets`](https://github.com/Cyfrin/2025-01-zaros-part-2/blob/m",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "8 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-04",
+      "report_finding_id": "cm89am4v8000fl4032froap0i",
+      "selected_issue_id": "cm6igs3ca0007ids1bzoqj5r1",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "`Market::configureConnectedVaults` Will Always Fail with Array Out of Bounds Error",
+      "duplicate_count": 7,
+      "alt_titles": [
+        "Incorrect array access will always cause a revert.",
+        "Array index out-of-bound access in vault configuration",
+        "Incorrect Array Indexing in configureConnectedVaults",
+        "Uninitialized Storage Write in `configureConnectedVaults()` Causes Market Freeze",
+        "Out-of-Bounds Error in Market::configureConnectedVaults",
+        "Out-of-Bounds Error in configureConnectedVaults Function in library Market"
+      ],
+      "affected_contracts": [
+        "Market.sol",
+        "MarketConfig",
+        "MarketHarness.sol",
+        "TreeProxy",
+        "Utils.sol",
+        "configureConnectedVault",
+        "connectedVault",
+        "getAdjustedProfitForMarket",
+        "getFuzzMarketConfig",
+        "marketMakingEngine",
+        "t.sol"
+      ],
+      "affected_functions": [
+        "Market",
+        "MarketHarness",
+        "TreeProxyUtils",
+        "connectedVaults",
+        "diff",
+        "getAdjustedProfitForMarketId",
+        "marketHarnessSelectors",
+        "newSetIndex",
+        "push",
+        "solidity"
+      ],
+      "root_cause": "`Market::configureConnectedVaults` Will Always Fail with Array Out of Bounds Error",
+      "impact": "",
+      "proof_summary": "# `Market::configureConnectedVaults` Will Always Fail with Array Out of Bounds Error\n\n### Severity\nMedium Risk\n\n## Summary\n\n<https://github.com/Cyfrin/2025-01-zaros-part-2/blob/35deb3e92b2a32cd304bf61d27e6071ef36e446d/src/market-making/leaves/Market.sol#L381C1-L388C6>\n\n`Market::configureConnectedVaults` attempts to add vault IDs to a new enumerable set at index `connectedVaults.length` whithout fi",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "7 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-05",
+      "report_finding_id": "cm89am4os0001l403kykr0f8c",
+      "selected_issue_id": "cm6f6ivt0000f5g6j5zqrgpew",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Staking design is not fair for users who staked earlier and longer",
+      "duplicate_count": 7,
+      "alt_titles": [
+        "Malicious users can frontrun fee distribution to earn rewards",
+        "Frontrunning can be used to exploit rewards from honest liquidity providers",
+        "The src/market-making/branches/FeeDistributionBranch.sol::convertAccumulatedFeesToWeth is prone to sandwich attacks enabling users who have risked nothing to collect fees",
+        " A malicious user can frontRun reward distribution and backrun it immediately earning reward unfairly  ",
+        "Users can exploit reward distribution through sandwich attacks without minimum stake time",
+        "Frontrunning `receiveMarketFee` Allows Attackers to Claim Fees and Unstake Shares"
+      ],
+      "affected_contracts": [
+        "MarketEngine",
+        "VaultConfig",
+        "Vaults.sol",
+        "fundUserAndDepositInVault",
+        "fuzzVaultConfig",
+        "getPoCVaultConfig",
+        "indexToken",
+        "marketEngineVault",
+        "marketMakingEngine",
+        "stakerVault",
+        "t.sol",
+        "vaultsConfig"
+      ],
+      "affected_functions": [
+        "Solidity"
+      ],
+      "root_cause": "Staking design is not fair for users who staked earlier and longer",
+      "impact": "",
+      "proof_summary": "# Staking design is not fair for users who staked earlier and longer\n\n### Severity\nHigh Risk\n\n## Summary\n\nThe staking implementation used is not based on Sushiswap MasterChef and Synthetix. The problem with Zaros staking algorithm, is it did not consider the staking duration and precedence, this causes unfair staking rewards to be provided.\n\n## Vulnerability Details\n\nThe Zaros staking system opera",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "7 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-06",
+      "report_finding_id": "cm89am4w1000hl403kkutiv60",
+      "selected_issue_id": "cm6r9biof0005gasehe5xgsdg",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Stuck Funds",
+      "duplicate_count": 7,
+      "alt_titles": [
+        "BaseFee will underflow if amountIn is lesser than it",
+        "Refund Underflow in Swap Refund Logic Leading to Locked Funds",
+        "Some swap requests can not be fulfilled and refunded in boundary cases.",
+        "Missing Input Validation in Swap Requests Can Lead to Trapped User Funds",
+        "User's deposited USD token for swap can be stuck",
+        "Missing Base Fee Check in initiateSwap Can Lead to Stuck Funds"
+      ],
+      "affected_contracts": [
+        "StabilityBranch"
+      ],
+      "affected_functions": [
+        "StabilityBranch",
+        "fulfillSwap",
+        "initiateSwap",
+        "refundSwap"
+      ],
+      "root_cause": "Stuck Funds",
+      "impact": "",
+      "proof_summary": "# Stuck Funds\n\n### Severity\nHigh Risk\n\n## Summary\n\nIn `StabilityBranch` swap requests are first initiated through `initiateSwap` and then either fulfilled through `fulfillSwap` or refunded through `refundSwap`. For both fulfilling and refunding there is a base fee which is paid by the user - when fulfilled through the out amount and when refunded through the in amount. The problem is that a swap r",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "7 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-07",
+      "report_finding_id": "cm89am5o2002bl403zol6aqay",
+      "selected_issue_id": "cm6t1xc5m0005s3qxgkyb1q56",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "FeeConversionKeeper.performUpkeep always reverts because of incorrect array management in checkUpkeep",
+      "duplicate_count": 6,
+      "alt_titles": [
+        "Invalid entries may be encoded into performData and later decoded in `performUpkeep`, potentially causing the `convertAccumulatedFeesToWeth` function to revert",
+        "FeeConversionKeeper `checkUpkeep()` returns erroneous values for `performData` ",
+        "Invalid Calls and Reverts Due to Trailing Zeros in FeeConversionKeeper\u2019s Upkeep Data",
+        "Incorrect Array Initialization in FeeConversionKeeper::checkUpkeep Function",
+        "performUpkeep will always revert in case of fee distribution "
+      ],
+      "affected_contracts": [
+        "FeeConversionKeeper",
+        "FeeDistributionBranch",
+        "IMarketMakingEngine",
+        "MarketMakingEngine",
+        "PerpMarketCreditConfig",
+        "checkFeeDistribution",
+        "configureFeeConversionKeeper",
+        "configureMarket",
+        "convertUd60x18ToToken",
+        "feeConversionKeeper",
+        "fuzzPerpMarketCreditConfig",
+        "getFeeConversionKeeper",
+        "getFuzzPerpMarketCreditConfig",
+        "getLiveMarket",
+        "getReceivedMarket",
+        "liveMarket",
+        "marketMakingEngine",
+        "minFeeDistribution",
+        "receiveMarket",
+        "receivedMarket",
+        "t.sol"
+      ],
+      "affected_functions": [
+        "FeeConversionKeeper",
+        "Shell",
+        "Solidity",
+        "address",
+        "assets",
+        "checkUpkeep",
+        "distributionNeeded",
+        "marketIds",
+        "performUpkeep",
+        "performUpkeepRevert",
+        "revert",
+        "test"
+      ],
+      "root_cause": "FeeConversionKeeper.performUpkeep always reverts because of incorrect array management in checkUpkeep",
+      "impact": "",
+      "proof_summary": "# FeeConversionKeeper.performUpkeep always reverts because of incorrect array management in checkUpkeep\n\n### Severity\nHigh Risk\n\n## Summary\n\n[`checkUpkeep()`](https://github.com/Cyfrin/2025-01-zaros-part-2/blob/35deb3e92b2a32cd304bf61d27e6071ef36e446d/src/external/chainlink/keepers/fee-conversion-keeper/FeeConversionKeeper.sol#L69) function in `FeeConversionKeeper.sol` creates `marketIds` and `ass",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "6 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-08",
+      "report_finding_id": "cm89am4ro0007l403er0zel4w",
+      "selected_issue_id": "cm6sveh0b00058kaqobwh94i1",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "PremiumDiscountFactor Feature is Not Working",
+      "duplicate_count": 6,
+      "alt_titles": [
+        "Uninitialized Variables Cause Division by Zero in `getPremiumDiscountFactor` ",
+        "No way to set UsdTokenSwapConfig pd curve parameters",
+        "Premium/discount curve parameters are not settable in `UsdTokenSwapConfig`",
+        "The variables for  curve calculation to identify either discount or premium were not set, will always revert on modulo zero,",
+        "Initial swap DOS"
+      ],
+      "affected_contracts": [
+        "LogUpdateUsdTokenSwapConfig",
+        "MarketMakingEngineConfiguration",
+        "MarketMakingEngineConfigurationBranch",
+        "UsdTokenSwapConfig",
+        "configureUsdTokenSwapConfig"
+      ],
+      "affected_functions": [
+        "PremiumDiscountFactor",
+        "Solidity",
+        "UD60x18_UNIT",
+        "amountOut",
+        "diff",
+        "pdCurveXMax",
+        "pdCurveXMin",
+        "pdCurveYMax",
+        "pdCurveYMin",
+        "pdCurveZ",
+        "premiumDiscountFactor"
+      ],
+      "root_cause": "PremiumDiscountFactor Feature is Not Working",
+      "impact": "",
+      "proof_summary": "# PremiumDiscountFactor Feature is Not Working\n\n### Severity\nMedium Risk\n\n## Summary\n\n`PremiumDiscountFactor` feature is not working in the protocol.\n\n## Vulnerability Details\n\nProtocol uses\u00a0`PremiumDiscountFactor`\u00a0to calculate assets `amountOut` during the swap in Market Making Engine, however, it was observed that there is no way to initialize few state variables that [UsdTokenSwapConfig.sol:get",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "6 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-09",
+      "report_finding_id": "cm89am5ac001dl403akreqihm",
+      "selected_issue_id": "cm6paqt3y0006xeoanu8i7jiu",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Assets can be drained for vaults with LTV greater than certain threshold",
+      "duplicate_count": 5,
+      "alt_titles": [
+        "The logic in `getPremiumDiscountFactor` is inverted: a discount is applied when Vault is in credit and a premium is applied if Vault is in debt",
+        "Incorrect Premium/Discount Factor Application in USD Token Swaps can Lead to Vault Indebtedness",
+        "Inverted Logic in `UsdTokenSwapConfig` Leading to Economic Instability",
+        "Premium/discount factor calculation is reversed in `getPremiumDiscountFactor()`"
+      ],
+      "affected_contracts": [
+        "MockVault",
+        "StabilityBranch",
+        "Test.sol",
+        "UD60x18.sol",
+        "UsdTokenSwapConfig",
+        "Vault.sol",
+        "indexToken",
+        "swapConfig"
+      ],
+      "affected_functions": [
+        "Solidity",
+        "StabilityBranch",
+        "UsdTokenSwapConfig",
+        "diff",
+        "premiumDiscountFactor",
+        "solidity"
+      ],
+      "root_cause": "Assets can be drained for vaults with LTV greater than certain threshold",
+      "impact": "",
+      "proof_summary": "# Assets can be drained for vaults with LTV greater than certain threshold\n\n### Severity\nHigh Risk\n\n## Summary\n\nIncorrect application of `premiumDiscountFactor` in  `StabilityBranch.getAssetAmountOut`, `premiumDiscountFactor` will inflate the amount of collateral amount out, effectively drain the vault.\n\n## Vulnerability Details\n\n### Root Cause\n\nIn [`StabilityBranch.getAmountOfAssetOut`](https://g",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "5 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-10",
+      "report_finding_id": "cm89am5gm001tl4035bufy53y",
+      "selected_issue_id": "cm6smuijn0005yh4xs7moxet1",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "CreditDelegationBranch::settlevaultsdebt incorrectly swaps token from marketmakingengine and not directly from Zlpvault which breaks protocol intended functionality",
+      "duplicate_count": 4,
+      "alt_titles": [
+        "`settleVaultsDebt` will not be able to swap the collateral of a vault",
+        "`rebalanceVaultsAssets` will not be able to perform the swaps",
+        "rebalanceVaultAssets will revert with erc20 insufficient balance error"
+      ],
+      "affected_contracts": [
+        "ConvertMarket",
+        "CreditDelegationBranch",
+        "LogConvertMarket",
+        "MarketMakingEngine",
+        "MarketMakingEngineConfiguration",
+        "VaultRouterBranch",
+        "ZeroOutputToken",
+        "convertMarket",
+        "convertToken",
+        "convertUd60x18ToToken",
+        "indexToken",
+        "onlyRegisteredSystemKeeper"
+      ],
+      "affected_functions": [
+        "solidity"
+      ],
+      "root_cause": "CreditDelegationBranch::settlevaultsdebt incorrectly swaps token from marketmakingengine and not directly from Zlpvault which breaks protocol intended functionality",
+      "impact": "",
+      "proof_summary": "# CreditDelegationBranch::settlevaultsdebt incorrectly swaps token from marketmakingengine and not directly from Zlpvault which breaks protocol intended functionality\n\n### Severity\nHigh Risk\n\n## Summary\n\nCreditDelegationBranch::settlevaultsdebt is intended to swap a vault\u2019s own assets for USDC to settle its debt. However, due to an incorrect parameter in the swap call, the function swaps assets fr",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "4 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-11",
+      "report_finding_id": "cm89am4ye000nl4030zbx3jz1",
+      "selected_issue_id": "cm6fkoa6x00057ogx2d8flby3",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Lack of credit capacity update from VaultRouterBranch::deposit causes DOS in CreditDelegationBranch::depositcreditformarket",
+      "duplicate_count": 4,
+      "alt_titles": [
+        "Missing prior credit capacity recalculation in `depositCreditForMarket()` ",
+        "Missing recalculate in depositCreditForMarket",
+        "`depositCreditForMarket` should recalculate the credit capacity first."
+      ],
+      "affected_contracts": [
+        "CreditDelegation",
+        "CreditDelegationBranch",
+        "LogDepositCreditForMarket",
+        "MarketMakingEngineConfiguration",
+        "PerpMarketCreditConfig",
+        "PerpsEngineConfigurationBranch",
+        "VaultConfig",
+        "VaultRouterBranch",
+        "connectVaultsAndMarket",
+        "connectedVault",
+        "convertToken",
+        "convertUd60x18ToToken",
+        "depositCreditForMarket",
+        "fuzzMarketConfig",
+        "fuzzVaultConfig",
+        "getConnectedVault",
+        "getFuzzPerpMarketCreditConfig",
+        "getFuzzVaultConfig",
+        "indexToken",
+        "marketMakingEngine",
+        "marketMakingEngineConfiguration",
+        "onlyRegisteredEngine",
+        "recalculateVault",
+        "setMarketMakingEngine",
+        "updateCreditDelegation",
+        "updateMarket",
+        "updateNetUsdToken",
+        "updateVaultAndCreditDelegation",
+        "usdToken",
+        "usdTokenOfEngine",
+        "withdrawUsdTokenFromMarket"
+      ],
+      "affected_functions": [
+        "Solidity",
+        "Vault",
+        "solidity"
+      ],
+      "root_cause": "Lack of credit capacity update from VaultRouterBranch::deposit causes DOS in CreditDelegationBranch::depositcreditformarket",
+      "impact": "",
+      "proof_summary": "# Lack of credit capacity update from VaultRouterBranch::deposit causes DOS in CreditDelegationBranch::depositcreditformarket\n\n### Severity\nHigh Risk\n\n## Summary\n\nIn the VaultRouterBranch::deposit function, the Vault::recalculateVaultsCreditCapacity function is called before the deposited collateral is accounted for in the vault's total assets. This results in incorrect credit delegation calculati",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "4 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-12",
+      "report_finding_id": "cm89am4ta000bl403b6qr4bsx",
+      "selected_issue_id": "cm6t8v3ck0005k3r02of5hgrk",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "market's realized debt per vault share is not updated after clearing market's debt",
+      "duplicate_count": 4,
+      "alt_titles": [
+        "The market's debt is not correctly updated in `recalculateVaultsCreditCapacity()`",
+        "Should distribute debt when a market's unrealized debt and realized debt are both 0",
+        "Due to not updating the Debt , the protocol will apply untended premium or discount"
+      ],
+      "affected_contracts": [
+        "Collateral.sol",
+        "Constants.sol",
+        "CreditDelegation",
+        "Distribution.sol",
+        "ERC20.sol",
+        "ERC20Mock.sol",
+        "ERC4626.sol",
+        "EnumerableMap.sol",
+        "EnumerableSet.sol",
+        "Errors.sol",
+        "IMarketMakingEngine",
+        "LiveMarket",
+        "Market.sol",
+        "MarketMakingEngine",
+        "MarketMakingEngineConfiguration",
+        "MockEngine",
+        "MockPriceAdapter",
+        "MockZlpVault",
+        "SD59x18.sol",
+        "SafeCast.sol",
+        "StabilityConfiguration",
+        "Test.sol",
+        "UD60x18.sol",
+        "Vault.sol",
+        "ZlpVault",
+        "addMarket",
+        "connectVaultsAndMarket",
+        "depositCreditForMarket",
+        "distributeDebtToVault",
+        "getZlpVault",
+        "indexToken",
+        "isRegisteredEngine",
+        "isSystemKeeper",
+        "liveMarket",
+        "marketMakingEngine",
+        "mockEngine",
+        "priceAdapter",
+        "realizedDebtPerVault",
+        "realizedDebtUsdPerVault",
+        "recalculateVault",
+        "s.sol",
+        "testDebtPerVault",
+        "updateMarketCreditDelegation",
+        "usdTokenOfEngine",
+        "withdrawUsdTokenFromMarket",
+        "zlpVault"
+      ],
+      "affected_functions": [
+        "Solidity",
+        "realizedDebtPerVaultShare",
+        "solidity"
+      ],
+      "root_cause": "market's realized debt per vault share is not updated after clearing market's debt",
+      "impact": "",
+      "proof_summary": "# market's realized debt per vault share is not updated after clearing market's debt\n\n### Severity\nHigh Risk\n\n## Summary\n\nProtocol does not distribute debt to vaults if market's realized debt and unrealized debt are both 0. However, market debt has been cleared by either converting deposits to usdc or depositing usd token from perps engine. In this case, market's total debt is zero but its realize",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "4 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-13",
+      "report_finding_id": "cm89am5tr002pl403owuxka5v",
+      "selected_issue_id": "cm6hu6sa40003q3av0swk6p6j",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "`_Ownable_init()` is not called in `MarketMakingEngineConfigurationBranch` contract",
+      "duplicate_count": 3,
+      "alt_titles": [
+        "MarketMakingEngineConfigurationBranch : the initialize function is not added. The same happen in other branch contract as well.",
+        "Upgradability / Initialization Pattern Concerns"
+      ],
+      "affected_contracts": [
+        "MarketMakingEngineConfigurationBranch",
+        "OwnableUpgradeable.sol",
+        "UpgradeBranch",
+        "createVault",
+        "testCreateVault"
+      ],
+      "affected_functions": [
+        "MarketMakingEngineConfigurationBranch",
+        "OwnableUnauthorizedAccount",
+        "OwnableUpgradeable",
+        "UpgradeBranch",
+        "_Ownable_init",
+        "initialize",
+        "javascript",
+        "onlyOwner",
+        "owner"
+      ],
+      "root_cause": "`_Ownable_init()` is not called in `MarketMakingEngineConfigurationBranch` contract",
+      "impact": "",
+      "proof_summary": "# `_Ownable_init()` is not called in `MarketMakingEngineConfigurationBranch` contract\n\n### Severity\nHigh Risk\n\n## Summary\n\nThe [`MarketMakingEngineConfigurationBranch`](https://github.com/Cyfrin/2025-01-zaros-part-2/blob/35deb3e92b2a32cd304bf61d27e6071ef36e446d/src/market-making/branches/MarketMakingEngineConfigurationBranch.sol#L33) contract inherits `OwnableUpgradeable` from Openzeppelin, but do",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "3 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-14",
+      "report_finding_id": "cm89am5rb002jl403nm6khokh",
+      "selected_issue_id": "cm6t2wkn1000bjf4upz9a1l1u",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "CurveAdapter has cumulative slippage issue",
+      "duplicate_count": 3,
+      "alt_titles": [
+        "Slippage Higher than Expected in `CurveAdapter.executeSwapExactInput()` and `FeeDistributionBranch._performMultiDexSwap()` Multi-Hop Swaps",
+        "Slippage check is unnecessarily strict when executes swaps in CurveAdapter"
+      ],
+      "affected_contracts": [
+        "CurveAdapter"
+      ],
+      "affected_functions": [
+        "CurveAdapter",
+        "Solidity",
+        "USDT",
+        "amountOutMinimum",
+        "calculateAmountOutMin",
+        "executeSwapExactInput",
+        "solidity"
+      ],
+      "root_cause": "CurveAdapter has cumulative slippage issue",
+      "impact": "",
+      "proof_summary": "# CurveAdapter has cumulative slippage issue\n\n### Severity\nMedium Risk\n\n## Summary\n\nThe\u00a0`executeSwapExactInput`\u00a0function in the\u00a0`CurveAdapter`\u00a0contract calculates slippage tolerance (`amountOutMinimum`) for each intermediate swap step in a multi-hop swap path. This approach leads to\u00a0**cumulative slippage**, where the overall slippage exceeds the intended tolerance. For example, if the slippage tol",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "3 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-15",
+      "report_finding_id": "cm89am6050035l403ldm2ufi2",
+      "selected_issue_id": "cm6t1ejec0003ouuornot0np7",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Negative Credit Capacity Handling Causes Complete Vault Lockout When Underwater",
+      "duplicate_count": 3,
+      "alt_titles": [
+        "`totalAssetsMinusVaultDebtX18` <= 0 is possible in `getVaultCreditCapacity`.",
+        "Guaranteed Runtime Failure for Negative Values in Fixed-Point Conversion"
+      ],
+      "affected_contracts": [
+        "Math.sol",
+        "UnderwaterVault",
+        "VaultRouterBranch",
+        "convertSd59x18ToToken",
+        "ethVault",
+        "getIndexToken",
+        "getVault",
+        "totalAssetsMinusVault"
+      ],
+      "affected_functions": [
+        "Math",
+        "convertSd59x18ToTokenAmount",
+        "getIndexTokenSwapRate",
+        "getVaultAssetSwapRate",
+        "getVaultCreditCapacity",
+        "redeem",
+        "solidity"
+      ],
+      "root_cause": "Negative Credit Capacity Handling Causes Complete Vault Lockout When Underwater",
+      "impact": "",
+      "proof_summary": "# Negative Credit Capacity Handling Causes Complete Vault Lockout When Underwater\n\n### Severity\nHigh Risk\n\n## Summary\n\nThe `getVaultCreditCapacity` function in VaultRouterBranch.sol fails to properly handle underwater vaults where debt exceeds assets. When calculating negative credit capacity, the conversion from signed to unsigned values in `convertSd59x18ToTokenAmount` reverts, causing a complet",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "3 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-16",
+      "report_finding_id": "cm89am53e000zl403o4yp0k4u",
+      "selected_issue_id": "cm6igi96l000358182xz7tiy2",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "No Mechanism to Remove Fee Recipients Can Lead to Failed Reward Distributions",
+      "duplicate_count": 3,
+      "alt_titles": [
+        "`distributeProtocolAssetReward` can DOS the protocol ",
+        "Blacklisted Recipient Can Break functions that call distributeProtocolAssetReward Function"
+      ],
+      "affected_contracts": [
+        "MarketMakingEngineConfiguration",
+        "MarketMakingEngineConfigurationBranch",
+        "marketMakingEngineConfiguration"
+      ],
+      "affected_functions": [
+        "Solidity",
+        "_convertAssetsToUsdc",
+        "configureFeeRecipient",
+        "diff",
+        "fulfillSwap",
+        "sendWethToFeeRecipients",
+        "solidity"
+      ],
+      "root_cause": "No Mechanism to Remove Fee Recipients Can Lead to Failed Reward Distributions",
+      "impact": "",
+      "proof_summary": "# No Mechanism to Remove Fee Recipients Can Lead to Failed Reward Distributions\n\n### Severity\nMedium Risk\n\n## Summary\n\nThe protocol lacks functionality to remove fee recipients from protocolFeeRecipients. The only way to \"disable\" a recipient is by setting their share to zero, but they remain in the Enumerable Mapping and still receive transfer calls. This can cause entire reward distributions to ",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "3 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-17",
+      "report_finding_id": "cm89am5cj001jl403ntcrvkhr",
+      "selected_issue_id": "cm6j7mhmz000b130s4o8tgc1d",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Vault accumulated values do not reflect market change correctly",
+      "duplicate_count": 3,
+      "alt_titles": [
+        "`getVaultAccumulatedValues` will always return wrong value",
+        "Incorrect `getVaultAccumulatedValues` function."
+      ],
+      "affected_contracts": [
+        "Collateral.sol",
+        "Constants.sol",
+        "CreditDelegation",
+        "CreditDelegationBranch",
+        "ERC4626.sol",
+        "EnumerableMap.sol",
+        "EnumerableSet.sol",
+        "Errors.sol",
+        "LiveMarket",
+        "Market.sol",
+        "MarketMakingConfigurationBranch",
+        "MarketMakingEngineConfiguration",
+        "MarketMakingEngineConfigurationBranch",
+        "MockEngine",
+        "MockPriceAdapter",
+        "MockVault",
+        "SD59x18.sol",
+        "SafeCast.sol",
+        "Test.sol",
+        "UD60x18.sol",
+        "Vault.sol",
+        "VaultRouterBranch",
+        "addMarket",
+        "connectVaultsAndMarket",
+        "creditDelegation",
+        "getVault",
+        "indexToken",
+        "lastVault",
+        "liveMarket",
+        "logCreditDelegation",
+        "logMarket",
+        "logVault",
+        "mockEngine",
+        "priceAdapter",
+        "realizedDebtUsdPerVault",
+        "recalculateVault",
+        "s.sol",
+        "unrealizedDebtUsdPerVault",
+        "updateMarketCreditDelegation",
+        "usdcCreditPerVault"
+      ],
+      "affected_functions": [
+        "Solidity",
+        "diff",
+        "market",
+        "realizedDebtChage",
+        "solidity",
+        "totalDelegatedCreditUsd",
+        "unrealizedDebtChange",
+        "usdcCreditChange",
+        "vault",
+        "vaultCreditShare"
+      ],
+      "root_cause": "Vault accumulated values do not reflect market change correctly",
+      "impact": "",
+      "proof_summary": "# Vault accumulated values do not reflect market change correctly\n\n### Severity\nHigh Risk\n\n## Summary\n\nIn `market.getVaultAccumulatedValues`, important deltas `realizedDebtChage`, `unrealizedDebtChange`, `usdcCreditChange` are all incorrectly calculated. Returned value is way less than the actual market change. This will bring vault malfunctioning.\n\n## Vulnerability Details\n\n### Root Cause Analysi",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "3 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-18",
+      "report_finding_id": "cm89am5s3002ll403vm2umn5k",
+      "selected_issue_id": "cm6mgvnhf000buxlv2hvfscky",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Adjusted profit will not use the current state of the system hence a use can withdraw all margins to bypass the profit adjustment",
+      "duplicate_count": 2,
+      "alt_titles": [
+        "`_fillOrder` should update the vaults before deleveraging"
+      ],
+      "affected_contracts": [
+        "CreditDelegationBranch",
+        "IMarketMakingEngine",
+        "getAdjustedProfitForMarket",
+        "getConnectedVault",
+        "getCreditCapacityForMarket",
+        "marketMakingEngine",
+        "perpsEngineConfiguration",
+        "recalculateVault",
+        "updateMarketCreditDelegation",
+        "usdToken",
+        "withdrawUsdTokenFromMarket"
+      ],
+      "affected_functions": [
+        "CreditDelegationBranch",
+        "Solidity",
+        "marketId",
+        "profitUsd"
+      ],
+      "root_cause": "Adjusted profit will not use the current state of the system hence a use can withdraw all margins to bypass the profit adjustment",
+      "impact": "",
+      "proof_summary": "# Adjusted profit will not use the current state of the system hence a use can withdraw all margins to bypass the profit adjustment\n\n### Severity\nMedium Risk\n\n## Summary\n\nThe vault's current state is not updated before price adjustments hence the present state of the contract is not track and the first user will successfully bypass the price/margin adjustment.\n\n## Vulnerability Details\n\nLack of an",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "2 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-19",
+      "report_finding_id": "cm89am5mf0027l403ua4xt47v",
+      "selected_issue_id": "cm6difm1s000511gd6j3ffceu",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "CreditDelegationBranch Rebalancing Underflows When Debt Exceeds USDC Balance",
+      "duplicate_count": 2,
+      "alt_titles": [
+        "The line 629 in the `rebalanceVaultsAssets` function is incorrect."
+      ],
+      "affected_contracts": [
+        "Collateral.sol",
+        "CreditDelegationBranch",
+        "CreditDelegationBranchUnderflowVault",
+        "ERC20.sol",
+        "InvalidVault",
+        "MockMarketMakingEngine",
+        "Vault.sol",
+        "console.sol",
+        "inCreditVault",
+        "inDebtVault",
+        "mockEngine",
+        "perpsEngine",
+        "rebalanceVault",
+        "setVault",
+        "t.sol",
+        "testUnderflowInVault"
+      ],
+      "affected_functions": [
+        "Solidity",
+        "solidity"
+      ],
+      "root_cause": "CreditDelegationBranch Rebalancing Underflows When Debt Exceeds USDC Balance",
+      "impact": "",
+      "proof_summary": "# CreditDelegationBranch Rebalancing Underflows When Debt Exceeds USDC Balance\n\n### Severity\nHigh Risk\n\n## Summary\n\nThe CreditDelegationBranch's rebalancing mechanism can underflow when attempting to settle debt that exceeds a vault's USDC balance, leading to potential vault corruption or system-wide issues.\n\n## Vulnerability Details\n\nWhen rebalancing between vaults, if the in-debt vault's debt ex",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "2 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-20",
+      "report_finding_id": "cm89am63e003dl403lyetojh1",
+      "selected_issue_id": "cm6rvm1hq000p116lb42n93nw",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Incorrect Timestamp Usage in `StreamsLookup Revert`",
+      "duplicate_count": 2,
+      "alt_titles": [
+        "Chainlink Data Streams Timestamp Mismatch in Swap Execution"
+      ],
+      "affected_contracts": [
+        "MarketMakingEngine",
+        "UsdTokenSwapKeeper"
+      ],
+      "affected_functions": [
+        "MarketMakingEngine",
+        "StreamsLookup",
+        "UsdTokenSwapKeeper",
+        "block",
+        "checkLog",
+        "diff",
+        "log"
+      ],
+      "root_cause": "Incorrect Timestamp Usage in `StreamsLookup Revert`",
+      "impact": "",
+      "proof_summary": "# Incorrect Timestamp Usage in `StreamsLookup Revert`\n\n### Severity\nMedium Risk\n\n## Summary\n\n`checkLog` function in `UsdTokenSwapKeeper` contract uses `block.timestamp` (current time) instead of `log.timestamp` (event emission time) to query historical price data, leading to incorrect swap executions that violate user expectations and protocol integrity.\n\n## Vulnerability Details\n\nWhen a user subm",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "2 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-21",
+      "report_finding_id": "cm89am5wz002xl403zx18530n",
+      "selected_issue_id": "cm6rp2qff0005wv4rcbg1g8nx",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Issue with Decimal Offset Calculation Leading to Weak Donation Protection",
+      "duplicate_count": 2,
+      "alt_titles": [
+        "Incorrect `decimalOffset` leading to miscalculated vault decimals and share ratios"
+      ],
+      "affected_contracts": [
+        "VaultRouterBranch",
+        "Vaults.sol",
+        "ZlpVault",
+        "createZlpVault",
+        "indexToken",
+        "marketMakingEngine",
+        "totalAssetsMinusVault",
+        "vaultsConfig",
+        "zlpVault"
+      ],
+      "affected_functions": [
+        "Constants",
+        "IERC20Metadata",
+        "SYSTEM_DECIMALS",
+        "createZlpVaults",
+        "decimalOffset",
+        "decimals",
+        "decimalsOffset",
+        "indexToken",
+        "solidity"
+      ],
+      "root_cause": "Issue with Decimal Offset Calculation Leading to Weak Donation Protection",
+      "impact": "",
+      "proof_summary": "# Issue with Decimal Offset Calculation Leading to Weak Donation Protection\n\n### Severity\nHigh Risk\n\n# Summary\n\nIn the current implementation, the calculation of `decimalOffset` is dynamic and based on the difference between `SYSTEM_DECIMALS` (18) and the decimals of the `indexToken`:\n\n[Source Code Reference](https://github.com/Cyfrin/2025-01-zaros-part-2/blob/35deb3e92b2a32cd304bf61d27e6071ef36e4",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "2 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-22",
+      "report_finding_id": "cm89am5ju0021l403mvwsx14w",
+      "selected_issue_id": "cm67ytijd0005c40pjev44zrv",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Mismatched slippage precision during deposit results in incorrect assertion of min-shares minted",
+      "duplicate_count": 2,
+      "alt_titles": [
+        "Decimal mismatch in `deposit()` minShares validation"
+      ],
+      "affected_contracts": [
+        "VaultRouterBranch",
+        "convertToken",
+        "indexToken"
+      ],
+      "affected_functions": [
+        "VaultRouterBranch",
+        "ctx",
+        "decimal",
+        "deposit",
+        "diff",
+        "minShares",
+        "shares",
+        "solidity",
+        "vault"
+      ],
+      "root_cause": "Mismatched slippage precision during deposit results in incorrect assertion of min-shares minted",
+      "impact": "",
+      "proof_summary": "# Mismatched slippage precision during deposit results in incorrect assertion of min-shares minted\n\n### Severity\nMedium Risk\n\n## Summary\n\nThe `deposit()` function in the `VaultRouterBranch` contract may incorrectly validate the minimum shares (`minShares`) due to a mismatch in `decimal` representations. While `minShares` is expected to be in `18 decimals`, the `shares` obtained from the `vault` ma",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "2 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-23",
+      "report_finding_id": "cm89am5w8002vl403c7io8541",
+      "selected_issue_id": "cm6sajjo2000hgthsyvph6bx7",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Share Minting and Redemption Attack",
+      "duplicate_count": 2,
+      "alt_titles": [
+        "Attacker can manipulate the amount of output tokens of users in ZlpVault"
+      ],
+      "affected_contracts": [
+        "VaultRouterBranch",
+        "ZlpVault",
+        "totalAssetsMinusVault"
+      ],
+      "affected_functions": [
+        "assetsIn",
+        "solidity",
+        "totalAssetsMinusVaultDebt"
+      ],
+      "root_cause": "Share Minting and Redemption Attack",
+      "impact": "",
+      "proof_summary": "# Share Minting and Redemption Attack\n\n### Severity\nHigh Risk\n\n# Summary\n\nAn attacker can take advantage of the vault\u2019s debt dynamics to gain an unfair share allocation. When the vault has a high level of debt, the share price decreases, enabling the attacker to mint an excessive number of shares for a minimal deposit. Once the debt is repaid, the share price returns to its normal level, allowing ",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "2 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-24",
+      "report_finding_id": "cm89am59i001bl403xal0coqz",
+      "selected_issue_id": "cm68q1xhp0005qoi6dq0j5583",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Unable to swap USD token to collateral for vaults in credit",
+      "duplicate_count": 2,
+      "alt_titles": [
+        "Assuming the proposed initial curve in UsdTokenSwapConfig for getPremiumDiscountFactor will get applied it will DoS the whole functions execution as soon as vaultDebtUsdX18 has a negative value"
+      ],
+      "affected_contracts": [
+        "MockVault",
+        "StabilityBranch",
+        "Test.sol",
+        "UD60x18.sol",
+        "UsdTokenSwapConfig",
+        "Vault.sol",
+        "indexToken",
+        "swapConfig"
+      ],
+      "affected_functions": [
+        "Solidity",
+        "UsdTokenSwapConfig"
+      ],
+      "root_cause": "Unable to swap USD token to collateral for vaults in credit",
+      "impact": "",
+      "proof_summary": "# Unable to swap USD token to collateral for vaults in credit\n\n### Severity\nMedium Risk\n\n## Summary\n\nUnderflow in `UsdTokenSwapConfig.getPremiumDiscountFactor` will prevent users from swapping USD token to collateral when vault's credit / vaule ratio is above certain threshold.\n\n## Vulnerability Details\n\n### Root Cause\n\n[`UsdTokenSwapConfig.getPremiumDiscountFactor`](https://github.com/Cyfrin/2025",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "2 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-25",
+      "report_finding_id": "cm89am60x0037l4036067csps",
+      "selected_issue_id": "cm6q6r1z50005qbvgno0ymtml",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Vault credit capacity may not be correctly calculated",
+      "duplicate_count": 2,
+      "alt_titles": [
+        "Inconsistent price adjustment in vault credit capacity calculation"
+      ],
+      "affected_contracts": [
+        "Market.sol",
+        "Vault.sol",
+        "VaultRouterBranch",
+        "connectedMarket",
+        "creditDelegation",
+        "distributeDebtToVault",
+        "getVault",
+        "lastVault",
+        "realizedDebtUsdPerVault",
+        "recalculateConnectedMarket",
+        "totalVault",
+        "unrealizedDebtUsdPerVault",
+        "updatedConnectedMarket"
+      ],
+      "affected_functions": [
+        "Market",
+        "Solidity",
+        "Vault",
+        "_recalculateConnectedMarketsState",
+        "assetPriceX18",
+        "depositedUsdc",
+        "diff",
+        "distributeDebtToVaults",
+        "getCreditDepositsValueUsd",
+        "getRealizedDebtUsd",
+        "getTotalDebt",
+        "getUnsettledRealizedDebt"
+      ],
+      "root_cause": "Vault credit capacity may not be correctly calculated",
+      "impact": "",
+      "proof_summary": "# Vault credit capacity may not be correctly calculated\n\n### Severity\nHigh Risk\n\n## Summary\n\nVault credit capacity may not be correctly calculated due to unadjusted\u00a0collateral asset price is used.\n\n## Vulnerability Details\n\nWhen calculates the net credit capacity of a given vault\u00a0in [getVaultCreditCapacity()](https://github.com/Cyfrin/2025-01-zaros-part-2/blob/35deb3e92b2a32cd304bf61d27e6071ef36e4",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "2 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-26",
+      "report_finding_id": "cm89am5qi002hl403xqdi3smw",
+      "selected_issue_id": "cm6n01ude000554997b604xfl",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Wrong amount in calcaulation when performing a swap from vault asset to usdc",
+      "duplicate_count": 2,
+      "alt_titles": [
+        "Incorrect swap amount in CreditDelegationBranch::settleVaultsDebt improperly inflates the tokens to swap leading to DOS or/and oversettling vault debt"
+      ],
+      "affected_contracts": [
+        "IDexAdapter",
+        "IPriceAdapter",
+        "MarketMakingEngineConfiguration",
+        "SettleVault",
+        "convertSd59x18ToToken",
+        "convertToken",
+        "convertUd60x18ToToken",
+        "dexAdapter",
+        "onlyRegisteredSystemKeeper",
+        "priceAdapter",
+        "priceToken",
+        "recalculateVault",
+        "settleVault",
+        "swapAssetConfig",
+        "usdcCollateralConfig"
+      ],
+      "affected_functions": [
+        "Solidity"
+      ],
+      "root_cause": "Wrong amount in calcaulation when performing a swap from vault asset to usdc",
+      "impact": "",
+      "proof_summary": "# Wrong amount in calcaulation when performing a swap from vault asset to usdc\n\n### Severity\nMedium Risk\n\n## Summary\n\nDuring settling vault debt we call the settlevaultdebt and when the contract has some credit we swap usdc for Vault assets but the vault asset amount used is not correctly calculated leading to some issues like the failure to actually settle the vault debt as expected.\n\n## Vulnerab",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "2 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-27",
+      "report_finding_id": "cm89am500000rl4037fnktbfr",
+      "selected_issue_id": "cm6nimabv0005lc15awf5622w",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "`checkFeeDistributionNeeded` Will Not Work With Low Decimal Assets",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "FeeConversionKeeper",
+        "FeeDistributionBranch",
+        "checkFeeDistribution",
+        "convertToken",
+        "convertUd60x18ToToken",
+        "getFeeConversionKeeper",
+        "marketMakingEngine",
+        "minFeeDistribution"
+      ],
+      "affected_functions": [
+        "FeeConversionKeeper",
+        "FeeDistributionBranch",
+        "assetValue",
+        "checkFeeDistributionNeeded",
+        "checkUpkeep",
+        "collateral",
+        "getAssetValue",
+        "getAssetValueX18",
+        "minFeeDistributionValueUsd",
+        "performUpkeep",
+        "solidity"
+      ],
+      "root_cause": "`checkFeeDistributionNeeded` Will Not Work With Low Decimal Assets",
+      "impact": "",
+      "proof_summary": "# `checkFeeDistributionNeeded` Will Not Work With Low Decimal Assets\n\n### Severity\nHigh Risk\n\n## Summary\n\nThe `FeeConversionKeeper` is a keeper used for automatic fee distribution. It works with two main functions - `checkUpkeep` and `performUpkeep`. When `checkUpkeep` returns true, `performUpkeep` executes. Inside `checkUpkeep` there is a call to `checkFeeDistributionNeeded` to decide whether a d",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-28",
+      "report_finding_id": "cm89am65s003jl403qiqm471r",
+      "selected_issue_id": "cm6s9rfyb000hotqykyh6hrqg",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "CreditDelegationBranch::depositCreditForMarket cannot update market realized debt properly",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "CreditDelegationBranch",
+        "depositCreditForMarket",
+        "distributeDebtToVault",
+        "realizedDebtUsdPerVault",
+        "recalculateConnectedMarket",
+        "recalculateVault",
+        "updateMarketCreditDelegation"
+      ],
+      "affected_functions": [
+        "CreditDelegationBranch",
+        "Market",
+        "Vault",
+        "_recalculateConnectedMarketsState",
+        "creditDeposits",
+        "depositCreditForMarket",
+        "distributeDebtToVaults",
+        "getRealizedDebtUsd",
+        "market",
+        "realizedDebtUsdPerVaultShare",
+        "settleCreditDeposit",
+        "updateMarketCreditDelegations"
+      ],
+      "root_cause": "CreditDelegationBranch::depositCreditForMarket cannot update market realized debt properly",
+      "impact": "",
+      "proof_summary": "# CreditDelegationBranch::depositCreditForMarket cannot update market realized debt properly\n\n### Severity\nMedium Risk\n\n## Summary\nThe function `CreditDelegationBranch::depositCreditForMarket` calls `market.settleCreditDeposit`, which modifies `realizedDebtUsdPerVaultShare`. However, if `CreditDelegationBranch::updateMarketCreditDelegations` is called immediately after, it **resets `realizedDebtUs",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-29",
+      "report_finding_id": "cm89am643003fl403k71z30jx",
+      "selected_issue_id": "cm6sa4w5n000f4ujfm94gz4j4",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Decimal Precision Mismatch Causing Incorrect Swap Reverts in `StabilityBranch.initiateSwap()`",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "Collateral.sol",
+        "IERC20Metadata.sol",
+        "IERC4626.sol",
+        "IPriceAdapter",
+        "InsufficientVault",
+        "Math.sol",
+        "PriceAdapter",
+        "SecondVault",
+        "StabilityBranch",
+        "UD60x18.sol",
+        "UsdToken",
+        "UsdTokenSwapConfig",
+        "VaultConfig",
+        "convertToken",
+        "convertUd60x18ToToken",
+        "firstVault",
+        "fuzzVaultConfig",
+        "getFuzzVaultConfig",
+        "indexToken",
+        "marketMakingEngine",
+        "priceAdapter",
+        "secondVault",
+        "t.sol",
+        "usdToken",
+        "whenVault"
+      ],
+      "affected_functions": [
+        "StabilityBranch",
+        "ctx",
+        "depositCap",
+        "diff",
+        "forge",
+        "initiateSwap",
+        "solidity",
+        "test"
+      ],
+      "root_cause": "Decimal Precision Mismatch Causing Incorrect Swap Reverts in `StabilityBranch.initiateSwap()`",
+      "impact": "",
+      "proof_summary": "# Decimal Precision Mismatch Causing Incorrect Swap Reverts in `StabilityBranch.initiateSwap()`\n\n### Severity\nMedium Risk\n\n## Summary\n\nDue to a mismatch in decimal handling within `StabilityBranch.initiateSwap()`, vaults with low-decimal underlying assets (e.g. USDC or wBTC) may incorrectly revert the check for sufficient assets. This can cause the function to reject swap requests even when the va",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-30",
+      "report_finding_id": "cm89am5xr002zl403a6mlpola",
+      "selected_issue_id": "cm6qlbkrc0007y7jq7vtg50ya",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Duplicate `Collateral.Data` struct causes admin configuration conflict",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "Collateral.sol",
+        "MarketMakingEngineConfigurationBranch",
+        "StabilityBranch",
+        "Vault.sol",
+        "VaultRouterBranch",
+        "getVault",
+        "indexToken",
+        "priceAdapter"
+      ],
+      "affected_functions": [
+        "COLLATERAL_LOCATION",
+        "Collateral",
+        "VAULT_LOCATION",
+        "Vault",
+        "admin",
+        "colllateral",
+        "configureCollateral",
+        "isEnable",
+        "market",
+        "priceAdapter",
+        "self",
+        "solidity"
+      ],
+      "root_cause": "Duplicate `Collateral.Data` struct causes admin configuration conflict",
+      "impact": "",
+      "proof_summary": "# Duplicate `Collateral.Data` struct causes admin configuration conflict\n\n### Severity\nMedium Risk\n\n## Summary\n\n`Collateral.Data` information is saved in two locations. Protocol access this information from both places but admin can update only one of them resulting in a DoS for admin rights.\n\n## Vulnerability Details\n\nCollateral data is handled by [Collateral](https://github.com/Cyfrin/2025-01-za",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-31",
+      "report_finding_id": "cm89am68s003rl403lcwc1usz",
+      "selected_issue_id": "cm6sb26fn000nezriva1hu859",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "FeeConversionKeeper::performUpkeep May Exceed Gas Limit Due to Vault Updates",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "FeeConversionKeeper",
+        "FeeDistributionBranch",
+        "PerpMarketCreditConfig",
+        "configureFeeConversionKeeper",
+        "convertUd60x18ToToken",
+        "expectedToken",
+        "feeConversionKeeper",
+        "fuzzPerpMarketCreditConfig",
+        "getConnectedVault",
+        "getFuzzPerpMarketCreditConfig",
+        "handleWethRewardDistribution",
+        "marketMakingEngine",
+        "minFeeDistribution",
+        "recalculateVault",
+        "receiveMarket",
+        "t.sol",
+        "uniswapV3Adapter"
+      ],
+      "affected_functions": [
+        "FeeConversionKeeper",
+        "Vault",
+        "_handleWethRewardDistribution",
+        "_performMultiDexSwap",
+        "convertAccumulatedFeesToWeth",
+        "forge",
+        "performUpkeep",
+        "recalculateVaultsCreditCapacity",
+        "solidity",
+        "test"
+      ],
+      "root_cause": "FeeConversionKeeper::performUpkeep May Exceed Gas Limit Due to Vault Updates",
+      "impact": "",
+      "proof_summary": "# FeeConversionKeeper::performUpkeep May Exceed Gas Limit Due to Vault Updates\n\n### Severity\nMedium Risk\n\n### Summary\nChainlink Keepers have a gas limit of 5 million per upkeep [[Doc](https://docs.chain.link/chainlink-automation/overview/supported-networks#arbitrum)]. `FeeConversionKeeper::performUpkeep` calls `convertAccumulatedFeesToWeth`, which calls `_handleWethRewardDistribution`. At the end ",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-32",
+      "report_finding_id": "cm89am69l003tl403fyej1efb",
+      "selected_issue_id": "cm6svrf2p000brhu2ef4zllu5",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "The `settleCreditDeposit` function is incorrect.",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "Market.sol",
+        "Vault.sol",
+        "connectedMarket",
+        "creditDelegation",
+        "distributeDebtToVault",
+        "getVault",
+        "lastVault",
+        "realizedDebtUsdPerVault",
+        "recalculateConnectedMarket",
+        "recalculateVault",
+        "rehydratedConnectedMarket",
+        "updatedConnectedMarket",
+        "usdcCreditPerVault"
+      ],
+      "affected_functions": [
+        "CreditDeposit",
+        "getUnsettledRealizedDebt",
+        "realizedDebtChangeUsdX18",
+        "realizedDebtUsdPerVaultShare",
+        "settleCreditDeposit",
+        "solidity",
+        "usdcCreditChangeX18",
+        "usdcCreditPerVaultShare",
+        "vaultTotalRealizedDebtChangeUsdX18",
+        "vaultTotalUsdcCreditChangeX18"
+      ],
+      "root_cause": "The `settleCreditDeposit` function is incorrect.",
+      "impact": "",
+      "proof_summary": "# The `settleCreditDeposit` function is incorrect.\n\n### Severity\nHigh Risk\n\n\n## Summary\nThe `CreditDeposit` (providers' profit) was counted twice in the vault debt.\n\n## Vulnerability Details\n\nhttps://github.com/Cyfrin/2025-01-zaros-part-2/blob/main/src/market-making/leaves/Market.sol#L443\n```solidity\n443:function settleCreditDeposit(Data storage self, address settledAsset, UD60x18 netUsdcReceivedX",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-33",
+      "report_finding_id": "cm89am5hk001vl403yjjkxhin",
+      "selected_issue_id": "cm6ss4f13000buwbppwfpbram",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Usd token can be overwithdrawn from market",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "Collateral.sol",
+        "Constants.sol",
+        "CreditDelegation",
+        "CreditDelegationBranch",
+        "DexSwapStrategy.sol",
+        "Distribution.sol",
+        "ERC20.sol",
+        "ERC20Mock.sol",
+        "ERC4626.sol",
+        "EnumerableMap.sol",
+        "EnumerableSet.sol",
+        "Errors.sol",
+        "IMarketMakingEngine",
+        "LiveMarket",
+        "Market.sol",
+        "MarketMakingEngine",
+        "MarketMakingEngineConfiguration",
+        "MockEngine",
+        "MockPriceAdapter",
+        "MockUniswapV3SwapStrategyRouter.sol",
+        "MockZlpVault",
+        "SD59x18.sol",
+        "SafeCast.sol",
+        "Test.sol",
+        "UD60x18.sol",
+        "UniswapV3Adapter",
+        "Vault.sol",
+        "WithdrawUsdToken",
+        "ZlpVault",
+        "addMarket",
+        "connectVaultsAndMarket",
+        "dexAdapter",
+        "getZlpVault",
+        "indexToken",
+        "isRegisteredEngine",
+        "isSystemKeeper",
+        "liveMarket",
+        "marketMakingEngine",
+        "mockEngine",
+        "priceAdapter",
+        "recalculateVault",
+        "s.sol",
+        "updateMarketCreditDelegation",
+        "usdTokenOfEngine",
+        "withdrawUsdTokenFromMarket",
+        "zlpVault"
+      ],
+      "affected_functions": [
+        "CreditDelegationBranch",
+        "solidity"
+      ],
+      "root_cause": "Usd token can be overwithdrawn from market",
+      "impact": "",
+      "proof_summary": "# Usd token can be overwithdrawn from market\n\n### Severity\nMedium Risk\n\n## Summary\n\nBefore usd token is withdrawn from market, there is a credit capacity check that enforces market has enough credit capacity. However, it's not taking **credit capacity after withdrawal** into consideration. This will lead to over withdrawal of usd token when credit capacity is low.\n\n## Vulnerability Details\n\n### Ro",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-34",
+      "report_finding_id": "cm89am5e5001nl403r0qyfiw5",
+      "selected_issue_id": "cm6jvsfee00057ub3mdni1xp6",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Vault's total credit capacity keeps changing when being recalculated even though there is no market activity",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "Collateral.sol",
+        "Constants.sol",
+        "CreditDelegation",
+        "CreditDelegationBranch",
+        "ERC4626.sol",
+        "EnumerableMap.sol",
+        "EnumerableSet.sol",
+        "Errors.sol",
+        "LiveMarket",
+        "Market.sol",
+        "MarketMakingConfigurationBranch",
+        "MarketMakingEngineConfiguration",
+        "MarketMakingEngineConfigurationBranch",
+        "MockEngine",
+        "MockPriceAdapter",
+        "MockVault",
+        "SD59x18.sol",
+        "SafeCast.sol",
+        "Test.sol",
+        "UD60x18.sol",
+        "Vault.sol",
+        "VaultRouterBranch",
+        "addMarket",
+        "connectVaultsAndMarket",
+        "creditDelegation",
+        "indexToken",
+        "liveMarket",
+        "mockEngine",
+        "priceAdapter",
+        "recalculateVault",
+        "s.sol",
+        "updateMarketCreditDelegation",
+        "usdcCreditPerVault"
+      ],
+      "affected_functions": [
+        "Solidity",
+        "Vault",
+        "depositedUsdc",
+        "market",
+        "netUsdcReceived",
+        "totalAssetsUsd",
+        "totalCreditCapacityUsd",
+        "totalDelegatedCreditUsd",
+        "vault"
+      ],
+      "root_cause": "Vault's total credit capacity keeps changing when being recalculated even though there is no market activity",
+      "impact": "",
+      "proof_summary": "# Vault's total credit capacity keeps changing when being recalculated even though there is no market activity\n\n### Severity\nHigh Risk\n\n## Summary\n\nCircular dependency between calculations of market's `totalDelegatedCreditUsd` and vault's `depositedUsdc` will lead to inconsistent calculation result for every `Vault.recalculateVaultsCreditCapacity` function call.\n\n## Vulnerability Details\n\n### Root",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "M-35",
+      "report_finding_id": "cm89am4xp000ll403osl2oxfi",
+      "selected_issue_id": "cm6ouojgf0005i50zj6kh5od7",
+      "severity": "Medium",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Wrong values of newly added `vault`",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "CreditDelegation",
+        "lastVault",
+        "wethRewardPerVault"
+      ],
+      "affected_functions": [
+        "CreditDelegation",
+        "WETH",
+        "lastVaultDistributedWethRewardPerShareX18",
+        "totalCreditCapacity",
+        "vault",
+        "wethRewardPerVaultShare"
+      ],
+      "root_cause": "Wrong values of newly added `vault`",
+      "impact": "",
+      "proof_summary": "# Wrong values of newly added `vault`\n\n### Severity\nHigh Risk\n\n## Summary\n\nWhen a new vault is added for a market, a `CreditDelegation` struct is created for each tuple of Market and Vault. Initially, all values in the `CreditDelegation` struct are set to `0`. This leads to a significant issue because, currently, when the values of `CreditDelegation` are `0`, they can only be updated if there is s",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-01",
+      "report_finding_id": "cm89am58p0019l403j7u434de",
+      "selected_issue_id": "cm6qh2d9s000lt8n29nrlrx52",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Low issues collection",
+      "duplicate_count": 8,
+      "alt_titles": [
+        "ERC7201 implemented in correctly may introduce storage complications in future hard forks.",
+        "Incorrect ERC-7201 standard implementation",
+        "Incorrect ERC7201 Storage Slot Calculation",
+        "Protocol not fully compliant with ERC-7201",
+        "contract  don't follow EIP-7201 standard",
+        "Storage Safety Issues in AssetSwapPath Library",
+        "Several libraries are not ERC7201 compliant"
+      ],
+      "affected_contracts": [
+        "CreditDelegationBranch",
+        "CurveAdapter",
+        "Market.sol",
+        "MarketMakingEngineConfigurationBranch",
+        "StabilityBranch",
+        "UsdToken",
+        "Vault.sol",
+        "ZeroOutputToken",
+        "configureMarket",
+        "connectVaultsAndMarket",
+        "convertUd60x18ToToken",
+        "currentVault",
+        "marketMakingEngineConfiguration",
+        "onlyRegisteredSystemKeeper",
+        "recalculateVault",
+        "rehydratedConnectedMarket",
+        "updateVault",
+        "updateVaultConfiguration",
+        "usdToken",
+        "usdTokenOfEngine"
+      ],
+      "affected_functions": [
+        "CreditDelegationBranch",
+        "Market",
+        "MarketMakingEngineConfigurationBranch",
+        "Solidity",
+        "StabilityBranch",
+        "Vault",
+        "amountOut",
+        "assetOutAmount",
+        "autoDeleverageExponentZ",
+        "autoDeleverageFactor",
+        "autoDeleverageStartThreshold",
+        "autoDelverageExponentZ"
+      ],
+      "root_cause": "Low issues collection",
+      "impact": "",
+      "proof_summary": "# Low issues collection\n\n### Severity\nLow Risk\n\n# L-01 Curve adapter is not working on Arbitrum\n\n## Summary\n\nCurveAdapter is using outdated Curve Registry Exchange Contract, which was never deployed to Arbitrum.\n\n## Vulnerability Details\n\nCurve adapter is using `exchange_with_best_rate` function of Curve Registry Exchange Contract. According to [curve doc](https://docs.curve.fi/router/CurveRegistr",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "8 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-02",
+      "report_finding_id": "cm89am4qn0005l403wasen9p6",
+      "selected_issue_id": "cm6s5zlio0009wovgdzi8oy39",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Users Guaranteed To Lose Base Fees When Initiating Swaps on Non-Live Vaults",
+      "duplicate_count": 7,
+      "alt_titles": [
+        "Users can initiate a swap against a Paused/inactive vault ",
+        "Swap Requests Can Be Initiated For Vaults That Are Not Live",
+        "Inadequate collateral asset enablement check during redemption",
+        "`initiateSwap` allows users to initiate swap even when the vault is paused ",
+        "`initiateSwap` Accepts Transfers for Paused Vaults Leading to Stuck Tokens",
+        "`initiateSwap` Does not check that the vault is Live will result in lose for user"
+      ],
+      "affected_contracts": [
+        "StabilityBranch",
+        "currentVault",
+        "initialVault"
+      ],
+      "affected_functions": [
+        "StabilityBranch",
+        "diff",
+        "solidity"
+      ],
+      "root_cause": "Users Guaranteed To Lose Base Fees When Initiating Swaps on Non-Live Vaults",
+      "impact": "",
+      "proof_summary": "# Users Guaranteed To Lose Base Fees When Initiating Swaps on Non-Live Vaults\n\n### Severity\nMedium Risk\n\n## Summary\n\n<https://github.com/Cyfrin/2025-01-zaros-part-2/blob/35deb3e92b2a32cd304bf61d27e6071ef36e446d/src/market-making/branches/StabilityBranch.sol#L221C1-L223C38>\n\nIn `StabilityBranch.initiateSwap()`, only collateral liveness is checked, while vault liveness is only checked during fulfill",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "7 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-03",
+      "report_finding_id": "cm89am5lh0025l403zhlqw1ps",
+      "selected_issue_id": "cm6sb01cv00054ot6oj3xodg8",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Anyone can call `BaseAdapter::__BaseAdapter_init` function because the function has `initializer` modifier instead of `onlyInitializing`",
+      "duplicate_count": 6,
+      "alt_titles": [
+        "Curve and Uniswap Adapters can not be initialized because the `__BaseAdapter_init(...)` uses `initializer` modifier instead of onlyInitializing",
+        "Incorrect Modifier Usage in __BaseAdapter_init",
+        "Initialization Vulnerability Leading to Denial of Service in Zaros's Dex Adaptor Contracts",
+        "Multiple Initializer Modifiers in DEX Adapter Inheritance Chain Leading to Incomplete Contract Initialization",
+        "BaseAdapter::__BaseAdapter_init Should Use onlyInitializing, Not initializer "
+      ],
+      "affected_contracts": [
+        "BaseAdapter",
+        "CurveAdapter",
+        "Initializable.sol",
+        "UniswapV2Adapter",
+        "UniswapV3Adapter",
+        "bAdapter",
+        "setSwapAssetConfig",
+        "setSwapConfig",
+        "testAnyoneCanCallBaseAdapter"
+      ],
+      "affected_functions": [
+        "BaseAdapter",
+        "CurveAdapter",
+        "Openzeppelin",
+        "UUPSUpgradeable",
+        "UniswapV2Adapter",
+        "UniswapV3Adapter",
+        "__BaseAdapter_init",
+        "_disableInitializers",
+        "console",
+        "constructor",
+        "initializer",
+        "javascript"
+      ],
+      "root_cause": "Anyone can call `BaseAdapter::__BaseAdapter_init` function because the function has `initializer` modifier instead of `onlyInitializing`",
+      "impact": "",
+      "proof_summary": "# Anyone can call `BaseAdapter::__BaseAdapter_init` function because the function has `initializer` modifier instead of `onlyInitializing`\n\n### Severity\nMedium Risk\n\n## Summary\n\nThe `BaseAdapter::__BaseAdapter_init` function uses `initializer` modifier instead of `onlyInitializing`. This allows anyone to call the function and the child contracts can not initialized because they call `__BaseAdapter",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "6 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-04",
+      "report_finding_id": "cm89am4sj0009l403m2qa6ay6",
+      "selected_issue_id": "cm6t8y5zk000lnslq9n1cm0kb",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Low issues collection",
+      "duplicate_count": 5,
+      "alt_titles": [
+        "Missing basefee and settlement fee deduction before slippage check in the Stablitybranch contract.",
+        "minAmountOut in initiateSwap does not take into account the protocol fee, which may result in canceled swap",
+        "Incorrect Slippage Enforcement in `initiateSwap` Due to Pre-Fee Amount Comparison Can Cause Swaps to Fail During Fulfilment",
+        "FullFill Swap will Fail due to minAmountOut wrong calculation"
+      ],
+      "affected_contracts": [
+        "CreditDelegationBranch",
+        "CurveAdapter",
+        "Market.sol",
+        "MarketMakingEngineConfigurationBranch",
+        "StabilityBranch",
+        "UsdToken",
+        "Vault.sol",
+        "ZeroOutputToken",
+        "configureMarket",
+        "connectVaultsAndMarket",
+        "convertUd60x18ToToken",
+        "currentVault",
+        "marketMakingEngineConfiguration",
+        "onlyRegisteredSystemKeeper",
+        "recalculateVault",
+        "rehydratedConnectedMarket",
+        "updateVault",
+        "updateVaultConfiguration",
+        "usdToken",
+        "usdTokenOfEngine"
+      ],
+      "affected_functions": [
+        "CreditDelegationBranch",
+        "Market",
+        "MarketMakingEngineConfigurationBranch",
+        "Solidity",
+        "StabilityBranch",
+        "Vault",
+        "amountOut",
+        "assetOutAmount",
+        "autoDeleverageExponentZ",
+        "autoDeleverageFactor",
+        "autoDeleverageStartThreshold",
+        "autoDelverageExponentZ"
+      ],
+      "root_cause": "Low issues collection",
+      "impact": "",
+      "proof_summary": "# Low issues collection\n\n### Severity\nLow Risk\n\n# L-01 Curve adapter is not working on Arbitrum\n\n## Summary\n\nCurveAdapter is using outdated Curve Registry Exchange Contract, which was never deployed to Arbitrum.\n\n## Vulnerability Details\n\nCurve adapter is using `exchange_with_best_rate` function of Curve Registry Exchange Contract. According to [curve doc](https://docs.curve.fi/router/CurveRegistr",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "5 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-05",
+      "report_finding_id": "cm89am52i000xl403nenmjrlo",
+      "selected_issue_id": "cm6kh7vcr0005hm4p6ah4l8vu",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Total debt used in fulfiling swap actions is wrong because we did not update the vault.",
+      "duplicate_count": 4,
+      "alt_titles": [
+        "`fulfillSwap` and `initiateSwap` should execute recalculateVaultsCreditCapacity",
+        "Vault's credit capacity is not updated during usd token swap",
+        "Stale Debt Calculations Lead to Incorrect Swap Amounts in `StabilityBranch.fulfillSwap`"
+      ],
+      "affected_contracts": [
+        "InsufficientVault",
+        "MarketMakingEngineConfiguration",
+        "StabilityConfiguration",
+        "UsdToken",
+        "UsdTokenSwapConfig",
+        "connectedMarket",
+        "indexToken",
+        "marketMakingEngineConfiguration",
+        "onlyRegisteredSystemKeeper",
+        "recalculateConnectedMarket",
+        "recalculateVault",
+        "stabilityConfiguration",
+        "updatedConnectedMarket",
+        "usdToken",
+        "usdTokenOfEngine"
+      ],
+      "affected_functions": [
+        "EnumerableSet",
+        "Solidity",
+        "continue",
+        "uint256"
+      ],
+      "root_cause": "Total debt used in fulfiling swap actions is wrong because we did not update the vault.",
+      "impact": "",
+      "proof_summary": "# Total debt used in fulfiling swap actions is wrong because we did not update the vault.\n\n### Severity\nMedium Risk\n\n## Summary\n\nThe contract fails to obtain the actual debt amount by updating the current state of the system before keeper performs the swap request of a user, this will cause a user to gain more amount or get less amount than they should because a stale debt amount will be utilized ",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "4 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-06",
+      "report_finding_id": "cm89am5j5001zl403dls9u4ll",
+      "selected_issue_id": "cm68g8w50000bzqy0b199355g",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Custom Referral Code Conflict Across Engines",
+      "duplicate_count": 3,
+      "alt_titles": [
+        "Any registered engine can overwrite\u00a0unrelated\u00a0custom codes",
+        "Overwriting of Custom Referral Codes Due to Missing Uniqueness Check"
+      ],
+      "affected_contracts": [
+        "ERC1967Proxy",
+        "Referral.sol",
+        "Test.sol",
+        "configureEngine"
+      ],
+      "affected_functions": [
+        "Solidity"
+      ],
+      "root_cause": "Custom Referral Code Conflict Across Engines",
+      "impact": "",
+      "proof_summary": "# Custom Referral Code Conflict Across Engines\n\n### Severity\nMedium Risk\n\n## Summary\n\nThe referral system allows different engines (features/apps) to create the same custom referral code. When this happens, the last engine to create the code overwrites previous ones, causing referrals to credit the wrong person.\n\n## Vulnerability Details\n\n### How It Works\n\n1. **Global Code Storage**: Custom codes ",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "3 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-07",
+      "report_finding_id": "cm89am51l000vl403ksebpfwz",
+      "selected_issue_id": "cm6kgrjcl0005101w7j5q76u8",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Lack of an update of the pool state will cause Initiate Swap to return an incorrect Amountout",
+      "duplicate_count": 3,
+      "alt_titles": [
+        "`fulfillSwap` and `initiateSwap` should execute recalculateVaultsCreditCapacity",
+        "Vault's credit capacity is not updated during usd token swap"
+      ],
+      "affected_contracts": [
+        "InsufficientVault",
+        "MarketMakingEngineConfiguration",
+        "UsdTokenSwapConfig",
+        "connectedMarket",
+        "currentVault",
+        "indexToken",
+        "initialVault",
+        "initialVaultIndexToken",
+        "recalculateConnectedMarket",
+        "recalculateVault",
+        "updatedConnectedMarket"
+      ],
+      "affected_functions": [
+        "EnumerableSet",
+        "Solidity",
+        "continue",
+        "uint256"
+      ],
+      "root_cause": "Lack of an update of the pool state will cause Initiate Swap to return an incorrect Amountout",
+      "impact": "",
+      "proof_summary": "# Lack of an update of the pool state will cause Initiate Swap to return an incorrect Amountout \n\n### Severity\nMedium Risk\n\n## Summary\n\nWhenever a vault is Live the Debt value in the vault changes with the position unrealised and realised debt. But the initiate swap function fails to update the vault first before calculating the Premium discount factor and this will influence the amount-out calcul",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "3 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-08",
+      "report_finding_id": "cm89am61u0039l4031m81d5ea",
+      "selected_issue_id": "cm6saz80t000b127jw60s4ph3",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Missing ERC-20 Metadata in ZlpVault (EIP-4626 Violation)",
+      "duplicate_count": 3,
+      "alt_titles": [
+        "ZlpVault Does Not Fully Implement ERC-4626",
+        "Missing ERC20 Metadata Initialization in ZlpVault Contract"
+      ],
+      "affected_contracts": [
+        "ZlpVault"
+      ],
+      "affected_functions": [
+        "ERC4626Upgradeable",
+        "ZlpVault",
+        "name",
+        "symbol"
+      ],
+      "root_cause": "Missing ERC-20 Metadata in ZlpVault (EIP-4626 Violation)",
+      "impact": "",
+      "proof_summary": "# Missing ERC-20 Metadata in ZlpVault (EIP-4626 Violation)\n\n### Severity\nLow Risk\n\n## Summary\n\n## Vulnerability Details\n\nThe `ZlpVault` contract, which implements the ERC-4626 vault standard, **does not include ERC-20 metadata functions (`name()` and `symbol()`)**. According to the EIP-4626 specification, **all tokenized vaults must implement the ERC-20 metadata extensions**, and the `name()` and ",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "3 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-09",
+      "report_finding_id": "cm89am5ov002dl4037kikqe2y",
+      "selected_issue_id": "cm6rxps200003i5pwgoj4p2z6",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Protocol uses CurveRegistryExchange which is outdated",
+      "duplicate_count": 3,
+      "alt_titles": [
+        "CurveAdapter uses non-existent exchange_with_best_rate() method, breaking fee conversion on Arbitrum.",
+        "Using function of outdated CurveRegistryExchange contract"
+      ],
+      "affected_contracts": [
+        "CurveAdapter",
+        "ICurveSwapRouter.sol",
+        "fromToken",
+        "toToken"
+      ],
+      "affected_functions": [
+        "CurveAdapter",
+        "CurveRegistryExchange",
+        "fromToken",
+        "solidity",
+        "toToken"
+      ],
+      "root_cause": "Protocol uses CurveRegistryExchange which is outdated",
+      "impact": "",
+      "proof_summary": "# Protocol uses CurveRegistryExchange which is outdated\n\n### Severity\nLow Risk\n\n## Summary\n\nFor exchanging tokens protocol may use his `CurveAdapter.sol`\u00a0which relies on\u00a0`CurveRegistryExchange`\u00a0which is outdated. [Link](https://docs.curve.fi/router/CurveRegistryExchange/#:~:text=Outdated%3A%20Does%20not%20consider%20all%20liquidity%20pools)\n\n## Vulnerability Details\n\n[CurveAdapter.sol](https://git",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "3 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-10",
+      "report_finding_id": "cm89am5ug002rl4033ah9sm79",
+      "selected_issue_id": "cm6t31yor0005gl56q9m3uxt8",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Chainlink Oracle incompatibilities",
+      "duplicate_count": 2,
+      "alt_titles": [
+        "Issues when handling tokens in `fulfillSwap()` function"
+      ],
+      "affected_contracts": [
+        "AccountNFT.sol",
+        "IPriceAdapter",
+        "priceAdapter"
+      ],
+      "affected_functions": [
+        "Collateral",
+        "README",
+        "getPrice",
+        "javascript"
+      ],
+      "root_cause": "Chainlink Oracle incompatibilities",
+      "impact": "",
+      "proof_summary": "# Chainlink Oracle incompatibilities\n\n### Severity\nLow Risk\n\n## Summary\n\nThe protocol will be deployed on Monad chain. But the Chainlink Oracle doesn't support this chain. The other chain that the protocol uses is Arbitrum. On this chain there are two token pairs that don't have Chainlink Oracle price feed address.\n\n## Vulnerability Details\n\nAccording to the [`README`](https://github.com/Cyfrin/20",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "2 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-11",
+      "report_finding_id": "cm89am5kp0023l403d4d4wmse",
+      "selected_issue_id": "cm6f6ulsj0005t003kc3q9vwn",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Incorrect Array Length Parameters in Error Message for Deposit and Redeem Fees Validation",
+      "duplicate_count": 2,
+      "alt_titles": [
+        "Incorrect parameters for the `ArrayLengthMismatch` error message"
+      ],
+      "affected_contracts": [
+        "MarketMakingEngineConfigurationBranch"
+      ],
+      "affected_functions": [
+        "configureDepositAndRedeemFees",
+        "depositFees",
+        "redeemFees",
+        "solidity",
+        "vaultsIds"
+      ],
+      "root_cause": "Incorrect Array Length Parameters in Error Message for Deposit and Redeem Fees Validation",
+      "impact": "",
+      "proof_summary": "# Incorrect Array Length Parameters in Error Message for Deposit and Redeem Fees Validation\n\n### Severity\nLow Risk\n\n## Summary\n\nIn the `configureDepositAndRedeemFees` function, when comparing `depositFees.length` with `redeemFees.length`, the error message incorrectly uses `vaultsIds.length` and `depositFees.length` as parameters instead of the actual arrays being compared.\n\n## Vulnerability Detai",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "2 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-12",
+      "report_finding_id": "cm89am682003pl403wry57vxe",
+      "selected_issue_id": "cm6sb13fp0005jj55vljhu6ig",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Chainlink Keeper Cannot Process All Swap Logs in a Block",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "StabilityBranch",
+        "UsdTokenSwapKeeper"
+      ],
+      "affected_functions": [
+        "Chainlink",
+        "LogInitiateSwap",
+        "StabilityBranch",
+        "UsdTokenSwapKeeper",
+        "refund"
+      ],
+      "root_cause": "Chainlink Keeper Cannot Process All Swap Logs in a Block",
+      "impact": "",
+      "proof_summary": "# Chainlink Keeper Cannot Process All Swap Logs in a Block\n\n### Severity\nMedium Risk\n\n### Summary\n`UsdTokenSwapKeeper::checkLog` relies on Chainlink Keepers, which only handle 1 logs every 2 block on Arbitrum. `StabilityBranch::initiateSwap` emits an event (`LogInitiateSwap`) for each swap request. If multiple users request multiple swaps in the same block, some logs will be ignored, leading to un",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-13",
+      "report_finding_id": "cm89am5v8002tl403menyey17",
+      "selected_issue_id": "cm6lgs078000bvvbzk2uzdcf4",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "High Severity - Incorrect Timestamp Validation at `StabilityConfiguration` (Stale Price Reports)",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "StabilityConfiguration"
+      ],
+      "affected_functions": [
+        "StabilityConfiguration",
+        "block",
+        "javascript",
+        "maxVerificationDelay",
+        "validFromTimestamp",
+        "validUntilTimestamp"
+      ],
+      "root_cause": "High Severity - Incorrect Timestamp Validation at `StabilityConfiguration` (Stale Price Reports)",
+      "impact": "",
+      "proof_summary": "# High Severity - Incorrect Timestamp Validation at `StabilityConfiguration` (Stale Price Reports) \n\n### Severity\nHigh Risk\n\n## Summary\n\nThe timestamp validation logic in` StabilityConfiguration.sol` incorrectly verifies Chainlink price reports, allowing stale or expired data to be accepted. This occurs due to missing checks against the report's `validUntilTimestamp` and improper validity window e",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-14",
+      "report_finding_id": "cm89am5yk0031l403eg3ukmk3",
+      "selected_issue_id": "cm6sgs2ze000bmrapti7gfcnb",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Invalid referral data retrieval",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "Referral.sol",
+        "ReferralConfiguration",
+        "VaultRouterBranch",
+        "referralConfiguration"
+      ],
+      "affected_functions": [
+        "engine",
+        "market",
+        "msg"
+      ],
+      "root_cause": "Invalid referral data retrieval",
+      "impact": "",
+      "proof_summary": "# Invalid referral data retrieval\n\n### Severity\nLow Risk\n\n## Summary\n\nReferral view functions read data from wrong storage location rendering those function useless.\n\n## Vulnerability Details\n\nWhen an user [register](https://github.com/Cyfrin/2025-01-zaros-part-2/blob/35deb3e92b2a32cd304bf61d27e6071ef36e446d/src/market-making/branches/VaultRouterBranch.sol#L310-L312) a referral code, [referralConf",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-15",
+      "report_finding_id": "cm89am5t0002nl403x85i3rbf",
+      "selected_issue_id": "cm6ki7pav0005h74ywmvcty09",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Users can initiate multiple swaps against the same vault/collateral causing the users to lntiate swaps that can not be fulfillable.",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "InsufficientVault",
+        "MarketMakingEngineConfiguration",
+        "UsdTokenSwapConfig",
+        "ZeroOutputToken",
+        "currentVault",
+        "indexToken",
+        "initialVault",
+        "initialVaultIndexToken",
+        "usdToken"
+      ],
+      "affected_functions": [
+        "Solidity",
+        "solidity"
+      ],
+      "root_cause": "Users can initiate multiple swaps against the same vault/collateral causing the users to lntiate swaps that can not be fulfillable.",
+      "impact": "",
+      "proof_summary": "# Users can initiate multiple swaps against the same vault/collateral causing the users to lntiate swaps that can not be fulfillable.\n\n### Severity\nMedium Risk\n\n## Summary\n\nThe initiate swap function fails to prevent\u00a0 a user from initiating multiple swaps against the same vault at the same time(Batched call). The current checks implemented cannot handle multiple calls for the same vault hence the ",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-16",
+      "report_finding_id": "cm89am5i7001xl403jz8g43ey",
+      "selected_issue_id": "cm65lyd6u000d10rwx59pmet6",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Users could potentially use their own referral code",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "Referral.sol",
+        "TradingAccountBranch",
+        "VaultRouterBranch",
+        "givenTheTradingAccountToken",
+        "perpsEngine",
+        "t.sol"
+      ],
+      "affected_functions": [
+        "Solidity",
+        "TradingAccountBranch",
+        "VaultRouterBranch",
+        "createTradingAccount",
+        "referrerCode",
+        "registerReferral"
+      ],
+      "root_cause": "Users could potentially use their own referral code",
+      "impact": "",
+      "proof_summary": "# Users could potentially use their own referral code\n\n### Severity\nLow Risk\n\n## Summary\n\n[registerReferral](https://github.com/Cyfrin/2025-01-zaros-part-2/blob/39e33b2f6b3890573bb1affc41a7e520277ceb2c/src/referral/Referral.sol#L155) is called from two different places. In `VaultRouterBranch` when a user initially [deposits](https://github.com/Cyfrin/2025-01-zaros-part-2/blob/39e33b2f6b3890573bb1a",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-17",
+      "report_finding_id": "cm89am66j003ll403suw8cgyg",
+      "selected_issue_id": "cm6saimm00005mng9k1ikgqky",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "VaultRouterBranch::getVaultCreditCapacity does not take zero return into account",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "VaultRouterBranch",
+        "convertSd59x18ToToken",
+        "getIndexToken",
+        "getVault",
+        "indexToken",
+        "totalAssetsMinusVault",
+        "zlpVault"
+      ],
+      "affected_functions": [
+        "assetsOut",
+        "getIndexTokenSwapRate",
+        "getVaultAssetSwapRate",
+        "getVaultCreditCapacity",
+        "solidity",
+        "totalAssetsMinusVaultDebtX18",
+        "uint256",
+        "vaultDebtInAssetsX18"
+      ],
+      "root_cause": "VaultRouterBranch::getVaultCreditCapacity does not take zero return into account",
+      "impact": "",
+      "proof_summary": "# VaultRouterBranch::getVaultCreditCapacity does not take zero return into account\n\n### Severity\nMedium Risk\n\n### Summary\nThe function `getVaultCreditCapacity` computes `totalAssetsMinusVaultDebtX18` by addding `10^decimalOffset` and then subtracting `vaultDebtInAssetsX18`. The `vaultDebtInAssetsX18` can be negative value. So the output `totalAssetsMinusVaultDebtX18` can still be zero. This zero o",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-18",
+      "report_finding_id": "cm89am5n80029l40355r05mt0",
+      "selected_issue_id": "cm6c0olt60005d62c79xa4fli",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "Whitelisted users can create trading accounts for non-whitelisted users",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "LogCancelMarket",
+        "OrderBranch",
+        "PerpsEngineConfiguration",
+        "TradingAccountBranch",
+        "Whitelist.sol",
+        "givenTheTradingAccountToken",
+        "onlyTradingAccountToken",
+        "perpsEngine",
+        "perpsEngineConfiguration",
+        "t.sol",
+        "tradingAccountToken"
+      ],
+      "affected_functions": [
+        "Solidity",
+        "TradingAccountBranch",
+        "Whitelist",
+        "diff",
+        "test"
+      ],
+      "root_cause": "Whitelisted users can create trading accounts for non-whitelisted users",
+      "impact": "",
+      "proof_summary": "# Whitelisted users can create trading accounts for non-whitelisted users\n\n### Severity\nHigh Risk\n\n### Offtop\n\nI know that `TradingAccountBranch.sol` is out of scope, but after the first [audit](https://codehawks.cyfrin.io/c/2024-07-zaros), devs added a whitelist system that **is used in** `TradingAccountBranch.sol` **and is in scope**\u2014`Whitelist.sol`.\n\n## Summary\n\nThe protocol's whitelist system ",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    },
+    {
+      "answer_key_id": "L-19",
+      "report_finding_id": "cm89am6aa003vl40361vigedx",
+      "selected_issue_id": "cm6t6m0cz0003k4xcjvf1hkqj",
+      "severity": "Low",
+      "validity": "validated_selected_for_report",
+      "selectedForReport": true,
+      "title": "wrong value emitted in `LogLiquidateAccount` event",
+      "duplicate_count": 1,
+      "alt_titles": [],
+      "affected_contracts": [
+        "LiquidationBranch",
+        "activeMarket"
+      ],
+      "affected_functions": [
+        "LogLiquidateAccount",
+        "Solidity",
+        "amountOfOpenPositions"
+      ],
+      "root_cause": "wrong value emitted in `LogLiquidateAccount` event",
+      "impact": "",
+      "proof_summary": "# wrong value emitted in `LogLiquidateAccount` event \n\n### Severity\nMedium Risk\n\n#\n\n## Vulnerability Details\n\nIn LiquidationBranch.sol, \\[LogLiquidateAccount]\\([https://github.com/Cyfrin/2025-01-zaros-part-2/blob/35deb3e92b2a32cd304bf61d27e6071ef36e446d/src/perpetuals/branches/LiquidationBranch.sol#L30-L38)\u00a0](https://github.com/Cyfrin/2025-01-zaros-part-2/blob/35deb3e92b2a32cd304bf61d27e6071ef36e4",
+      "source_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "report_url": "https://codehawks.cyfrin.io/c/2025-01-zaros-part-2/results?t=report",
+      "tags": [],
+      "duplicate_relationships": [
+        "1 merged submission(s)"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "finding_id": "FL-006",
+  "title": "AerodromeAMO _removeLiquidity uses amount0Min/amount1Min = 0 enabling sandwich attacks",
+  "bug_class": "zero_slippage_sandwich",
+  "claimed_severity": "critical",
+  "claimed_impact": "An MEV bot can manipulate the Aerodrome pool spot price before a liquidity removal, causing the strategy to receive predominantly OETHb instead of WETH. Since OETHb must be burned (not sent to the vault as real yield), the effective WETH recovered is less than expected, creating a shortfall in vault withdrawals. The protocol may be unable to fulfill pending withdrawal queue requests.",
+  "location": {
+    "file": "contracts/origin/origin-dollar/contracts/contracts/strategies/aerodrome/AerodromeAMOStrategy.sol",
+    "function": "_removeLiquidity",
+    "line_start": 489,
+    "line_end": 500,
+    "code_snippet": "positionManager.decreaseLiquidity(\n    INonfungiblePositionManager.DecreaseLiquidityParams({\n        tokenId: tokenId,\n        liquidity: _liquidityToRemove,\n        amount0Min: 0,\n        amount1Min: 0,\n        deadline: block.timestamp\n    })\n);"
+  },
+  "immunefi_v22_severity": "critical"
+}

@@ -1,0 +1,174 @@
+{
+  "module": "mechanism_pairwise_selector",
+  "generated_at": "2026-06-09T16:13:37.073214+00:00",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "emits_findings": false,
+  "concludes_vulnerability": false,
+  "output_type": "advisory_selector_decisions",
+  "guard_violations": 0,
+  "decision_count": 4,
+  "decisions": [
+    {
+      "pair_id": "pp_share_inflation|pp_mintfee_dust",
+      "M1": {
+        "id": "pp_share_inflation",
+        "label": "PendlePowerFarmToken share-price/first-deposit/rounding manipulation (_getSharePrice=assets/totalSupply, mintFee+sync)",
+        "terminal_impact": 12,
+        "validity": 8,
+        "plausible": true,
+        "poc_feasibility": "hard"
+      },
+      "M2": {
+        "id": "pp_mintfee_dust",
+        "label": "mintFee rounding dust",
+        "terminal_impact": 1,
+        "validity": 3,
+        "plausible": true,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 11,
+      "anti_easy_poc_flag": true,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "terminal_impact_dominance",
+        "both plausible -> protect high-impact before PoC",
+        "anti_easy_poc_bias: lower-impact rival is easier to PoC -> do not drop high-impact"
+      ],
+      "uncertainty": [],
+      "falsification_questions": [
+        "_validateSharePriceGrowth time-bound caps early inflation",
+        "rounding favors pool"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "L1_pendle_share"
+    },
+    {
+      "pair_id": "wc_liq_misalloc|wc_liq_revert",
+      "M1": {
+        "id": "wc_liq_misalloc",
+        "label": "WiseCore _withdrawPureCollateralLiquidation/_withdrawOrAllocateSharesLiquidation share/collateral misallocation",
+        "terminal_impact": 6,
+        "validity": 8,
+        "plausible": true,
+        "poc_feasibility": "heavy"
+      },
+      "M2": {
+        "id": "wc_liq_revert",
+        "label": "liquidation path UX revert on edge input",
+        "terminal_impact": 3,
+        "validity": 3,
+        "plausible": true,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 3,
+      "anti_easy_poc_flag": true,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "terminal_impact_dominance",
+        "both plausible -> protect high-impact before PoC",
+        "anti_easy_poc_bias: lower-impact rival is easier to PoC -> do not drop high-impact"
+      ],
+      "uncertainty": [],
+      "falsification_questions": [
+        "security checks bound the liquidation allocation",
+        "input validated upstream"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "L2_liquidation"
+    },
+    {
+      "pair_id": "fm_baddebt_acct|fm_event_only",
+      "M1": {
+        "id": "fm_baddebt_acct",
+        "label": "FeeManager paybackBadDebtForToken/NoReward bad-debt accounting error",
+        "terminal_impact": 6,
+        "validity": 8,
+        "plausible": true,
+        "poc_feasibility": "heavy"
+      },
+      "M2": {
+        "id": "fm_event_only",
+        "label": "bad-debt event emission / minor rounding",
+        "terminal_impact": 3,
+        "validity": 3,
+        "plausible": true,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 3,
+      "anti_easy_poc_flag": true,
+      "outcome": "KEEP_BOTH",
+      "decisive_dimensions": [
+        "terminal_impact_dominance",
+        "both plausible -> protect high-impact before PoC",
+        "anti_easy_poc_bias: lower-impact rival is easier to PoC -> do not drop high-impact"
+      ],
+      "uncertainty": [],
+      "falsification_questions": [
+        "bad-debt bookkeeping reconciles across paths",
+        "no value effect"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "L3_baddebt"
+    },
+    {
+      "pair_id": "nft_mint_drama|nft_mint_benign",
+      "M1": {
+        "id": "nft_mint_drama",
+        "label": "PositionNFTs mint manipulation (claimed systemic) but unsupported",
+        "terminal_impact": 12,
+        "validity": -4,
+        "plausible": false,
+        "poc_feasibility": "easy"
+      },
+      "M2": {
+        "id": "nft_mint_benign",
+        "label": "PositionNFTs mint benign",
+        "terminal_impact": 3,
+        "validity": -5,
+        "plausible": false,
+        "poc_feasibility": "easy"
+      },
+      "impact_gap": 9,
+      "anti_easy_poc_flag": false,
+      "outcome": "REFUTE_M1_FIRST",
+      "decisive_dimensions": [
+        "terminal_impact(high) but refuted -> refute before trusting"
+      ],
+      "uncertainty": [
+        "at least one mechanism is refuted/unreachable as scored"
+      ],
+      "falsification_questions": [
+        "mint is access-controlled / no value path",
+        "n/a"
+      ],
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false,
+      "status": "ADVISORY_SELECTOR_DECISION",
+      "case": "Lneg_posnft"
+    }
+  ]
+}

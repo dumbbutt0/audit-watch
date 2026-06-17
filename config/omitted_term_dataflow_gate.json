@@ -1,0 +1,32 @@
+{
+  "version": "omitted-term-dataflow-gate-v1",
+  "description": "Phase-47 RESEARCH-ONLY dataflow-aware demotion gate for omitted_term / computed_unapplied candidates. Read ONLY by scripts/omitted_term_dataflow_gate.py (un-wired). Runs AFTER the P45 mechanism_advancement_gate, on candidates whose pre-decision is ADVANCE/REVIEW_ONLY and whose mechanism is omitted_term or computed_unapplied. It can ONLY demote (ADVANCE->REVIEW_ONLY/ABSTAIN, REVIEW_ONLY->ABSTAIN) and never promotes. A computed term is APPLIED (so the omitted/computed candidate is demoted) when it flows, via >=1 intermediate derived variable or a source-visible internal callee, into a value/state/authority sink. Direct in-arg appearance is NOT treated here as newly-applied (the prior gate already evaluates it). Generic only — NO subject identifiers. is_gate:false research_only:true routes_in_production:false routed_manifest_ids:[].",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+
+  "processed_mechanisms": ["omitted_term", "computed_unapplied"],
+
+  "sink_call_signatures": ["safetransferfrom", "safetransfer", "transferfrom", "transfer", "mint", "burn", "_mint", "_burn", "deposit", "withdraw", "redeem", "repay", "send", "sendvalue", "safereward"],
+  "value_send_signals": ["call{value", ".call{ value", "call{value:", "{value:"],
+
+  "state_write_ops": ["=", "+=", "-=", "*=", "/="],
+  "accounting_sink_terms": ["debt", "collateral", "share", "shares", "fee", "reward", "rewards", "balance", "balances", "amount", "supply", "borrow", "credit", "principal", "deposit", "stake", "weight", "owed", "payout", "accrued", "interest"],
+  "authority_sink_terms": ["role", "owner", "admin", "auth", "permission", "approved", "operator"],
+
+  "non_sink_signals": {
+    "event_log": ["emit ", "console.log", "log("],
+    "require_revert": ["require(", "revert(", "revert ", "assert("],
+    "view_return_only": ["return "]
+  },
+
+  "assignment_re": "(?:uint\\d*|int\\d*|address|bool|bytes\\d*|uint|int)?\\s*([A-Za-z_]\\w*)\\s*(=|\\+=|-=|\\*=|/=)(?![=])([^;]*);",
+  "internal_callee_arg_terms": ["amount", "value", "shares", "assets", "reward", "owed", "amt", "qty"],
+
+  "decisions": {
+    "advance": "ADVANCE",
+    "review_only": "REVIEW_ONLY",
+    "abstain": "ABSTAIN"
+  }
+}

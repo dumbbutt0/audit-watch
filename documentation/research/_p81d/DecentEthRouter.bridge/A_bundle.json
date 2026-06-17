@@ -1,0 +1,68 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "DecentEthRouter.bridge",
+  "detector_family": "surface_recall_lens",
+  "status": "POC_REQUIRED",
+  "status_reason": "survived source falsification with a concrete attacker path; local PoC/fork proof required before human promotion (POC_REQUIRED = local PoC-task permission only)",
+  "trigger_summary": {
+    "contract": "DecentEthRouter",
+    "function": "bridge",
+    "lines": null,
+    "suspicious_pattern": "value_exit",
+    "detector_claim": "security-relevant surface; mechanism uncertain"
+  },
+  "context_summary": {
+    "source_available": true,
+    "source_resolved": true,
+    "reachability": "public"
+  },
+  "attacker_reachability": "public",
+  "defense_ledger": {},
+  "invariant_analysis": {
+    "broken_invariant": "cross-chain delivery must be gas-sufficient, fee-gated, refundable to the real payer, and ETH-deliverable on dst",
+    "why_defenses_do_not_block": null
+  },
+  "exploit_path": {
+    "attacker_profile": "EOA",
+    "entrypoint": "see trigger",
+    "preconditions": null,
+    "transaction_sequence": "caller calls bridge()/bridgeWithPayload directly (bypasses UTB fee gate, M-02); underfunded _dstGasForCall -> dst executor OOG -> stuck (H-02); when adapter is msg.sender, excess gas refund goes to adapter -> stuck (M-05); if dst router lacks WETH reserves, onOFTReceived delivers dcntEth not ETH (H-04)",
+    "state_before": null,
+    "state_after": null,
+    "rejection_case": "maybe LZ enforces min gas / maybe UTB-only \u2014 but bridge() is public payable; GAS_FOR_RELAY=100000 fixed, _dstGasForCall unchecked; _bridgeWithPayload sets refundAddress=payable(msg.sender); no fee collection here",
+    "source_evidence": "audited decent-bridge 7f90fd4 / UTB src"
+  },
+  "impact_analysis": {
+    "impact_category": "permanent_fund_loss_or_stuck",
+    "minimum_profit_or_damage_condition": "underfunded dstGas OR direct fee-bypass OR adapter refund OR dst reserve shortfall"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": null,
+  "poc_needed": true,
+  "human_review_notes": "not a severity/validity/submission verdict",
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "EXPLOIT_PATH_ATTEMPTED",
+    "IMPACT_CHECKED",
+    "SOURCE_FALSIFIED",
+    "POC_REQUIRED"
+  ],
+  "final_decision": "POC_REQUIRED"
+}

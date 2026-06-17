@@ -1,0 +1,536 @@
+{
+  "research_only": true,
+  "review_only": true,
+  "phase": "P81e",
+  "subject": "vultisig-2024-06",
+  "commit": "befb1b1170",
+  "key_blind": "repo-key-blind + web-blind (residual training contamination acknowledged)",
+  "selection_rule": "FIXED, pre-investigation: top 12 scoped-contract leads by surface_score (desc, ties by candidate_id). role_expectation is surface-derived (onlyOwner setter/callback=control; permissionless value/refund/claim=conversion), NOT key-derived.",
+  "partial_rule": "complete >=6 fully (prioritizing conversion-expectation leads); mark rest NOT RUN; NOT-RUN excluded from denominators.",
+  "count": 12,
+  "leads": [
+    {
+      "candidate_id": "ILOManager.setPerformanceFee",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "ILOManager",
+      "trigger_function": "setPerformanceFee",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,admin_config_setter,fee_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setPerformanceFee(uint16 _performanceFee) external onlyOwner()",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "admin_config_setter",
+        "fee_path",
+        "auth_boundary"
+      ],
+      "surface_score": 8,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": []
+      },
+      "file": "audits/vultisig-2024-06-holdout/contracts/src/ILOManager.sol",
+      "visibility": "external",
+      "p81e_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "ILOManager.claimRefund",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "ILOManager",
+      "trigger_function": "claimRefund",
+      "trigger_lines": null,
+      "suspicious_pattern": "fee_path,refund_path,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function claimRefund(address uniV3PoolAddress) external override onlyProjectAdmin(uniV3PoolAddress) returns(uint256 totalRefundAmount)",
+      "required_followup_questions": [
+        "is the fee_path surface adequately guarded?",
+        "is the refund_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "fee_path",
+        "refund_path",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 7,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "IILOPool",
+          "claimProjectRefund"
+        ]
+      },
+      "file": "audits/vultisig-2024-06-holdout/contracts/src/ILOManager.sol",
+      "visibility": "external",
+      "p81e_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "ILOPool.claimProjectRefund",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "ILOPool",
+      "trigger_function": "claimProjectRefund",
+      "trigger_lines": null,
+      "suspicious_pattern": "fee_path,refund_path,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function claimProjectRefund(address projectAdmin) external override refundable() OnlyManager() returns(uint256 refundAmount)",
+      "required_followup_questions": [
+        "is the fee_path surface adequately guarded?",
+        "is the refund_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "fee_path",
+        "refund_path",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 7,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_refundProject"
+        ]
+      },
+      "file": "audits/vultisig-2024-06-holdout/contracts/src/ILOPool.sol",
+      "visibility": "external",
+      "p81e_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "ILOPool.claimRefund",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "ILOPool",
+      "trigger_function": "claimRefund",
+      "trigger_lines": null,
+      "suspicious_pattern": "fee_path,refund_path,value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function claimRefund(uint256 tokenId) external override refundable() isAuthorizedForToken(tokenId)",
+      "required_followup_questions": [
+        "is the fee_path surface adequately guarded?",
+        "is the refund_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "fee_path",
+        "refund_path",
+        "value_exit"
+      ],
+      "surface_score": 6,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "UserRefund",
+          "_burn",
+          "ownerOf",
+          "safeTransfer"
+        ]
+      },
+      "file": "audits/vultisig-2024-06-holdout/contracts/src/ILOPool.sol",
+      "visibility": "external",
+      "p81e_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Whitelist.addBatchWhitelist",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Whitelist",
+      "trigger_function": "addBatchWhitelist",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,admin_config_setter,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function addBatchWhitelist(address[] calldata whitelisted) external onlyOwner",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the admin_config_setter surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "admin_config_setter",
+        "auth_boundary"
+      ],
+      "surface_score": 6,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "_addWhitelistedAddress"
+        ]
+      },
+      "file": "audits/vultisig-2024-06-holdout/contracts/hardhat-vultisig/contracts/Whitelist.sol",
+      "visibility": "external",
+      "p81e_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "ILOManager.setFeeTaker",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "ILOManager",
+      "trigger_function": "setFeeTaker",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,fee_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setFeeTaker(address _feeTaker) external override onlyOwner()",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "fee_path",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": []
+      },
+      "file": "audits/vultisig-2024-06-holdout/contracts/src/ILOManager.sol",
+      "visibility": "external",
+      "p81e_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "ILOManager.setPlatformFee",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "ILOManager",
+      "trigger_function": "setPlatformFee",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,fee_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setPlatformFee(uint16 _platformFee) external onlyOwner()",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the fee_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "fee_path",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": []
+      },
+      "file": "audits/vultisig-2024-06-holdout/contracts/src/ILOManager.sol",
+      "visibility": "external",
+      "p81e_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "ILOManager.setRefundDeadlineForProject",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "ILOManager",
+      "trigger_function": "setRefundDeadlineForProject",
+      "trigger_lines": null,
+      "suspicious_pattern": "admin_config_setter,refund_path,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function setRefundDeadlineForProject(address uniV3Pool, uint64 refundDeadline) external override onlyOwner()",
+      "required_followup_questions": [
+        "is the admin_config_setter surface adequately guarded?",
+        "is the refund_path surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "admin_config_setter",
+        "refund_path",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "RefundDeadlineChanged"
+        ]
+      },
+      "file": "audits/vultisig-2024-06-holdout/contracts/src/ILOManager.sol",
+      "visibility": "external",
+      "p81e_role_expectation": "control_privileged_setter"
+    },
+    {
+      "candidate_id": "ILOPool.launch",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "ILOPool",
+      "trigger_function": "launch",
+      "trigger_lines": null,
+      "suspicious_pattern": "refund_path,value_exit,auth_boundary",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function launch() external override OnlyManager()",
+      "required_followup_questions": [
+        "is the refund_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?",
+        "is the auth_boundary surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "refund_path",
+        "value_exit",
+        "auth_boundary"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": true,
+        "calls": [
+          "AddLiquidityParams",
+          "Buy",
+          "IILOManager",
+          "IUniswapV3Pool",
+          "PoolLaunch",
+          "_mint",
+          "_refundProject",
+          "_saleAmountNeeded"
+        ]
+      },
+      "file": "audits/vultisig-2024-06-holdout/contracts/src/ILOPool.sol",
+      "visibility": "external",
+      "p81e_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Multicall.multicall",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Multicall",
+      "trigger_function": "multicall",
+      "trigger_lines": null,
+      "suspicious_pattern": "external_executor,calldata_forward",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function multicall(bytes[] calldata data) public payable override returns (bytes[] memory results)",
+      "required_followup_questions": [
+        "is the external_executor surface adequately guarded?",
+        "is the calldata_forward surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "external_executor",
+        "calldata_forward"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": true,
+        "auth_gated": false,
+        "calls": [
+          "add",
+          "decode",
+          "delegatecall"
+        ]
+      },
+      "file": "audits/vultisig-2024-06-holdout/contracts/src/base/Multicall.sol",
+      "visibility": "public",
+      "p81e_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "Whitelist.receive",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "Whitelist",
+      "trigger_function": "receive",
+      "trigger_lines": null,
+      "suspicious_pattern": "bridge_receive,value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "receive()  external payable",
+      "required_followup_questions": [
+        "is the bridge_receive surface adequately guarded?",
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "bridge_receive",
+        "value_exit"
+      ],
+      "surface_score": 5,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "Blacklisted",
+          "SelfWhitelistDisabled",
+          "_addWhitelistedAddress",
+          "_msgSender",
+          "payable",
+          "transfer"
+        ]
+      },
+      "file": "audits/vultisig-2024-06-holdout/contracts/hardhat-vultisig/contracts/Whitelist.sol",
+      "visibility": "external",
+      "p81e_role_expectation": "conversion"
+    },
+    {
+      "candidate_id": "ILOPool.claim",
+      "detector_family": "surface_recall_lens",
+      "trigger_contract": "ILOPool",
+      "trigger_function": "claim",
+      "trigger_lines": null,
+      "suspicious_pattern": "fee_path,value_exit",
+      "detector_claim": "security-relevant surface; mechanism uncertain",
+      "source_snippets": "function claim(uint256 tokenId) external\n        payable\n        override\n        isAuthorizedForToken(tokenId)\n        returns (uint256 amount0, uint256 amount1)",
+      "required_followup_questions": [
+        "is the fee_path surface adequately guarded?",
+        "is the value_exit surface adequately guarded?"
+      ],
+      "known_false_positive_shapes": [],
+      "minimum_evidence_to_advance": [
+        "defense ledger over this surface",
+        "reachable from an EOA entrypoint"
+      ],
+      "is_gate": false,
+      "research_only": true,
+      "review_only": true,
+      "routes_in_production": false,
+      "routed_manifest_ids": [],
+      "state": "STATIC_LEAD",
+      "surface_classes": [
+        "fee_path",
+        "value_exit"
+      ],
+      "surface_score": 4,
+      "signals": {
+        "has_bytes_param": false,
+        "auth_gated": false,
+        "calls": [
+          "Claim",
+          "Collect",
+          "DecreaseLiquidity",
+          "FEE_TAKER",
+          "IILOManager",
+          "IUniswapV3Pool",
+          "_claimableLiquidity",
+          "_deductFees"
+        ]
+      },
+      "file": "audits/vultisig-2024-06-holdout/contracts/src/ILOPool.sol",
+      "visibility": "external",
+      "p81e_role_expectation": "conversion"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "mechanism_inventory": [
+    "wrong lifecycle ordering — safeTransferFrom called AFTER delete loans[tokenId]",
+    "external-call failure / DoS — safeTransferFrom onERC721Received callback can revert",
+    "stale accounting snapshot — _updateAndCheckCollateral reads debtShares before delete",
+    "unauthorized state deletion — delete before transfer confirms custody",
+    "missing invariant enforcement — re-entrant new loan on zeroed slot while NFT still in vault"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "safeTransferFrom triggers onERC721Received AFTER delete loans[tokenId]; loan record zeroed but NFT still in vault; malicious recipient re-enters to open a new loan on the same tokenId against a zeroed slot.",
+      "attacker_model": "Attacker controls owner (malicious contract) of the loan; receives callback after delete.",
+      "exploit_path": "loan -> repay -> _cleanupLoan: _removeTokenFromOwner, _updateAndCheckCollateral, delete loans[tokenId] -> safeTransferFrom -> onERC721Received -> reenter borrow(tokenId) (loans zero, NFT still in vault as collateral) -> drain.",
+      "who_loses": "Protocol/LPs (borrowed assets drained, unbacked loan).",
+      "who_gains": "Attacker (free borrowed assets; reclaims NFT).",
+      "why_carried": "CEI violation: state deletion before external interaction with callback; re-entry into clean slot while NFT still collateral; permissionless for any borrower controlling recipient."
+    },
+    {
+      "root_cause": "If recipient contract conditionally reverts in onERC721Received, _cleanupLoan reverts; liquidation path permanently blocked (DoS on loan closure).",
+      "attacker_model": "Borrower with owner = malicious contract that conditionally reverts.",
+      "exploit_path": "open loan with reverting owner -> position undercollateralized -> liquidate() -> _cleanupLoan -> safeTransferFrom -> onERC721Received reverts -> liquidation blocked; bad debt accrues.",
+      "who_loses": "Protocol/lenders (bad debt, cannot liquidate).",
+      "who_gains": "Attacker (avoids liquidation indefinitely).",
+      "why_carried": "Different impact vector (DoS/liquidation block) + different lifecycle path than reentrancy; real victim/loss; severity-floor + different-actor rules."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "stale accounting snapshot — _updateAndCheckCollateral internals",
+      "source_evidence": "_updateAndCheckCollateral called with loans[tokenId].debtShares before delete; callee body not provided.",
+      "unresolved_question": "Does _updateAndCheckCollateral re-read loans[tokenId] internally vs rely on passed arg?",
+      "who_loses": "Lenders/protocol if collateral under/double-counted.",
+      "who_gains": "Borrower if collateral under-reported.",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [
+    {
+      "mechanism": "unauthorized state deletion causing orphaned NFT on revert",
+      "claimed_locus": "delete loans[tokenId] followed by safeTransferFrom revert",
+      "rejecting_source_fact": "EVM atomicity: if safeTransferFrom reverts, the entire tx reverts including delete loans[tokenId]; cannot leave deleted+NFT-in-vault in a committed state.",
+      "why_unexploitable": "All state changes roll back on revert within a single call frame.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    }
+  ],
+  "impact_direction": {
+    "attacker_receives": "Borrowed protocol assets via new loan on zeroed slot while NFT still in vault.",
+    "attacker_preserves": "The NFT position (returned after reentrancy) plus borrowed assets.",
+    "victim_loses": "Protocol liquidity / lender deposits (unbacked loan).",
+    "invariant_violated": "Every outstanding loan must have an accurate loans[tokenId] entry before NFT collateral is transferred out.",
+    "not_self_funded_or_dust_or_admin_or_timing": "Permissionless, real asset theft, up to collateral limit."
+  },
+  "stop_condition": "more_mechanisms_pending: liquidation-blocking DoS different actor/path; stale-accounting unresolved pending callee.",
+  "verdict": "CRITICAL_THREAD"
+}

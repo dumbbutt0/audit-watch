@@ -1,0 +1,96 @@
+{
+  "finding_id": "DS-004",
+  "title": "LibFlood.calculateSopPerWell div-by-(i-1)=0 reverts flood path in sunrise",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "Medium",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+    "function": "calculateSopPerWell",
+    "line_start": 371,
+    "line_end": 379,
+    "code_snippet": "for (uint256 i = positiveDeltaBCount; i > 0; i--) {\n    if (shaveToLevel > uint256(wellDeltaBs[i - 1].deltaB)) {\n        shaveToLevel += (shaveToLevel - uint256(wellDeltaBs[i - 1].deltaB)) / (i - 1);  // i==1 -> /0\n        wellDeltaBs[i - 1].deltaB = 0;\n    } else { ... }\n}"
+  },
+  "description": "calculateSopPerWell distributes the flood (Season of Plenty) reduction across positive-deltaB wells. Its final loop runs `for (uint256 i = positiveDeltaBCount; i > 0; i--)` and, inside the branch `if (shaveToLevel > uint256(wellDeltaBs[i-1].deltaB))`, executes `shaveToLevel += (shaveToLevel - uint256(wellDeltaBs[i-1].deltaB)) / (i - 1);`. On the final iteration `i == 1`, so `(i - 1) == 0` and the expression divides by zero, reverting (panic 0x12) whenever that branch is taken for the last (largest, since wells are sorted descending in getWellsByDeltaB) positive well. calculateSopPerWell is called by LibFlood.handleRain, which runs in the flood/Season-of-Plenty branch reached during sunrise (SeasonFacet.gm -> stepSun/weather -> handleRain). When the configuration is mixed-sign (at least one positive and one non-positive well, totalPositiveDeltaB >= totalNegativeDeltaB) and the accumulated shaveToLevel exceeds the largest positive well's deltaB on the final step, the flood computation reverts \u2014 and because handleRain executes within the season-advance flow, the revert propagates and blocks that sunrise. Not present in deep-trace; surfaced directly from source.",
+  "impact": "In a multi-well configuration with mixed-sign deltaBs during a Season of Plenty, the per-well sop allocation can divide by zero and revert. Because the flood logic runs inside the sunrise (gm) call, that revert blocks season advancement for the affected season until the deltaB distribution changes (e.g. reserves shift across a block). Conditional, configuration-dependent temporary DoS of sunrise during flood. Medium under Immunefi v2.2 (season/sunrise DoS, conditional). Currently bounded by the live whitelist having few soppable wells, hence not High.",
+  "ite": {},
+  "ice_chain": {
+    "corrupted_state": "n/a (revert via /(i-1) when i==1)",
+    "impact": "Flood (SOP) allocation reverts inside sunrise, blocking season advancement for that season under the triggering market state.",
+    "consumer_found": true,
+    "consumer_function": "LibFlood.handleRain (flood branch) invoked during SeasonFacet.gm/sunrise season advance",
+    "exploit_path": "sunrise during oversaturation -> handleRain -> getWellsByDeltaB (mixed sign) -> calculateSopPerWell -> final i==1 branch divides by 0 -> revert"
+  },
+  "source_slice": "341:         uint256 totalNegativeDeltaB,\n342:         uint256 positiveDeltaBCount\n343:     ) internal pure returns (WellDeltaB[] memory) {\n344:         // most likely case is that all deltaBs are positive\n345:         if (positiveDeltaBCount == wellDeltaBs.length) {\n346:             // if all deltaBs are positive, need to sop all to zero, so return existing deltaBs\n347:             return wellDeltaBs;\n348:         }\n349: \n350:         if (totalPositiveDeltaB < totalNegativeDeltaB || positiveDeltaBCount == 0) {\n351:             // The less than conditional can occur if the twaDeltaB is positive, but the instanteous deltaB is negative or 0\n352:             // In that case, no reductions are needed.\n353:             // If there are no positive values, no well flooding is needed, return zeros\n354:             for (uint256 i = 0; i < positiveDeltaBCount; i++) {\n355:                 wellDeltaBs[i].deltaB = 0;\n356:             }\n357:             return wellDeltaBs;\n358:         }\n359: \n360:         if (totalPositiveDeltaB < totalNegativeDeltaB) {\n361:             for (uint256 i = 0; i < positiveDeltaBCount; i++) {\n362:                 wellDeltaBs[i].deltaB = 0;\n363:             }\n364:             return wellDeltaBs;\n365:         }\n366: \n367:         uint256 shaveToLevel = totalNegativeDeltaB / positiveDeltaBCount;\n368: \n369:         // Loop through positive deltaB wells starting at the highest, re-use the deltaB value slot\n370:         // as reduction amount (amount of beans to flood per well).\n371:         for (uint256 i = positiveDeltaBCount; i > 0; i--) {\n372:             if (shaveToLevel > uint256(wellDeltaBs[i - 1].deltaB)) {\n373:                 shaveToLevel += (shaveToLevel - uint256(wellDeltaBs[i - 1].deltaB)) / (i - 1);\n374:                 // amount to sop for this well must be zero\n375:                 wellDeltaBs[i - 1].deltaB = 0;\n376:             } else {\n377:                 wellDeltaBs[i - 1].deltaB = wellDeltaBs[i - 1].deltaB - int256(shaveToLevel);\n378:             }\n379:         }\n380:         return wellDeltaBs;\n381:     }\n382: }",
+  "gate_verdict": {
+    "finding_id": "DS-004",
+    "severity": "Medium",
+    "vuln_type": "dos",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.542378+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

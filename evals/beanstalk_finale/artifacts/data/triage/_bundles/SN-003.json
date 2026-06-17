@@ -1,0 +1,101 @@
+{
+  "finding_id": "SN-003",
+  "title": "Replayable L2 migration inflates account roots, stealing earned-Bean snapshot share",
+  "agent": "",
+  "claimed_severity": "High",
+  "claimed_confidence": "Medium",
+  "location": {
+    "file": "contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+    "function": "setStalk / redeemDepositsAndInternalBalances",
+    "line_start": 205,
+    "line_end": 207,
+    "code_snippet": "function setStalk(address account, uint256 accountStalk, uint256 accountRoots) internal {\n        s.accts[account].stalk += accountStalk;\n        s.accts[account].roots += accountRoots;"
+  },
+  "description": "L2ContractMigrationFacet.redeemDepositsAndInternalBalances is permissionless and verifies only a Merkle proof over (owner, deposits, internalBalances, ownerRoots) plus an EIP-712 signature over (owner, reciever, deadline). It stores NO spent/redeemed marker and uses NO nonce. setStalk then does `s.accts[reciever].roots += ownerRoots;` (L2ContractMigrationFacet.sol#207) and `s.accts[reciever].stalk += accountStalk;` (#206) with accumulating adds. Because the proof and signature are public on-chain calldata and there is no replay guard, anyone can re-submit the same redeem call repeatedly before `deadline`, each time adding `ownerRoots` to the reciever's roots and `accountStalk` to its stalk. `roots` is the account's snapshot SHARE in the earned-Bean distribution (LibSilo._balanceOfEarnedBeans, LibSilo.sol#689: stalk*accountRoots/totalRoots). Inflated account roots directly inflate the holder's claim on every future season's minted Beans, drawn from the shared earnedBeans pool that belongs to honest stalkholders. This is the snapshot-consumer view of the replay defect; the replay/access-control root cause is owned by the access_control/logic specialists (DT-003).",
+  "impact": "An attacker (or any griefer) replays a victim's public migration proof N times, multiplying the reciever's roots and stalk by N. The inflated roots steal a proportionally larger share of every subsequent season's earned-Bean mint from honest stalkholders, and the inflated stalk distorts all Stalk-weighted accounting. With ownerRoots attacker-influenced only via the signed leaf, the cap is the deadline window and gas. Unbacked snapshot weight => earned-Bean theft.",
+  "ite": {
+    "intent": "Inflate a reciever's roots (earned-Bean snapshot share) and stalk without backing, stealing future earned Beans from honest stalkholders.",
+    "technique": "Replay the public (proof, signature, ownerRoots) of a redeem call; setStalk's `+=` on roots/stalk accumulates each replay (L2ContractMigrationFacet.sol#206-207); no spent marker exists.",
+    "evasion": "MerkleProof.verify + ECDSA.recover are deterministic on identical inputs and were the only guards; the intended one-shot redemption is not enforced by any stored state."
+  },
+  "ice_chain": {
+    "corrupted_state": "s.accts[reciever].roots and s.accts[reciever].stalk",
+    "consumer_found": true,
+    "consumer_function": "LibSilo._balanceOfEarnedBeans",
+    "consumer_action": "computes the reciever's claimable share of season-minted Beans from its roots; inflated roots steal the shared earnedBeans pool",
+    "severity_ceiling": "High",
+    "search_method": "manual_trace"
+  },
+  "source_slice": "function setStalk(address account, uint256 accountStalk, uint256 accountRoots) internal {\n        s.accts[account].stalk += accountStalk;\n        s.accts[account].roots += accountRoots;",
+  "gate_verdict": {
+    "finding_id": "SN-003",
+    "severity": "High",
+    "vuln_type": "logic-error",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.538794+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

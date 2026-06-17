@@ -1,0 +1,189 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-06-08T20:53:45.082691+00:00",
+  "routing_allowed": false,
+  "sources": [
+    {
+      "detector": "safe_management_coverage",
+      "detector_version": "v1",
+      "source_audit_path": "documentation/research/assisted_mode/p237_safe_management_lens/renft_replay_audit.json",
+      "accepted": true,
+      "reason": "4 candidate(s) normalized"
+    }
+  ],
+  "records": [
+    {
+      "detector": "safe_management_coverage",
+      "detector_version": "v1",
+      "schema_version": "1.0",
+      "candidate_id": "safe_management_coverage:Guard:decode_offset_mismatch:disableModule:36d695f7",
+      "source_audit_path": "documentation/research/assisted_mode/p237_safe_management_lens/renft_replay_audit.json",
+      "signal_type": "safe_management_coverage_gap",
+      "finding_shape": "decode_offset_mismatch",
+      "confidence": "high",
+      "candidate_surface": "Guard",
+      "file_line_refs": "audits/renft-2024-01-shadow/contracts/smart-contracts/src/policies/Guard.sol:52",
+      "evidence": {
+        "finding_shape": "decode_offset_mismatch",
+        "selector": "disableModule",
+        "used_offset": "0x24",
+        "expected_offset": "0x44",
+        "explanation": "Guard guards disableModule(address,address) but decodes the argument at offset 0x24 (the wrong argument) instead of 0x44 (the protected `module`). The whitelist/allow check therefore validates the wrong address, so a renter can remove a required module (reclaim/stop/settlement) by routing the disable through an allowed predecessor (reNFT H-04 class).",
+        "signals": {
+          "covered_safe_selectors": [
+            "enableModule",
+            "disableModule",
+            "setGuard"
+          ],
+          "decode_used_offset": "0x24",
+          "decode_expected_offset": "0x44"
+        }
+      },
+      "declared_severity_potential": "high",
+      "review_priority": 1.0,
+      "why_priority": {
+        "confidence_weight": 1.0,
+        "severity_weight": 1.0,
+        "suppression_penalty": 0.0
+      },
+      "suppression_status": "none",
+      "routing_allowed": false,
+      "research_only": true
+    },
+    {
+      "detector": "safe_management_coverage",
+      "detector_version": "v1",
+      "schema_version": "1.0",
+      "candidate_id": "safe_management_coverage:Guard:incomplete_selector_coverage:setFallbackHandler:faffecac",
+      "source_audit_path": "documentation/research/assisted_mode/p237_safe_management_lens/renft_replay_audit.json",
+      "signal_type": "safe_management_coverage_gap",
+      "finding_shape": "incomplete_selector_coverage",
+      "confidence": "high",
+      "candidate_surface": "Guard",
+      "file_line_refs": "audits/renft-2024-01-shadow/contracts/smart-contracts/src/policies/Guard.sol:52",
+      "evidence": {
+        "finding_shape": "incomplete_selector_coverage",
+        "selector": "setFallbackHandler",
+        "explanation": "Guard restricts Safe self-management (covers enableModule, disableModule, setGuard) but does NOT cover setFallbackHandler(address), so a renter can install malicious fallback behavior (callback hijack) \u2014 bypassing the guard (reNFT H-02/H-05 class).",
+        "signals": {
+          "covered_safe_selectors": [
+            "enableModule",
+            "disableModule",
+            "setGuard"
+          ],
+          "missing_selector": "setFallbackHandler",
+          "family": "fallback_guard"
+        }
+      },
+      "declared_severity_potential": "high",
+      "review_priority": 1.0,
+      "why_priority": {
+        "confidence_weight": 1.0,
+        "severity_weight": 1.0,
+        "suppression_penalty": 0.0
+      },
+      "suppression_status": "none",
+      "routing_allowed": false,
+      "research_only": true
+    },
+    {
+      "detector": "safe_management_coverage",
+      "detector_version": "v1",
+      "schema_version": "1.0",
+      "candidate_id": "safe_management_coverage:Guard:incomplete_selector_coverage:execTransactionFromModule,execTransactionFromModuleReturnData,multiSend,addOwnerWithThreshold,removeOwner,swapOwner,changeThreshold:29dfa613",
+      "source_audit_path": "documentation/research/assisted_mode/p237_safe_management_lens/renft_replay_audit.json",
+      "signal_type": "safe_management_coverage_gap",
+      "finding_shape": "incomplete_selector_coverage",
+      "confidence": "medium",
+      "candidate_surface": "Guard",
+      "file_line_refs": "audits/renft-2024-01-shadow/contracts/smart-contracts/src/policies/Guard.sol:52",
+      "evidence": {
+        "finding_shape": "incomplete_selector_coverage",
+        "selector": "execTransactionFromModule,execTransactionFromModuleReturnData,multiSend,addOwnerWithThreshold,removeOwner,swapOwner,changeThreshold",
+        "explanation": "Guard restricts Safe self-management but leaves privileged Safe selectors uncovered: execTransactionFromModule, execTransactionFromModuleReturnData, multiSend, addOwnerWithThreshold, removeOwner, swapOwner, changeThreshold. Each is a residual escape path (module execution / owner-threshold change / batched delegate execution / gasless approval) the guard does not block.",
+        "signals": {
+          "covered_safe_selectors": [
+            "enableModule",
+            "disableModule",
+            "setGuard"
+          ],
+          "missing_selectors": [
+            "execTransactionFromModule",
+            "execTransactionFromModuleReturnData",
+            "multiSend",
+            "addOwnerWithThreshold",
+            "removeOwner",
+            "swapOwner",
+            "changeThreshold"
+          ],
+          "group": "privileged Safe selectors"
+        }
+      },
+      "declared_severity_potential": "high",
+      "review_priority": 0.6,
+      "why_priority": {
+        "confidence_weight": 0.6,
+        "severity_weight": 1.0,
+        "suppression_penalty": 0.0
+      },
+      "suppression_status": "none",
+      "routing_allowed": false,
+      "research_only": true
+    },
+    {
+      "detector": "safe_management_coverage",
+      "detector_version": "v1",
+      "schema_version": "1.0",
+      "candidate_id": "safe_management_coverage:Guard:incomplete_selector_coverage:permit,increaseAllowance:195b5590",
+      "source_audit_path": "documentation/research/assisted_mode/p237_safe_management_lens/renft_replay_audit.json",
+      "signal_type": "safe_management_coverage_gap",
+      "finding_shape": "incomplete_selector_coverage",
+      "confidence": "medium",
+      "candidate_surface": "Guard",
+      "file_line_refs": "audits/renft-2024-01-shadow/contracts/smart-contracts/src/policies/Guard.sol:52",
+      "evidence": {
+        "finding_shape": "incomplete_selector_coverage",
+        "selector": "permit,increaseAllowance",
+        "explanation": "Guard restricts Safe self-management but leaves approval-equivalent selectors uncovered: permit, increaseAllowance. Each is a residual escape path (module execution / owner-threshold change / batched delegate execution / gasless approval) the guard does not block.",
+        "signals": {
+          "covered_safe_selectors": [
+            "enableModule",
+            "disableModule",
+            "setGuard"
+          ],
+          "missing_selectors": [
+            "permit",
+            "increaseAllowance"
+          ],
+          "group": "approval-equivalent selectors"
+        }
+      },
+      "declared_severity_potential": "high",
+      "review_priority": 0.6,
+      "why_priority": {
+        "confidence_weight": 0.6,
+        "severity_weight": 1.0,
+        "suppression_penalty": 0.0
+      },
+      "suppression_status": "none",
+      "routing_allowed": false,
+      "research_only": true
+    }
+  ],
+  "summary": {
+    "total_records": 4,
+    "by_detector": {
+      "safe_management_coverage": 4
+    },
+    "by_confidence": {
+      "high": 2,
+      "medium": 2
+    },
+    "top_by_review_priority": [
+      "Guard (safe_management_coverage,high,rp=1.0)",
+      "Guard (safe_management_coverage,high,rp=1.0)",
+      "Guard (safe_management_coverage,medium,rp=0.6)",
+      "Guard (safe_management_coverage,medium,rp=0.6)"
+    ]
+  }
+}

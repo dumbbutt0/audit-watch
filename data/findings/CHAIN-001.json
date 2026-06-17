@@ -1,0 +1,30 @@
+{
+  "finding_id": "CHAIN-001",
+  "title": "Slot0 price manipulation + zero-slippage liquidity removal enables direct WETH extraction from AerodromeAMO",
+  "bug_class": "chained_exploit",
+  "claimed_severity": "critical",
+  "is_chain": true,
+  "chain_type": "sequential",
+  "chain_components": [
+    "FL-003",
+    "FL-006"
+  ],
+  "chain_description": "Phase 1 (FL-003): attacker manipulates Aerodrome Slipstream slot0 before strategist rebalance, causing mintForStrategy to mint excess OETHb, leaving the pool OETHb-heavy. Phase 2 (FL-006): attacker sandwiches the subsequent _removeLiquidity call (amount0Min=amount1Min=0), which costs less capital because Phase 1 already skewed the pool toward OETHb. Together these extract real WETH from the vault without any privileged access.",
+  "contract": "AerodromeAMOStrategy",
+  "function": "_addLiquidity, _removeLiquidity, withdrawAll",
+  "location": {
+    "file": "contracts/origin/origin-dollar/contracts/contracts/strategies/aerodrome/AerodromeAMOStrategy.sol",
+    "function": "_addLiquidity / _removeLiquidity",
+    "line_start": 592,
+    "line_end": 500,
+    "code_snippet": "// Phase 1 (_addLiquidity line 592)\nuint160 _currentPrice = getPoolX96Price(); // reads clPool.slot0() \u2014 manipulable\nuint256 _oethbRequired = helper.estimateAmount1(_wethBalance, address(0), _currentPrice, lowerTick, upperTick);\nif (_oethbRequired > _oethbBalance) { IVault(vaultAddress).mintForStrategy(_oethbRequired - _oethbBalance); }\n\n// Phase 2 (_removeLiquidity line 489)\npositionManager.decreaseLiquidity(DecreaseLiquidityParams({ amount0Min: 0, amount1Min: 0, ... }));"
+  },
+  "root_cause": "getPoolX96Price() reads clPool.slot0() directly (no TWAP), enabling front-running of _addLiquidity to over-mint OETHb. _removeLiquidity passes amount0Min=amount1Min=0, enabling MEV extraction via sandwich. _solvencyAssert is blind to the imbalance because _updateUnderlyingAssets uses a fixed parity constant (sqrtRatioX96TickClosestToParity), not spot price \u2014 excess OETHb in the position is counted as WETH-equivalent.",
+  "impact": "An MEV actor front-runs the strategist's rebalance to mint excess OETHb (pool becomes OETHb-heavy), then sandwiches the next _removeLiquidity call (zero slippage) to receive zero WETH. Phase 1 reduces the capital cost of Phase 2. Combined they produce a net WETH shortfall in vault withdrawal queue fulfillment.",
+  "fix": "Phase 1: replace clPool.slot0() with a TWAP (Aerodrome observe() over 30 min) in getPoolX96Price(). Phase 2: compute expected token amounts via principal() or getAmountsForLiquidity at current spot, apply governance-configured slippage tolerance as amount0Min/amount1Min.",
+  "poc_files": [
+    "pocs/foundry/test/FL003_Slot0OracleMint.t.sol",
+    "pocs/foundry/test/FL006_ZeroSlippage.t.sol"
+  ],
+  "immunefi_v22_severity": "critical"
+}

@@ -1,0 +1,32 @@
+{
+  "audit_id": "orderly-solana-2024-10-eval",
+  "set": "training",
+  "language": "rust",
+  "generated_at": "2026-06-12",
+  "awarded_source": "_sealed_answer_key/report.md (Sherlock #524, Orderly Network Solana Vault)",
+  "auto_heuristic": false,
+  "_do_not_auto_overwrite": "Hand-adjudicated FULL-COVERAGE cold pass (SECOND Solana recall-lab iteration). Rust-only; never mixes into the Solidity scoreboard.",
+  "awarded": [
+    {"id": "H-1", "severity": "High", "title": "deposit: deposit_token not constrained to allowed_token.mint_account -> deposit cheap token, get credited USDC on the other chain", "label": "STRONG", "read_file": true, "mechanism_class": "solana-missing-anchor-constraint", "source": "human", "matched_candidate": "O-02", "note": "Exact match: my O-02 named the same root cause (deposit_token Mint not bound to allowed_token.mint_account), same file (deposit.rs Deposit struct), same fix (constraint = deposit_token.key() == allowed_token.mint_account). Caught via the WOOFi-earned solana-missing-anchor-constraint class."},
+    {"id": "H-2", "severity": "High", "title": "lz_receive: recipient wallet not bound to the withdrawal message receiver -> User A steals User B's cross-chain withdrawal", "label": "STRONG", "read_file": true, "mechanism_class": "solana-missing-anchor-constraint", "source": "human", "matched_candidate": "O-01", "note": "Exact match: my O-01 named the same root cause (user/user_deposit_wallet not constrained to withdraw_params.receiver; shared vault_authority signs any withdrawal; lz_receive_types hint unenforced on-chain), same file (oapp_lz_receive.rs), same fix the protocol applied (validate recipient == receiver). Cross-chain confirmed via SolConnector.withdraw encoding receiver."},
+    {"id": "M-1", "severity": "Medium", "title": "SolConnector.withdraw uses only gas/value LZ options, no ordered-execution option -> out-of-order delivery -> Solana vault rejects on InvalidInboundNonce while Orderly ledger already debited -> cross-chain balance inconsistency", "label": "MISSED", "read_file": true, "mechanism_class": "lz-ordered-execution-option-missing", "source": "human", "matched_candidate": null, "note": "MISS (reasoning gap): I read SolConnector.sol deep and saw withdrawOptions = newOptions().addExecutorLzReceiveOption(gas,value) AND the order_delivery/inbound_nonce gate on both sides, but did not reason that LayerZero requires addExecutorOrderedExecutionOption() on SEND for the receive-side nonce ordering to hold -> without it messages arrive unordered and the nonce==inbound_nonce+1 require! rejects them, desyncing balances. LZ-Solana cross-chain mechanism knowledge gap; new class authored."}
+  ],
+  "candidates": [
+    {"id": "O-01", "title": "lz_receive recipient/token not bound to message", "matched": "H-2 (STRONG)"},
+    {"id": "O-02", "title": "deposit_token not bound to allowed_token.mint_account", "matched": "H-1 (STRONG)"},
+    {"id": "O-03", "title": "permissionless init_vault/init_oapp owner-hijack", "matched": null, "note": "not awarded (likely deploy atomically inits; informational/QA in this contest)"},
+    {"id": "O-04", "title": "rate limiter configured but never enforced", "matched": null, "note": "not awarded (defense-in-depth absent; not a direct loss path here)"},
+    {"id": "O-05", "title": "token_amount - fee unchecked underflow (withdraw DoS)", "matched": null, "note": "not awarded (fee<amount enforced upstream by ledger)"},
+    {"id": "O-06", "title": "VaultDepositParams::decode offset bug (dead on Solana)", "matched": null},
+    {"id": "O-07", "title": "reset_* incomplete close / init-griefing", "matched": null},
+    {"id": "O-08", "title": "transfer_admin doesn't rotate LZ delegate", "matched": null}
+  ],
+  "summary": {
+    "awarded_total": 3, "adjudicated": 3, "pending": 0,
+    "misses_detected": 1, "recall_of_surfaced": 0.667, "strong_only": 0.667,
+    "by_label": {"STRONG": 2, "SAME_AREA": 0, "SUBSYSTEM_ONLY": 0, "MISSED": 1, "UNADJUDICATED": 0},
+    "coverage_gap_misses": 0, "reasoning_gap_misses": 1,
+    "complete": true,
+    "note": "SECOND Solana cold pass, FULL coverage (59 in-scope files: 35 .rs deep + 24 .sol incl SolConnector deep). recall 0.667 / strong 0.667 — a GENUINE rise from WOOFi 0.0. Both Highs (H-1/H-2) caught by the WOOFi-EARNED solana-missing-anchor-constraint class -> empirical proof that reincorporation transfers across programs. Only miss = M-1, a LayerZero-Solana ordered-execution-option mechanism gap (read SolConnector but didn't connect send-option to receive-nonce ordering) -> new class lz-ordered-execution-option-missing authored. Bonus: O-03 (permissionless init) applied the WOOFi solana-missing-signer-check class correctly though not awarded here."
+  }
+}

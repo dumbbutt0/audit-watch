@@ -1,0 +1,2853 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "schema": "p110_harness_feasibility_v1",
+  "invariant": "Scaffold generation prepares execution; it never proves exploitation and never upgrades candidate status.",
+  "assessments": [
+    {
+      "subject": "vultisig-2024-06",
+      "contract": "ILOManager",
+      "function": "initialize",
+      "is_control": false,
+      "source_file": "/tmp/p81e-vultisig/src/ILOManager.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "fork / external-state recreation required (external protocol integration import(s): @uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol, @uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol, @uniswap/v3-core/contracts/libraries/TickMath.sol)",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./base/Initializable.sol",
+          "./interfaces/IILOManager.sol",
+          "./interfaces/IILOPool.sol",
+          "./libraries/ChainId.sol"
+        ],
+        "in_scope_deployable": [
+          "ChainId",
+          "ILOManager",
+          "ILOPool",
+          "Initializable"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "ILOManager",
+          "ILOPool"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts/access/Ownable.sol",
+          "@openzeppelin/contracts/proxy/Clones.sol"
+        ],
+        "tokens": [],
+        "external_integrations": [
+          "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol",
+          "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol",
+          "@uniswap/v3-core/contracts/libraries/TickMath.sol"
+        ],
+        "interfaces_referenced": [
+          "IILOManager",
+          "IILOPool",
+          "ILOManager",
+          "ILOPoolCreated",
+          "ILO_POOL_IMPLEMENTATION",
+          "IUniswapV3Factory",
+          "IUniswapV3Pool"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": true,
+        "fork_reasons": [
+          "external protocol integration import(s): @uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol, @uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol, @uniswap/v3-core/contracts/libraries/TickMath.sol"
+        ],
+        "local_deployable": false,
+        "deployment_sequence": [
+          "ChainId",
+          "ILOManager",
+          "ILOPool",
+          "Initializable"
+        ],
+        "funding_required": true,
+        "config_required": true,
+        "setup_steps": 7
+      },
+      "required_components": [
+        "deploy ChainId",
+        "deploy ILOManager",
+        "deploy ILOPool",
+        "deploy Initializable",
+        "fork (external state) \u2014 external protocol integration import(s): @uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol, @uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol, @uniswap/v3-core/contracts/libraries/TickMath.sol",
+        "initialize/config",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: victim_user",
+        "actor: liquidity_provider",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "vultisig-2024-06",
+      "contract": "Multicall",
+      "function": "multicall",
+      "is_control": false,
+      "source_file": "/tmp/p81e-vultisig/src/base/Multicall.sol",
+      "classification": "HARNESS_SIMPLE",
+      "rationale": "isolated contract, local deployment sufficient, minimal actors",
+      "dependency_map": {
+        "in_scope_imports": [
+          "../interfaces/IMulticall.sol"
+        ],
+        "in_scope_deployable": [
+          "Multicall"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "Multicall"
+        ],
+        "libraries": [],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "IMulticall"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "Multicall"
+        ],
+        "funding_required": false,
+        "config_required": false,
+        "setup_steps": 1
+      },
+      "required_components": [
+        "deploy Multicall",
+        "actor: attacker"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "phi-2024-08",
+      "contract": "PhiNFT1155",
+      "function": "claimFromFactory",
+      "is_control": false,
+      "source_file": "/tmp/p89-phi/src/art/PhiNFT1155.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "5 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "../abstract/Claimable.sol",
+          "../abstract/CreatorRoyaltiesControl.sol",
+          "../interfaces/IPhiFactory.sol",
+          "../interfaces/IPhiNFT1155.sol",
+          "../interfaces/IPhiRewards.sol"
+        ],
+        "in_scope_deployable": [
+          "Claimable",
+          "CreatorRoyaltiesControl",
+          "PhiFactory",
+          "PhiNFT1155",
+          "PhiRewards"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "PhiFactory",
+          "PhiNFT1155",
+          "PhiRewards"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+          "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol",
+          "@openzeppelin/contracts/utils/introspection/IERC165.sol",
+          "solady/utils/LibString.sol",
+          "solady/utils/SafeTransferLib.sol"
+        ],
+        "tokens": [
+          "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol"
+        ],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "IDs",
+          "IERC165",
+          "INTERNAL",
+          "IPhiFactory",
+          "IPhiNFT1155",
+          "IPhiRewards"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "Claimable",
+          "CreatorRoyaltiesControl",
+          "PhiFactory",
+          "PhiNFT1155",
+          "PhiRewards"
+        ],
+        "funding_required": true,
+        "config_required": true,
+        "setup_steps": 7
+      },
+      "required_components": [
+        "deploy Claimable",
+        "deploy CreatorRoyaltiesControl",
+        "deploy PhiFactory",
+        "deploy PhiNFT1155",
+        "deploy PhiRewards",
+        "initialize/config",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "phi-2024-08",
+      "contract": "PhiFactory",
+      "function": "claim",
+      "is_control": false,
+      "source_file": "/tmp/p89-phi/src/PhiFactory.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "2 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./interfaces/IPhiFactory.sol",
+          "./interfaces/IPhiNFT1155Ownable.sol",
+          "./interfaces/IPhiRewards.sol"
+        ],
+        "in_scope_deployable": [
+          "PhiFactory",
+          "PhiRewards"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "PhiFactory",
+          "PhiRewards"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+          "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol",
+          "solady/utils/ECDSA.sol",
+          "solady/utils/LibClone.sol",
+          "solady/utils/LibString.sol",
+          "solady/utils/LibZip.sol",
+          "solady/utils/MerkleProofLib.sol",
+          "solady/utils/SafeTransferLib.sol"
+        ],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "IDs",
+          "INITIALIZER",
+          "INTERNAL",
+          "IPhiFactory",
+          "IPhiNFT1155Ownable",
+          "IPhiRewards"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "PhiFactory",
+          "PhiRewards"
+        ],
+        "funding_required": true,
+        "config_required": true,
+        "setup_steps": 4
+      },
+      "required_components": [
+        "deploy PhiFactory",
+        "deploy PhiRewards",
+        "initialize/config",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: victim_user",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "phi-2024-08",
+      "contract": "Claimable",
+      "function": "signatureClaim",
+      "is_control": false,
+      "source_file": "/tmp/p89-phi/src/abstract/Claimable.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "2 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "../interfaces/IPhiFactory.sol"
+        ],
+        "in_scope_deployable": [
+          "Claimable",
+          "PhiFactory"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "PhiFactory"
+        ],
+        "libraries": [],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "INTERNAL",
+          "IPhiFactory"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "Claimable",
+          "PhiFactory"
+        ],
+        "funding_required": false,
+        "config_required": false,
+        "setup_steps": 2
+      },
+      "required_components": [
+        "deploy Claimable",
+        "deploy PhiFactory",
+        "actor: attacker",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "phi-2024-08",
+      "contract": "PhiNFT1155",
+      "function": "createArtFromFactory",
+      "is_control": false,
+      "source_file": "/tmp/p89-phi/src/art/PhiNFT1155.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "5 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "../abstract/Claimable.sol",
+          "../abstract/CreatorRoyaltiesControl.sol",
+          "../interfaces/IPhiFactory.sol",
+          "../interfaces/IPhiNFT1155.sol",
+          "../interfaces/IPhiRewards.sol"
+        ],
+        "in_scope_deployable": [
+          "Claimable",
+          "CreatorRoyaltiesControl",
+          "PhiFactory",
+          "PhiNFT1155",
+          "PhiRewards"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "PhiFactory",
+          "PhiNFT1155",
+          "PhiRewards"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+          "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol",
+          "@openzeppelin/contracts/utils/introspection/IERC165.sol",
+          "solady/utils/LibString.sol",
+          "solady/utils/SafeTransferLib.sol"
+        ],
+        "tokens": [
+          "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol"
+        ],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "IDs",
+          "IERC165",
+          "INTERNAL",
+          "IPhiFactory",
+          "IPhiNFT1155",
+          "IPhiRewards"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "Claimable",
+          "CreatorRoyaltiesControl",
+          "PhiFactory",
+          "PhiNFT1155",
+          "PhiRewards"
+        ],
+        "funding_required": true,
+        "config_required": true,
+        "setup_steps": 7
+      },
+      "required_components": [
+        "deploy Claimable",
+        "deploy CreatorRoyaltiesControl",
+        "deploy PhiFactory",
+        "deploy PhiNFT1155",
+        "deploy PhiRewards",
+        "initialize/config",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "phi-2024-08",
+      "contract": "Claimable",
+      "function": "merkleClaim",
+      "is_control": false,
+      "source_file": "/tmp/p89-phi/src/abstract/Claimable.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "2 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "../interfaces/IPhiFactory.sol"
+        ],
+        "in_scope_deployable": [
+          "Claimable",
+          "PhiFactory"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "PhiFactory"
+        ],
+        "libraries": [],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "INTERNAL",
+          "IPhiFactory"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "Claimable",
+          "PhiFactory"
+        ],
+        "funding_required": false,
+        "config_required": false,
+        "setup_steps": 2
+      },
+      "required_components": [
+        "deploy Claimable",
+        "deploy PhiFactory",
+        "actor: attacker",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "phi-2024-08",
+      "contract": "PhiFactory",
+      "function": "updateArtSettings",
+      "is_control": false,
+      "source_file": "/tmp/p89-phi/src/PhiFactory.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "2 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./interfaces/IPhiFactory.sol",
+          "./interfaces/IPhiNFT1155Ownable.sol",
+          "./interfaces/IPhiRewards.sol"
+        ],
+        "in_scope_deployable": [
+          "PhiFactory",
+          "PhiRewards"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "PhiFactory",
+          "PhiRewards"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+          "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol",
+          "solady/utils/ECDSA.sol",
+          "solady/utils/LibClone.sol",
+          "solady/utils/LibString.sol",
+          "solady/utils/LibZip.sol",
+          "solady/utils/MerkleProofLib.sol",
+          "solady/utils/SafeTransferLib.sol"
+        ],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "IDs",
+          "INITIALIZER",
+          "INTERNAL",
+          "IPhiFactory",
+          "IPhiNFT1155Ownable",
+          "IPhiRewards"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "PhiFactory",
+          "PhiRewards"
+        ],
+        "funding_required": true,
+        "config_required": true,
+        "setup_steps": 4
+      },
+      "required_components": [
+        "deploy PhiFactory",
+        "deploy PhiRewards",
+        "initialize/config",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: victim_user",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "phi-2024-08",
+      "contract": "PhiNFT1155",
+      "function": "initialize",
+      "is_control": false,
+      "source_file": "/tmp/p89-phi/src/art/PhiNFT1155.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "5 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "../abstract/Claimable.sol",
+          "../abstract/CreatorRoyaltiesControl.sol",
+          "../interfaces/IPhiFactory.sol",
+          "../interfaces/IPhiNFT1155.sol",
+          "../interfaces/IPhiRewards.sol"
+        ],
+        "in_scope_deployable": [
+          "Claimable",
+          "CreatorRoyaltiesControl",
+          "PhiFactory",
+          "PhiNFT1155",
+          "PhiRewards"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "PhiFactory",
+          "PhiNFT1155",
+          "PhiRewards"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+          "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol",
+          "@openzeppelin/contracts/utils/introspection/IERC165.sol",
+          "solady/utils/LibString.sol",
+          "solady/utils/SafeTransferLib.sol"
+        ],
+        "tokens": [
+          "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol",
+          "@openzeppelin/contracts-upgradeable/token/ERC1155/extensions/ERC1155SupplyUpgradeable.sol"
+        ],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "IDs",
+          "IERC165",
+          "INTERNAL",
+          "IPhiFactory",
+          "IPhiNFT1155",
+          "IPhiRewards"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "Claimable",
+          "CreatorRoyaltiesControl",
+          "PhiFactory",
+          "PhiNFT1155",
+          "PhiRewards"
+        ],
+        "funding_required": true,
+        "config_required": true,
+        "setup_steps": 7
+      },
+      "required_components": [
+        "deploy Claimable",
+        "deploy CreatorRoyaltiesControl",
+        "deploy PhiFactory",
+        "deploy PhiNFT1155",
+        "deploy PhiRewards",
+        "initialize/config",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "kleidi-2024-10",
+      "contract": "RecoverySpell",
+      "function": "executeRecovery",
+      "is_control": false,
+      "source_file": "/tmp/p91-kleidi/src/RecoverySpell.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "fork / external-state recreation required (1 hardcoded mainnet address(es))",
+      "dependency_map": {
+        "in_scope_imports": [],
+        "in_scope_deployable": [
+          "RecoverySpell"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [
+          "@interface/IMulticall3.sol",
+          "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol",
+          "@openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "@safe/Safe.sol",
+          "@safe/base/ModuleManager.sol",
+          "@safe/base/OwnerManager.sol",
+          "@safe/common/Enum.sol"
+        ],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "IMMUTABLES",
+          "IMulticall3"
+        ],
+        "hardcoded_addresses": [
+          "0xcA11bde05977b3631167028862bE2a173976CA11"
+        ],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        },
+        {
+          "role": "governance",
+          "evidence": "governance/timelock present"
+        }
+      ],
+      "environment": {
+        "fork_required": true,
+        "fork_reasons": [
+          "1 hardcoded mainnet address(es)"
+        ],
+        "local_deployable": false,
+        "deployment_sequence": [
+          "RecoverySpell"
+        ],
+        "funding_required": false,
+        "config_required": false,
+        "setup_steps": 2
+      },
+      "required_components": [
+        "deploy RecoverySpell",
+        "fork (external state) \u2014 1 hardcoded mainnet address(es)",
+        "actor: attacker",
+        "actor: protocol",
+        "actor: governance"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "kleidi-2024-10",
+      "contract": "AddressCalculation",
+      "function": "calculateAddressUnsafe",
+      "is_control": false,
+      "source_file": "/tmp/p91-kleidi/src/views/AddressCalculation.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "5 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "src/InstanceDeployer.sol",
+          "src/Timelock.sol",
+          "src/TimelockFactory.sol",
+          "src/utils/Create2Helper.sol"
+        ],
+        "in_scope_deployable": [
+          "AddressCalculation",
+          "Create2Helper",
+          "InstanceDeployer",
+          "Timelock",
+          "TimelockFactory"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [
+          "@safe/proxies/SafeProxy.sol",
+          "@safe/proxies/SafeProxyFactory.sol"
+        ],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        },
+        {
+          "role": "governance",
+          "evidence": "governance/timelock present"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "AddressCalculation",
+          "Create2Helper",
+          "InstanceDeployer",
+          "Timelock",
+          "TimelockFactory"
+        ],
+        "funding_required": false,
+        "config_required": false,
+        "setup_steps": 5
+      },
+      "required_components": [
+        "deploy AddressCalculation",
+        "deploy Create2Helper",
+        "deploy InstanceDeployer",
+        "deploy Timelock",
+        "deploy TimelockFactory",
+        "actor: attacker",
+        "actor: protocol",
+        "actor: governance"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "kleidi-2024-10",
+      "contract": "SystemDeploy",
+      "function": "deploy",
+      "is_control": false,
+      "source_file": "/tmp/p91-kleidi/src/deploy/SystemDeploy.s.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "fork / external-state recreation required (1 hardcoded mainnet address(es))",
+      "dependency_map": {
+        "in_scope_imports": [
+          "src/Guard.sol",
+          "src/InstanceDeployer.sol",
+          "src/RecoverySpellFactory.sol",
+          "src/Timelock.sol",
+          "src/TimelockFactory.sol",
+          "src/views/AddressCalculation.sol"
+        ],
+        "in_scope_deployable": [
+          "AddressCalculation",
+          "Guard",
+          "InstanceDeployer",
+          "RecoverySpellFactory",
+          "SystemDeploy",
+          "Timelock",
+          "TimelockFactory"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [
+          "@forge-proposal-simulator/addresses/Addresses.sol",
+          "@forge-proposal-simulator/src/proposals/MultisigProposal.sol"
+        ],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "INSTANCE_DEPLOYER"
+        ],
+        "hardcoded_addresses": [
+          "0x0000000000000000000000000000000000000000"
+        ],
+        "new_deploys_in_source": [
+          "Addresses"
+        ],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        },
+        {
+          "role": "governance",
+          "evidence": "governance/timelock present"
+        }
+      ],
+      "environment": {
+        "fork_required": true,
+        "fork_reasons": [
+          "1 hardcoded mainnet address(es)"
+        ],
+        "local_deployable": false,
+        "deployment_sequence": [
+          "AddressCalculation",
+          "Guard",
+          "InstanceDeployer",
+          "RecoverySpellFactory",
+          "SystemDeploy",
+          "Timelock",
+          "TimelockFactory"
+        ],
+        "funding_required": false,
+        "config_required": false,
+        "setup_steps": 8
+      },
+      "required_components": [
+        "deploy AddressCalculation",
+        "deploy Guard",
+        "deploy InstanceDeployer",
+        "deploy RecoverySpellFactory",
+        "deploy SystemDeploy",
+        "deploy Timelock",
+        "deploy TimelockFactory",
+        "fork (external state) \u2014 1 hardcoded mainnet address(es)",
+        "actor: attacker",
+        "actor: protocol",
+        "actor: governance"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "kleidi-2024-10",
+      "contract": "SystemDeploy",
+      "function": "validate",
+      "is_control": false,
+      "source_file": "/tmp/p91-kleidi/src/deploy/SystemDeploy.s.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "fork / external-state recreation required (1 hardcoded mainnet address(es))",
+      "dependency_map": {
+        "in_scope_imports": [
+          "src/Guard.sol",
+          "src/InstanceDeployer.sol",
+          "src/RecoverySpellFactory.sol",
+          "src/Timelock.sol",
+          "src/TimelockFactory.sol",
+          "src/views/AddressCalculation.sol"
+        ],
+        "in_scope_deployable": [
+          "AddressCalculation",
+          "Guard",
+          "InstanceDeployer",
+          "RecoverySpellFactory",
+          "SystemDeploy",
+          "Timelock",
+          "TimelockFactory"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [
+          "@forge-proposal-simulator/addresses/Addresses.sol",
+          "@forge-proposal-simulator/src/proposals/MultisigProposal.sol"
+        ],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "INSTANCE_DEPLOYER"
+        ],
+        "hardcoded_addresses": [
+          "0x0000000000000000000000000000000000000000"
+        ],
+        "new_deploys_in_source": [
+          "Addresses"
+        ],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        },
+        {
+          "role": "governance",
+          "evidence": "governance/timelock present"
+        }
+      ],
+      "environment": {
+        "fork_required": true,
+        "fork_reasons": [
+          "1 hardcoded mainnet address(es)"
+        ],
+        "local_deployable": false,
+        "deployment_sequence": [
+          "AddressCalculation",
+          "Guard",
+          "InstanceDeployer",
+          "RecoverySpellFactory",
+          "SystemDeploy",
+          "Timelock",
+          "TimelockFactory"
+        ],
+        "funding_required": false,
+        "config_required": false,
+        "setup_steps": 8
+      },
+      "required_components": [
+        "deploy AddressCalculation",
+        "deploy Guard",
+        "deploy InstanceDeployer",
+        "deploy RecoverySpellFactory",
+        "deploy SystemDeploy",
+        "deploy Timelock",
+        "deploy TimelockFactory",
+        "fork (external state) \u2014 1 hardcoded mainnet address(es)",
+        "actor: attacker",
+        "actor: protocol",
+        "actor: governance"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "ramses-2024-10",
+      "contract": "RamsesV3Pool",
+      "function": "swap",
+      "is_control": false,
+      "source_file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Pool.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "fork / external-state recreation required (external protocol integration import(s): ./interfaces/callback/IUniswapV3FlashCallback.sol, ./interfaces/callback/IUniswapV3MintCallback.sol, ./interfaces/callback/IUniswapV3SwapCallback.sol)",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./interfaces/IERC20Minimal.sol",
+          "./interfaces/IRamsesV3Factory.sol",
+          "./interfaces/IRamsesV3Pool.sol",
+          "./interfaces/IRamsesV3PoolDeployer.sol",
+          "./libraries/FixedPoint128.sol",
+          "./libraries/FullMath.sol",
+          "./libraries/Oracle.sol",
+          "./libraries/PoolStorage.sol",
+          "./libraries/Position.sol",
+          "./libraries/ProtocolActions.sol",
+          "./libraries/SafeCast.sol",
+          "./libraries/SqrtPriceMath.sol",
+          "./libraries/SwapMath.sol",
+          "./libraries/Tick.sol",
+          "./libraries/TickBitmap.sol",
+          "./libraries/TickMath.sol",
+          "./libraries/TransferHelper.sol"
+        ],
+        "in_scope_deployable": [
+          "FixedPoint128",
+          "FullMath",
+          "Oracle",
+          "PoolStorage",
+          "Position",
+          "ProtocolActions",
+          "RamsesV3Factory",
+          "RamsesV3Pool",
+          "RamsesV3PoolDeployer",
+          "SafeCast",
+          "SqrtPriceMath",
+          "SwapMath",
+          "Tick",
+          "TickBitmap",
+          "TickMath",
+          "TransferHelper"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "RamsesV3Factory",
+          "RamsesV3Pool",
+          "RamsesV3PoolDeployer"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts/interfaces/IERC20.sol"
+        ],
+        "tokens": [
+          "./interfaces/IERC20Minimal.sol",
+          "@openzeppelin/contracts/interfaces/IERC20.sol"
+        ],
+        "external_integrations": [
+          "./interfaces/callback/IUniswapV3FlashCallback.sol",
+          "./interfaces/callback/IUniswapV3MintCallback.sol",
+          "./interfaces/callback/IUniswapV3SwapCallback.sol"
+        ],
+        "interfaces_referenced": [
+          "IERC20",
+          "IERC20Minimal",
+          "IIA",
+          "IRamsesV3Factory",
+          "IRamsesV3Pool",
+          "IRamsesV3PoolActions",
+          "IRamsesV3PoolDeployer",
+          "IRamsesV3PoolDerivedState",
+          "IRamsesV3PoolOwnerActions",
+          "IUniswapV3FlashCallback",
+          "IUniswapV3MintCallback",
+          "IUniswapV3SwapCallback"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": true,
+        "fork_reasons": [
+          "external protocol integration import(s): ./interfaces/callback/IUniswapV3FlashCallback.sol, ./interfaces/callback/IUniswapV3MintCallback.sol, ./interfaces/callback/IUniswapV3SwapCallback.sol"
+        ],
+        "local_deployable": false,
+        "deployment_sequence": [
+          "FixedPoint128",
+          "FullMath",
+          "Oracle",
+          "PoolStorage",
+          "Position",
+          "ProtocolActions",
+          "RamsesV3Factory",
+          "RamsesV3Pool",
+          "RamsesV3PoolDeployer",
+          "SafeCast",
+          "SqrtPriceMath",
+          "SwapMath",
+          "Tick",
+          "TickBitmap",
+          "TickMath",
+          "TransferHelper"
+        ],
+        "funding_required": true,
+        "config_required": true,
+        "setup_steps": 19
+      },
+      "required_components": [
+        "deploy FixedPoint128",
+        "deploy FullMath",
+        "deploy Oracle",
+        "deploy PoolStorage",
+        "deploy Position",
+        "deploy ProtocolActions",
+        "deploy RamsesV3Factory",
+        "deploy RamsesV3Pool",
+        "deploy RamsesV3PoolDeployer",
+        "deploy SafeCast",
+        "deploy SqrtPriceMath",
+        "deploy SwapMath",
+        "deploy Tick",
+        "deploy TickBitmap",
+        "deploy TickMath",
+        "deploy TransferHelper",
+        "fork (external state) \u2014 external protocol integration import(s): ./interfaces/callback/IUniswapV3FlashCallback.sol, ./interfaces/callback/IUniswapV3MintCallback.sol, ./interfaces/callback/IUniswapV3SwapCallback.sol",
+        "initialize/config",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: victim_user",
+        "actor: liquidity_provider",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "ramses-2024-10",
+      "contract": "GaugeV3",
+      "function": "cachePeriodEarned",
+      "is_control": false,
+      "source_file": "/tmp/p93-ramses/contracts/CL/gauge/GaugeV3.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "large protocol graph (7 in-scope contracts to deploy)",
+      "dependency_map": {
+        "in_scope_imports": [
+          "../../interfaces/IVoter.sol",
+          "../core/interfaces/IRamsesV3Pool.sol",
+          "../core/libraries/FullMath.sol",
+          "../core/libraries/PoolStorage.sol",
+          "../periphery/interfaces/INonfungiblePositionManager.sol",
+          "./interfaces/IFeeCollector.sol",
+          "./interfaces/IGaugeV3.sol"
+        ],
+        "in_scope_deployable": [
+          "FeeCollector",
+          "FullMath",
+          "GaugeV3",
+          "NonfungiblePositionManager",
+          "PoolStorage",
+          "RamsesV3Pool",
+          "Voter"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "FeeCollector",
+          "GaugeV3",
+          "NonfungiblePositionManager",
+          "RamsesV3Pool",
+          "Voter"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+          "@openzeppelin/contracts/utils/math/Math.sol"
+        ],
+        "tokens": [
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+        ],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "IERC20",
+          "IFeeCollector",
+          "IGaugeV3",
+          "INonfungiblePositionManager",
+          "IRamsesV3Pool",
+          "IRamsesV3PoolState",
+          "IVoter"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        },
+        {
+          "role": "governance",
+          "evidence": "governance/timelock present"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "FeeCollector",
+          "FullMath",
+          "GaugeV3",
+          "NonfungiblePositionManager",
+          "PoolStorage",
+          "RamsesV3Pool",
+          "Voter"
+        ],
+        "funding_required": true,
+        "config_required": false,
+        "setup_steps": 8
+      },
+      "required_components": [
+        "deploy FeeCollector",
+        "deploy FullMath",
+        "deploy GaugeV3",
+        "deploy NonfungiblePositionManager",
+        "deploy PoolStorage",
+        "deploy RamsesV3Pool",
+        "deploy Voter",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: victim_user",
+        "actor: protocol",
+        "actor: governance"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "ramses-2024-10",
+      "contract": "RamsesV3Pool",
+      "function": "initialize",
+      "is_control": false,
+      "source_file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Pool.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "fork / external-state recreation required (external protocol integration import(s): ./interfaces/callback/IUniswapV3FlashCallback.sol, ./interfaces/callback/IUniswapV3MintCallback.sol, ./interfaces/callback/IUniswapV3SwapCallback.sol)",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./interfaces/IERC20Minimal.sol",
+          "./interfaces/IRamsesV3Factory.sol",
+          "./interfaces/IRamsesV3Pool.sol",
+          "./interfaces/IRamsesV3PoolDeployer.sol",
+          "./libraries/FixedPoint128.sol",
+          "./libraries/FullMath.sol",
+          "./libraries/Oracle.sol",
+          "./libraries/PoolStorage.sol",
+          "./libraries/Position.sol",
+          "./libraries/ProtocolActions.sol",
+          "./libraries/SafeCast.sol",
+          "./libraries/SqrtPriceMath.sol",
+          "./libraries/SwapMath.sol",
+          "./libraries/Tick.sol",
+          "./libraries/TickBitmap.sol",
+          "./libraries/TickMath.sol",
+          "./libraries/TransferHelper.sol"
+        ],
+        "in_scope_deployable": [
+          "FixedPoint128",
+          "FullMath",
+          "Oracle",
+          "PoolStorage",
+          "Position",
+          "ProtocolActions",
+          "RamsesV3Factory",
+          "RamsesV3Pool",
+          "RamsesV3PoolDeployer",
+          "SafeCast",
+          "SqrtPriceMath",
+          "SwapMath",
+          "Tick",
+          "TickBitmap",
+          "TickMath",
+          "TransferHelper"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "RamsesV3Factory",
+          "RamsesV3Pool",
+          "RamsesV3PoolDeployer"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts/interfaces/IERC20.sol"
+        ],
+        "tokens": [
+          "./interfaces/IERC20Minimal.sol",
+          "@openzeppelin/contracts/interfaces/IERC20.sol"
+        ],
+        "external_integrations": [
+          "./interfaces/callback/IUniswapV3FlashCallback.sol",
+          "./interfaces/callback/IUniswapV3MintCallback.sol",
+          "./interfaces/callback/IUniswapV3SwapCallback.sol"
+        ],
+        "interfaces_referenced": [
+          "IERC20",
+          "IERC20Minimal",
+          "IIA",
+          "IRamsesV3Factory",
+          "IRamsesV3Pool",
+          "IRamsesV3PoolActions",
+          "IRamsesV3PoolDeployer",
+          "IRamsesV3PoolDerivedState",
+          "IRamsesV3PoolOwnerActions",
+          "IUniswapV3FlashCallback",
+          "IUniswapV3MintCallback",
+          "IUniswapV3SwapCallback"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": true,
+        "fork_reasons": [
+          "external protocol integration import(s): ./interfaces/callback/IUniswapV3FlashCallback.sol, ./interfaces/callback/IUniswapV3MintCallback.sol, ./interfaces/callback/IUniswapV3SwapCallback.sol"
+        ],
+        "local_deployable": false,
+        "deployment_sequence": [
+          "FixedPoint128",
+          "FullMath",
+          "Oracle",
+          "PoolStorage",
+          "Position",
+          "ProtocolActions",
+          "RamsesV3Factory",
+          "RamsesV3Pool",
+          "RamsesV3PoolDeployer",
+          "SafeCast",
+          "SqrtPriceMath",
+          "SwapMath",
+          "Tick",
+          "TickBitmap",
+          "TickMath",
+          "TransferHelper"
+        ],
+        "funding_required": true,
+        "config_required": true,
+        "setup_steps": 19
+      },
+      "required_components": [
+        "deploy FixedPoint128",
+        "deploy FullMath",
+        "deploy Oracle",
+        "deploy PoolStorage",
+        "deploy Position",
+        "deploy ProtocolActions",
+        "deploy RamsesV3Factory",
+        "deploy RamsesV3Pool",
+        "deploy RamsesV3PoolDeployer",
+        "deploy SafeCast",
+        "deploy SqrtPriceMath",
+        "deploy SwapMath",
+        "deploy Tick",
+        "deploy TickBitmap",
+        "deploy TickMath",
+        "deploy TransferHelper",
+        "fork (external state) \u2014 external protocol integration import(s): ./interfaces/callback/IUniswapV3FlashCallback.sol, ./interfaces/callback/IUniswapV3MintCallback.sol, ./interfaces/callback/IUniswapV3SwapCallback.sol",
+        "initialize/config",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: victim_user",
+        "actor: liquidity_provider",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "ramses-2024-10",
+      "contract": "Position",
+      "function": "positionPeriodSecondsInRange",
+      "is_control": false,
+      "source_file": "/tmp/p93-ramses/contracts/CL/core/libraries/Position.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "large protocol graph (10 in-scope contracts to deploy)",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./FixedPoint128.sol",
+          "./FixedPoint32.sol",
+          "./FixedPoint96.sol",
+          "./FullMath.sol",
+          "./Oracle.sol",
+          "./PoolStorage.sol",
+          "./SafeCast.sol",
+          "./Tick.sol",
+          "./TickBitmap.sol"
+        ],
+        "in_scope_deployable": [
+          "FixedPoint128",
+          "FixedPoint32",
+          "FixedPoint96",
+          "FullMath",
+          "Oracle",
+          "PoolStorage",
+          "Position",
+          "SafeCast",
+          "Tick",
+          "TickBitmap"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "FixedPoint128",
+          "FixedPoint32",
+          "FixedPoint96",
+          "FullMath",
+          "Oracle",
+          "PoolStorage",
+          "Position",
+          "SafeCast",
+          "Tick",
+          "TickBitmap"
+        ],
+        "funding_required": false,
+        "config_required": true,
+        "setup_steps": 11
+      },
+      "required_components": [
+        "deploy FixedPoint128",
+        "deploy FixedPoint32",
+        "deploy FixedPoint96",
+        "deploy FullMath",
+        "deploy Oracle",
+        "deploy PoolStorage",
+        "deploy Position",
+        "deploy SafeCast",
+        "deploy Tick",
+        "deploy TickBitmap",
+        "initialize/config",
+        "actor: attacker",
+        "actor: liquidity_provider",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "ramses-2024-10",
+      "contract": "RamsesV3Pool",
+      "function": "_advancePeriod",
+      "is_control": false,
+      "source_file": "/tmp/p93-ramses/contracts/CL/core/RamsesV3Pool.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "fork / external-state recreation required (external protocol integration import(s): ./interfaces/callback/IUniswapV3FlashCallback.sol, ./interfaces/callback/IUniswapV3MintCallback.sol, ./interfaces/callback/IUniswapV3SwapCallback.sol)",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./interfaces/IERC20Minimal.sol",
+          "./interfaces/IRamsesV3Factory.sol",
+          "./interfaces/IRamsesV3Pool.sol",
+          "./interfaces/IRamsesV3PoolDeployer.sol",
+          "./libraries/FixedPoint128.sol",
+          "./libraries/FullMath.sol",
+          "./libraries/Oracle.sol",
+          "./libraries/PoolStorage.sol",
+          "./libraries/Position.sol",
+          "./libraries/ProtocolActions.sol",
+          "./libraries/SafeCast.sol",
+          "./libraries/SqrtPriceMath.sol",
+          "./libraries/SwapMath.sol",
+          "./libraries/Tick.sol",
+          "./libraries/TickBitmap.sol",
+          "./libraries/TickMath.sol",
+          "./libraries/TransferHelper.sol"
+        ],
+        "in_scope_deployable": [
+          "FixedPoint128",
+          "FullMath",
+          "Oracle",
+          "PoolStorage",
+          "Position",
+          "ProtocolActions",
+          "RamsesV3Factory",
+          "RamsesV3Pool",
+          "RamsesV3PoolDeployer",
+          "SafeCast",
+          "SqrtPriceMath",
+          "SwapMath",
+          "Tick",
+          "TickBitmap",
+          "TickMath",
+          "TransferHelper"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "RamsesV3Factory",
+          "RamsesV3Pool",
+          "RamsesV3PoolDeployer"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts/interfaces/IERC20.sol"
+        ],
+        "tokens": [
+          "./interfaces/IERC20Minimal.sol",
+          "@openzeppelin/contracts/interfaces/IERC20.sol"
+        ],
+        "external_integrations": [
+          "./interfaces/callback/IUniswapV3FlashCallback.sol",
+          "./interfaces/callback/IUniswapV3MintCallback.sol",
+          "./interfaces/callback/IUniswapV3SwapCallback.sol"
+        ],
+        "interfaces_referenced": [
+          "IERC20",
+          "IERC20Minimal",
+          "IIA",
+          "IRamsesV3Factory",
+          "IRamsesV3Pool",
+          "IRamsesV3PoolActions",
+          "IRamsesV3PoolDeployer",
+          "IRamsesV3PoolDerivedState",
+          "IRamsesV3PoolOwnerActions",
+          "IUniswapV3FlashCallback",
+          "IUniswapV3MintCallback",
+          "IUniswapV3SwapCallback"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": true,
+        "fork_reasons": [
+          "external protocol integration import(s): ./interfaces/callback/IUniswapV3FlashCallback.sol, ./interfaces/callback/IUniswapV3MintCallback.sol, ./interfaces/callback/IUniswapV3SwapCallback.sol"
+        ],
+        "local_deployable": false,
+        "deployment_sequence": [
+          "FixedPoint128",
+          "FullMath",
+          "Oracle",
+          "PoolStorage",
+          "Position",
+          "ProtocolActions",
+          "RamsesV3Factory",
+          "RamsesV3Pool",
+          "RamsesV3PoolDeployer",
+          "SafeCast",
+          "SqrtPriceMath",
+          "SwapMath",
+          "Tick",
+          "TickBitmap",
+          "TickMath",
+          "TransferHelper"
+        ],
+        "funding_required": true,
+        "config_required": true,
+        "setup_steps": 19
+      },
+      "required_components": [
+        "deploy FixedPoint128",
+        "deploy FullMath",
+        "deploy Oracle",
+        "deploy PoolStorage",
+        "deploy Position",
+        "deploy ProtocolActions",
+        "deploy RamsesV3Factory",
+        "deploy RamsesV3Pool",
+        "deploy RamsesV3PoolDeployer",
+        "deploy SafeCast",
+        "deploy SqrtPriceMath",
+        "deploy SwapMath",
+        "deploy Tick",
+        "deploy TickBitmap",
+        "deploy TickMath",
+        "deploy TransferHelper",
+        "fork (external state) \u2014 external protocol integration import(s): ./interfaces/callback/IUniswapV3FlashCallback.sol, ./interfaces/callback/IUniswapV3MintCallback.sol, ./interfaces/callback/IUniswapV3SwapCallback.sol",
+        "initialize/config",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: victim_user",
+        "actor: liquidity_provider",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "ramses-2024-10",
+      "contract": "Position",
+      "function": "_updatePosition",
+      "is_control": false,
+      "source_file": "/tmp/p93-ramses/contracts/CL/core/libraries/Position.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "large protocol graph (10 in-scope contracts to deploy)",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./FixedPoint128.sol",
+          "./FixedPoint32.sol",
+          "./FixedPoint96.sol",
+          "./FullMath.sol",
+          "./Oracle.sol",
+          "./PoolStorage.sol",
+          "./SafeCast.sol",
+          "./Tick.sol",
+          "./TickBitmap.sol"
+        ],
+        "in_scope_deployable": [
+          "FixedPoint128",
+          "FixedPoint32",
+          "FixedPoint96",
+          "FullMath",
+          "Oracle",
+          "PoolStorage",
+          "Position",
+          "SafeCast",
+          "Tick",
+          "TickBitmap"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "FixedPoint128",
+          "FixedPoint32",
+          "FixedPoint96",
+          "FullMath",
+          "Oracle",
+          "PoolStorage",
+          "Position",
+          "SafeCast",
+          "Tick",
+          "TickBitmap"
+        ],
+        "funding_required": false,
+        "config_required": true,
+        "setup_steps": 11
+      },
+      "required_components": [
+        "deploy FixedPoint128",
+        "deploy FixedPoint32",
+        "deploy FixedPoint96",
+        "deploy FullMath",
+        "deploy Oracle",
+        "deploy PoolStorage",
+        "deploy Position",
+        "deploy SafeCast",
+        "deploy Tick",
+        "deploy TickBitmap",
+        "initialize/config",
+        "actor: attacker",
+        "actor: liquidity_provider",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "wildcat-2024-08",
+      "contract": "WildcatMarket",
+      "function": "closeMarket",
+      "is_control": false,
+      "source_file": "/tmp/p95-wildcat/src/market/WildcatMarket.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "6 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "../WildcatSanctionsSentinel.sol",
+          "./WildcatMarketBase.sol",
+          "./WildcatMarketConfig.sol",
+          "./WildcatMarketToken.sol",
+          "./WildcatMarketWithdrawals.sol"
+        ],
+        "in_scope_deployable": [
+          "WildcatMarket",
+          "WildcatMarketBase",
+          "WildcatMarketConfig",
+          "WildcatMarketToken",
+          "WildcatMarketWithdrawals",
+          "WildcatSanctionsSentinel"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "WildcatMarket",
+          "WildcatMarketBase",
+          "WildcatMarketConfig",
+          "WildcatMarketToken",
+          "WildcatMarketWithdrawals",
+          "WildcatSanctionsSentinel"
+        ],
+        "funding_required": true,
+        "config_required": false,
+        "setup_steps": 7
+      },
+      "required_components": [
+        "deploy WildcatMarket",
+        "deploy WildcatMarketBase",
+        "deploy WildcatMarketConfig",
+        "deploy WildcatMarketToken",
+        "deploy WildcatMarketWithdrawals",
+        "deploy WildcatSanctionsSentinel",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: victim_user",
+        "actor: liquidity_provider"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "wildcat-2024-08",
+      "contract": "WildcatMarketWithdrawals",
+      "function": "repayAndProcessUnpaidWithdrawalBatches",
+      "is_control": false,
+      "source_file": "/tmp/p95-wildcat/src/market/WildcatMarketWithdrawals.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "4 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "../libraries/BoolUtils.sol",
+          "../libraries/LibERC20.sol",
+          "./WildcatMarketBase.sol"
+        ],
+        "in_scope_deployable": [
+          "BoolUtils",
+          "LibERC20",
+          "WildcatMarketBase",
+          "WildcatMarketWithdrawals"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [],
+        "tokens": [
+          "../libraries/LibERC20.sol"
+        ],
+        "external_integrations": [],
+        "interfaces_referenced": [],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "BoolUtils",
+          "LibERC20",
+          "WildcatMarketBase",
+          "WildcatMarketWithdrawals"
+        ],
+        "funding_required": true,
+        "config_required": false,
+        "setup_steps": 5
+      },
+      "required_components": [
+        "deploy BoolUtils",
+        "deploy LibERC20",
+        "deploy WildcatMarketBase",
+        "deploy WildcatMarketWithdrawals",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: victim_user",
+        "actor: liquidity_provider"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "wildcat-2024-08",
+      "contract": "WildcatMarket",
+      "function": "borrow",
+      "is_control": false,
+      "source_file": "/tmp/p95-wildcat/src/market/WildcatMarket.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "6 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "../WildcatSanctionsSentinel.sol",
+          "./WildcatMarketBase.sol",
+          "./WildcatMarketConfig.sol",
+          "./WildcatMarketToken.sol",
+          "./WildcatMarketWithdrawals.sol"
+        ],
+        "in_scope_deployable": [
+          "WildcatMarket",
+          "WildcatMarketBase",
+          "WildcatMarketConfig",
+          "WildcatMarketToken",
+          "WildcatMarketWithdrawals",
+          "WildcatSanctionsSentinel"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "WildcatMarket",
+          "WildcatMarketBase",
+          "WildcatMarketConfig",
+          "WildcatMarketToken",
+          "WildcatMarketWithdrawals",
+          "WildcatSanctionsSentinel"
+        ],
+        "funding_required": true,
+        "config_required": false,
+        "setup_steps": 7
+      },
+      "required_components": [
+        "deploy WildcatMarket",
+        "deploy WildcatMarketBase",
+        "deploy WildcatMarketConfig",
+        "deploy WildcatMarketToken",
+        "deploy WildcatMarketWithdrawals",
+        "deploy WildcatSanctionsSentinel",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: victim_user",
+        "actor: liquidity_provider"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "wildcat-2024-08",
+      "contract": "WildcatMarket",
+      "function": "repay",
+      "is_control": false,
+      "source_file": "/tmp/p95-wildcat/src/market/WildcatMarket.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "6 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "../WildcatSanctionsSentinel.sol",
+          "./WildcatMarketBase.sol",
+          "./WildcatMarketConfig.sol",
+          "./WildcatMarketToken.sol",
+          "./WildcatMarketWithdrawals.sol"
+        ],
+        "in_scope_deployable": [
+          "WildcatMarket",
+          "WildcatMarketBase",
+          "WildcatMarketConfig",
+          "WildcatMarketToken",
+          "WildcatMarketWithdrawals",
+          "WildcatSanctionsSentinel"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [],
+        "tokens": [],
+        "external_integrations": [],
+        "interfaces_referenced": [],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "WildcatMarket",
+          "WildcatMarketBase",
+          "WildcatMarketConfig",
+          "WildcatMarketToken",
+          "WildcatMarketWithdrawals",
+          "WildcatSanctionsSentinel"
+        ],
+        "funding_required": true,
+        "config_required": false,
+        "setup_steps": 7
+      },
+      "required_components": [
+        "deploy WildcatMarket",
+        "deploy WildcatMarketBase",
+        "deploy WildcatMarketConfig",
+        "deploy WildcatMarketToken",
+        "deploy WildcatMarketWithdrawals",
+        "deploy WildcatSanctionsSentinel",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: victim_user",
+        "actor: liquidity_provider"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "secondswap-2024-12",
+      "contract": "SecondSwap_Marketplace",
+      "function": "doesFunctionExist",
+      "is_control": false,
+      "source_file": "/tmp/p97-secondswap/contracts/SecondSwap_Marketplace.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "6 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./SecondSwap_WhitelistDeployer.sol",
+          "./interface/IERC20.sol",
+          "./interface/SecondSwap_IMarketplaceSetting.sol",
+          "./interface/SecondSwap_IVestingManager.sol",
+          "./interface/SecondSwap_IWhitelist.sol"
+        ],
+        "in_scope_deployable": [
+          "ERC20",
+          "SecondSwap_Marketplace",
+          "SecondSwap_MarketplaceSetting",
+          "SecondSwap_VestingManager",
+          "SecondSwap_Whitelist",
+          "SecondSwap_WhitelistDeployer"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "ERC20",
+          "SecondSwap_MarketplaceSetting",
+          "SecondSwap_VestingManager",
+          "SecondSwap_Whitelist"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+          "hardhat/console.sol"
+        ],
+        "tokens": [
+          "./interface/IERC20.sol",
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+        ],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "IDs",
+          "IERC20",
+          "IERC20Extended",
+          "IMarketplaceSetting",
+          "IVestingManager",
+          "IWhitelist"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "ERC20",
+          "SecondSwap_Marketplace",
+          "SecondSwap_MarketplaceSetting",
+          "SecondSwap_VestingManager",
+          "SecondSwap_Whitelist",
+          "SecondSwap_WhitelistDeployer"
+        ],
+        "funding_required": true,
+        "config_required": true,
+        "setup_steps": 8
+      },
+      "required_components": [
+        "deploy ERC20",
+        "deploy SecondSwap_Marketplace",
+        "deploy SecondSwap_MarketplaceSetting",
+        "deploy SecondSwap_VestingManager",
+        "deploy SecondSwap_Whitelist",
+        "deploy SecondSwap_WhitelistDeployer",
+        "initialize/config",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: victim_user"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "iq-ai-2025-01",
+      "contract": "AgentRouter",
+      "function": "buy",
+      "is_control": false,
+      "source_file": "/tmp/p102-inscope/AgentRouter.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "fork / external-state recreation required (1 hardcoded mainnet address(es); external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol)",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./AgentFactory.sol",
+          "./BootstrapPool.sol",
+          "./LiquidityManager.sol"
+        ],
+        "in_scope_deployable": [
+          "AgentFactory",
+          "AgentRouter",
+          "BootstrapPool",
+          "LiquidityManager"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [
+          "@openzeppelin/contracts/interfaces/IERC20.sol",
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+        ],
+        "tokens": [
+          "@openzeppelin/contracts/interfaces/IERC20.sol",
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+        ],
+        "external_integrations": [
+          "dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol",
+          "dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol"
+        ],
+        "interfaces_referenced": [
+          "IERC20",
+          "IFraxswapFactory",
+          "IFraxswapPair",
+          "ISC"
+        ],
+        "hardcoded_addresses": [
+          "0xE30521fe7f3bEB6Ad556887b50739d6C7CA667E6"
+        ],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": true,
+        "fork_reasons": [
+          "1 hardcoded mainnet address(es)",
+          "external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol"
+        ],
+        "local_deployable": false,
+        "deployment_sequence": [
+          "AgentFactory",
+          "AgentRouter",
+          "BootstrapPool",
+          "LiquidityManager"
+        ],
+        "funding_required": true,
+        "config_required": false,
+        "setup_steps": 6
+      },
+      "required_components": [
+        "deploy AgentFactory",
+        "deploy AgentRouter",
+        "deploy BootstrapPool",
+        "deploy LiquidityManager",
+        "fork (external state) \u2014 1 hardcoded mainnet address(es); external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: liquidity_provider",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "iq-ai-2025-01",
+      "contract": "AgentRouter",
+      "function": "sell",
+      "is_control": false,
+      "source_file": "/tmp/p102-inscope/AgentRouter.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "fork / external-state recreation required (1 hardcoded mainnet address(es); external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol)",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./AgentFactory.sol",
+          "./BootstrapPool.sol",
+          "./LiquidityManager.sol"
+        ],
+        "in_scope_deployable": [
+          "AgentFactory",
+          "AgentRouter",
+          "BootstrapPool",
+          "LiquidityManager"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [
+          "@openzeppelin/contracts/interfaces/IERC20.sol",
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+        ],
+        "tokens": [
+          "@openzeppelin/contracts/interfaces/IERC20.sol",
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+        ],
+        "external_integrations": [
+          "dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol",
+          "dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol"
+        ],
+        "interfaces_referenced": [
+          "IERC20",
+          "IFraxswapFactory",
+          "IFraxswapPair",
+          "ISC"
+        ],
+        "hardcoded_addresses": [
+          "0xE30521fe7f3bEB6Ad556887b50739d6C7CA667E6"
+        ],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": true,
+        "fork_reasons": [
+          "1 hardcoded mainnet address(es)",
+          "external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol"
+        ],
+        "local_deployable": false,
+        "deployment_sequence": [
+          "AgentFactory",
+          "AgentRouter",
+          "BootstrapPool",
+          "LiquidityManager"
+        ],
+        "funding_required": true,
+        "config_required": false,
+        "setup_steps": 6
+      },
+      "required_components": [
+        "deploy AgentFactory",
+        "deploy AgentRouter",
+        "deploy BootstrapPool",
+        "deploy LiquidityManager",
+        "fork (external state) \u2014 1 hardcoded mainnet address(es); external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: liquidity_provider",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "iq-ai-2025-01",
+      "contract": "AgentRouter",
+      "function": "getAmountOut",
+      "is_control": false,
+      "source_file": "/tmp/p102-inscope/AgentRouter.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "fork / external-state recreation required (1 hardcoded mainnet address(es); external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol)",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./AgentFactory.sol",
+          "./BootstrapPool.sol",
+          "./LiquidityManager.sol"
+        ],
+        "in_scope_deployable": [
+          "AgentFactory",
+          "AgentRouter",
+          "BootstrapPool",
+          "LiquidityManager"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [
+          "@openzeppelin/contracts/interfaces/IERC20.sol",
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+        ],
+        "tokens": [
+          "@openzeppelin/contracts/interfaces/IERC20.sol",
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+        ],
+        "external_integrations": [
+          "dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol",
+          "dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol"
+        ],
+        "interfaces_referenced": [
+          "IERC20",
+          "IFraxswapFactory",
+          "IFraxswapPair",
+          "ISC"
+        ],
+        "hardcoded_addresses": [
+          "0xE30521fe7f3bEB6Ad556887b50739d6C7CA667E6"
+        ],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": true,
+        "fork_reasons": [
+          "1 hardcoded mainnet address(es)",
+          "external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol"
+        ],
+        "local_deployable": false,
+        "deployment_sequence": [
+          "AgentFactory",
+          "AgentRouter",
+          "BootstrapPool",
+          "LiquidityManager"
+        ],
+        "funding_required": true,
+        "config_required": false,
+        "setup_steps": 6
+      },
+      "required_components": [
+        "deploy AgentFactory",
+        "deploy AgentRouter",
+        "deploy BootstrapPool",
+        "deploy LiquidityManager",
+        "fork (external state) \u2014 1 hardcoded mainnet address(es); external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: liquidity_provider",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "iq-ai-2025-01",
+      "contract": "Agent",
+      "function": "setProxyImplementation",
+      "is_control": false,
+      "source_file": "/tmp/p102-inscope/Agent.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "3 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./AIToken.sol",
+          "./AgentFactory.sol"
+        ],
+        "in_scope_deployable": [
+          "AIToken",
+          "Agent",
+          "AgentFactory"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [
+          "@openzeppelin/contracts/access/Ownable.sol",
+          "@openzeppelin/contracts/proxy/Proxy.sol",
+          "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol"
+        ],
+        "tokens": [
+          "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol"
+        ],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "ISC"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        },
+        {
+          "role": "governance",
+          "evidence": "governance/timelock present"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "AIToken",
+          "Agent",
+          "AgentFactory"
+        ],
+        "funding_required": true,
+        "config_required": true,
+        "setup_steps": 5
+      },
+      "required_components": [
+        "deploy AIToken",
+        "deploy Agent",
+        "deploy AgentFactory",
+        "initialize/config",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: protocol",
+        "actor: governance"
+      ],
+      "blockers": []
+    }
+  ],
+  "controls": [
+    {
+      "subject": "iq-ai-2025-01",
+      "contract": "LiquidityManager",
+      "function": "moveLiquidity",
+      "is_control": true,
+      "source_file": "/tmp/p102-inscope/LiquidityManager.sol",
+      "classification": "HARNESS_COMPLEX",
+      "rationale": "fork / external-state recreation required (2 hardcoded mainnet address(es); external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol, dev-fraxswap/src/contracts/core/libraries/Math.sol)",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./AgentFactory.sol",
+          "./BootstrapPool.sol",
+          "./interface/IBAMM.sol",
+          "./interface/IBAMMFactory.sol"
+        ],
+        "in_scope_deployable": [
+          "AgentFactory",
+          "BootstrapPool",
+          "LiquidityManager"
+        ],
+        "resolved_concrete_from_interfaces": [],
+        "libraries": [
+          "@openzeppelin/contracts/interfaces/IERC20.sol",
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+        ],
+        "tokens": [
+          "@openzeppelin/contracts/interfaces/IERC20.sol",
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+        ],
+        "external_integrations": [
+          "dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol",
+          "dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol",
+          "dev-fraxswap/src/contracts/core/libraries/Math.sol"
+        ],
+        "interfaces_referenced": [
+          "IBAMM",
+          "IBAMMFactory",
+          "IERC20",
+          "IFraxswapFactory",
+          "IFraxswapPair",
+          "ISC"
+        ],
+        "hardcoded_addresses": [
+          "0x19928170D739139bfbBb6614007F8EEeD17DB0Ba",
+          "0xE30521fe7f3bEB6Ad556887b50739d6C7CA667E6"
+        ],
+        "new_deploys_in_source": [
+          "BootstrapPool"
+        ],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": [
+          "./interface/IBAMM.sol",
+          "./interface/IBAMMFactory.sol"
+        ]
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        },
+        {
+          "role": "liquidity_provider",
+          "evidence": "liquidity/reserve mechanics present"
+        },
+        {
+          "role": "protocol",
+          "evidence": "external protocol surface (factory/pair/pool/oracle)"
+        }
+      ],
+      "environment": {
+        "fork_required": true,
+        "fork_reasons": [
+          "2 hardcoded mainnet address(es)",
+          "external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol, dev-fraxswap/src/contracts/core/libraries/Math.sol"
+        ],
+        "local_deployable": false,
+        "deployment_sequence": [
+          "AgentFactory",
+          "BootstrapPool",
+          "LiquidityManager"
+        ],
+        "funding_required": true,
+        "config_required": false,
+        "setup_steps": 5
+      },
+      "required_components": [
+        "deploy AgentFactory",
+        "deploy BootstrapPool",
+        "deploy LiquidityManager",
+        "fork (external state) \u2014 2 hardcoded mainnet address(es); external protocol integration import(s): dev-fraxswap/src/contracts/core/interfaces/IFraxswapFactory.sol, dev-fraxswap/src/contracts/core/interfaces/IFraxswapPair.sol, dev-fraxswap/src/contracts/core/libraries/Math.sol",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: victim_user",
+        "actor: liquidity_provider",
+        "actor: protocol"
+      ],
+      "blockers": []
+    },
+    {
+      "subject": "secondswap-2024-12",
+      "contract": "SecondSwap_Marketplace",
+      "function": "spotPurchase",
+      "is_control": true,
+      "source_file": "/tmp/p97-secondswap/contracts/SecondSwap_Marketplace.sol",
+      "classification": "HARNESS_MODERATE",
+      "rationale": "6 in-scope contract(s), local deploy with ordering / initialization",
+      "dependency_map": {
+        "in_scope_imports": [
+          "./SecondSwap_WhitelistDeployer.sol",
+          "./interface/IERC20.sol",
+          "./interface/SecondSwap_IMarketplaceSetting.sol",
+          "./interface/SecondSwap_IVestingManager.sol",
+          "./interface/SecondSwap_IWhitelist.sol"
+        ],
+        "in_scope_deployable": [
+          "ERC20",
+          "SecondSwap_Marketplace",
+          "SecondSwap_MarketplaceSetting",
+          "SecondSwap_VestingManager",
+          "SecondSwap_Whitelist",
+          "SecondSwap_WhitelistDeployer"
+        ],
+        "resolved_concrete_from_interfaces": [
+          "ERC20",
+          "SecondSwap_MarketplaceSetting",
+          "SecondSwap_VestingManager",
+          "SecondSwap_Whitelist"
+        ],
+        "libraries": [
+          "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol",
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+          "hardhat/console.sol"
+        ],
+        "tokens": [
+          "./interface/IERC20.sol",
+          "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
+        ],
+        "external_integrations": [],
+        "interfaces_referenced": [
+          "IDs",
+          "IERC20",
+          "IERC20Extended",
+          "IMarketplaceSetting",
+          "IVestingManager",
+          "IWhitelist"
+        ],
+        "hardcoded_addresses": [],
+        "new_deploys_in_source": [],
+        "missing_deployable_imports": [],
+        "missing_interface_imports": []
+      },
+      "actor_model": [
+        {
+          "role": "attacker",
+          "evidence": "EOA entrypoint (default adversary)"
+        },
+        {
+          "role": "admin",
+          "evidence": "owner/role/privileged guard present"
+        },
+        {
+          "role": "victim_user",
+          "evidence": "per-user accounting present"
+        }
+      ],
+      "environment": {
+        "fork_required": false,
+        "fork_reasons": [],
+        "local_deployable": true,
+        "deployment_sequence": [
+          "ERC20",
+          "SecondSwap_Marketplace",
+          "SecondSwap_MarketplaceSetting",
+          "SecondSwap_VestingManager",
+          "SecondSwap_Whitelist",
+          "SecondSwap_WhitelistDeployer"
+        ],
+        "funding_required": true,
+        "config_required": true,
+        "setup_steps": 8
+      },
+      "required_components": [
+        "deploy ERC20",
+        "deploy SecondSwap_Marketplace",
+        "deploy SecondSwap_MarketplaceSetting",
+        "deploy SecondSwap_VestingManager",
+        "deploy SecondSwap_Whitelist",
+        "deploy SecondSwap_WhitelistDeployer",
+        "initialize/config",
+        "fund actors with tokens",
+        "actor: attacker",
+        "actor: admin",
+        "actor: victim_user"
+      ],
+      "blockers": []
+    }
+  ],
+  "metrics": {
+    "total_candidates": 28,
+    "simple": 1,
+    "moderate": 14,
+    "complex": 13,
+    "blocked": 0,
+    "average_dependencies": 7.393,
+    "average_actors": 3.321,
+    "average_setup_steps": 7.429
+  }
+}

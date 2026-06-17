@@ -1,0 +1,33 @@
+{
+  "_doc": "P90 maximal-consequence impact check (RESEARCH-ONLY, advisory, UN-WIRED). Targets the recurring UNDER-labelling miss (P87 H-01, P89 H-05 rated Medium vs awarded High) + admin-footgun misclassification (P87 H-03) + self-inflicted-vs-involuntary misread (P87 M-18, P85 M-01). It does NOT modify severity_impact_gate; it only RECOMMENDS an impact_class + which gate markers to attach (the same high_liveness_markers / involuntary / liveness tags the P88 gate already consumes). Reject-first: escalation requires source_backed evidence; bounded/lazy with no concrete consequence is NEVER escalated (defers to the gate's bounded-demote). is_gate:false research_only:true routes_in_production:false.",
+  "_flags": {"is_gate": false, "research_only": true, "review_only": true, "routes_in_production": false, "routed_manifest_ids": []},
+
+  "high_escalators": {
+    "many_or_all_users_affected": "many_or_all_users_affected",
+    "core_protocol_lifecycle_function": "core_protocol_lifecycle_function",
+    "permanent_unrecoverable_without_privileged": "unrecoverable_without_privileged_intervention",
+    "mass_dos_or_permanent_state_corruption": "bricks_major_phase_or_generation",
+    "funds_or_rewards_permanently_inaccessible": "funds_or_rewards_permanently_inaccessible",
+    "requires_migration_or_upgrade_to_recover": "requires_migration_or_upgrade"
+  },
+
+  "escalation_questions": [
+    "Can this Medium-looking mechanism affect MANY or ALL users (not just the actor)?",
+    "Does it brick a CORE protocol function / lifecycle phase / generation?",
+    "Is the bad state PERMANENT or unrecoverable without privileged intervention / migration / upgrade?",
+    "Can it cause MASS DoS or permanent STATE CORRUPTION?",
+    "Are funds/rewards/rights left PERMANENTLY inaccessible?"
+  ],
+  "footgun_vs_user_harm_questions": [
+    "Is the harmful state reachable ONLY by a privileged admin action with no external trigger?",
+    "Is it trivially reversible by the admin with no user funds at risk in the interim?",
+    "OR does a normal/plausible admin action produce a USER-FACING consequence (mis-distributed fees, blocked path, lost funds)? -> then it is NOT a mere footgun."
+  ],
+  "involuntary_vs_self_inflicted_questions": [
+    "Is the harmed party DIFFERENT from the actor who caused the bad state?",
+    "Does it require another user's tx ordering / a race / a third-party listing-or-mint action / global state mutation by someone else / unavoidable sequencing? -> involuntary, NOT self-inflicted.",
+    "Is there a concrete asset/reward/right loss? (self-inflicted demotion requires NO material loss AND full avoidability with no race)"
+  ],
+
+  "_policy": "assess(impact_assessment): (1) escalation REQUIRES source_backed=true -> if any high escalator is asserted but source_backed is false, recommend NO escalation ('insufficient'). (2) if source_backed AND >=1 high escalator true -> recommend impact_class 'high' and attach the mapped high_liveness_markers (consumed by the P88 gate). (3) if involuntary (involuntary_third_party_or_race) AND a concrete consequence is present -> recommend KEEP at >= base, attach an involuntary marker, flag 'not self-inflicted'. (4) if admin_initiated AND NOT externally_triggerable_user_harm AND no user funds at risk -> footgun_flag=true, recommend 'do not promote as user harm'. (5) else recommend base unchanged. The check NEVER demotes, NEVER sets production severity, and NEVER escalates a bounded/lazy issue lacking a concrete consequence."
+}

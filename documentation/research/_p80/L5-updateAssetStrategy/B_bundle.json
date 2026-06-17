@@ -1,0 +1,78 @@
+{
+  "is_gate": false,
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "candidate_id": "L5-updateAssetStrategy",
+  "detector_family": "wrong_actor",
+  "status": "NEEDS_CONTEXT",
+  "status_reason": "critical defense unknown/source-unavailable: role_or_admin_escape_hatch",
+  "trigger_summary": {
+    "contract": "LRTConfig",
+    "function": "updateAssetStrategy",
+    "lines": "109",
+    "suspicious_pattern": "manager updates an asset's strategy mid-flight",
+    "detector_claim": "strategy change orphans/strands deposited funds"
+  },
+  "context_summary": {
+    "source_resolved": true,
+    "reachability": "external"
+  },
+  "attacker_reachability": "external",
+  "defense_ledger": {
+    "access_control": {
+      "classification": "partially_covers_candidate",
+      "evidence": "onlyRole(DEFAULT_ADMIN_ROLE)"
+    },
+    "role_or_admin_escape_hatch": {
+      "classification": "unknown",
+      "evidence": "admin-gated; whether old-strategy funds are migrated is unresolved"
+    },
+    "upgradeability_or_owner_controls": {
+      "classification": "partially_covers_candidate"
+    }
+  },
+  "invariant_analysis": {
+    "broken_invariant": "strategy change migrates funds",
+    "why_defenses_do_not_block": "see ledger"
+  },
+  "exploit_path": {
+    "attacker_profile": "EOA",
+    "entrypoint": "updateAssetStrategy",
+    "preconditions": "reachable",
+    "transaction_sequence": "admin changes asset strategy; funds in old strategy stranded/uncounted",
+    "state_before": "s0",
+    "state_after": "s1",
+    "rejection_case": "considered defenses/falsifiers from source",
+    "source_evidence": "updateAssetStrategy"
+  },
+  "impact_analysis": {
+    "impact_category": "stranded_funds",
+    "minimum_profit_or_damage_condition": "strand funds"
+  },
+  "source_falsification": {
+    "code_not_reachable": false,
+    "caller_actually_authorized": false,
+    "state_not_mutable": false,
+    "missing_check_present_in_helper": false,
+    "impact_prevented_by_later_invariant": false,
+    "behavior_intentional_by_design": false,
+    "hash_or_value_bound_to_mutable_state": false,
+    "detector_name_confusion": false,
+    "relies_on_out_of_scope_or_unavailable_source": false,
+    "exploit_economically_meaningless": false
+  },
+  "missing_context": "resolve the classification (with source) of: role_or_admin_escape_hatch",
+  "poc_needed": null,
+  "human_review_notes": null,
+  "state_trace": [
+    "STATIC_LEAD",
+    "CONTEXT_MAPPED",
+    "DEFENSE_TRACED",
+    "NEEDS_CONTEXT"
+  ],
+  "final_decision": "NEEDS_CONTEXT",
+  "arm": "B_defense_first",
+  "claimed_mechanism": "wrong_actor"
+}

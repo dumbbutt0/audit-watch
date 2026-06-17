@@ -1,0 +1,45 @@
+{
+  "mechanism_inventory": [
+    "stale accounting snapshot — twapSeconds==0 branch uses pool.slot0() spot price (manipulable)",
+    "external-call failure / DoS — pool.observe() reverts when insufficient history",
+    "precision / packing / normalization edge — integer division truncation of tick"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "twapSeconds==0 reads sqrtPriceX96 from pool.slot0(), trivially manipulable in one tx via flash loan; squared and returned as reference price with no validation.",
+      "attacker_model": "Unprivileged EOA, flash-loan funded.",
+      "exploit_path": "flash loan -> large swap moves slot0 -> downstream calls _getReferencePoolPriceX96(pool,0) -> manipulated price -> misvalue collateral -> borrow/avoid liquidation -> reverse swap.",
+      "who_loses": "Protocol LPs/lenders or wrongly-liquidated borrowers.",
+      "who_gains": "Attacker (delta between manipulated and true price).",
+      "why_carried": "Source confirms slot0 read with no TWAP smoothing in this branch; no downstream guard; primary high-severity."
+    },
+    {
+      "root_cause": "pool.observe() reverts if ring-buffer lacks history; comment acknowledges it; no try/catch -> revert propagates, bricking callers.",
+      "attacker_model": "Permissionless; target thin-history pool or consume buffer.",
+      "exploit_path": "configured pool lacks history -> _getReferencePoolPriceX96(twapSeconds>0) -> observe() reverts -> dependent ops (liquidation/borrow/price) revert -> protocol unavailable.",
+      "who_loses": "Lenders (cannot withdraw), liquidators (bad debt accrues), protocol.",
+      "who_gains": "Underwater borrowers avoid liquidation.",
+      "why_carried": "Source explicitly acknowledges revert; no try/catch; different failure mode (availability/DoS) than slot0; clears Medium; carry-forward (different actors/state)."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "precision/packing/normalization edge — integer division truncation of tick",
+      "source_evidence": "int24 tick = int24((tickCumulatives[0]-tickCumulatives[1])/int56(uint56(twapSeconds))); truncates toward zero; up to ~1 tick bias.",
+      "unresolved_question": "Is the one-tick truncation economically significant (material collateral mispricing)? Harness needed.",
+      "who_loses": "Borrowers/lenders on wrong side of deterministic rounding.",
+      "who_gains": "Counterparty benefiting from rounding direction.",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [],
+  "impact_direction": {
+    "attacker_receives": "Profit = manipulated vs true valuation (slot0) or avoided liquidation (DoS).",
+    "attacker_preserves": "Flash-loan repaid; net arbitrage/avoided loss.",
+    "victim_loses": "Lenders lose to under-collateralized loans; lose liquidation access -> bad debt.",
+    "invariant_violated": "Oracle price must be manipulation-resistant + available.",
+    "not_self_funded_or_dust_or_admin_or_timing": "Permissionless, real funds and core availability, not dust."
+  },
+  "stop_condition": "more_mechanisms_pending: DoS (observe revert) different failure mode/actors; truncation NEEDS_HARNESS.",
+  "verdict": "CRITICAL_THREAD"
+}

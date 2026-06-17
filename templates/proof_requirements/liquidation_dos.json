@@ -1,0 +1,37 @@
+{
+  "bug_class": "liquidation_dos",
+  "description": "Arithmetic underflow or panic permanently blocks liquidation of qualifying positions",
+  "required_for_medium": [
+    "real_calculation_function_called",
+    "panic_or_revert_proven"
+  ],
+  "required_for_high": [
+    "public_liquidation_entrypoint_called",
+    "panic_or_revert_proven",
+    "qualifying_insolvent_position"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "public execute_liquidation entrypoint called (not just calculate_liquidation)",
+    "L3B": "execute_liquidation panics/reverts for a qualifying deeply insolvent position",
+    "L3C": "N/A — for DoS findings, L3B is the maximum provable impact without live chain"
+  },
+  "poc_level_requirements": {
+    "L3A": ["public_liquidation_entrypoint_called"],
+    "L3B": ["public_liquidation_entrypoint_called", "panic_or_revert_proven", "qualifying_insolvent_position"],
+    "L3C": ["public_liquidation_entrypoint_called", "panic_or_revert_proven", "qualifying_insolvent_position"]
+  },
+  "proof_signatures": {
+    "real_calculation_function_called":     ["calculate_liquidation"],
+    "public_liquidation_entrypoint_called": ["execute_liquidation"],
+    "panic_or_revert_proven":              ["should_panic", "unwrap_err", "is_err", "Err(", "panics"],
+    "qualifying_insolvent_position":       [
+      "total_debt_base: 2_000",
+      "total_debt_base:               2_000",
+      "health_factor: WAD / 4",
+      "WAD / 4",
+      "2_000 * WAD"
+    ]
+  },
+  "high_severity_rationale": "For DoS of a core safety mechanism (liquidation), L3B through the public entrypoint is sufficient for High. The harm is the blocked liquidation itself — no attacker profit assertion is required because the loss is accumulated bad debt.",
+  "negative_control_template": "Run the same test replacing the plain subtraction with saturating_sub. Assert the call succeeds and returns a valid LiquidationCall (collateral_amount = total_collateral_base, no panic)."
+}

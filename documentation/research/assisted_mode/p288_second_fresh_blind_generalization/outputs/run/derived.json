@@ -1,0 +1,1773 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "SUPERVISED_EVAL_DERIVED_EVIDENCE",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "packages": [
+    {
+      "candidate_id": "coverage_manifest:SurplusGuildMinter:stake:5",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "SurplusGuildMinter.stake",
+      "source_refs": "SurplusGuildMinter.stake function stake(address term, uint256 amount) external whenNotPaused {",
+      "mechanism_hypothesis": "[T5] SurplusGuildMinter.stake: A state transition may make a required later operation impossible, stuck, delayed, or incorrectly successful.",
+      "root_cause": "SurplusGuildMinter.stake function stake(address term, uint256 amount) external whenNotPaused {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls SurplusGuildMinter.stake with chosen inputs (function stake(address term, uint256 amount) external whenNo)",
+      "attacker_controlled_inputs": "msg.sender + args of function stake(address term, uint256 amount) external whenNotPaused {",
+      "victim_gainer": "victim = users/LPs of SurplusGuildMinter (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in SurplusGuildMinter via stake (value-moving op)",
+      "invariant_expected": "share<->asset conversion in SurplusGuildMinter.stake conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "SurplusGuildMinter.stake rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls SurplusGuildMinter.stake with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "After this transition, can a needed later step (claim/finalize/withdraw) still complete correctly?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through SurplusGuildMinter.stake nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['whenNotPaused'], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['whenNotPaused'], external_calls=False, has_loop=False, tags=['accounting', 'config', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": true,
+        "guard_contexts": [
+          {
+            "token": "notpaused",
+            "context": "UNKNOWN_READ",
+            "guard_strength": "NONE",
+            "source_snippet": "uint256 amount) external whenNotPaused {                  (uint256 la",
+            "source_basis": "offset 62; not in any require/if-revert/modifier gate",
+            "reason": "token used as unknown read, not an access guard"
+          },
+          {
+            "token": "whennotpaused",
+            "context": "UNKNOWN_READ",
+            "guard_strength": "NONE",
+            "source_snippet": "erm, uint256 amount) external whenNotPaused {                  (uint25",
+            "source_basis": "offset 58; not in any require/if-revert/modifier gate",
+            "reason": "token used as unknown read, not an access guard"
+          }
+        ],
+        "guard_markers": [
+          "notpaused",
+          "whennotpaused"
+        ],
+        "state_machine_detected": true,
+        "state_markers": [
+          "require(\n"
+        ],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "_mint",
+          "transfer"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/loan/SurplusGuildMinter.sol",
+        "source_span": [
+          114,
+          155
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "_mint",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [114, 155] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/loan/SurplusGuildMinter.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "SurplusGuildMinter.stake",
+            "callee": "SurplusGuildMinter.getRewards",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": true,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "SurplusGuildMinter.getRewards",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "CreditToken",
+          "GuildToken",
+          "ProfitManager",
+          "approve",
+          "lastGaugeLoss",
+          "returns",
+          "transferFrom"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from SurplusGuildMinter.stake",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:ERC20RebaseDistributor:_burn:6",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "ERC20RebaseDistributor._burn",
+      "source_refs": "ERC20RebaseDistributor._burn function _burn(address account, uint256 amount) internal virtual override {",
+      "mechanism_hypothesis": "[T2] ERC20RebaseDistributor._burn: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "ERC20RebaseDistributor._burn function _burn(address account, uint256 amount) internal virtual override {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "ERC20RebaseDistributor._burn is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _burn(address account, uint256 amount) internal virtual override {",
+      "victim_gainer": "victim = users/LPs of ERC20RebaseDistributor (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in ERC20RebaseDistributor via _burn (value-moving op)",
+      "invariant_expected": "share<->asset conversion in ERC20RebaseDistributor._burn conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "ERC20RebaseDistributor._burn rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls ERC20RebaseDistributor._burn with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through ERC20RebaseDistributor._burn nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "+=",
+          "_burn",
+          "_mint",
+          "balanceof",
+          "price",
+          "shares"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/tokens/ERC20RebaseDistributor.sol",
+        "source_span": [
+          461,
+          505
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "+=",
+          "_burn",
+          "_mint",
+          "balanceof",
+          "price",
+          "shares"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [461, 505] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/tokens/ERC20RebaseDistributor.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "ERC20RebaseDistributor._burn",
+            "callee": "ERC20RebaseDistributor.balanceOf",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "ERC20RebaseDistributor._burn",
+            "callee": "ERC20RebaseDistributor.rebasingSharePrice",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "ERC20RebaseDistributor._burn",
+            "callee": "ERC20RebaseDistributor._shares2balance",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "ERC20RebaseDistributor._burn",
+            "callee": "ERC20RebaseDistributor._mint",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": true,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "ERC20RebaseDistributor.rebasingSharePrice",
+            "callee": "ERC20RebaseDistributor.interpolatedValue",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "ERC20RebaseDistributor._mint",
+            "callee": "ERC20RebaseDistributor._balance2shares",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "ERC20RebaseDistributor.balanceOf",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 6,
+        "unresolved_callees": [
+          "returns"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from ERC20RebaseDistributor._burn",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [
+          "balanceBefore",
+          "balanceAfter"
+        ],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": "balanceAfter - balanceBefore == expectedReceived",
+        "confidence": "LOW",
+        "source_basis": "local before/after equation extracted (assertion scaffold only; no deviation)",
+        "unresolved_assumptions": [
+          "before/after equation present but no deviation detector corroborates"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:ERC20RebaseDistributor:distribute:7",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "ERC20RebaseDistributor.distribute",
+      "source_refs": "ERC20RebaseDistributor.distribute function distribute(uint256 amount) external {",
+      "mechanism_hypothesis": "[T6] ERC20RebaseDistributor.distribute: Separate txs/epochs/delayed checkpoints may create a stale or double-counted accounting view.",
+      "root_cause": "ERC20RebaseDistributor.distribute function distribute(uint256 amount) external {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls ERC20RebaseDistributor.distribute with chosen inputs (function distribute(uint256 amount) external {)",
+      "attacker_controlled_inputs": "msg.sender + args of function distribute(uint256 amount) external {",
+      "victim_gainer": "victim = users/LPs of ERC20RebaseDistributor (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in ERC20RebaseDistributor via distribute (value-moving op)",
+      "invariant_expected": "rewards via ERC20RebaseDistributor.distribute go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "ERC20RebaseDistributor.distribute mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls ERC20RebaseDistributor.distribute with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Across two transactions/epochs, can an index/accrual be applied twice or skipped?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert ERC20RebaseDistributor.distribute pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "_burn",
+          "price",
+          "shares"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/tokens/ERC20RebaseDistributor.sol",
+        "source_span": [
+          338,
+          386
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "_burn",
+          "price",
+          "shares"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [338, 386] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/tokens/ERC20RebaseDistributor.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "ERC20RebaseDistributor.distribute",
+            "callee": "ERC20RebaseDistributor._burn",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": true,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "ERC20RebaseDistributor.distribute",
+            "callee": "ERC20RebaseDistributor.rebasingSharePrice",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "ERC20RebaseDistributor.distribute",
+            "callee": "ERC20RebaseDistributor._shares2balance",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "ERC20RebaseDistributor._burn",
+            "callee": "ERC20RebaseDistributor.balanceOf",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "ERC20RebaseDistributor._burn",
+            "callee": "ERC20RebaseDistributor._mint",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": true,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "ERC20RebaseDistributor.rebasingSharePrice",
+            "callee": "ERC20RebaseDistributor.interpolatedValue",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "ERC20RebaseDistributor._burn",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 6,
+        "unresolved_callees": [
+          "RebaseDistribution",
+          "returns"
+        ],
+        "too_dynamic_seen": false,
+        "source_basis": "bounded trace depth<=2 from ERC20RebaseDistributor.distribute",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [
+          "totalRebasingShares"
+        ],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": "totalRebasingSharesAfter - totalRebasingSharesBefore == minted/burned amount",
+        "confidence": "LOW",
+        "source_basis": "local conservation equation extracted (assertion scaffold only; no deviation)",
+        "unresolved_assumptions": [
+          "before/after equation present but no deviation detector corroborates"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LendingTerm:onBid:8",
+      "award_class": "UNKNOWN_OTHER",
+      "contract_function": "LendingTerm.onBid",
+      "source_refs": "LendingTerm.onBid function onBid( bytes32 loanId, address bidder, uint256 collateralToBorrower, uint256 collateralToBidder, uint256 creditFromBidder ) external {",
+      "mechanism_hypothesis": "[T7] LendingTerm.onBid: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+      "root_cause": "LendingTerm.onBid function onBid( bytes32 loanId, address bidder, uint256 collateralToBorrower, uint256 collateralToBidder, uint256 creditFromBidder ) external {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls LendingTerm.onBid with chosen inputs (function onBid( bytes32 loanId, address bidder, uint256 coll)",
+      "attacker_controlled_inputs": "msg.sender + args of function onBid( bytes32 loanId, address bidder, uint256 collateralToBorrower, ui",
+      "victim_gainer": "victim = users/LPs of LendingTerm (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in LendingTerm via onBid (value-moving op)",
+      "invariant_expected": "LendingTerm.onBid preserves the relevant protocol invariant",
+      "invariant_broken": "LendingTerm.onBid violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls LendingTerm.onBid with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert LendingTerm.onBid produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [
+          {
+            "token": "require(msg.sender",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": ") external {                  require(msg.sender == refs.auctionHouse,",
+            "source_basis": "offset 209; in execution-gate span",
+            "reason": "token gates execution (require/if-revert/return/modifier)"
+          },
+          {
+            "token": "msg.sender",
+            "context": "EXECUTION_GUARD",
+            "guard_strength": "STRONG",
+            "source_snippet": "al {                  require(msg.sender == refs.auctionHouse, \"Lendin",
+            "source_basis": "offset 217; in execution-gate span",
+            "reason": "token gates execution (require/if-revert/return/modifier)"
+          }
+        ],
+        "guard_markers": [
+          "msg.sender==/!= (either side)",
+          "require(msg.sender"
+        ],
+        "state_machine_detected": true,
+        "state_markers": [
+          "require(\n"
+        ],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "-=",
+          "collateral",
+          "debt",
+          "safetransfer",
+          "transfer"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/loan/LendingTerm.sol",
+        "source_span": [
+          725,
+          825
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "-=",
+          "collateral",
+          "debt",
+          "safetransfer",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [725, 825] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/loan/LendingTerm.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_TOO_DYNAMIC",
+        "trace_path": [],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 0,
+        "unresolved_callees": [
+          "CreditToken",
+          "ProfitManager",
+          "creditMultiplier",
+          "transferFrom"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from LendingTerm.onBid",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:ProfitManager:claimRewards:9",
+      "award_class": "REWARDS_CLAIMS",
+      "contract_function": "ProfitManager.claimRewards",
+      "source_refs": "ProfitManager.claimRewards function claimRewards( address user ) external returns (uint256 creditEarned) {",
+      "mechanism_hypothesis": "[T2] ProfitManager.claimRewards: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "ProfitManager.claimRewards function claimRewards( address user ) external returns (uint256 creditEarned) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls ProfitManager.claimRewards with chosen inputs (function claimRewards( address user ) external returns (uint)",
+      "attacker_controlled_inputs": "msg.sender + args of function claimRewards( address user ) external returns (uint256 creditEarned) {",
+      "victim_gainer": "victim = users/LPs of ProfitManager (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in ProfitManager via claimRewards (value-moving op)",
+      "invariant_expected": "rewards via ProfitManager.claimRewards go to the entitled claimant once, at the correct snapshot",
+      "invariant_broken": "ProfitManager.claimRewards mis-routes, double-pays, blocks, or snapshot-games rewards",
+      "tx_sequence": [
+        "attacker calls ProfitManager.claimRewards with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the claimant bound? Is the accumulator updated before transfer? Idempotent?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert ProfitManager.claimRewards pays the wrong recipient / double / blocked / stale-snapshot amount",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "+="
+        ],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/governance/ProfitManager.sol",
+        "source_span": [
+          439,
+          449
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "+="
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [439, 449] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/governance/ProfitManager.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "ProfitManager.claimRewards",
+            "callee": "ERC20Gauges.userGauges",
+            "edge": "library_or_inherited",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "ProfitManager.claimRewards",
+            "callee": "ProfitManager.claimGaugeRewards",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": true,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "ProfitManager.claimGaugeRewards",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 2,
+        "unresolved_callees": [
+          "ClaimRewards",
+          "GuildToken",
+          "getUserGaugeWeight",
+          "returns",
+          "values"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from ProfitManager.claimRewards",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LendingTerm:borrow:11",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "LendingTerm.borrow",
+      "source_refs": "LendingTerm.borrow function borrow( uint256 borrowAmount, uint256 collateralAmount ) external whenNotPaused returns (bytes32 loanId) {",
+      "mechanism_hypothesis": "[T5] LendingTerm.borrow: A state transition may make a required later operation impossible, stuck, delayed, or incorrectly successful.",
+      "root_cause": "LendingTerm.borrow function borrow( uint256 borrowAmount, uint256 collateralAmount ) external whenNotPaused returns (bytes32 loanId) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls LendingTerm.borrow with chosen inputs (function borrow( uint256 borrowAmount, uint256 collateralAmo)",
+      "attacker_controlled_inputs": "msg.sender + args of function borrow( uint256 borrowAmount, uint256 collateralAmount ) external whenN",
+      "victim_gainer": "victim = users/LPs of LendingTerm (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in LendingTerm via borrow (value-moving op)",
+      "invariant_expected": "post-LendingTerm.borrow accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "LendingTerm.borrow leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls LendingTerm.borrow with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "After this transition, can a needed later step (claim/finalize/withdraw) still complete correctly?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-LendingTerm.borrow accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['whenNotPaused'], external_calls=False, has_loop=False, tags=['permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=['whenNotPaused'], external_calls=False, has_loop=False, tags=['permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": true,
+        "guard_contexts": [
+          {
+            "token": "notpaused",
+            "context": "UNKNOWN_READ",
+            "guard_strength": "NONE",
+            "source_snippet": "eralAmount     ) external whenNotPaused returns (bytes32 loanId) {",
+            "source_basis": "offset 103; not in any require/if-revert/modifier gate",
+            "reason": "token used as unknown read, not an access guard"
+          },
+          {
+            "token": "whennotpaused",
+            "context": "UNKNOWN_READ",
+            "guard_strength": "NONE",
+            "source_snippet": "llateralAmount     ) external whenNotPaused returns (bytes32 loanId) {",
+            "source_basis": "offset 99; not in any require/if-revert/modifier gate",
+            "reason": "token used as unknown read, not an access guard"
+          }
+        ],
+        "guard_markers": [
+          "notpaused",
+          "whennotpaused"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "collateral"
+        ],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/loan/LendingTerm.sol",
+        "source_span": [
+          438,
+          443
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "collateral"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [438, 443] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/loan/LendingTerm.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_FOUND",
+        "trace_path": [
+          {
+            "caller": "LendingTerm.borrow",
+            "callee": "LendingTerm._borrow",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": true,
+            "callee_value_anomaly_div_before_mul": false
+          },
+          {
+            "caller": "LendingTerm._borrow",
+            "callee": "ProfitManager.minBorrow",
+            "edge": "library_or_inherited",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": {
+          "attacker_input": "candidate entry",
+          "callee_value_movement": "LendingTerm._borrow",
+          "affected": "state write / asset move in callee",
+          "anomaly": null,
+          "invariant": "generic (needs corrected-reference)",
+          "poc_assertion": null
+        },
+        "value_flow_confidence": "LOW",
+        "spans_visited": 2,
+        "unresolved_callees": [
+          "ProfitManager",
+          "creditMultiplier",
+          "returns"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from LendingTerm.borrow",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LendingTerm:_borrow:13",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "LendingTerm._borrow",
+      "source_refs": "LendingTerm._borrow function _borrow( address borrower, uint256 borrowAmount, uint256 collateralAmount ) internal returns (bytes32 loanId) {",
+      "mechanism_hypothesis": "[T7] LendingTerm._borrow: A user/liquidator may manipulate the solvent/insolvent / repay-vs-collateral / eligibility / bad-debt boundary.",
+      "root_cause": "LendingTerm._borrow function _borrow( address borrower, uint256 borrowAmount, uint256 collateralAmount ) internal returns (bytes32 loanId) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "LendingTerm._borrow is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _borrow( address borrower, uint256 borrowAmount, uint256 collateralAmou",
+      "victim_gainer": "victim = users/LPs of LendingTerm (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in LendingTerm via _borrow (value-moving op)",
+      "invariant_expected": "post-LendingTerm._borrow accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "LendingTerm._borrow leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls LendingTerm._borrow with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can the actor choose inputs/timing to seize more than fair, or push a position across the solvency line?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-LendingTerm._borrow accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": true,
+        "state_markers": [
+          "require(\n"
+        ],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "collateral",
+          "debt",
+          "safetransfer",
+          "transfer"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/loan/LendingTerm.sol",
+        "source_span": [
+          339,
+          435
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "collateral",
+          "debt",
+          "safetransfer",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [339, 435] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/loan/LendingTerm.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_TOO_DYNAMIC",
+        "trace_path": [
+          {
+            "caller": "LendingTerm._borrow",
+            "callee": "ProfitManager.minBorrow",
+            "edge": "library_or_inherited",
+            "source_span": null,
+            "callee_state_write": false,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "ProfitManager",
+          "creditMultiplier",
+          "returns"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from LendingTerm._borrow",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [
+          "totalBorrowedCredit"
+        ],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": "totalBorrowedCreditAfter - totalBorrowedCreditBefore == minted/burned amount",
+        "confidence": "LOW",
+        "source_basis": "local conservation equation extracted (assertion scaffold only; no deviation)",
+        "unresolved_assumptions": [
+          "before/after equation present but no deviation detector corroborates"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:SimplePSM:redeem:18",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "SimplePSM.redeem",
+      "source_refs": "SimplePSM.redeem function redeem( address to, uint256 amountIn ) external returns (uint256 amountOut) {",
+      "mechanism_hypothesis": "[T1] SimplePSM.redeem: An external liquidity/state/price/allowance condition may block a required protocol action here.",
+      "root_cause": "SimplePSM.redeem function redeem( address to, uint256 amountIn ) external returns (uint256 amountOut) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls SimplePSM.redeem with chosen inputs (function redeem( address to, uint256 amountIn ) external ret)",
+      "attacker_controlled_inputs": "msg.sender + args of function redeem( address to, uint256 amountIn ) external returns (uint256 amount",
+      "victim_gainer": "victim = users/LPs of SimplePSM (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in SimplePSM via redeem (value-moving op)",
+      "invariant_expected": "SimplePSM.redeem preserves the relevant protocol invariant",
+      "invariant_broken": "SimplePSM.redeem violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls SimplePSM.redeem with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Can an external protocol (AMM/lending/oracle) be driven to a state that makes this action revert or mis-execute?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert SimplePSM.redeem produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "inline_guard_ambiguous": false,
+        "guard_contexts": [],
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "-=",
+          "safetransfer",
+          "transfer"
+        ],
+        "state_write": true,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/loan/SimplePSM.sol",
+        "source_span": [
+          134,
+          144
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [
+          "-=",
+          "safetransfer",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [134, 144] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/ecg-2023-12-holdout/contracts/src/loan/SimplePSM.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "trace_evidence": {
+        "trace_status": "TRACE_TOO_DYNAMIC",
+        "trace_path": [
+          {
+            "caller": "SimplePSM.redeem",
+            "callee": "SimplePSM.getRedeemAmountOut",
+            "edge": "same_contract",
+            "source_span": null,
+            "callee_state_write": true,
+            "callee_asset_move": false,
+            "callee_value_anomaly_div_before_mul": false
+          }
+        ],
+        "value_flow_path": null,
+        "value_flow_confidence": "LOW",
+        "spans_visited": 1,
+        "unresolved_callees": [
+          "CreditToken",
+          "ProfitManager",
+          "burnFrom",
+          "creditMultiplier",
+          "returns"
+        ],
+        "too_dynamic_seen": true,
+        "source_basis": "bounded trace depth<=2 from SimplePSM.redeem",
+        "unresolved_assumptions": [
+          "cross-function value-flow reached but no source-detectable anomaly; the violation needs corrected-reference/data-flow reasoning (CORE)"
+        ]
+      },
+      "invariant_delta_evidence": {
+        "is_gate": false,
+        "research_only": true,
+        "emits_findings": false,
+        "routes_in_production": false,
+        "routed_manifest_ids": [],
+        "severity": null,
+        "reportable": false,
+        "submission_ready": false,
+        "concluded": false,
+        "production_routing": false,
+        "invariant_delta_status": "NO_REFERENCE",
+        "derivation_type": null,
+        "reference_basis": null,
+        "observed_expression_or_flow": null,
+        "expected_expression_or_flow": null,
+        "delta_hypothesis": null,
+        "affected_variables": [],
+        "attacker_influence_link": null,
+        "victim_gainer": null,
+        "poc_assertion": null,
+        "confidence": "LOW",
+        "source_basis": "no source-backed deviation reference found",
+        "unresolved_assumptions": [
+          "no source-backed deviation reference found"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

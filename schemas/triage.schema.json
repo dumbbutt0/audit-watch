@@ -1,0 +1,182 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TriageFinding",
+  "description": "Output schema for a single triaged finding from the triage agent",
+  "type": "object",
+  "required": [
+    "finding_id",
+    "title",
+    "triage_status",
+    "recommended_severity",
+    "score",
+    "confidence",
+    "attacker_model",
+    "exploitability",
+    "impact",
+    "quality_gate",
+    "decision_reason",
+    "required_next_steps"
+  ],
+  "properties": {
+    "finding_id": {
+      "type": "string",
+      "description": "Original finding ID from findings_schema (e.g. AC-001)"
+    },
+    "title": {
+      "type": "string"
+    },
+    "triage_status": {
+      "type": "string",
+      "enum": ["submit", "poc_required", "downgrade", "merge", "reject"]
+    },
+    "recommended_severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low", "qa", "invalid"]
+    },
+    "score": {
+      "type": "object",
+      "required": [
+        "attacker_control",
+        "sensitive_sink",
+        "missing_check_clarity",
+        "impact_realism",
+        "poc_feasibility",
+        "scope_safety",
+        "duplicate_risk",
+        "total"
+      ],
+      "properties": {
+        "attacker_control":      { "type": "integer", "minimum": 0, "maximum": 5 },
+        "sensitive_sink":        { "type": "integer", "minimum": 0, "maximum": 5 },
+        "missing_check_clarity": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "impact_realism":        { "type": "integer", "minimum": 0, "maximum": 5 },
+        "poc_feasibility":       { "type": "integer", "minimum": 0, "maximum": 5 },
+        "scope_safety":          { "type": "integer", "minimum": 0, "maximum": 5 },
+        "duplicate_risk":        { "type": "integer", "minimum": 0, "maximum": 5 },
+        "total":                 { "type": "integer", "minimum": 0, "maximum": 35 }
+      }
+    },
+    "confidence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "attacker_model": {
+      "type": "object",
+      "required": ["attacker_type", "required_permissions", "required_preconditions", "realistic"],
+      "properties": {
+        "attacker_type": {
+          "type": "string",
+          "enum": [
+            "unprivileged",
+            "privileged",
+            "admin",
+            "oracle",
+            "user_with_allowance",
+            "unknown"
+          ]
+        },
+        "required_permissions":   { "type": "array", "items": { "type": "string" } },
+        "required_preconditions": { "type": "array", "items": { "type": "string" } },
+        "realistic":              { "type": "boolean" }
+      }
+    },
+    "exploitability": {
+      "type": "object",
+      "required": [
+        "can_trigger",
+        "profit_or_damage",
+        "blocked_by_auth",
+        "blocked_by_atomicity",
+        "blocked_by_scope",
+        "needs_poc"
+      ],
+      "properties": {
+        "can_trigger":          { "type": "boolean" },
+        "profit_or_damage":     { "type": "string" },
+        "blocked_by_auth":      { "type": "boolean" },
+        "blocked_by_atomicity": { "type": "boolean" },
+        "blocked_by_scope":     { "type": "boolean" },
+        "needs_poc":            { "type": "boolean" }
+      }
+    },
+    "impact": {
+      "type": "object",
+      "required": ["asset_at_risk", "victim", "loss_type", "severity_reason"],
+      "properties": {
+        "asset_at_risk": { "type": "string" },
+        "victim":        { "type": "string" },
+        "loss_type": {
+          "type": "string",
+          "enum": [
+            "fund_loss",
+            "insolvency",
+            "permanent_lock",
+            "temporary_dos",
+            "griefing",
+            "accounting_error",
+            "none"
+          ]
+        },
+        "severity_reason": { "type": "string" }
+      }
+    },
+    "quality_gate": {
+      "type": "object",
+      "required": [
+        "has_exact_location",
+        "has_root_cause",
+        "has_exploit_steps",
+        "has_patch",
+        "likely_duplicate",
+        "speculative_language"
+      ],
+      "properties": {
+        "has_exact_location":  { "type": "boolean" },
+        "has_root_cause":      { "type": "boolean" },
+        "has_exploit_steps":   { "type": "boolean" },
+        "has_patch":           { "type": "boolean" },
+        "likely_duplicate":    { "type": "boolean" },
+        "speculative_language": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "decision_reason":    { "type": "string" },
+    "required_next_steps": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "invalidation_tags": {
+      "type": "array",
+      "description": "Hard invalidation tags from pre_submission_gate.py. Any tag prevents submission.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "already_guarded",
+          "admin_only",
+          "impossible_state",
+          "no_profitability",
+          "non_exploitable",
+          "unrealistic_liquidity",
+          "requires_compromised_key",
+          "unverifiable_assumption",
+          "duplicate_pattern",
+          "duplicate_finding"
+        ]
+      }
+    },
+    "defense_analysis": {
+      "type": "object",
+      "description": "Summary of defense coverage from defense_mapper.py",
+      "properties": {
+        "defense_map_available":      { "type": "boolean" },
+        "coverage":                   { "type": "string", "enum": ["full", "partial", "none", "unknown"] },
+        "evasion_confirmed":          { "type": "boolean" },
+        "inherited_guard_found":      { "type": "boolean" },
+        "hard_rejected_by_defense":   { "type": "boolean" }
+      }
+    }
+  }
+}

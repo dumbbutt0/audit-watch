@@ -1,0 +1,157 @@
+{
+  "generated_at": "2026-06-07T04:27:59.884798+00:00",
+  "summary": {
+    "total_submit_ready": 2,
+    "total_poc_required": 5
+  },
+  "compound_pairs": [],
+  "findings": [
+    {
+      "finding_id": "ZETA-04",
+      "title": "onReceive lacks whenNotPaused (pause does not halt inbound delivery); onRevert has it",
+      "recommended_severity": "Medium",
+      "triage_status": "submit",
+      "score": null,
+      "confidence": null,
+      "needs_poc": false,
+      "compound": false,
+      "location": {
+        "file": "contracts/evm/ZetaConnector.eth.sol",
+        "lines": "52-69",
+        "function": "onReceive"
+      },
+      "vuln_type": null,
+      "decision_reason": "Clear, source-proven modifier asymmetry: onReceive lacks whenNotPaused while onRevert has it. Pause cannot stop inbound delivery. Valid availability/incident-response weakness; source-proven, Medium.",
+      "required_next_steps": [],
+      "attacker_model": null,
+      "impact": null,
+      "quality_gate": null
+    },
+    {
+      "finding_id": "ZETA-12",
+      "title": "Swap deadline computed as block.timestamp+MAX_DEADLINE(200s); Trident path has no deadline (weak MEV protection)",
+      "recommended_severity": "Medium",
+      "triage_status": "submit",
+      "score": null,
+      "confidence": null,
+      "needs_poc": false,
+      "compound": false,
+      "location": {
+        "file": "contracts/evm/tools/ZetaTokenConsumerUniV2.strategy.sol",
+        "lines": "45-154",
+        "function": "get*Zeta*/get*From*"
+      },
+      "vuln_type": null,
+      "decision_reason": "Source-proven weak slippage/deadline: deadline=block.timestamp+200 is always met at inclusion (no staleness protection); Trident path has no deadline. Systematic MEV/sandwich exposure on protocol swaps. Valid Medium.",
+      "required_next_steps": [],
+      "attacker_model": null,
+      "impact": null,
+      "quality_gate": null
+    },
+    {
+      "finding_id": "ZETA-01",
+      "title": "ERC20Custody.withdraw transfers exact amount, ignoring fee-on-transfer tokens (custody insolvency)",
+      "recommended_severity": "Medium",
+      "triage_status": "poc_required",
+      "score": null,
+      "confidence": null,
+      "needs_poc": false,
+      "compound": false,
+      "location": {
+        "file": "contracts/evm/ERC20Custody.sol",
+        "lines": "193-199",
+        "function": "withdraw"
+      },
+      "vuln_type": null,
+      "decision_reason": "Real code asymmetry (withdraw uses raw amount, deposit uses balance-delta). Realized impact conditional on a fee-on-transfer token being whitelisted by TSS; needs an executed PoC to demonstrate custody insolvency. ICE advances to PoC, not direct submit.",
+      "required_next_steps": [],
+      "attacker_model": null,
+      "impact": null,
+      "quality_gate": null
+    },
+    {
+      "finding_id": "ZETA-05",
+      "title": "No internalSendHash replay/dedup tracking in connectors (double-delivery if TSS replays)",
+      "recommended_severity": "Medium",
+      "triage_status": "poc_required",
+      "score": null,
+      "confidence": null,
+      "needs_poc": false,
+      "compound": false,
+      "location": {
+        "file": "contracts/evm/ZetaConnector.eth.sol",
+        "lines": "52-111",
+        "function": "onReceive/onRevert"
+      },
+      "vuln_type": null,
+      "decision_reason": "No internalSendHash dedup; double-delivery requires TSS to replay (privileged precondition) so not permissionless High, but a defense-in-depth gap worth a PoC of double-mint under replay.",
+      "required_next_steps": [],
+      "attacker_model": null,
+      "impact": null,
+      "quality_gate": null
+    },
+    {
+      "finding_id": "ZETA-06",
+      "title": "Uninitialized interactorsByChainId[chain] (empty bytes) lets empty zetaTxSenderAddress pass sender check",
+      "recommended_severity": "Medium",
+      "triage_status": "poc_required",
+      "score": null,
+      "confidence": null,
+      "needs_poc": false,
+      "compound": false,
+      "location": {
+        "file": "contracts/evm/tools/ZetaInteractor.sol",
+        "lines": "23-28",
+        "function": "isValidMessageCall"
+      },
+      "vuln_type": null,
+      "decision_reason": "Empty-bytes interactor bypass is a real modifier gap but requires an unregistered chain entry AND a TSS-relayed message; conditional. Needs PoC against a concrete inheriting onZetaMessage to show impact.",
+      "required_next_steps": [],
+      "attacker_model": null,
+      "impact": null,
+      "quality_gate": null
+    },
+    {
+      "finding_id": "ZETA-10",
+      "title": "getEthFromZeta lacks nonReentrant while sending ETH to caller-controlled destinationAddress (cross-fn reentrancy)",
+      "recommended_severity": "High",
+      "triage_status": "poc_required",
+      "score": null,
+      "confidence": null,
+      "needs_poc": false,
+      "compound": false,
+      "location": {
+        "file": "contracts/evm/tools/ZetaTokenConsumerUniV3.strategy.sol",
+        "lines": "124-156",
+        "function": "getEthFromZeta"
+      },
+      "vuln_type": null,
+      "decision_reason": "Strongest PERMISSIONLESS High-ceiling: getEthFromZeta sends ETH to caller-controlled address with no nonReentrant (getTokenFromZeta has it). Realized fund impact is UNCLEAR statically -> requires an executed L3 harness with a control case before any High can be claimed.",
+      "required_next_steps": [],
+      "attacker_model": null,
+      "impact": null,
+      "quality_gate": null
+    },
+    {
+      "finding_id": "ZETA-11",
+      "title": "Trident strategy uses poolFactory.getPools(...)[0] with no length/zero/legitimacy validation",
+      "recommended_severity": "Medium",
+      "triage_status": "poc_required",
+      "score": null,
+      "confidence": null,
+      "needs_poc": false,
+      "compound": false,
+      "location": {
+        "file": "contracts/evm/tools/ZetaTokenConsumerTrident.strategy.sol",
+        "lines": "82-115",
+        "function": "getZetaFromEth/getZetaFromToken/getEthFromZeta"
+      },
+      "vuln_type": null,
+      "decision_reason": "Unvalidated poolFactory.getPools(...)[0]; fund-loss requires the Trident factory to be permissionless enough to pre-register an attacker pool, or empty -> DoS. Conditional; needs PoC to establish which.",
+      "required_next_steps": [],
+      "attacker_model": null,
+      "impact": null,
+      "quality_gate": null
+    }
+  ]
+}

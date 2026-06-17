@@ -1,0 +1,26 @@
+{
+  "surface": "InvestmentManager.handleExecutedCollectRedeem",
+  "mechanism_inventory": [
+    "stale accounting snapshot — maxWithdraw/maxRedeem accumulate; replay diverges from escrow",
+    "wrong lifecycle ordering — burn() before _updateLiquidityPoolPrice (pre-burn supply)",
+    "victim accounting direction — only trancheTokensPayout!=0 guarded; currencyPayout==0 burns tokens for zero payout",
+    "missing invariant enforcement — no upper bound on currencyPayout/trancheTokensPayout vs epoch entitlement",
+    "external-call DoS — userEscrow.transferIn / burn revert consumes Gateway message -> stuck redemption",
+    "access-control mismatch — onlyGateway but Gateway upgradeable / arbitrary recipient",
+    "hook-timing — price update post-burn if it reads live supply"
+  ],
+  "selected_mechanisms": [
+    {"root_cause":"only guard is trancheTokensPayout!=0; currencyPayout==0 passes -> burns N tranche tokens from escrow, transferIn(0), price update with zero numerator -> NAV corruption","who_loses":"Escrow/users (tokens burned for zero currency), all LPs (NAV)","who_gains":"price-manipulation extraction","why_carried":"no currencyPayout==0 guard; different state var than guarded; >=Medium-High via NAV"},
+    {"root_cause":"burn before _updateLiquidityPoolPrice; if price reads post-burn totalSupply -> inflated NAV per remaining token","who_loses":"other LPs/reserve","who_gains":"early redeemer","why_carried":"ordering observable; price internals unresolved"}
+  ],
+  "unresolved_mechanisms": [
+    {"mechanism":"burn-before-price-update NAV inflation","unresolved_question":"does _updateLiquidityPoolPrice read live totalSupply?","who_loses":"other LPs","status":"NEEDS_HARNESS"},
+    {"mechanism":"no cap on Gateway payout vs epoch entitlement (over-burn/over-credit)","unresolved_question":"upstream epoch cap enforced?","who_loses":"Escrow/redeemers","status":"NEEDS_HARNESS"}
+  ],
+  "rejected_mechanisms": [
+    {"mechanism":"access-control via direct EOA call","claimed_locus":"onlyGateway modifier","rejecting_source_fact":"onlyGateway restricts caller to registered Gateway","why_unexploitable":"EOA reverts at modifier","leans_on_unproven_guard":false}
+  ],
+  "impact_direction":"escrow loses tranche tokens for zero currency; NAV corruption affects all LPs; not dust/admin-only",
+  "stop_condition":"more_mechanisms_pending: burn-ordering + epoch-cap NEEDS_HARNESS",
+  "verdict":"HIGH_THREAD"
+}

@@ -1,0 +1,695 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "SUPERVISED_EVAL_DERIVED_EVIDENCE",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "packages": [
+    {
+      "candidate_id": "coverage_manifest:StarklaneEscrow:_withdrawFromEscrow:0",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "StarklaneEscrow._withdrawFromEscrow",
+      "source_refs": "StarklaneEscrow._withdrawFromEscrow function _withdrawFromEscrow( CollectionType collectionType, address collection, address to, uint256 id ) internal returns (bool) {",
+      "mechanism_hypothesis": "[T2] StarklaneEscrow._withdrawFromEscrow: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "StarklaneEscrow._withdrawFromEscrow function _withdrawFromEscrow( CollectionType collectionType, address collection, address to, uint256 id ) internal returns (bool) {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "StarklaneEscrow._withdrawFromEscrow is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _withdrawFromEscrow( CollectionType collectionType, address collection,",
+      "victim_gainer": "victim = users/LPs of StarklaneEscrow (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in StarklaneEscrow via _withdrawFromEscrow (value-moving op)",
+      "invariant_expected": "StarklaneEscrow._withdrawFromEscrow preserves the relevant protocol invariant",
+      "invariant_broken": "StarklaneEscrow._withdrawFromEscrow violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls StarklaneEscrow._withdrawFromEscrow with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert StarklaneEscrow._withdrawFromEscrow produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "safetransfer",
+          "transfer"
+        ],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ark-project-2024-07-strict-eval/contracts/inscope/Escrow.sol",
+        "source_span": [
+          63,
+          89
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:StarklaneEscrow:_depositIntoEscrow:2",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "StarklaneEscrow._depositIntoEscrow",
+      "source_refs": "StarklaneEscrow._depositIntoEscrow function _depositIntoEscrow( CollectionType collectionType, address collection, uint256[] memory ids ) internal {",
+      "mechanism_hypothesis": "[T8] StarklaneEscrow._depositIntoEscrow: External value movement or supply manipulation may alter share price / exchange rate / proportional claims.",
+      "root_cause": "StarklaneEscrow._depositIntoEscrow function _depositIntoEscrow( CollectionType collectionType, address collection, uint256[] memory ids ) internal {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "StarklaneEscrow._depositIntoEscrow is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _depositIntoEscrow( CollectionType collectionType, address collection, ",
+      "victim_gainer": "victim = users/LPs of StarklaneEscrow (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in StarklaneEscrow via _depositIntoEscrow (value-moving op)",
+      "invariant_expected": "share<->asset conversion in StarklaneEscrow._depositIntoEscrow conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "StarklaneEscrow._depositIntoEscrow rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls StarklaneEscrow._depositIntoEscrow with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Can a first-depositor / donation / rounding-to-zero condition skew the share price or claims?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through StarklaneEscrow._depositIntoEscrow nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "safetransfer",
+          "transfer"
+        ],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ark-project-2024-07-strict-eval/contracts/inscope/Escrow.sol",
+        "source_span": [
+          26,
+          51
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:Starklane:depositTokens:3",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "Starklane.depositTokens",
+      "source_refs": "Starklane.depositTokens function depositTokens( uint256 salt, address collectionL1, snaddress ownerL2, uint256[] calldata ids, bool useAutoBurn ) external payable {",
+      "mechanism_hypothesis": "[T2] Starklane.depositTokens: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "Starklane.depositTokens function depositTokens( uint256 salt, address collectionL1, snaddress ownerL2, uint256[] calldata ids, bool useAutoBurn ) external payable {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "attacker calls Starklane.depositTokens with chosen inputs (function depositTokens( uint256 salt, address collectionL1, )",
+      "attacker_controlled_inputs": "msg.sender + args of function depositTokens( uint256 salt, address collectionL1, snaddress ownerL2, u",
+      "victim_gainer": "victim = users/LPs of Starklane (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in Starklane via depositTokens (value-moving op)",
+      "invariant_expected": "post-Starklane.depositTokens accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "Starklane.depositTokens leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls Starklane.depositTokens with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-Starklane.depositTokens accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "value-flow / invariant anomaly NOT visible from manifest metadata - needs value-flow derivation (CORE exploitability claim unresolved)",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=external, mutability=payable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'migration', 'permissions', 'token']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=external, mutability=payable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'migration', 'permissions', 'token']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ark-project-2024-07-strict-eval/contracts/inscope/Bridge.sol",
+        "source_span": [
+          78,
+          144
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:that:_consumeMessageAutoWithdraw:5",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "that._consumeMessageAutoWithdraw",
+      "source_refs": "that._consumeMessageAutoWithdraw function _consumeMessageAutoWithdraw( snaddress fromL2Address, uint256[] memory request ) internal {",
+      "mechanism_hypothesis": "[T2] that._consumeMessageAutoWithdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "that._consumeMessageAutoWithdraw function _consumeMessageAutoWithdraw( snaddress fromL2Address, uint256[] memory request ) internal {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "that._consumeMessageAutoWithdraw is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _consumeMessageAutoWithdraw( snaddress fromL2Address, uint256[] memory ",
+      "victim_gainer": "victim = users/LPs of that (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in that via _consumeMessageAutoWithdraw (value-moving op)",
+      "invariant_expected": "that._consumeMessageAutoWithdraw preserves the relevant protocol invariant",
+      "invariant_broken": "that._consumeMessageAutoWithdraw violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls that._consumeMessageAutoWithdraw with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert that._consumeMessageAutoWithdraw produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'migration']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=[], external_calls=False, has_loop=False, tags=['accounting', 'config', 'migration']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": true,
+        "state_markers": [
+          "status =="
+        ],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ark-project-2024-07-strict-eval/contracts/inscope/Messaging.sol",
+        "source_span": [
+          69,
+          90
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:UUPSOwnableProxied:_authorizeUpgrade:6",
+      "award_class": "ACCESS_CONTROL_AUTHORIZATION",
+      "contract_function": "UUPSOwnableProxied._authorizeUpgrade",
+      "source_refs": "UUPSOwnableProxied._authorizeUpgrade function _authorizeUpgrade( address ) internal override onlyOwner { }",
+      "mechanism_hypothesis": "[T4] UUPSOwnableProxied._authorizeUpgrade: Value/rewards/shares/debt/indexes/permissions may be lost, duplicated, or mispriced across old/new domains.",
+      "root_cause": "UUPSOwnableProxied._authorizeUpgrade function _authorizeUpgrade( address ) internal override onlyOwner { }",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "UUPSOwnableProxied._authorizeUpgrade is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _authorizeUpgrade( address ) internal override onlyOwner { }",
+      "victim_gainer": "unclear from manifest signals",
+      "state_value_liveness_delta": "state mutation in UUPSOwnableProxied._authorizeUpgrade",
+      "invariant_expected": "only an authorized principal may execute the state-changing path in UUPSOwnableProxied._authorizeUpgrade",
+      "invariant_broken": "an unauthorized caller mutates protected state via UUPSOwnableProxied._authorizeUpgrade",
+      "tx_sequence": [
+        "attacker calls UUPSOwnableProxied._authorizeUpgrade with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Across this conversion/migration/split/merge, is every unit and right conserved exactly?",
+      "refutation_result": "questions: Is there an internal/inherited guard not captured as a modifier? Is the mutated state actually sensitive?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert an unauthorized EOA can call UUPSOwnableProxied._authorizeUpgrade and change protected state that should be restricted",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=['onlyOwner'], external_calls=False, has_loop=False, tags=['config', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=['onlyOwner'], external_calls=False, has_loop=False, tags=['config', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "LOW",
+          "source_basis": "no value-movement signal"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ark-project-2024-07-strict-eval/contracts/inscope/UUPSProxied.sol",
+        "source_span": [
+          31,
+          37
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:Cairo:uint256ArraySerialize:7",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "Cairo.uint256ArraySerialize",
+      "source_refs": "Cairo.uint256ArraySerialize function uint256ArraySerialize( uint256[] memory arr, uint256[] memory buf, uint256 offset ) internal pure returns (uint256) {",
+      "mechanism_hypothesis": "[T9] Cairo.uint256ArraySerialize: Math/units/convergence boundary: decimal/scale/unit mismatch, iterative convergence failure, silent zero/fallback, rounding-direction or precision loss across token decimals.",
+      "root_cause": "Cairo.uint256ArraySerialize function uint256ArraySerialize( uint256[] memory arr, uint256[] memory buf, uint256 offset ) internal pure returns (uint256) {",
+      "affected_state_vars": "operator-to-derive (decimals/scale/precision/convergence)",
+      "attacker_model": "Cairo.uint256ArraySerialize is internal/pure - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function uint256ArraySerialize( uint256[] memory arr, uint256[] memory buf, uint",
+      "victim_gainer": "unclear from manifest signals",
+      "state_value_liveness_delta": "read-only - no state delta",
+      "invariant_expected": "share<->asset conversion in Cairo.uint256ArraySerialize conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "Cairo.uint256ArraySerialize rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls Cairo.uint256ArraySerialize with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable",
+      "runner_up_mechanism": null,
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Are all decimal/scale conversions exact and does the iterative solver always converge or revert (never silently return 0/stale)?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through Cairo.uint256ArraySerialize nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "runner_up_mechanism",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=pure, modifiers=[], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "LOW",
+          "source_basis": "mutability is view/pure"
+        },
+        "victim_gainer": {
+          "confidence": "LOW",
+          "source_basis": "no value-movement signal"
+        },
+        "terminality_or_amplification": {
+          "confidence": "LOW",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "+="
+        ],
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/ark-project-2024-07-strict-eval/contracts/inscope/sn/Cairo.sol",
+        "source_span": [
+          161,
+          181
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

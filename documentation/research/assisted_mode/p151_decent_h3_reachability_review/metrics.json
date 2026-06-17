@@ -1,0 +1,47 @@
+{
+  "phase": "P151",
+  "title": "Reachability/severity review for H3-decent-utbfeecollector-sigbind",
+  "type": "judgment_record_only",
+  "subject": {"bug_id": "H3-decent-utbfeecollector-sigbind", "target": "UTBFeeCollector.collectFees",
+              "audit": "decent-2024-01-holdout"},
+  "verdict": "DESIGN_PRIVILEGED_ONLY_NOT_EXTERNALLY_REACHABLE",
+  "reachability_verdict": "trusted_router_only_not_externally_reachable",
+  "severity_class": "design_privileged_only",
+  "mechanism_runtime_status": "runtime_confirmed",
+  "mechanism_vs_exploitability_separated": true,
+  "unprivileged_attacker_can_mismatch_fees": false,
+  "call_paths": {
+    "swapAndExecute": "UTB.sol:108-115 -> retrieveAndCollectFees(fees, abi.encode(instructions, fees), signature)",
+    "bridgeAndExecute": "UTB.sol:259-266 -> retrieveAndCollectFees(fees, abi.encode(instructions, fees), signature)",
+    "retrieveAndCollectFees_modifier": "UTB.sol:228-251 -> feeCollector.collectFees(:248)",
+    "receiveFromBridge": "UTB.sol:311-319 (no fee collection)",
+    "direct_collectFees": "UTBFeeCollector.sol:36 (onlyUtb)"
+  },
+  "signed_fields": ["instructions", "fees.bridgeFee", "fees.feeToken", "fees.feeAmount"],
+  "unsigned_fields": ["nonce", "chainid/domain", "FeeCollector/UTB contract address", "deadline", "payer(msg.sender)"],
+  "replay_side_finding": {"present": true, "amplifies_fee_mismatch": false, "severity": "undetermined",
+                          "needs_human_review": true},
+  "defense_in_depth_recommendation": "re-bind fees to packedInfo inside collectFees (belt-and-suspenders)",
+  "trace_test": {"attempted": false, "reason": "real-UTB swap trace needs WETH+ISwapper+executor+SwapParams mocks (>2); structural source proof is decisive and invariant"},
+  "duplicate_status": "duplicate_unknown",
+  "no_novelty_inference": true,
+  "files_touched": [
+    "output_research/value_provenance_eval/runtime_status.jsonl (H3 row enriched, data only)",
+    "tests/research/test_value_provenance_eval_harness.py (+2 tests)",
+    "documentation/research/assisted_mode/p151_decent_h3_reachability_review/ (deliverables)"
+  ],
+  "production_source_changed": false,
+  "harness_py_changed": false,
+  "prompt_baseline_byte_for_byte_unchanged": true,
+  "tests": {"research_tests_passed": 33, "full_passed": 1670, "prior_passed": 1668,
+            "pre_existing_fails": 2, "skipped": 4},
+  "integrity": {
+    "routing_allowed_all_false": true,
+    "submission_ready_all_false": true,
+    "h3_runtime_status_unchanged": true,
+    "active_audit_unchanged": "quantamm-2024-12-eval",
+    "harness_un_wired": true,
+    "external_docs_used": false
+  },
+  "submission_ready": false
+}

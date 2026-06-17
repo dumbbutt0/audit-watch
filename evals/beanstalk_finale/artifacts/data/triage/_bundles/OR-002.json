@@ -1,0 +1,101 @@
+{
+  "finding_id": "OR-002",
+  "title": "LibUsdOracle.getTokenPrice WSTETH branch drops lookback, always returns spot wstETH/USD",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibUsdOracle.sol",
+    "function": "getTokenPrice",
+    "line_start": 83,
+    "line_end": 87,
+    "code_snippet": "if (token == C.WSTETH) {\n    uint256 wstethUsdPrice = LibWstethUsdOracle.getWstethUsdPrice(0);\n    ..."
+  },
+  "description": "In getTokenPrice(token, lookback), the WETH branch (line 79) correctly forwards `lookback` to LibEthUsdOracle.getEthUsdPrice(lookback), but the WSTETH branch (line 84) hardcodes LibWstethUsdOracle.getWstethUsdPrice(0), discarding the caller-supplied lookback. Any caller asking for a TWAP wstETH price through getTokenPrice receives the instantaneous price instead. This is an independent dropped-lookback bug from OR-001 (different function, different token). getUsdPrice (line 56) does forward lookback for WSTETH, so the two sibling functions are inconsistent, confirming line 84 is an oversight, not intent.",
+  "impact": "TWAP requests for wstETH via getTokenPrice silently return spot, removing the intended smoothing. The Uniswap V3 wstETH:ETH leg inside LibWstethEthOracle is AMM-based, so forcing its short FIFTEEN_MINUTES window (spot path) rather than the requested longer lookback weakens manipulation resistance for that token relative to what the caller asked for.",
+  "ite": {
+    "intent": "getTokenPrice(WSTETH, lookback) returns a wstETH price averaged over the requested lookback.",
+    "technique": "Line 84 passes the literal 0 instead of the `lookback` parameter, so the TWA window is always the spot/15-minute default.",
+    "evasion": "The adjacent WETH branch and the sibling getUsdPrice both forward lookback, masking the single hardcoded 0."
+  },
+  "ice_chain": {
+    "corrupted_state": "return value of LibUsdOracle.getTokenPrice for WSTETH (spot returned when TWAP requested)",
+    "consumer_found": true,
+    "consumer_function": "OracleFacet.getTokenPrice(token,lookback) / UsdOracle.getTokenPrice / LibWell.getTwaLiquidity (getTokenPrice path)",
+    "consumer_action": "uses wstETH USD price for liquidity/pricing reads",
+    "severity_ceiling": "Medium",
+    "search_method": "manual_trace"
+  },
+  "source_slice": "53:             return uint256(1e24).div(ethUsdPrice);\n54:         }\n55:         if (token == C.WSTETH) {\n56:             uint256 wstethUsdPrice = LibWstethUsdOracle.getWstethUsdPrice(lookback);\n57:             if (wstethUsdPrice == 0) return 0;\n58:             return uint256(1e24).div(wstethUsdPrice);\n59:         }\n60: \n61:         // 1e18 * 1e6 = 1e24.\n62:         uint256 tokenPrice = getTokenPriceFromExternal(token, lookback);\n63:         if (tokenPrice == 0) return 0;\n64:         return uint256(1e24).div(tokenPrice);\n65:     }\n66: \n67:     function getTokenPrice(address token) internal view returns (uint256) {\n68:         return getTokenPrice(token, 0);\n69:     }\n70: \n71:     /**\n72:      * @notice returns the price of a given token in USD (token:Usd Price)\n73:      * @dev if ETH returns 1000 USD, this function returns 1000\n74:      * (ignoring decimal precision)\n75:      */\n76:     function getTokenPrice(address token, uint256 lookback) internal view returns (uint256) {\n77:         // oracles that are implmented within beanstalk should be placed here.\n78:         if (token == C.WETH) {\n79:             uint256 ethUsdPrice = LibEthUsdOracle.getEthUsdPrice(lookback);\n80:             if (ethUsdPrice == 0) return 0;\n81:             return ethUsdPrice;\n82:         }\n83:         if (token == C.WSTETH) {\n84:             uint256 wstethUsdPrice = LibWstethUsdOracle.getWstethUsdPrice(0);\n85:             if (wstethUsdPrice == 0) return 0;\n86:             return wstethUsdPrice;\n87:         }\n88: \n89:         // tokens that use the default chainlink oracle implementation,\n90:         // or a custom oracle implementation are called here.\n91:         return getTokenPriceFromExternal(token, lookback);\n92:     }\n93: \n94:     /**\n95:      * @notice gets the token price from an external oracle.\n96:      * @dev if address is 0, use the current contract.\n97:      * If encodeType is 0x01, use the default chainlink implementation.\n98:      * Returns 0 rather than reverting if the call fails.\n99:      */\n100:     function getTokenPriceFromExternal(\n101:         address token,\n102:         uint256 lookback\n103:     ) internal view returns (uint256 tokenPrice) {\n104:         AppStorage storage s = LibAppStorage.diamondStorage();\n105:         Implementation memory oracleImpl = s.sys.oracleImplementation[token];\n106: \n107:         // If the encode type is type 1, use the default chainlink implementation instead.\n108:         // `target` refers to the address of the price aggergator implmenation\n109:         if (oracleImpl.encodeType == bytes1(0x01)) {\n110:             // if the address in the oracle implementation is 0, use the chainlink registry to lookup address\n111:             address chainlinkOraclePriceAddress = oracleImpl.target;\n112:             if (chainlinkOraclePriceAddress == address(0)) {\n113:                 // use the chainlink registry\n114:                 chainlinkOraclePriceAddress = ChainlinkPriceFeedRegistry(chainlinkRegistry).getFeed(\n115:                         token,\n116:                         0x0000000000000000000000000000000000000348\n117:                     ); // 0x0348 is the address for USD",
+  "gate_verdict": {
+    "finding_id": "OR-002",
+    "severity": "Medium",
+    "vuln_type": "oracle-manipulation",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.543158+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

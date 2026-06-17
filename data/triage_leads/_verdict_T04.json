@@ -1,0 +1,41 @@
+{
+  "group_id": "T-04-InitInvariants",
+  "verdicts": [
+    {
+      "id": "DPF-042",
+      "lead": "function:InitInvariants:setInternalTokenBalances",
+      "verdict": "needs_fork_poc",
+      "attacker_entrypoint": "Not an attacker entrypoint. setInternalTokenBalances() is internal; reachable only via init() which is delegatecalled by the owner-gated diamondCut during the L2 reseed migration. The bug is a deployment/configuration correctness issue, not a permissionless exploit. Effect is observed afterward on ANY external state-changing function that carries the fundsSafu modifier.",
+      "preconditions": [
+        "init() executed via diamondCut during reseed (owner action).",
+        "The four hardcoded internalTokenBalanceTotal values (BEAN=115611612399, BEAN_ETH_WELL=0, UNRIPE_BEAN=9001888, UNRIPE_LP=12672419462) diverge from the true internal-balance totals at the actual reseed snapshot block.",
+        "fundsSafu invariant is active on the post-reseed facets (it is, per Invariable.fundsSafu)."
+      ],
+      "state_before": "s.sys.internalTokenBalanceTotal[token] holds the hardcoded placeholder value for BEAN / BEAN_ETH_WELL / UNRIPE_BEAN / UNRIPE_LP set at init.",
+      "state_after": "getTokenEntitlementsAndBalances() line 181 ADDS internalTokenBalanceTotal[token] into entitlements[i]. fundsSafu (line 43) requires balances[i] >= entitlements[i]. If a placeholder is set TOO HIGH relative to the true snapshot, entitlement > on-chain balance and EVERY fundsSafu-guarded external tx reverts ('INV: Insufficient token balance') => protocol-wide brick. If set TOO LOW, the safety floor is silently understated and the funds-safety guarantee is weakened.",
+      "impact_hypothesis": "Hardcoded placeholder baselines (explicit file-level comment line 12: 'Values are arbitrary placeholders. Need to be populated with correct values at a snapshot point.', plus TODO at line 32) feed directly into the fundsSafu entitlement sum. Wrong-high => permanent DoS of all guarded write functions until owner re-inits; wrong-low => weakened invariant enforcement. Correctness is 100% dependent on the off-chain reseed snapshot, which is not present in these source files, so it cannot be confirmed statically.",
+      "severity_ceiling": "High",
+      "min_poc_plan": "Fork-based: (1) deploy diamond + run reseed flow incl. InitInvariants.init, (2) read actual on-chain post-reseed token balanceOf(diamond) for BEAN/UNRIPE_BEAN/UNRIPE_LP/BEAN_ETH_WELL, (3) recompute entitlements[i] per getTokenEntitlementsAndBalances and assert each balances[i] >= entitlements[i]. L2 (vm.load the internalTokenBalanceTotal slots vs balanceOf) + L3 (call any fundsSafu function e.g. a deposit/transfer and assert revert reason 'INV: Insufficient token balance' for the brick case, or assert the floor is below true entitlement for the weakened case). PoC only meaningful with the real reseed snapshot numbers; with mock/zero state it cannot prove divergence.",
+      "duplicate_check": "Access-control aspect (init has no modifier, owner-gated only via diamondCut) duplicates SG-004 and is NOT the claim here. The baseline-correctness / fundsSafu-divergence claim is novel vs SG-004, PC-001, US-001 (different storage). Storage slot (internalTokenBalanceTotal mapping) distinct from PC-001/US-001.",
+      "reasoning_summary": "Confirmed in code: explicit 'arbitrary placeholders' NOTE (line 12) + TODO (line 32); values are real hardcoded literals that flow into fundsSafu entitlements via getTokenEntitlementsAndBalances line 181. Direction of impact (brick vs weakened) and whether it actually fires depend on the true reseed snapshot totals, which are produced off-chain / by other Reseed* facets not in scope of these two files. Cannot be confirmed or refuted statically => needs_fork_poc, not insufficient_evidence (the placeholder mechanism and its enforcement path are fully proven). Do not overclaim: no proof yet that the hardcoded numbers are actually wrong."
+    },
+    {
+      "id": "DPF-043",
+      "lead": "initializer:InitInvariants:init",
+      "verdict": "needs_fork_poc",
+      "attacker_entrypoint": "init() is external with no access modifier, but as a stand-alone deployed contract its own storage (its own AppStorage s) is meaningless; it only mutates the diamond's AppStorage when DELEGATECALLED via the owner-gated LibDiamond diamondCut init hook. A direct EOA call to the deployed InitInvariants address writes to that throwaway contract's storage, not the diamond, so there is no permissionless exploit. Effective entrypoint = owner reseed.",
+      "preconditions": [
+        "init() delegatecalled during reseed by owner.",
+        "fert.fertilizedPaidIndex hardcoded to 3_500_000_000_000 and sop.plentyPerSopToken[WETH] hardcoded to 0 diverge from true snapshot.",
+        "fert.fertilizedIndex set independently (ReseedBarn.sol line 67) from the real snapshot — its relationship to the hardcoded fertilizedPaidIndex is what determines correctness."
+      ],
+      "state_before": "s.sys.fert.fertilizedPaidIndex = 3_500_000_000_000 (TODO line 24 'Get exact from future snapshot'); s.sys.sop.plentyPerSopToken[C.WETH] = 0 (TODO line 27 re migrating old unclaimed plenty). fertilizedIndex set separately by ReseedBarn.",
+      "state_after": "For BEAN, entitlements get += (fertilizedIndex - fertilizedPaidIndex + leftoverBeans) at Invariable lines 184-186. If hardcoded fertilizedPaidIndex > the reseed-set fertilizedIndex, the subtraction (uint256, checked math under solc 0.8.20 / LibRedundantMath) UNDERFLOWS and reverts inside getTokenEntitlementsAndBalances => every fundsSafu tx reverts (brick). If fertilizedPaidIndex set too LOW, the rinsable-Bean entitlement is overstated => possible balance < entitlement => brick, or if understated entitlement => weakened safety. plentyPerSopToken[WETH]=0 (line 194 add) ignores any real unclaimed plenty owed in WETH, understating the WETH entitlement floor (weakened safety / potential SOP accounting loss).",
+      "impact_hypothesis": "Two hardcoded TODO baselines feed the BEAN and WETH entitlement computations enforced on every guarded write. Wrong fertilizedPaidIndex (esp. > fertilizedIndex) => underflow revert / protocol brick; plenty reset to 0 => unclaimed WETH plenty silently dropped from the safety floor. Whether these literals match the actual reseed snapshot is not determinable from source.",
+      "severity_ceiling": "High",
+      "min_poc_plan": "Fork-based: run full reseed (ReseedBarn sets fertilizedIndex from snapshot, InitInvariants sets fertilizedPaidIndex/plenty). L2: vm.load fert.fertilizedIndex and fert.fertilizedPaidIndex; assert fertilizedIndex >= fertilizedPaidIndex (else underflow). L3: invoke any fundsSafu-guarded function and (a) for underflow case assert revert, or (b) compute BEAN entitlement and compare to balanceOf(diamond); separately check WETH plenty migration to show plentyPerSopToken[WETH]=0 drops real unclaimed plenty. Requires true snapshot values for fertilizedIndex/fertilizedPaidIndex and any outstanding plenty.",
+      "duplicate_check": "Missing-modifier-on-init aspect duplicates SG-004 (access control) — excluded here. The baseline/snapshot-correctness and underflow-brick claim is novel. Distinct storage from PC-001/US-001.",
+      "reasoning_summary": "Code confirms init() is no-modifier external but only effective via owner diamondCut delegatecall (LibDiamond imported). Both literals are explicit TODO placeholders (lines 24,27). fertilizedPaidIndex flows into a uint256 subtraction (fertilizedIndex - fertilizedPaidIndex) under checked arithmetic — a too-high value underflow-reverts and bricks fundsSafu; plentyPerSopToken[WETH]=0 understates WETH safety floor. fertilizedIndex is set elsewhere (ReseedBarn) from the snapshot, so correctness hinges on off-chain reseed data absent from these files. Mechanism and enforcement path proven; actual divergence requires fork => needs_fork_poc. No overclaim: not asserting the numbers are definitively wrong, only that they are unverified placeholders on a safety-critical, every-tx code path."
+    }
+  ]
+}

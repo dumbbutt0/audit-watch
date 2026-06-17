@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Blind-to-Reproducible Funnel — research surface</title>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a; --txt:#dfe3ea; --muted:#8b93a3;
+    --accent:#5b9dff; --good:#36b37e; --warn:#e2b341; --bad:#e5707e; --info:#9a7dff;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:14px/1.55 system-ui,Segoe UI,Roboto,sans-serif; }
+  header { padding:12px 18px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  a { color:var(--accent); }
+  .badge { font-size:11px; padding:2px 8px; border-radius:10px; border:1px solid var(--line); color:var(--muted); }
+  .badge.ok { color:var(--good); border-color:var(--good); }
+  main { padding:16px 22px; }
+  h2.sec { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--accent); margin:18px 0 8px; border-bottom:1px solid var(--line); padding-bottom:4px; }
+  /* metrics strip */
+  .metrics { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; }
+  .metric { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .metric .l { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .metric .v { font-size:22px; font-weight:700; }
+  .metric.hi .v { color:var(--good); }
+  .blockers { background:var(--panel2); border-left:3px solid var(--warn); padding:8px 12px; margin:8px 0; font-size:12px; }
+  .blockers .b { display:flex; justify-content:space-between; border-bottom:1px dotted var(--line); padding:2px 0; }
+  /* table */
+  table.fn { width:100%; border-collapse:collapse; font-size:12px; margin:6px 0; }
+  table.fn th, table.fn td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  table.fn th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.04em; position:sticky; top:0; background:var(--bg); }
+  table.fn tr:hover td { background:var(--panel); }
+  .pill { font-size:10px; padding:1px 7px; border-radius:9px; border:1px solid var(--line); color:var(--muted); white-space:nowrap; display:inline-block; }
+  .pill.repro { color:var(--good); border-color:var(--good); }
+  .pill.partial { color:var(--warn); border-color:var(--warn); }
+  .pill.notrepro,.pill.blocked { color:var(--bad); border-color:var(--bad); }
+  .pill.clean { color:var(--good); border-color:var(--good); }
+  .pill.adj { color:var(--info); border-color:var(--info); }
+  .pill.rej { color:var(--muted); }
+  .pill.gated { color:var(--warn); border-color:var(--warn); }
+  .pill.ctrl { color:var(--info); border-color:var(--info); }
+  /* reject-first submission badges */
+  .subbadge { font-size:10px; padding:1px 7px; border-radius:9px; display:inline-block; white-space:nowrap; }
+  .sub-NOT_STARTED { color:var(--muted); border:1px solid var(--line); }
+  .sub-DRAFTING { color:var(--info); border:1px solid var(--info); }
+  .sub-READY_FOR_HUMAN_REVIEW { color:var(--warn); border:1px solid var(--warn); }
+  .sub-BLOCKED { color:var(--bad); border:1px solid var(--bad); }
+  .sub-SUBMITTED { color:var(--good); border:1px solid var(--good); }
+  .notsubmitted { margin-top:3px; font-size:10px; color:var(--warn); }
+  .cmd { font-family:var(--mono); font-size:11px; color:var(--good); word-break:break-all; }
+  .muted { color:var(--muted); }
+  .src { font-family:var(--mono); font-size:11px; }
+  .legend { font-size:11px; color:var(--muted); margin:6px 0; }
+  details summary { cursor:pointer; color:var(--muted); font-size:11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Blind-to-Reproducible Funnel</h1>
+  <span class="badge">research_only:true</span>
+  <span class="badge">routes_in_production:false</span>
+  <span class="badge ok">read-only</span>
+  <span style="flex:1"></span>
+  <a href="/candidates">candidate detail →</a>
+  <a href="/validation">validation console →</a>
+  <a href="/">← dashboard</a>
+</header>
+<main>
+  <p class="legend">
+    Tracks a finding through: Lead surfaced → Investigation safe → Converted → Severity gated →
+    PoC handoff → <b>Reproduced</b> → Submission package → Human review → Submitted.
+  </p>
+  <details class="legend" open style="border:1px solid var(--line); border-radius:8px; padding:8px 12px; margin:8px 0;">
+    <summary style="cursor:pointer; font-weight:700;">How to read this page (legend)</summary>
+    <ul style="margin:8px 0 4px; padding-left:18px; line-height:1.5;">
+      <li><b>REPRODUCED does not mean SUBMITTED.</b> An executable PoC existing only proves the bug — nothing was sent.</li>
+      <li><b>READY_FOR_HUMAN_REVIEW = human action required.</b> Open the evidence, rerun the PoC, work the human gate.</li>
+      <li><b>SUBMITTED appears only from an explicit human outcome record</b> — it is never inferred from "ready".</li>
+      <li><b>Scope, duplicate, and program severity are human-owned checks</b> — shown PENDING until a human clears them.</li>
+      <li><b>Trust signals:</b> <b>Sev FP (post-gate)</b> and <b>Controls mis-promoted</b> must stay <b>0</b>. If either is non-zero, stop and investigate before trusting the page.</li>
+    </ul>
+    <p class="muted" style="margin:6px 0 0; font-size:11px;">
+      Operational: after code changes, restart <code>python scripts/dashboard.py</code> and hard-refresh
+      <code>/funnel</code> to clear stale server modules and cached JS.
+    </p>
+  </details>
+
+  <h2 class="sec">Funnel metrics</h2>
+  <div class="metrics" id="metrics"><p class="muted">Loading…</p></div>
+  <div class="blockers" id="blockers" style="display:none"></div>
+
+  <h2 class="sec">Findings</h2>
+  <div id="scopeBar" style="display:flex; align-items:center; gap:8px; margin:6px 0 10px;"></div>
+  <div style="overflow:auto">
+    <table class="fn" id="fnTable">
+      <thead><tr>
+        <th>Subject</th><th>Phase</th><th>Finding</th><th>Contract.fn</th>
+        <th>Source / assisted status</th>
+        <th>Blind rank / score</th><th>Conversion</th><th>Mechanism</th><th>Severity gate</th>
+        <th>Adversarial</th><th>Pipeline status</th><th>PoC</th><th>Submission</th>
+        <th>Human gate / outcome</th>
+        <th>Blocker</th><th>Artifacts</th>
+      </tr></thead>
+      <tbody id="fnBody"><tr><td colspan="16" class="muted">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+<script src="/static/funnel.js?v=p100-metric-sync"></script>
+</body>
+</html>

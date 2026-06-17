@@ -1,0 +1,145 @@
+{
+  "agent": "access_control",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-28T23:45:00+00:00",
+  "findings": [
+    {
+      "id": "AC-001",
+      "title": "L2 migration redeem lacks nonce: signed redemption replayable to re-credit stalk",
+      "severity": "High",
+      "vuln_type": "signature-replay",
+      "description": "L2ContractMigrationFacet.redeemDepositsAndInternalBalances() (L88) is a permissionless function: any operator may call it for any L1 `owner` whose (owner, deposits, internalBalances, ownerRoots) leaf is in the hardcoded MERKLE_ROOT, supplying the owner's L1 EIP-712 signature over (owner, receiver, deadline). Authorization is therefore (a) a valid merkle proof and (b) a valid owner signature. Neither the signature digest (REDEEM_DEPOSIT_TYPE_HASH over owner/receiver/deadline only, L45-48, L143-145) nor the function body contains any nonce or one-time `migrated[owner]` guard. After a successful redemption nothing is recorded that prevents re-execution. Because the credit step setStalk() (L205-211) accumulates with `+=` (s.accts[account].stalk += accountStalk; s.accts[account].roots += accountRoots;), the identical calldata (proof + signature + deposits) can be replayed an arbitrary number of times until `deadline`, each call adding another full copy of accountStalk and ownerRoots to the receiver. A grep of the entire active codebase confirms there is no `migrated` mapping or nonce store guarding this owner (only the type-hash string and the function itself reference the name). The operator chooses `receiver` only within the bounds the signature allows, but the owner — or an operator front-running/observing the owner's published signature within the live deadline window — can inflate the receiver's stalk (governance weight) and roots (yield share) far beyond the migrated position.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "redeemDepositsAndInternalBalances",
+        "line_start": 88,
+        "line_end": 114,
+        "code_snippet": "verifySignature(owner, reciever, deadline, signature); ... setStalk(reciever, accountStalk, ownerRoots);  // setStalk: s.accts[account].stalk += accountStalk; s.accts[account].roots += accountRoots; -- no nonce, no migrated flag"
+      },
+      "impact": "Stalk and roots (Beanstalk governance weight + yield/Earned-Bean share) can be minted to an attacker-chosen L2 receiver an unbounded number of times by replaying one valid migration signature+proof within the deadline window, breaking the conservation invariant between migrated L1 deposits and credited L2 stalk/roots and diluting all honest stalk holders.",
+      "proof_of_concept": "1. Obtain (or observe on-chain) one valid owner signature + merkle proof for a redemption to receiver R (the owner legitimately publishes it, or it is captured from the mempool before its deadline). 2. Call redeemDepositsAndInternalBalances(owner, R, deposits, internalBalances, ownerRoots, proof, deadline, signature) — succeeds, crediting R with accountStalk/ownerRoots. 3. Call the EXACT same transaction again (and again) before `deadline`; verifySignature and verifyDepositsAndInternalBalances both pass identically because nothing was consumed; setStalk adds another full copy each time. Assert s.accts[R].stalk grows by accountStalk per replay.",
+      "recommendation": "Record a per-owner one-time consumption guard before crediting: e.g. require(!s.sys.migration.redeemed[owner]) then set it true inside redeemDepositsAndInternalBalances (or include and increment a nonce in REDEEM_DEPOSIT_TYPE_HASH). A single boolean `migrated[owner]` is sufficient since each owner redeems exactly once.",
+      "references": [
+        {"title": "57279 [SC-High] Signature replayability: repeated use of signed tokens allows duplicate mints (Belong)", "url": "https://reports.immunefi.com/belong", "source": "other"},
+        {"title": "57373 [SC-Medium] Signature replay due to missing nonce and deadline checks (Belong)", "url": "https://reports.immunefi.com/belong/57373", "source": "other"}
+      ],
+      "confidence": "High",
+      "attack_surface_rank": 4,
+      "human_review_required": true,
+      "human_review_reason": "Migration-only facet active during a bounded post-reseed window; needs human confirmation of (a) whether the live MERKLE_ROOT will be a real populated root (current value is a `todo` placeholder) and (b) whether the receiver re-credit is economically realizable before deadline given operational deployment plan.",
+      "cross_agent_refs": ["BSA-002"],
+      "ite": {
+        "intent": "Mint unbounded stalk and roots to an attacker-chosen L2 receiver by reusing a single valid L1 migration signature+merkle proof.",
+        "technique": "redeemDepositsAndInternalBalances (L88) verifies only signature (L104) and merkle proof (L101); setStalk (L206-207) credits with `+=`; with no nonce/migrated flag the identical calldata is replayed until `deadline`, each call adding another accountStalk+ownerRoots.",
+        "evasion": "Developer intended the EIP-712 signature + deadline + merkle proof as the authorization. The gap: a deadline bounds the window but does NOT make a signature single-use, and the merkle proof is reusable; the missing nonce/migrated guard turns a one-time migration into a repeatable credit."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[receiver].stalk and s.accts[receiver].roots",
+        "consumer_found": true,
+        "consumer_function": "setStalk / silo governance + earned-bean accounting reads of s.accts[].stalk and .roots",
+        "consumer_action": "grants the receiver inflated governance voting weight and yield/Earned-Bean share proportional to credited stalk/roots",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      }
+    },
+    {
+      "id": "AC-002",
+      "title": "LibTractor domain separator uses BLUEPRINT_TYPE_HASH not EIP712Domain typehash",
+      "severity": "Low",
+      "vuln_type": "signature-replay",
+      "description": "LibTractor._domainSeparatorV4() (LibTractor.sol#173-184) builds the EIP-712 domain separator with BLUEPRINT_TYPE_HASH as its first encoded field instead of the EIP712Domain typehash (the file defines EIP712_TYPE_HASH at L24-27 but never uses it). The separator is internally consistent — the same (wrong) value is used both when the contract computes _getBlueprintHash for verification and there is no second producer on-chain — so signatures created via getBlueprintHash() still verify and CANNOT be forged; this is not an on-chain auth bypass. The defect is EIP-712 non-compliance: a standard wallet signing the Tractor typed data via eth_signTypedData computes the correct EIP712Domain-based separator, producing a signature that FAILS verifyRequisition (TractorFacet.sol#32-41). Conversely the sibling L2ContractMigrationFacet._domainSeparatorV4 (L230-241) correctly uses EIP712_TYPE_HASH, confirming this is an unintended inconsistency in LibTractor.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/LibTractor.sol",
+        "function": "_domainSeparatorV4",
+        "line_start": 173,
+        "line_end": 184,
+        "code_snippet": "return keccak256(abi.encode(BLUEPRINT_TYPE_HASH, TRACTOR_HASHED_NAME, TRACTOR_HASHED_VERSION, C.getChainId(), address(this)));  // should be EIP712_TYPE_HASH"
+      },
+      "impact": "Blueprints signed with standard EIP-712 tooling are rejected (operational/integration breakage); no signature forgery or fund loss. Off-chain signers must replicate the non-standard separator to interoperate with TractorFacet.",
+      "recommendation": "Replace BLUEPRINT_TYPE_HASH with EIP712_TYPE_HASH in _domainSeparatorV4() so the domain separator matches the EIP-712 spec and standard wallet signing.",
+      "references": [
+        {"title": "[M-10] Wrong DOMAIN_SEPARATOR (Rubicon, Code4rena)", "url": "https://code4rena.com/reports/2022-05-rubicon", "source": "solodit"},
+        {"title": "EIP-712: Typed structured data hashing and signing", "url": "https://eips.ethereum.org/EIPS/eip-712", "source": "eip"}
+      ],
+      "confidence": "High",
+      "attack_surface_rank": 3,
+      "ite": {
+        "intent": "No attacker gain — interoperability/correctness defect; a standard-wallet-signed blueprint is unverifiable so Tractor cannot authorize it.",
+        "technique": "_domainSeparatorV4 encodes BLUEPRINT_TYPE_HASH (L177) as the domain typehash; verifyRequisition recomputes the same wrong separator, so only signatures produced against this non-standard separator pass.",
+        "evasion": "Developer intended an EIP-712 compliant domain separator (EIP712_TYPE_HASH is declared) but referenced the wrong constant; because it is symmetric on-chain, verification still works for matching signers — the gap is external compliance, not auth."
+      },
+      "ice_chain": {
+        "corrupted_state": "EIP-712 domain separator value used for Tractor blueprint signing",
+        "consumer_found": true,
+        "consumer_function": "TractorFacet.verifyRequisition / ECDSA.recover",
+        "consumer_action": "rejects standard-tooling signatures; accepts only signatures over the non-standard separator (no forgery)",
+        "severity_ceiling": "Low",
+        "search_method": "manual_trace"
+      }
+    },
+    {
+      "id": "AC-003",
+      "title": "UnwrapAndSendETH sweeps full WETH balance to any caller-supplied address",
+      "severity": "Low",
+      "vuln_type": "access-control",
+      "description": "UnwrapAndSendETH.unwrapAndSendETH(address to) (UnwrapAndSendETH.sol#26-32) is an unguarded external function that unwraps the contract's ENTIRE WETH balance and forwards address(this).balance to a fully caller-supplied `to` (L30, slither arbitrary-send-eth). This is a standalone pipeline junction, not a Beanstalk facet and not delegatecalled by the diamond, so it never holds Beanstalk protocol funds and is designed to be used atomically inside a single pipe with no resting balance. The residual risk is purely junction-local: any WETH transiently left in the junction between pipe calls (e.g. a user who funds it but reverts before sweeping, or an over-funded pipe) is claimable by any account that calls unwrapAndSendETH(attacker) first. No diamond ETH or approvals are reachable through this path.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/pipeline/junctions/UnwrapAndSendETH.sol",
+        "function": "unwrapAndSendETH",
+        "line_start": 26,
+        "line_end": 32,
+        "code_snippet": "uint256 wethBalance = IWETH(WETH).balanceOf(address(this)); ... IWETH(WETH).withdraw(wethBalance); (bool success, ) = to.call{value: address(this).balance}(new bytes(0));"
+      },
+      "impact": "Any WETH/ETH left resting in the UnwrapAndSendETH junction outside an atomic pipe can be stolen by any caller. No effect on Beanstalk diamond balances or user approvals to the diamond.",
+      "recommendation": "Document the no-resting-balance assumption explicitly; for defense-in-depth, restrict the sweep to amounts/recipients tied to the active pipe context or require the junction to be entered only via Pipeline within the same call frame.",
+      "references": [
+        {"title": "Pipeline: assets left between transactions are claimable by anyone (Pipeline.sol#15 NatSpec)", "url": "", "source": "docs"}
+      ],
+      "confidence": "High",
+      "attack_surface_rank": 3,
+      "ite": {
+        "intent": "Steal WETH transiently parked in the UnwrapAndSendETH junction by being the first to call its full-balance sweep.",
+        "technique": "Call unwrapAndSendETH(attacker) directly (UnwrapAndSendETH.sol#26): it withdraws the junction's whole WETH balance and sends address(this).balance to the attacker-supplied `to`.",
+        "evasion": "Intended to be used only atomically within a pipe so the junction balance is always 0 between calls; the gap is any leftover balance becomes a permissionless claim, matching Pipeline's documented 'left assets are claimable' model."
+      },
+      "ice_chain": {
+        "corrupted_state": "ETH/WETH balance held by the UnwrapAndSendETH junction contract",
+        "consumer_found": true,
+        "consumer_function": "to.call{value: address(this).balance}",
+        "consumer_action": "transfers the junction's entire ETH balance to an attacker-chosen address",
+        "severity_ceiling": "Low",
+        "search_method": "manual_trace"
+      }
+    },
+    {
+      "id": "AC-004",
+      "title": "Arbitrary-send sinks non-exploitable: all callers authenticate sender",
+      "severity": "Informational",
+      "vuln_type": "access-control",
+      "description": "Resolution of the High slither arbitrary-send-erc20 / arbitrary-send-eth flags from the access-control angle. (1) LibTransfer.transferToken/receiveToken take a `sender` parameter used as the safeTransferFrom `from` (LibTransfer.sol#39,64). Every active (non-L1-migration) caller was traced: MarketplaceFacet.fillPodListing (L36-38) and createPodOrder (L70), SiloFacet.deposit (L57), and TokenFacet.transferToken (L60) all pass LibTractor._user() (the authenticated publisher/msg.sender). The ONLY caller that forwards a raw `sender` param is TokenFacet.transferInternalTokenFrom (L67-86), and it is guarded: it uses From.INTERNAL (moves the sender's Beanstalk internal balance, not an external ERC20 approval) and, when sender != _user(), calls LibTokenApprove.spendAllowance(sender, _user(), token, amount) which reverts on insufficient allowance (LibTokenApprove.sol#36-42). No path forwards an attacker-controlled `from` without an allowance. (2) LibEth.refundEth (LibEth.sol#15-21) sends address(this).balance to msg.sender but is gated by s.sys.isFarm != 2 so it cannot fire mid-farm; it refunds leftover msg.value at the end of a single farm/pipe call frame (FarmFacet withEth, DepotFacet etherPipe/advancedPipe). (3) Pipeline._pipeMem arbitrary-send-eth executes in Pipeline's own standalone context (DepotFacet calls it via plain external call to a fixed PIPELINE address, NOT delegatecall), so it can only move the ETH the caller supplied, never diamond funds. Tractor was also reviewed: tractor() sets activePublisher to the signed blueprint.publisher and executes only the publisher-signed AdvancedFarmCall[]; the operator can paste only operator-supplied bytes into publisher-authorized positions (operatorPasteInstrs are part of the signed hash), and _setPublisher reverts on nesting (LibTractor.sol#95), so an operator cannot make the protocol act as the publisher beyond the signed scope.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Token/LibTransfer.sol",
+        "function": "transferToken",
+        "line_start": 29,
+        "line_end": 45
+      },
+      "impact": "None — documents that the High static arbitrary-send flags are call-site mitigated; recorded so triage does not re-open them as exploitable.",
+      "recommendation": "No change required. Retain the convention that every LibTransfer caller passes LibTractor._user() (or enforces spendAllowance for a non-_user sender). Add a code comment / lint rule asserting this for any future caller.",
+      "references": [],
+      "confidence": "High",
+      "attack_surface_rank": 4,
+      "invalidation_tags": ["already_guarded"],
+      "ite": {
+        "intent": "(Non-issue) Would-be arbitrary safeTransferFrom from an arbitrary approver / arbitrary ETH drain — verified unreachable.",
+        "technique": "Slither flags LibTransfer.*(sender) and LibEth/Pipeline ETH sends; every active call site passes _user(), enforces spendAllowance, gates on isFarm, or runs in Pipeline's own balance-less context.",
+        "evasion": "Defense is the call-site convention (sender == _user()) plus the internal-balance allowance check and the isFarm refund gate; no gap found."
+      },
+      "ice_chain": {
+        "corrupted_state": "none (no attacker-controlled from/recipient reaches a sink)",
+        "consumer_found": false,
+        "severity_ceiling": "Informational",
+        "search_method": "static_search"
+      }
+    }
+  ]
+}

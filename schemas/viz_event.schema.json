@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VizEvent",
+  "description": "Single visualization event emitted by a pipeline stage. Appended to data/sessions/{id}/events.jsonl.",
+  "type": "object",
+  "required": ["event_id", "event_type", "timestamp", "source_agent", "audit_session_id"],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "UUID v4 — uniquely identifies this event",
+      "format": "uuid"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "HYPOTHESIS_BORN",
+        "BRANCH_CREATED",
+        "EVIDENCE_ATTACHED",
+        "CONFIDENCE_SHIFT",
+        "BRANCH_INVALIDATED",
+        "EXPLOIT_PROVED",
+        "EXPLOIT_FAILED",
+        "KB_MATCH",
+        "AGENT_SPAWNED",
+        "TRIAGER_DECISION",
+        "SESSION_START",
+        "SESSION_END",
+        "HUMAN_ANNOTATE",
+        "NODE_SUPPRESSED"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp when this event was emitted"
+    },
+    "source_agent": {
+      "type": "string",
+      "description": "Name of the pipeline script or agent that emitted this event"
+    },
+    "target_node_id": {
+      "type": ["string", "null"],
+      "description": "ID of the graph node this event affects (HYP-xxx, BR-xxx, EV-xxx). Auto-generated if not provided.",
+      "default": null
+    },
+    "audit_session_id": {
+      "type": "string",
+      "description": "Session ID tying all events in one audit run together"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Event-specific data. Schema varies by event_type.",
+      "additionalProperties": true
+    }
+  },
+  "if": { "properties": { "event_type": { "const": "HYPOTHESIS_BORN" } } },
+  "then": {
+    "properties": {
+      "payload": {
+        "type": "object",
+        "properties": {
+          "hypothesis_text": { "type": "string" },
+          "exploit_class": { "type": "string" },
+          "severity_ceiling": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+          "linked_contracts": { "type": "array", "items": { "type": "string" } },
+          "label": { "type": "string" }
+        }
+      }
+    }
+  }
+}

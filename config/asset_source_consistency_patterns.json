@@ -1,0 +1,30 @@
+{
+  "_doc": "Signals for the asset-source vs amount-origin consistency lens. Two-signal, FP-tight: flags a function that references >=2 distinct asset-source FAMILIES and transfers/accounts using a source different from where the amount was derived. Derived from Recall H-05 (leave transfers genesisBalance — a supply amount — out of collateralSource) and DT-002.",
+
+  "source_families": {
+    "collateral": ["collateralSource", "\\bcollateral\\b", "totalConfirmedCollateral", "confirmedCollateral"],
+    "supply":     ["supplySource", "genesisBalance", "genesisCircSupply", "\\bcircSupply\\b", "\\bsupply\\b"],
+    "native":     ["msg\\.value", "BURNT_FUNDS", "sendValue", "payable\\(.*\\)\\.transfer"],
+    "token":      ["IERC20", "safeTransferFrom", "\\btokenAmount\\b", "\\.transferFrom\\s*\\("]
+  },
+
+  "transfer_call_signals": [
+    "(\\w+)\\.transferFunds\\s*\\(", "(\\w+)\\.lock\\s*\\(", "(\\w+)\\.sendValue\\s*\\(",
+    "(\\w+)\\.safeTransfer\\s*\\(", "(\\w+)\\.transfer\\s*\\("
+  ],
+
+  "accounting_signals": [
+    "\\+=", "-=", "circSupply", "genesisCircSupply", "\\.stake\\b", "totalConfirmedCollateral"
+  ],
+
+  "categories": {
+    "source_family_mismatch": {
+      "description": "Amount derived from one asset-source family but transferred/accounted from another (e.g. genesisBalance/supply paid out of collateralSource).",
+      "severity_ceiling_hint": "High"
+    },
+    "value_kind_exclusion": {
+      "description": "A value-bearing cross-message excludes or double-counts one call kind in the supply/accounting decrement.",
+      "severity_ceiling_hint": "High"
+    }
+  }
+}

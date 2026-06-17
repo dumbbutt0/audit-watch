@@ -1,0 +1,18 @@
+{
+  "lens": "connector_position_accounting",
+  "enabled": true,
+  "description": "Narrow first slice (NOYA 2024-04). Three NAME-GATED, two-signal shapes for connector/TVL/position-accounting bugs the existing lenses miss: (A) external-reader position aggregate -> double-count/sign/omission (H-11 SNX, H-19 Morpho); (B) PositionTVL product/division miscalc (H-13 Balancer); (C) registry position-key identity mismatch msg.sender vs calculatorConnector (H-12). Advisory only (is_gate=false); routes high/medium of its own hits via advisory_escalation_gate; de-dups vs arithmetic_conservation; never mints findings. Deferred (need a semantic model): TVL omits staked balance (H-06), tick-liquidity ownership (H-20).",
+  "tvl_value_names": ["_getpositiontvl", "getpositiontvl", "positiontvl", "gettvl", "getvalue", "_getvalue", "updatetvl"],
+  "registry_names": ["updateholdingposition", "holdingpositionid", "calculatepositionid", "removeholdingposition"],
+  "external_reader_calls": ["getAccountCollateral", "getAccount", "idToMarketParams", "toAssetsUp", "toAssets", "getReserves", "getPoolTokens", "getUserAccountData", "getCollateral", "position", "market"],
+  "debt_tokens": ["borrow", "debt", "owed", "liabilit"],
+  "div_risk_tokens": ["weight", "supply", "totalsupply"],
+  "routed_confidence": ["high", "medium"],
+  "fp_controls": {
+    "name_gate_required": true,
+    "two_signal_required": true,
+    "exclude_no_arithmetic_bodies": true,
+    "dedup_against_arithmetic_conservation": true
+  },
+  "notes": "Name-gating to TVL/value/registry functions (the ~25 in NOYA) is the primary FP control. Items already routed by arithmetic_conservation are downgraded to context_only (dedup_arithmetic_conservation) so this lens reports only net-new recovery. Route-rate stays well under noise_audit's 0.50 cap."
+}

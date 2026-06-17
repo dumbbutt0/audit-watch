@@ -1,0 +1,88 @@
+{
+  "finding_id": "M-1",
+  "merged_into": "F-1",
+  "merge_note": "Same root cause as F-1 (the inverted ratio comparison at Risk.sol:133). Submit the combined F-1 report, not this as a separate report. See ../F-1/report.md (Manifestation B). This entry retained for reproduction only.",
+  "title": "Inverted ratio guard blocks legitimate de-risking of an unhealthy account (liveness/DoS) [MERGED INTO F-1]",
+  "root_cause": "checkValidTransition reverts when the value/risk ratio improves, so an under-margin account cannot reduce its position to recover unless it reaches full health in one step.",
+  "affected_contracts": [
+    "src/.../Risk.sol"
+  ],
+  "affected_functions": [
+    "Risk.checkValidTransition",
+    "PositionManager.updatePosition"
+  ],
+  "attacker_entrypoint": "Any de-risking trade/deleverage on an under-margin account (routes through checkValidTransition)",
+  "attacker_capabilities": [
+    "hold an under-margin position",
+    "attempt a partial close (typical partial orderbook fill)"
+  ],
+  "privilege_required": "none",
+  "scope_status": "in_scope",
+  "in_scope_asset": "Risk (checkValidTransition)",
+  "out_of_scope_risks": [],
+  "impact_category": "liveness_failure",
+  "severity_claim": "Medium",
+  "severity_justification": {
+    "worst_case": "Underwater accounts cannot self-heal => forced deeper into liquidation/insolvency.",
+    "realistic_case": "With partial fills, incremental recovery is blocked; combines with F-1.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "TipRun",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": false,
+    "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
+  },
+  "call_trace": [
+    "reach an under-margin account (collateral 2000 / long 5000) via F-1",
+    "attempt a fair partial de-risk: sell 500 synthetic for 500 collateral (risk down, still under margin)",
+    "reverts 'PM: val/risk dec' \u2014 only a full de-risk to health is allowed"
+  ],
+  "state_transition": {
+    "before": "collateral 2000 / long 5000 (under margin)",
+    "after": "partial de-risk reverts; position unchanged at 5000",
+    "slots_or_balances": []
+  },
+  "asset_delta": "No direct loss; positions can be stranded under margin (cannot recover incrementally).",
+  "proof_type": "runnable_poc",
+  "poc_path": "reports/tiprun-2026-06-13/submissions/M-1/poc/PoC_DeriskDoS.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "cd reports/tiprun-2026-06-13/harness",
+    "forge test --match-contract PoC_DeriskDoS -vv"
+  ],
+  "duplicate_check_status": "searched_clear",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [],
+  "false_positive_risks": [],
+  "invalidating_conditions": [],
+  "defense_analysis": [
+    {
+      "defense": "checkSmallerInSyntheticHoldings allows reductions",
+      "blocks_path": false,
+      "why_it_fails": "reduction passes that check but is then reverted by the inverted ratio guard"
+    }
+  ],
+  "assumptions": [
+    "perp profile (RiskPlugin wired as CAP_MARGIN_CHECK)"
+  ],
+  "evidence_links": [
+    "src/core/risk/Risk.sol:checkValidTransition (~line 133 ratio guard)",
+    "corroborating: test/PositionManager.Risk.t.sol::test_RiskRatioComparisonLogic (ratioImproved == revert condition)",
+    "harness/test/PoC_DeriskDoS.t.sol",
+    "submissions/M-1/poc_output.log"
+  ],
+  "triager_summary": "Inverted ratio guard blocks legitimate de-risking of an unhealthy account (liveness/DoS) \u2014 PoC passing (PASS: partial de-risk of an under-margin account reverts 'PM: val/risk dec'; full de-risk to health succeeds).",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Blockchain \u2192 DoS with (Unexpected) revert (inverted ratio guard reverts legitimate de-risking; MERGED INTO F-1 \u2014 same root cause)",
+  "cvss": [
+    {
+      "aspect": "de-risk DoS / unexpected revert (Manifestation B of F-1)",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+      "score": 5.3,
+      "severity": "Medium"
+    }
+  ]
+}

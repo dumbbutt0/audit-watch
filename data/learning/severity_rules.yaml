@@ -1,0 +1,42 @@
+admin_only_risk:
+  rule: >
+    High only if admin is explicitly untrusted or finding bypasses
+    intended multi-party admin model. Otherwise Medium or Low.
+  examples:
+    - AC-001 type findings where admin is the attacker but admin is
+      trusted → downgrade to Medium
+
+dos:
+  rule: >
+    High only if protocol-wide, unbounded, permissionless, and
+    blocks critical actions like liquidation or withdrawal.
+    Temporary or bounded DoS → Medium.
+
+oracle:
+  rule: >
+    High if stale or wrong price causes borrow, liquidation,
+    insolvency, or direct bad debt with no admin intervention.
+    Medium if causes temporary freeze without demonstrated financial loss.
+
+arithmetic:
+  rule: >
+    High if breaks solvency, liquidation, debt, collateral, or
+    share accounting in a way that allows fund extraction.
+    Medium if affects returned values, bot UX, or bounded edge cases.
+
+reentrancy:
+  rule: >
+    High if attacker can mutate security-critical state for profit.
+    Medium if only inconsistent reads or callback griefing without
+    direct fund impact.
+
+allowance_based:
+  rule: >
+    Downgrade one level unless allowance is protocol-standard
+    (e.g. required by the normal user flow) or attacker can obtain
+    it permissionlessly.
+
+temporary_impact:
+  rule: >
+    Any finding where admin can resolve the impact with a single
+    transaction should be capped at Medium.

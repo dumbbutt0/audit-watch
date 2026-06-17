@@ -1,0 +1,68 @@
+{
+  "program": "Panoptic Next-Core",
+  "platform": "Code4rena",
+  "contest_slug": "2025-12-panoptic",
+  "report_url_ANSWER_KEY_DO_NOT_OPEN_PRE_FREEZE": "https://code4rena.com/reports/2025-12-panoptic-next-core",
+  "repo": "https://github.com/code-423n4/2025-12-panoptic",
+  "pinned_commit": "fe557748210a529ae414d7c487b6514be0d9e220",
+  "solc_pragma": "^0.8.24",
+  "evm_version": "cancun",
+  "answer_key_access_status": "freeze_complete_not_yet_accessed",
+  "scope_source": "repo scope.txt + out_of_scope.txt + README.md (NOT the report/findings file)",
+  "pipeline_contract_path": "contracts/in_scope",
+  "in_scope": [
+    "contracts/PanopticPool.sol",
+    "contracts/RiskEngine.sol",
+    "contracts/CollateralTracker.sol",
+    "contracts/SemiFungiblePositionManager.sol",
+    "contracts/SemiFungiblePositionManagerV4.sol",
+    "contracts/libraries/PanopticMath.sol",
+    "contracts/libraries/Math.sol",
+    "contracts/types/OraclePack.sol",
+    "contracts/types/MarketState.sol",
+    "contracts/types/PoolData.sol",
+    "contracts/types/RiskParameters.sol",
+    "contracts/types/TokenId.sol"
+  ],
+  "in_scope_loc_total": 12796,
+  "out_of_scope_note": "PanopticFactory(V4), base/*, interfaces/*, libraries/{CallbackLib,Constants,EfficientHash,Errors,FeesCalc,InteractionHelper,SafeTransferLib,V4StateReader}, tokens/*, types/{LeftRight,LiquidityChunk,Pointer,PositionBalance}, all script/ and test/ are OUT of scope (present in workspace only as dependencies for reading).",
+  "constructor_assumption": "RiskEngine constructor args for the competition: 10_000_000, 10_000_000, address(0), address(0)",
+  "publicly_known_ineligible": {
+    "note": "Per README. These are NOT awarded findings \u2014 must NOT be scored as HIT, and pipeline flagging them is NOT an FP (acceptable/known).",
+    "token_system_limits": [
+      "ERC1155 SFPM token transfers disabled",
+      "TokenId/type add* helpers do not validate inputs (by design)",
+      "token supply > 2^127-1 unsupported",
+      "if one token in a pool is broken/malicious, no guarantees for the other token in that pool"
+    ],
+    "oracle_price": [
+      "non-atomic price/oracle manipulation out of scope (must hold price across >1 block to move EMAs)",
+      "stale-EMA-vs-market within its period out of scope",
+      "only atomic price manipulation from a normal pool/oracle state is valid"
+    ],
+    "premium_liquidation": [
+      "premium manipulation by swapping back and forth (small pool/low diversity) acceptable if not profitable between own accounts and no protocol loss",
+      "liquidators forcing liquidation at less favorable price for extra profit acceptable even with some protocol loss",
+      "rounding-direction inflation of total gross premium (very-low-decimal pools)",
+      "buyers avoiding premium via settleLongPremium for tiny amounts",
+      "premium accumulation permanently capped if accumulator exceeds max"
+    ],
+    "gas_execution": [
+      "liquidation may exceed gas limit if MAX_POSITIONS too high (param, adjustable)",
+      "liquidations may require liquidator to sell options/force-exercise/deposit; may be unprofitable",
+      "stale-oracle-tick force-exercised users worse off than burning"
+    ],
+    "share_supply": [
+      "CollateralTracker share supply approaching 2^256-1 via repeated protocol-loss liquidations; overflow/DoS with extreme share supply precondition invalid unless reachable by other means"
+    ],
+    "other": [
+      "front-running via insufficient slippage specification out of scope"
+    ],
+    "nethermind_pre_contest_known": [
+      "Double penalty / index update (phantom-share interest payment also updates borrow index in force exercise; not in regular penalty)",
+      "Masking insolvency magnitude in _getMargin when interest owed > balance (clamps deficit)",
+      "Broken bonus calculations from the masked deficit in _getMargin",
+      "Orphan shares in delegate->revoke breaking supply invariant in force exercise"
+    ]
+  }
+}

@@ -1,0 +1,371 @@
+{
+  "agent": "attacker_mindset",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T21:05:00+00:00",
+  "summary": {
+    "total_functions": 34,
+    "by_class": { "admin": 7, "user": 19, "view": 2, "internal": 6 },
+    "high_value_targets": 17,
+    "notes": "Beanstalk diamond (EIP-2535). Primary attack surface clusters: (1) L1->L2 reseed/migration facets that bulk-write global silo/field/stalk accounting with no per-account guards, (2) the oracle TWAP/spot path feeding sunrise mint and convert economics, (3) the permissionless redeem migration path lacking replay protection, (4) Tractor/Pipeline/Farm arbitrary-call execution that can reenter the diamond. Reseed init() functions are external with no access modifier and depend entirely on diamondCut wiring (ACCESS-001)."
+  },
+  "functions": [
+    {
+      "contract": "L2ContractMigrationFacet",
+      "function": "redeemDepositsAndInternalBalances",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "user",
+      "score": 5,
+      "modifiers": [],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "why": "Permissionless entry. Verifies merkle proof + EIP-712 sig but stores no spent-marker; setStalk uses += (DT-003). Merkle leaf omits reciever (DT-010). Sits at head of dangerous chain CH-001. Unbacked stalk/roots minting.",
+      "ite_hypothesis": {
+        "intent": "Inflate s.accts[reciever].stalk/roots and credit silo deposits to an attacker-chosen address without backing",
+        "technique": "Replay observed public calldata (proof+signature) before deadline; setStalk += accumulates each call; reciever bound only by signature, not by merkle leaf, so credit can be redirected",
+        "evasion": "No nonce / redeemed-marker stored. MerkleProof.verify and ECDSA.recover pass identically on each replay. Conservative reading: unbounded replay within deadline window -> potentially Critical"
+      },
+      "suggested_agents": ["access_control", "logic", "economic_attack", "arithmetic"]
+    },
+    {
+      "contract": "L2ContractMigrationFacet",
+      "function": "addMigratedDepositsToAccount",
+      "visibility": "internal",
+      "mutability": "nonpayable",
+      "class": "internal",
+      "score": 4,
+      "modifiers": [],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "why": "Reachable via redeem. Declares totalDeposited/totalDepositedBdv but never increments them in loop, then writes 0 to s.sys.silo.balances[token] global totals (DT-002, ACC-002). Breaks total==sum(accounts).",
+      "ite_hypothesis": {
+        "intent": "Corrupt global per-token silo balances to 0 while per-account deposits exist, desyncing withdraw/convert/BDV math",
+        "technique": "Accumulator vars never written; assignment of 0 to global state overwrites protocol-wide totals",
+        "evasion": "No guard recomputes global totals; downstream withdraw underflow / DoS or value inflation"
+      },
+      "suggested_agents": ["logic", "arithmetic", "dos"]
+    },
+    {
+      "contract": "L2ContractMigrationFacet",
+      "function": "verifyDepositsAndInternalBalances",
+      "visibility": "internal",
+      "mutability": "view",
+      "class": "internal",
+      "score": 3,
+      "modifiers": [],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "why": "Computes merkle leaf = keccak256(account,deposits,internalBalances,ownerRoots) — does NOT commit to reciever (DT-010, CC-001). Enables credit redirection given a public signature.",
+      "ite_hypothesis": {
+        "intent": "Bind migration credit to a specific reciever",
+        "technique": "reciever omitted from leaf; only EIP-712 sig over (owner,reciever,deadline) binds it",
+        "evasion": "Use on-chain-visible signature to redeem to a chosen reciever; compounds DT-003 replay"
+      },
+      "suggested_agents": ["access_control", "logic"]
+    },
+    {
+      "contract": "BeanL1RecieverFacet",
+      "function": "recieveL1Beans",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "user",
+      "score": 4,
+      "modifiers": ["nonReentrant"],
+      "moves_funds": true,
+      "reads_external_state": true,
+      "why": "Bridge-gated (msg.sender==BRIDGE && xDomainMessageSender==L1BEANSTALK) but EXTERNAL_L1_BEANS hardcoded to 0 so require(0 >= migratedL1Beans+amount) reverts for any amount>0 (DT-005, ACC-004, CH-004). L1 Beans burned before this; permanent fund loss.",
+      "ite_hypothesis": {
+        "intent": "Remint externally-held L1 Beans on L2 up to migratable supply",
+        "technique": "Cap constant left at 0 placeholder makes the post-increment require always fail",
+        "evasion": "No attacker needed; honest migrant loses L1 Beans (burned) with L2 mint always reverting -> direct loss / migration DoS"
+      },
+      "suggested_agents": ["logic", "cross_chain", "dos"]
+    },
+    {
+      "contract": "ReseedSilo",
+      "function": "init",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "admin",
+      "score": 4,
+      "modifiers": [],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "why": "External, no access modifier (ACCESS-001). Calls reseedSiloDeposit per token; reseedSiloDeposit sets s.accts[account].stalk = accountStalk (=, not +=) so multi-token holders' stalk overwritten by last token (DT-001, ACC-001). Global s.sys.silo.stalk never reconciled to sum (DT-009, ACC-010). CH-002.",
+      "ite_hypothesis": {
+        "intent": "Preserve each account's summed stalk and the global total across L1->L2 reseed",
+        "technique": "Per-token assignment overwrites prior tokens' stalk; no global-total accumulation",
+        "evasion": "Bug self-triggers on every multi-token holder; if init is exposed as a callable facet selector rather than one-shot delegatecall, anyone could re-run it"
+      },
+      "suggested_agents": ["logic", "access_control", "arithmetic"]
+    },
+    {
+      "contract": "ReseedField",
+      "function": "init",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "admin",
+      "score": 4,
+      "modifiers": [],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "why": "External, no access modifier. Inner plot loop header increments outer index i instead of inner j (DT-004, STATE-001, CH-003) -> OOB revert. Field reseed cannot complete; pods cannot migrate.",
+      "ite_hypothesis": {
+        "intent": "Assign each account its plots exactly once and tally pods",
+        "technique": "Loop post-statement increments wrong variable (i not j) -> accountPlots[i] OOB",
+        "evasion": "Deterministic; reverts on first account with plots -> migration DoS"
+      },
+      "suggested_agents": ["dos", "logic"]
+    },
+    {
+      "contract": "ReseedInternalBalances",
+      "function": "init",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "admin",
+      "score": 3,
+      "modifiers": [],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "why": "External, no access modifier. setInternalBalances iterates farmers.length reading balances[i] without length-equality check (DT-011) -> OOB revert on mismatched input.",
+      "ite_hypothesis": {
+        "intent": "Credit each farmer its internal balance",
+        "technique": "Parallel-array indexing without length precondition",
+        "evasion": "Bounded by sum guard; reseed step reverts on bad upgrade input"
+      },
+      "suggested_agents": ["dos", "logic"]
+    },
+    {
+      "contract": "ReseedBarn",
+      "function": "init",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "admin",
+      "score": 3,
+      "modifiers": [],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "why": "External, no access modifier. mintFertilizers builds nextFid linked list assuming ascending IDs, enforced only in NatSpec not code (DT-012). Out-of-order input -> malformed/cyclic list -> Sun payout iteration corruption.",
+      "ite_hypothesis": {
+        "intent": "Form a correct ascending fertilizer linked list",
+        "technique": "Ordering enforced by comment only, no require",
+        "evasion": "Bounded by trusted upgrade input; mispaid/stranded fertilizer if violated"
+      },
+      "suggested_agents": ["logic"]
+    },
+    {
+      "contract": "LibChainlinkOracle",
+      "function": "getTokenPrice",
+      "visibility": "internal",
+      "mutability": "view",
+      "class": "internal",
+      "score": 5,
+      "modifiers": [],
+      "moves_funds": false,
+      "reads_external_state": true,
+      "why": "Inverted ternary: lookback>0 returns spot getPrice, lookback==0 calls getTwap(...,0) dividing by zero (DT-006, ARITH-001). Feeds sunrise mint and convert via CH-005. Manipulation-resistant TWAP requests silently get manipulable spot.",
+      "ite_hypothesis": {
+        "intent": "Cause a mint/convert/peg path expecting a TWAP to consume a flash-loan-manipulable spot price",
+        "technique": "Request a lookback>0 path; receive spot; skew spot via flash loan within one block -> mispriced Bean issuance/conversion",
+        "evasion": "Inverted branch defeats the only manipulation guard; requires confirming a reachable financial consumer (LibWellMinting/LibDeltaB)"
+      },
+      "suggested_agents": ["oracle", "flash_loan", "economic_attack", "arithmetic"]
+    },
+    {
+      "contract": "LibUsdOracle",
+      "function": "getTokenPriceFromExternal",
+      "visibility": "internal",
+      "mutability": "view",
+      "class": "internal",
+      "score": 4,
+      "modifiers": [],
+      "moves_funds": false,
+      "reads_external_state": true,
+      "why": "encodeType 0x01 does 1e24/getTokenPrice with no zero-check (DT-007, ARITH-003) -> revert/DoS on frozen feed. Custom-oracle branch decodes staticcall returndata via raw assembly mload, no length check (DT-008, CC-003). CH-005, CH-008.",
+      "ite_hypothesis": {
+        "intent": "Inject an arbitrary price into peg/minting, or DoS season advancement on feed outage",
+        "technique": "Frozen feed returns 0 -> 1e24/0 reverts; or registered custom oracle returns <32 bytes / attacker-influenced data -> arbitrary tokenPrice",
+        "evasion": "Documented 0-sentinel contract violated; custom-oracle path bounded by admin registration trust"
+      },
+      "suggested_agents": ["oracle", "dos", "arithmetic"]
+    },
+    {
+      "contract": "TractorFacet",
+      "function": "tractor",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "user",
+      "score": 4,
+      "modifiers": ["verifyRequisition", "runBlueprint"],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "why": "Operator executes a signed blueprint's AdvancedFarmCall[] as the publisher (LibTractor._user() == activePublisher). Blueprint nonce/maxNonce (STATE-002) and activePublisher reset on revert (STATE-004) are the only guards. CH-007 marks reentrancy_surface true.",
+      "ite_hypothesis": {
+        "intent": "Replay a signed blueprint beyond maxNonce, or leave activePublisher set to act as another user",
+        "technique": "If nonce check is off-by-one/missing, re-run blueprint to drain publisher allowances; if reset is not on the revert path, a stuck activePublisher leaks delegated context to a later caller",
+        "evasion": "verifyRequisition checks signature; runBlueprint manages publisher set/reset — trace whether reset is finally-equivalent"
+      },
+      "suggested_agents": ["access_control", "reentrancy", "logic", "economic_attack"]
+    },
+    {
+      "contract": "PipelineConvertFacet",
+      "function": "pipelineConvert",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "user",
+      "score": 5,
+      "modifiers": [],
+      "moves_funds": true,
+      "reads_external_state": true,
+      "why": "Permissionless. Executes user-supplied Pipeline advancedPipe (arbitrary external calls) then recomputes convert BDV/stalk against well reserves (CH-006, ARITH-004, CC-004). reentrancy_surface true. Mispriced convert could mint BDV/stalk.",
+      "ite_hypothesis": {
+        "intent": "Mint unbacked BDV/stalk by manipulating well reserves mid-convert or reentering the diamond while balances are mid-update",
+        "technique": "Use Pipeline arbitrary calls to skew well reserves between cache and recompute, or cross-facet reenter during a window where silo invariants are temporarily false",
+        "evasion": "nonReentrant may be scoped per-facet only; convert BDV-preservation check is the guard — verify it reads post-manipulation reserves"
+      },
+      "suggested_agents": ["flash_loan", "reentrancy", "oracle", "economic_attack", "arithmetic"]
+    },
+    {
+      "contract": "ConvertFacet",
+      "function": "convert",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "user",
+      "score": 4,
+      "modifiers": ["fundsSafu", "noSupplyChange", "nonReentrant"],
+      "moves_funds": false,
+      "reads_external_state": true,
+      "why": "Permissionless convert; caches pipeline convert state and validates against LibConvert. BDV/stalk preservation (ARITH-004) is the core invariant; reads well/oracle reserves.",
+      "ite_hypothesis": {
+        "intent": "Inflate stalk/BDV via a favorable-looking convert that is actually mispriced",
+        "technique": "Manipulate the reserve/oracle source used to value bdvOut vs bdvIn within a single tx",
+        "evasion": "noSupplyChange + BDV check; verify the price source is manipulation-resistant (ties to ARITH-001 oracle bug)"
+      },
+      "suggested_agents": ["oracle", "flash_loan", "arithmetic", "logic"]
+    },
+    {
+      "contract": "SeasonFacet",
+      "function": "sunrise / gm",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "user",
+      "score": 4,
+      "modifiers": ["fundsSafu", "noOutFlow"],
+      "moves_funds": true,
+      "reads_external_state": true,
+      "why": "Permissionless season advance; stepOracle -> deltaB -> Bean mint. Reward Beans minted to caller. If deltaB reads instantaneous reserves (via inverted-TWAP bug) the mint is flash-loan manipulable (CC-005, CH-005).",
+      "ite_hypothesis": {
+        "intent": "Manipulate the sunrise Bean mint amount or the caller reward via reserve skew",
+        "technique": "Flash-loan-skew well reserves before calling sunrise so stepOracle deltaB over-mints",
+        "evasion": "Mint should use cumulative pump TWAP not spot; ARITH-001 inversion is the gap to confirm in the mint path"
+      },
+      "suggested_agents": ["oracle", "flash_loan", "economic_attack"]
+    },
+    {
+      "contract": "SiloFacet.SiloFacet",
+      "function": "withdrawDeposit / withdrawDeposits",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "user",
+      "score": 4,
+      "modifiers": ["fundsSafu", "noSupplyChange", "oneOutFlow", "mowSender", "nonReentrant"],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "why": "Permissionless, sends tokens out. Reads s.sys.silo.balances[token] global totals corrupted to 0 by ACC-002 — withdrawal underflow / DoS or inflation downstream of the migration bug.",
+      "ite_hypothesis": {
+        "intent": "Underflow or over-withdraw against desynced global silo balances post-migration",
+        "technique": "After ACC-002 zeroes global totals, a withdraw that decrements global balance underflows (DoS) or accounting permits over-withdrawal",
+        "evasion": "nonReentrant present; the gap is upstream accounting desync, not the guard"
+      },
+      "suggested_agents": ["logic", "arithmetic", "dos", "reentrancy"]
+    },
+    {
+      "contract": "SiloFacet.SiloFacet",
+      "function": "transferDeposit / transferDeposits / safeTransferFrom",
+      "visibility": "public",
+      "mutability": "payable",
+      "class": "user",
+      "score": 3,
+      "modifiers": ["fundsSafu", "noNetFlow", "noSupplyChange", "nonReentrant"],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "why": "Permissionless deposit transfer with allowance (LibSiloPermit). Mows both sender and recipient; stalk/seeds move. Check allowance/permit and stalk-conservation across transfer.",
+      "ite_hypothesis": {
+        "intent": "Move deposits/stalk without sufficient allowance, or break stalk conservation across the transfer",
+        "technique": "Exploit permit nonce reuse or mow ordering to mismatch seeds/stalk between sender and recipient",
+        "evasion": "_spendDepositAllowance + dual mow; verify permit replay (LibSiloPermit) and conservation"
+      },
+      "suggested_agents": ["access_control", "logic", "arithmetic"]
+    },
+    {
+      "contract": "ApprovalFacet",
+      "function": "permitDeposits / permitDeposit",
+      "visibility": "external",
+      "mutability": "nonpayable",
+      "class": "user",
+      "score": 3,
+      "modifiers": [],
+      "moves_funds": false,
+      "reads_external_state": false,
+      "why": "Permissionless EIP-2612-style permit for deposit allowances (LibSiloPermit). Signature/nonce/deadline/chainId handling is the classic replay surface.",
+      "ite_hypothesis": {
+        "intent": "Replay a permit signature to grant deposit allowance the owner did not re-authorize",
+        "technique": "Missing chainId in domain, nonce not incremented, or sig malleability lets the same permit be reused",
+        "evasion": "depositPermitNonces + domain separator; verify nonce increment, deadline, and chainId binding"
+      },
+      "suggested_agents": ["access_control", "logic"]
+    },
+    {
+      "contract": "DepotFacet",
+      "function": "pipe / multiPipe / advancedPipe / etherPipe",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "user",
+      "score": 4,
+      "modifiers": [],
+      "moves_funds": true,
+      "reads_external_state": true,
+      "why": "Permissionless arbitrary external-call execution (Pipeline). Sends ETH/tokens. CC-004 cross-facet reentrancy concern; Pipeline._pipeMem flagged High by static. Reentry vector into silo/field state.",
+      "ite_hypothesis": {
+        "intent": "Reenter Beanstalk facets mid-operation, or use the diamond as a caller to bypass per-call trust assumptions",
+        "technique": "Craft a PipeCall whose target calls back into a convert/withdraw facet while invariants are temporarily false",
+        "evasion": "No nonReentrant on pipe entry points observed; verify whether per-facet guards cover cross-facet reentry"
+      },
+      "suggested_agents": ["reentrancy", "dos", "logic"]
+    },
+    {
+      "contract": "FarmFacet",
+      "function": "farm / advancedFarm",
+      "visibility": "external",
+      "mutability": "payable",
+      "class": "user",
+      "score": 3,
+      "modifiers": [],
+      "moves_funds": true,
+      "reads_external_state": false,
+      "why": "Permissionless batched delegatecall into Beanstalk facets; composes multiple state mutations atomically. Reentrancy/ordering surface combined with Pipeline and Tractor (CH-006/CH-007).",
+      "ite_hypothesis": {
+        "intent": "Compose facet calls in an order that violates an invariant a single-call guard assumes",
+        "technique": "Batch deposit+convert+withdraw within one farm() to exploit a window where mow/stalk is stale",
+        "evasion": "Individual facets carry nonReentrant; verify the batch cannot interleave state in an unguarded way"
+      },
+      "suggested_agents": ["reentrancy", "logic", "economic_attack"]
+    }
+  ],
+  "agent_hints": {
+    "reentrancy": "Focus on: PipelineConvertFacet.pipelineConvert(), DepotFacet.advancedPipe()/pipe(), FarmFacet.farm(), TractorFacet.tractor() — all execute arbitrary/batched external calls; check cross-facet reentrancy (CC-004) where nonReentrant may be scoped per-facet only and silo/field invariants are temporarily false.",
+    "access_control": "Focus on: L2ContractMigrationFacet.redeemDepositsAndInternalBalances() (no replay marker, reciever not in merkle leaf), Reseed*.init() (external, no access modifier — confirm diamondCut one-shot wiring, ACCESS-001), TractorFacet.tractor() (publisher impersonation via activePublisher reset), ApprovalFacet.permitDeposits() (permit replay/chainId).",
+    "arithmetic": "Focus on: L2ContractMigrationFacet.addMigratedDepositsToAccount() (uninitialized totalDeposited/Bdv written as 0, ACC-002), ReseedSilo.reseedSiloDeposit() (= vs += stalk overwrite, ACC-001/ACC-010), LibUsdOracle.getTokenPriceFromExternal() (1e24/0 div, ARITH-003), LibConvert BDV preservation (ARITH-004).",
+    "oracle": "Focus on: LibChainlinkOracle.getTokenPrice() (inverted TWAP/spot ternary, ARITH-001), LibUsdOracle.getTokenPriceFromExternal() (unchecked staticcall mload + div-by-zero), trace to LibWellMinting.capture/LibDeltaB feeding sunrise mint (CC-005, CH-005).",
+    "flash_loan": "Focus on: SeasonFacet.sunrise()/gm() and ConvertFacet.convert()/PipelineConvertFacet.pipelineConvert() — confirm whether deltaB/convert valuation reads manipulable spot (via ARITH-001 bug) so a single-tx reserve skew mints Beans or unbacked BDV/stalk.",
+    "logic": "Focus on: ReseedSilo.reseedSiloDeposit() (= overwrite), ReseedField.init() (i-vs-j loop, STATE-001), BeanL1RecieverFacet.recieveL1Beans() (EXTERNAL_L1_BEANS=0 cap, ACC-004), L2ContractMigrationFacet redeem chain (replay+redirect), ReseedBarn.mintFertilizers() (unsorted-id linked list).",
+    "dos": "Focus on: ReseedField.init() (OOB revert bricks Field migration), ReseedInternalBalances.setInternalBalances() (no length check), LibUsdOracle div-by-zero on frozen feed, SiloFacet.withdrawDeposit() (underflow against ACC-002-zeroed global totals).",
+    "economic_attack": "Focus on: SeasonFacet.sunrise() (mint manipulation + caller reward), PipelineConvertFacet.pipelineConvert()/ConvertFacet.convert() (BDV/stalk inflation), L2ContractMigrationFacet.redeemDepositsAndInternalBalances() (unbacked governance weight + earned-Bean share via replay).",
+    "cross_chain": "Focus on: BeanL1RecieverFacet.recieveL1Beans() and BeanL2MigrationFacet.migrateL2Beans() — L1 burn precedes L2 mint; the EXTERNAL_L1_BEANS=0 cap makes every L2 mint revert after the burn (CH-004). Verify bridge sender gating and message replay.",
+    "logic_migration": "Focus on: entire L2ContractMigrationFacet + Reseed* set — bulk accounting writes (stalk, deposits, roots, pods, fertilizer, internal balances) with per-token/per-account loops and weak input validation.",
+    "behavioral_state_analysis": "Focus on: ReseedBarn.mintFertilizers() (ascending-id requirement stated only in NatSpec, not enforced) and BeanL1RecieverFacet (NatSpec says 'migrates Beans to L2' but cap=0 makes it always revert) — documented-but-not-enforced behavior.",
+    "semantic_guard": "Focus on: Reseed*.init() asymmetric guarding (external, no modifier) vs the guarded user facets; confirm whether init selectors are reachable post-upgrade.",
+    "token_integration": "Focus on: SiloFacet deposit/withdraw LibTransfer.receiveToken/sendToken modes and unripe tokens; convert valuation across non-standard whitelisted tokens.",
+    "snapshot": "Focus on: stalk/roots as governance vote weight — ACC-001/ACC-003/ACC-010 corruptions directly mis-scale voting power and quorum."
+  }
+}

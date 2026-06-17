@@ -1,0 +1,19 @@
+{
+  "lens": "lp_burn_missing_slippage",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired, STAGED). Generalized CLASS of the P-vultisig M-02 miss: a position-management function withdraws user liquidity via a Uniswap-V3-style pool.burn()/decreaseLiquidity() and returns/forwards the resulting amount0/amount1 to a user WITHOUT any amountMin/slippage bound, so the burn can be MEV-sandwiched (user receives less than fair value). Two-signal: S1 a burn/decrease-liquidity primitive; S2 NO slippage floor (no amount0Min/amount1Min param, no 'slippage' marker, no min-amount comparison) in the function or a +1-level helper. Suppress: views; functions that DO take/check amountMin; library contracts; the mint/addLiquidity path. Anchor: vultisig ILOPool.claim (pool.burn(TICK_LOWER,TICK_UPPER,liquidity2Claim) -> amounts to user, no amountMin). Does NOT detect fee miscalc or oracle issues.",
+
+  "burn_primitives": [".burn(", "decreaseliquidity(", "pool.burn", "_burnandcollect", "removeliquidity("],
+  "lp_context_markers": ["ticklower", "tickupper", ".collect(", "sqrtratio", "sqrtprice", "getamount0delta", "getamount1delta", "liquidity2claim", "positionliquidity", "feegrowthinside"],
+  "slippage_markers": ["amount0min", "amount1min", "amountmin", "minamount", "amountoutmin", "slippage", "minreturn", "minamountout", "sqrtpricelimit"],
+  "user_payout_markers": ["safetransfer", "transfer(", "ownerof(", "msg.sender", "recipient", ".call{value"],
+
+  "suppress_library_contracts": ["liquidityamounts", "sqrtpricemathpartial", "tickmath", "fullmath", "oraclelibrary", "positionkey", "pooladdress"],
+
+  "fp_controls": {
+    "two_signal_required": "S1 a burn/decrease-liquidity primitive AND S2 no amountMin/slippage floor in the function or a +1 helper.",
+    "slippage_suppression": "an amount0Min/amount1Min param or a 'slippage'/minamount marker / min-amount comparison -> suppressed (the mint/addLiquidity path).",
+    "view_suppression": "view/pure functions -> suppressed.",
+    "library_suppression": "uniswap math libraries -> suppressed."
+  }
+}

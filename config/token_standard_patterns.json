@@ -1,0 +1,163 @@
+{
+  "schema_version": 2,
+  "description": "Taxonomy of token-standard interaction surfaces (ERC1155 / ERC721 / ERC20 / custom wrappers). Drives token_standard_audit.py via token_standard_taxonomy.classify(). Surfaces token-standard SEMANTIC risk (receiver-revert DoS, mint-to-non-receiver stuck tokens, batch length mismatch, supply-vs-ownership accounting, operator bypass, cross-standard id confusion) — the class behind eval misses #272 (Fertilizer ERC1155 NFT loss) and #273 (ERC1155 mint DoS).",
+  "_fp_note": "TIGHT by design (not a fishing expedition). Categories with require_standard_context=true only fire when the standard is positively inferred from the function-signature param SHAPE (ids/amounts->1155 batch; id+amount[+data]->1155; tokenId-only->721; amount-only->20) OR interface/inherit/file CONTEXT. Unique ERC1155 names (onERC1155Received, _doSafe*AcceptanceCheck, safeBatchTransferFrom, _mintBatch, setApprovalForAll, transferERC1155) fire context-free. Bare generic words (deposit/withdraw/wrap/transfer/balanceOf/approve/permit) are intentionally NOT patterns — they pervade Beanstalk's Silo/Field domain and are not token-standard surfaces. Event matching is case-sensitive word-boundary (so 'LibTransfer.To' does NOT match 'Transfer').",
+  "high_risk_categories": [
+    "erc1155_mint", "erc1155_batch_mint", "erc1155_transfer", "erc1155_batch_transfer",
+    "erc1155_receiver_callback", "erc1155_acceptance_check", "erc1155_supply_accounting",
+    "cross_standard_confusion", "custom_wrapper"
+  ],
+  "standard_hints": {
+    "ERC1155": ["erc1155", "ierc1155", "erc1155upgradeable", "fertilizer1155", "internalizer", "transfersingle", "transferbatch", "onerc1155received", "onerc1155batchreceived", "safebatchtransferfrom", "balanceofbatch"],
+    "ERC721": ["erc721", "ierc721", "erc721upgradeable", "onerc721received"],
+    "ERC20": ["ierc20", "safeerc20", "ierc20metadata"]
+  },
+  "categories": {
+    "erc1155_acceptance_check": {
+      "standard": "ERC1155", "require_standard_context": false,
+      "name_patterns": ["_dosafetransferacceptancecheck", "_dosafebatchtransferacceptancecheck", "dosafetransferacceptancecheck", "dosafebatchtransferacceptancecheck"],
+      "call_patterns": ["ierc1155receiver", "onerc1155received"], "event_patterns": [],
+      "risk_tags": ["receiver_dos", "stuck_tokens", "acceptance_check"], "severity_ceiling_hint": "High",
+      "review_hint": "ERC1155 acceptance-check CALLER. THE #273 DoS VECTOR: a recipient that reverts or returns a wrong selector blocks the mint/transfer. 'Verbatim OZ copy' is NOT a clear — can a protocol mint/transfer be DoS'd by a hostile/incompatible receiver?",
+      "examples": ["_doSafeTransferAcceptanceCheck(...)", "_doSafeBatchTransferAcceptanceCheck(...)"]
+    },
+    "erc1155_receiver_callback": {
+      "standard": "ERC1155", "require_standard_context": false,
+      "name_patterns": ["onerc1155received", "onerc1155batchreceived"],
+      "call_patterns": [], "event_patterns": [],
+      "risk_tags": ["receiver_dos", "stuck_tokens"], "severity_ceiling_hint": "Medium",
+      "review_hint": "ERC1155 receiver-callback IMPLEMENTATION (this contract receives tokens). Returns the correct magic selector? Can it revert and trap tokens? Unsafe reentrant logic on receipt? (Distinct from the acceptance-check caller.)",
+      "examples": ["onERC1155Received(...) returns (bytes4)"]
+    },
+    "erc1155_batch_transfer": {
+      "standard": "ERC1155", "require_standard_context": false,
+      "name_patterns": ["safebatchtransferfrom"],
+      "call_patterns": ["_dosafebatchtransferacceptancecheck"], "event_patterns": ["TransferBatch"],
+      "risk_tags": ["receiver_dos", "stuck_tokens", "batch_length_mismatch", "operator_bypass", "acceptance_check"],
+      "severity_ceiling_hint": "High",
+      "review_hint": "ERC1155 batch transfer. Validate ids.length == amounts.length; receiver-DoS; operator auth; per-id balance updates before the batch acceptance callback.",
+      "examples": ["safeBatchTransferFrom(from, to, ids, amounts, data)"]
+    },
+    "erc1155_transfer": {
+      "standard": "ERC1155", "require_standard_context": true,
+      "name_patterns": ["safetransferfrom", "_safetransfer"],
+      "call_patterns": ["_dosafetransferacceptancecheck"], "event_patterns": ["TransferSingle"],
+      "risk_tags": ["receiver_dos", "stuck_tokens", "operator_bypass", "acceptance_check"],
+      "severity_ceiling_hint": "High",
+      "review_hint": "ERC1155 single transfer (5-arg safeTransferFrom(from,to,id,amount,data)). Receiver-revert DoS; stuck tokens; operator/approval check; balance updated before the external acceptance callback. Disambiguated from ERC20/721 by param shape.",
+      "examples": ["safeTransferFrom(from, to, id, amount, data)"]
+    },
+    "erc1155_batch_mint": {
+      "standard": "ERC1155", "require_standard_context": false,
+      "name_patterns": ["_mintbatch", "mintbatch"],
+      "call_patterns": ["_dosafebatchtransferacceptancecheck"], "event_patterns": ["TransferBatch"],
+      "risk_tags": ["receiver_dos", "stuck_tokens", "batch_length_mismatch", "supply_accounting", "acceptance_check"],
+      "severity_ceiling_hint": "High",
+      "review_hint": "ERC1155 batch mint. ids.length == amounts.length; receiver-DoS / stuck-token / supply-accounting across the batch.",
+      "examples": ["_mintBatch(to, ids, amounts, data)"]
+    },
+    "erc1155_mint": {
+      "standard": "ERC1155", "require_standard_context": true,
+      "name_patterns": ["_safemint", "_mint", "beanstalkmint", "minttoken"],
+      "call_patterns": ["_dosafetransferacceptancecheck"], "event_patterns": ["TransferSingle"],
+      "risk_tags": ["receiver_dos", "stuck_tokens", "supply_accounting", "acceptance_check"],
+      "severity_ceiling_hint": "High",
+      "review_hint": "ERC1155 single mint. Malicious/contract receiver revert or wrong selector to DoS the mint? Mint to a non-ERC1155Receiver contract -> stuck? Supply accounting consistent before the external acceptance callback (reentrancy)? Disambiguated by 1155 shape/context.",
+      "examples": ["_mint(to, id, amount, data)", "_safeMint(account, id, amount)", "beanstalkMint"]
+    },
+    "erc1155_batch_burn": {
+      "standard": "ERC1155", "require_standard_context": false,
+      "name_patterns": ["_burnbatch", "burnbatch"], "call_patterns": [], "event_patterns": ["TransferBatch"],
+      "risk_tags": ["supply_accounting", "batch_length_mismatch", "operator_bypass"], "severity_ceiling_hint": "Medium",
+      "review_hint": "ERC1155 batch burn. Array lengths; authorization; per-id supply/balance consistency.",
+      "examples": ["_burnBatch(from, ids, amounts)"]
+    },
+    "erc1155_burn": {
+      "standard": "ERC1155", "require_standard_context": true,
+      "name_patterns": ["_burn"], "call_patterns": [], "event_patterns": ["TransferSingle"],
+      "risk_tags": ["supply_accounting", "operator_bypass"], "severity_ceiling_hint": "Medium",
+      "review_hint": "ERC1155 burn. Caller authorized (owner/operator)? Supply decremented consistently with balance? Over-burn underflow?",
+      "examples": ["_burn(from, id, amount)"]
+    },
+    "erc1155_supply_accounting": {
+      "standard": "ERC1155", "require_standard_context": true,
+      "name_patterns": ["_beforetokentransfer", "_aftertokentransfer", "totalsupply", "balanceofbatch", "lastbalanceofbatch"],
+      "call_patterns": [], "event_patterns": [],
+      "risk_tags": ["supply_accounting"], "severity_ceiling_hint": "Medium",
+      "review_hint": "ERC1155 supply/balance hook. Per-id supply consistent with balances after mint/burn/transfer? Does _beforeTokenTransfer keep external accounting (e.g. Fertilizer bpf/owed) in sync? Mismatch -> NFT loss / mis-accounting (#272 class).",
+      "examples": ["_beforeTokenTransfer(operator, from, to, ids, amounts, data)", "totalSupply(id)"]
+    },
+    "erc1155_token_id_accounting": {
+      "standard": "ERC1155", "require_standard_context": true,
+      "name_patterns": ["getmintid"], "call_patterns": [], "event_patterns": [],
+      "risk_tags": ["id_confusion", "supply_accounting"], "severity_ceiling_hint": "Medium",
+      "review_hint": "ERC1155 token-id derivation. Id miscomputed, reused, or confused across id spaces? (Only in a standard-call context — a bare local 'id' is not this.)",
+      "examples": ["getMintId() returns (uint256)"]
+    },
+    "erc1155_approval_for_all": {
+      "standard": "ERC1155", "require_standard_context": false,
+      "name_patterns": ["setapprovalforall", "isapprovedforall", "_setapprovalforall"],
+      "call_patterns": [], "event_patterns": ["ApprovalForAll"],
+      "risk_tags": ["operator_bypass"], "severity_ceiling_hint": "Medium",
+      "review_hint": "ERC1155 operator approval. Operator permissions set/bypassed incorrectly? Transfer path's approval check consistent with isApprovedForAll? Self-approval edge cases?",
+      "examples": ["setApprovalForAll(operator, approved)", "isApprovedForAll(owner, operator)"]
+    },
+    "erc1155_uri_metadata": {
+      "standard": "ERC1155", "require_standard_context": true,
+      "name_patterns": ["uri", "seturi", "_seturi"], "call_patterns": [], "event_patterns": ["URI"],
+      "risk_tags": ["metadata_only"], "severity_ceiling_hint": "Low",
+      "review_hint": "ERC1155 URI/metadata. Metadata-only — NOT transfer/mint/supply risk unless setURI is unauthorized or mutates state. Confirm access control on setters only.",
+      "examples": ["uri(id) view returns (string)", "setURI(string) onlyOwner"]
+    },
+    "erc721_mint": {
+      "standard": "ERC721", "require_standard_context": true,
+      "name_patterns": ["_safemint", "safemint"], "call_patterns": ["_checkonerc721received"], "event_patterns": [],
+      "risk_tags": ["receiver_dos", "stuck_tokens"], "severity_ceiling_hint": "Medium",
+      "review_hint": "ERC721 safe mint. onERC721Received acceptance DoS; mint-to-non-receiver stuck. Distinct from ERC1155 (no amount arg).",
+      "examples": ["_safeMint(to, tokenId)"]
+    },
+    "erc721_transfer": {
+      "standard": "ERC721", "require_standard_context": true,
+      "name_patterns": ["safetransferfrom"], "call_patterns": ["_checkonerc721received", "onerc721received"], "event_patterns": [],
+      "risk_tags": ["receiver_dos", "operator_bypass"], "severity_ceiling_hint": "Medium",
+      "review_hint": "ERC721 transfer (3-arg safeTransferFrom(from,to,tokenId)). Approval/operator auth; receiver acceptance DoS. Disambiguated from ERC1155 (no amount) / ERC20 (no id).",
+      "examples": ["safeTransferFrom(from, to, tokenId)"]
+    },
+    "erc721_receiver_callback": {
+      "standard": "ERC721", "require_standard_context": false,
+      "name_patterns": ["onerc721received"], "call_patterns": [], "event_patterns": [],
+      "risk_tags": ["receiver_dos", "stuck_tokens"], "severity_ceiling_hint": "Low",
+      "review_hint": "ERC721 receiver-callback implementation. Returns correct selector? Reverts trapping tokens?",
+      "examples": ["onERC721Received(...) returns (bytes4)"]
+    },
+    "erc20_transfer": {
+      "standard": "ERC20", "require_standard_context": true,
+      "name_patterns": ["transferfrom"], "call_patterns": [".transferfrom(", ".transfer(", "safetransfer(", "safetransferfrom("], "event_patterns": [],
+      "risk_tags": ["return_value_check", "fee_on_transfer"], "severity_ceiling_hint": "Medium",
+      "review_hint": "ERC20 transfer (transferFrom(from,to,amount) / safeTransfer, no id). Return-value check (SafeERC20)? Fee-on-transfer/rebasing accounting? Lowest-priority standard; only when no ERC1155/721 context.",
+      "examples": ["IERC20(token).transferFrom(from, to, amount)", "token.safeTransfer(to, amount)"]
+    },
+    "erc20_approval": {
+      "standard": "ERC20", "require_standard_context": false,
+      "name_patterns": ["increaseallowance", "decreaseallowance", "permiterc20"], "call_patterns": [".approve(", "safeapprove(", "forceapprove("], "event_patterns": [],
+      "risk_tags": ["approval_race", "return_value_check"], "severity_ceiling_hint": "Low",
+      "review_hint": "ERC20 approval. Approve-race / non-zero-to-non-zero; return-value handling.",
+      "examples": ["increaseAllowance(spender, amount)", "permitERC20(...)"]
+    },
+    "custom_wrapper": {
+      "standard": "CUSTOM", "require_standard_context": true,
+      "name_patterns": ["internalize", "internalizer"], "call_patterns": ["_dosafetransferacceptancecheck", "ierc1155"], "event_patterns": [],
+      "risk_tags": ["cross_standard", "supply_accounting", "stuck_tokens"], "severity_ceiling_hint": "High",
+      "review_hint": "Custom wrapper that internally drives a standard token (e.g. Internalizer over Fertilizer1155). Correctly bridges accounting between wrapper and the underlying standard? Assumes ERC20 (amount-only) semantics for an ERC1155 (id+amount)?",
+      "examples": ["Internalizer wrapping Fertilizer1155"]
+    },
+    "cross_standard_confusion": {
+      "standard": "CUSTOM", "require_standard_context": false,
+      "name_patterns": ["transfererc1155", "batchtransfererc1155", "transfererc721", "transfererc20"],
+      "call_patterns": ["ierc1155(", "ierc721("], "event_patterns": [],
+      "risk_tags": ["cross_standard", "id_confusion", "stuck_tokens"], "severity_ceiling_hint": "High",
+      "review_hint": "Generic token-support / multi-standard transfer entrypoint (e.g. TokenSupportFacet.transferERC1155). Correct standard interface for the token? Could an ERC1155 be moved with ERC20/721 semantics (wrong arity, missing id/amount, missing acceptance check)? Arbitrary external token contracts callable here (reentrancy)?",
+      "examples": ["TokenSupportFacet.transferERC1155 / batchTransferERC1155 / transferERC721"]
+    }
+  }
+}

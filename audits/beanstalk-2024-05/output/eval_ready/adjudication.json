@@ -1,0 +1,557 @@
+{
+  "audit_id": "beanstalk-2024-05",
+  "set": "training",
+  "generated_at": "2026-06-12T14:13:51Z",
+  "awarded_source": "ground_truth.jsonl",
+  "auto_heuristic": true,
+  "awarded": [
+    {
+      "id": "US-001",
+      "severity": "Critical",
+      "title": "Reseed leaves total Stalk/Roots and per-account Roots unset; Silo bricked",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "US-001",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "AC-001",
+      "severity": "High",
+      "title": "L2 migration redeem lacks nonce: signed redemption replayable to re-credit stalk",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "AC-001",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "BSA-001",
+      "severity": "High",
+      "title": "Reseed order: ReseedSilo reads stalkIssuedPerBdv before ReseedWhitelist sets it",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "BSA-001",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "EA-001",
+      "severity": "High",
+      "title": "Convert-capacity sandwich front-runs shared per-block cap, burns victim stalk",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "EA-001",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "FL-001",
+      "severity": "High",
+      "title": "Convert peg bound + stalk penalty use spot getReserves(), flash-exploitable",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "FL-001",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "LG-001",
+      "severity": "High",
+      "title": "ReseedField loop increments i instead of j, bricking field migration",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "LG-001",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "SN-001",
+      "severity": "High",
+      "title": "Flood plenty paid on live roots vs fixed rain.roots divisor",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "SN-001",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "BSA-003",
+      "severity": "Medium",
+      "title": "Migration redeem ignores verified internalBalances and zeroes global silo totals",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "BSA-003",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "CC-002",
+      "severity": "Medium",
+      "title": "L1 burns Beans but L2 receiver always reverts (EXTERNAL_L1_BEANS=0)",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "CC-002",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "AC-003",
+      "severity": "Low",
+      "title": "UnwrapAndSendETH sweeps full WETH balance to any caller-supplied address",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "AC-003",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "DS-003",
+      "severity": "Low",
+      "title": "Reseed mintFertilizers nested unbounded loops risk OOG on L2 init",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "DS-003",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    },
+    {
+      "id": "PC-001",
+      "severity": "Low",
+      "title": "totalDeltaB() getter sums only BEAN_ETH_WELL, not all minting wells",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": "PC-001",
+      "mechanism_class": null,
+      "read_file": false,
+      "source": "auto-heuristic",
+      "confidence": "low"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "SC-001",
+      "title": "foundry.toml sets ffi = true with shell hooks (arbitrary build-time exec)",
+      "severity": "Critical",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/foundry.toml",
+      "contract": "",
+      "function": "build_config",
+      "description": "protocol/foundry.toml line 33 sets `ffi = true` in [profile.default]. The Foundry FFI cheatcode lets any test or build helper invoke arbitrary shell commands on the build machine via `vm.ffi(...)`. The repository also ships executable shell scripts (.husky/pre-commit, post-commit, post-update, pre-push) and npm/yarn lifecycle scripts (root package.json `bootstrap`/`generate`/`build`, protocol package.json `generate`/`test`), so the host environment that runs the build already executes project-controlled scripts. Combined with broad `fs_permissions` granting read access to the entire parent directory (`{ access = \"read\", path = \"../\" }`), a compromised dependency or test helper that reaches an ffi call can read source/secrets and execute commands. Per the patient-zero threat model, the capability itself is the finding: a single tampered test or library file under contracts/test compiled with this profile can run shell commands during `forge test`/`forge build` on a developer or CI machine, before any auditor sees final bytecode. The [profile.audit] profile does NOT carry ffi, but the default profile (used for normal builds/tests) does."
+    },
+    {
+      "id": "US-001",
+      "title": "Reseed leaves total Stalk/Roots and per-account Roots unset; Silo bricked",
+      "severity": "Critical",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+      "contract": "",
+      "function": "reseedSiloDeposit",
+      "description": "The L2 reseed init facets re-issue every Farmer's deposits, plots, fertilizer and internal balances, but they NEVER initialize three core Silo aggregates that the entire Stalk/Roots accounting system depends on: the protocol-wide total Stalk (s.sys.silo.stalk, System.sol#94), the protocol-wide total Roots (s.sys.silo.roots, System.sol#95), and each account's Root balance (s.accts[account].roots, Account.sol#33). ReseedSilo.reseedSiloDeposit (ReseedSilo.sol#109-180) computes and writes only the per-account Stalk (line 164) and the per-token deposited/depositedBdv globals (lines 178-179). A grep across the entire init/ tree shows the only stalk/roots write is ReseedSilo.sol#164; s.sys.silo.stalk, s.sys.silo.roots and s.accts[].roots are written nowhere during reseed. After migration both totals and every account's roots are therefore zero while accounts hold non-zero stalk. This is a classic init-completeness / global-aggregate-left-zeroed storage bug introduced by the upgrade: the storage layout is correct but the migration fails to populate state that on-L1 was non-zero. The downstream LibSilo math then operates on an inconsistent state from block one of L2."
+    },
+    {
+      "id": "AC-001",
+      "title": "L2 migration redeem lacks nonce: signed redemption replayable to re-credit stalk",
+      "severity": "High",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+      "contract": "",
+      "function": "redeemDepositsAndInternalBalances",
+      "description": "L2ContractMigrationFacet.redeemDepositsAndInternalBalances() (L88) is a permissionless function: any operator may call it for any L1 `owner` whose (owner, deposits, internalBalances, ownerRoots) leaf is in the hardcoded MERKLE_ROOT, supplying the owner's L1 EIP-712 signature over (owner, receiver, deadline). Authorization is therefore (a) a valid merkle proof and (b) a valid owner signature. Neither the signature digest (REDEEM_DEPOSIT_TYPE_HASH over owner/receiver/deadline only, L45-48, L143-145) nor the function body contains any nonce or one-time `migrated[owner]` guard. After a successful redemption nothing is recorded that prevents re-execution. Because the credit step setStalk() (L205-211) accumulates with `+=` (s.accts[account].stalk += accountStalk; s.accts[account].roots += accountRoots;), the identical calldata (proof + signature + deposits) can be replayed an arbitrary number of times until `deadline`, each call adding another full copy of accountStalk and ownerRoots to the receiver. A grep of the entire active codebase confirms there is no `migrated` mapping or nonce store guarding this owner (only the type-hash string and the function itself reference the name). The operator chooses `receiver` only within the bounds the signature allows, but the owner \u2014 or an operator front-running/observing the owner's published signature within the live deadline window \u2014 can inflate the receiver's stalk (governance weight) and roots (yield share) far beyond the migrated position."
+    },
+    {
+      "id": "AR-001",
+      "title": "LibChainlinkOracle.getTokenPrice inverts lookback: spot returned for TWAP",
+      "severity": "High",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibChainlinkOracle.sol",
+      "contract": "",
+      "function": "getTokenPrice",
+      "description": "LibChainlinkOracle.getTokenPrice (contracts/libraries/Oracle/LibChainlinkOracle.sol#39-48) selects the price source with an INVERTED ternary:\n\n    return lookback > 0\n        ? getPrice(priceAggregatorAddress, maxTimeout)        // <-- instantaneous SPOT\n        : getTwap(priceAggregatorAddress, maxTimeout, lookback); // <-- lookback==0 here\n\nThe semantics are backwards. The sibling oracle LibEthUsdOracle.getEthUsdPrice(lookback) (LibEthUsdOracle.sol#53-65) and the NatSpec everywhere in the codebase document the intended contract as: lookback > 0 => use the manipulation-resistant TWAP, lookback == 0 => use the instantaneous price. Here the two branches are swapped.\n\nConsequences:\n  (1) When a caller requests a TWAP (lookback > 0), getTokenPrice returns getPrice(...) \u2014 the single-round latestRoundData spot price \u2014 completely ignoring the requested averaging window. The manipulation-resistance the caller asked for is silently discarded.\n  (2) When a caller requests the instantaneous price (lookback == 0), it calls getTwap(...,0). getTwap computes t.endTimestamp = block.timestamp - 0 = block.timestamp; the first `if (timestamp <= t.endTimestamp)` branch is taken (the latest round timestamp is <= now), so it returns the spot price via the early return and the final `.div(lookback)` (div-by-zero) is never reached. So the lookback==0 path happens to still return spot \u2014 but only by accident of the early return.\n\nThe net live bug is (1): every TWAP request through this function returns a non-time-averaged value. This function is the generic chainlink price path used by LibUsdOracle.getTokenPriceFromExternal for encodeType 0x01 tokens (LibUsdOracle.sol#120-127) and as the stablecoin leg of the uniswap+chainlink encodeType 0x02 path (LibUsdOracle.sol#155-160). ETH and WSTETH bypass getTokenPrice (LibUsdOracle.getUsdPrice/getTokenPrice branch on C.WETH / C.WSTETH and call LibEthUsdOracle/LibWstethUsdOracle directly, which use the CORRECT ternary), so the current BEAN:ETH / BEAN:wstETH wells are not affected. The exposure is any whitelisted Well whose non-Bean token resolves to the default chainlink implementation (encodeType 0x01), or any token whose USD value is fetched with a non-zero lookback for manipulation resistance."
+    },
+    {
+      "id": "BSA-001",
+      "title": "Reseed order: ReseedSilo reads stalkIssuedPerBdv before ReseedWhitelist sets it",
+      "severity": "High",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+      "contract": "",
+      "function": "reseedSiloDeposit",
+      "description": "The reseed pipeline runs facet init() calls in a fixed sequence (reseed/reseed.js): reseed5 -> ReseedSilo.init, reseed6 -> ReseedInternalBalances.init, reseed7 -> ReseedWhitelist.init. ReseedSilo.reseedSiloDeposit computes each migrated account's base Stalk from `stalkIssuedPerBdv` read out of `s.sys.silo.assetSettings[siloDeposit.token].stalkIssuedPerBdv` (ReseedSilo.sol#112), then `accountStalk += stalkIssuedPerBdv * totalBdvForAccount` (#161) and `s.accts[account].stalk = accountStalk` (#164). However, `assetSettings[token].stalkIssuedPerBdv` is ONLY ever populated by LibWhitelist.whitelistToken (LibWhitelist.sol#161), which is invoked by ReseedWhitelist.init \u2014 two pipeline steps AFTER ReseedSilo. At the time ReseedSilo runs, assetSettings is still zero-initialized, so `stalkIssuedPerBdv` reads 0 for every token. The base-stalk term collapses to 0, and because the per-deposit grown-stalk term is also ~0 at reseed (every deposit's stem equals the supplied stemTip, so `stemTip - stem == 0` at #132), each migrated holder is reseeded with effectively zero Stalk. This is a cross-step state-consistency / lifecycle-ordering defect: state written in a later reseed step (asset settings) is a precondition for a calculation performed in an earlier step. It is distinct from the sibling logic findings (LG-002 stalk overwrite via `=`, LG-003 missing roots/global totals): even if those were fixed, the value being assigned would still be ~0 because the multiplicand is read before it is initialized."
+    },
+    {
+      "id": "DS-001",
+      "title": "Unbounded plotIndexes growth bricks victim harvest/transfer (gas-griefing)",
+      "severity": "High",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/LibDibbler.sol",
+      "contract": "",
+      "function": "findPlotIndexForAccount / removePlotIndexFromAccount",
+      "description": "An attacker can permanently brick a victim's ability to harvest or transfer their Pods by inflating the victim's per-account plotIndexes array, then forcing every later harvest()/transferPlot() to perform an O(n) linear scan that exceeds the block gas limit.\n\nRoot cause: plot transfers are PUSH-style and require NO consent from the recipient. transferPlot(sender, recipient, fieldId, index, start, end) (MarketplaceFacet.sol#111) lets the caller (sender = attacker, or any sender that has approved the attacker) move Pods to an arbitrary recipient. _transferPlot (PodTransfer.sol#47) calls insertPlot (PodTransfer.sol#58) which does s.accts[to].fields[fieldId].plotIndexes.push(index) for the recipient. validatePlotAndReturnPods only requires the transferred range to be >= 1 pod (end > start, amount >= end), so an attacker can split one owned plot into thousands of 1-pod plots and push one plotIndexes entry into the victim's array per transfer. There is NO cap on plotIndexes.length anywhere in the codebase.\n\nThe corrupted array is consumed by LibDibbler.removePlotIndexFromAccount (LibDibbler.sol#388), which calls findPlotIndexForAccount (LibDibbler.sol#403). That function copies the ENTIRE plotIndexes array into memory (uint256[] memory plotIndexes = field.plotIndexes, one cold SLOAD ~2100 gas per element) and then runs a while-loop linear search for the target index. removePlotIndexFromAccount is invoked on the victim's own array every time the victim:\n  - harvests a plot: FieldFacet.harvest -> _harvestPlot -> LibDibbler.removePlotIndexFromAccount (FieldFacet.sol#209), and\n  - transfers/sells a full plot: PodTransfer.removePlot -> LibDibbler.removePlotIndexFromAccount (PodTransfer.sol#76).\n\nBecause the search cost scales with the total number of entries the attacker pushed (not with the victim's own plot count), and the worst-case target sits at the end of the array, a sufficiently large plotIndexes array makes the victim's harvest/transfer transaction revert with out-of-gas no matter how it is constructed. The victim cannot prune the array because pruning itself goes through the same removePlot path that runs out of gas.\n\nAsymmetry: the attacker spreads the cost of pushing N entries across N cheap transactions (~one storage push each, batchable across many blocks via transferPlots), while the victim is forced to pay the full O(N) scan in a single transaction that must fit inside one block."
+    },
+    {
+      "id": "EA-001",
+      "title": "Convert-capacity sandwich front-runs shared per-block cap, burns victim stalk",
+      "severity": "High",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Convert/LibConvert.sol",
+      "contract": "",
+      "function": "calculateConvertCapacityPenalty",
+      "description": "Beanstalk meters how much deltaB may be converted toward peg per block via a single shared accumulator, s.sys.convertCapacity[block.number].overallConvertCapacityUsed, capped at abs(LibDeltaB.overallCappedDeltaB()). Every Bean<->Well convert in the block adds the amount it moves toward peg into this accumulator (LibConvert.applyStalkPenalty L211-220, writing pdCapacity.overall computed in calculateConvertCapacityPenalty L309-311). Once the accumulator reaches the block's capped deltaB, calculateConvertCapacityPenalty (L297-306) returns a non-zero convertCapacityPenalty for any further toward-peg conversion, which feeds calculateStalkPenalty (L262-265) -> a positive stalkPenaltyBdv.\n\nTwo permissionless entry points consume the SAME accumulator and react to the penalty differently:\n1. ConvertFacet.convert() (in-protocol Bean<->LP): LibPipelineConvert.checkForValidConvertAndUpdateConvertCapacity (L186-214) REQUIRES stalkPenaltyBdv == 0 and reverts otherwise.\n2. PipelineConvertFacet.pipelineConvert(): LibPipelineConvert.executePipelineConvert does NOT revert on penalty; instead it BURNS grown stalk: newGrownStalk = initialGrownStalk * (fromBdv - stalkPenaltyBdv) / fromBdv (LibPipelineConvert.sol L72).\n\nBecause the accumulator is shared, an attacker can front-run a victim's convert with a cheap, penalty-free toward-peg convert sized to exhaust the block's overall (and/or per-well) convert capacity. The victim's transaction then lands with overallConvertCapacityUsed >= overallCappedDeltaB, so calculateConvertCapacityPenalty returns the victim's full towards-peg amount as a penalty. For a pipelineConvert victim this directly burns a pro-rata slice of the grown stalk attached to the deposits they are converting; the burned stalk is permanently lost yield (and roots/earned-bean entitlement). For an in-protocol convert victim it simply reverts, a per-block griefing/DoS on the convert function. The attacker's own toward-peg convert is by construction penalty-free (it runs while capacity is still available), so the attack is nearly costless to mount and can be repeated every block in which a victim convert is pending."
+    },
+    {
+      "id": "FL-001",
+      "title": "Convert peg bound + stalk penalty use spot getReserves(), flash-exploitable",
+      "severity": "High",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibDeltaB.sol",
+      "contract": "",
+      "function": "currentDeltaB / getCurrentDeltaB",
+      "description": "The Silo convert path (both `ConvertFacet.convert` and `PipelineConvertFacet.pipelineConvert`) determines (a) the maximum convertible amount and (b) the anti-peg stalk penalty entirely from the Well's *instantaneous* spot reserves, with no TWA / capped-reserve guard on either the convert direction or the convert amount.\n\nCall chain:\n- `LibConvert.getMaxAmountIn` -> `LibWellConvert.beansToPeg`/`lpToPeg` both read `IWell(well).getReserves()` (spot) at LibWellConvert.sol#39 / #60 and compute `calcReserveAtRatioLiquidity` to derive the maximum amount convertible 'to peg'. The USD ratio feeding this comes from `LibWell.getRatiosAndBeanIndex(tokens)` with lookback 0 (spot \u2014 see oracle OR-001/OR-002).\n- The penalty calculation in `LibConvert.calculateStalkPenalty` derives before/after deltaB from `LibDeltaB.getCurrentDeltaB` -> `LibDeltaB.currentDeltaB` -> `IWell(well).getReserves()` with `ZERO_LOOKBACK` (LibDeltaB.sol#46-49). `calculateAgainstPeg`/`calculateTowardsPeg` (LibConvert.sol#369-430) therefore measure deltaB movement from spot.\n- Only the *convert capacity* exemption (`overallCappedDeltaB`, `cappedReservesDeltaB`, LibDeltaB.sol#65-91) uses the pump's manipulation-resistant capped reserves. Capacity merely bounds how much penalty-free room exists per block; it does NOT bound the convert amount nor the spot-derived against-peg measurement.\n\nBecause everything that decides 'is this convert legal, how large can it be, and is it penalized' is spot-sourced, an attacker can flash-borrow WETH (or the non-Bean Well token), swap into the target Well to push spot deltaB strongly positive (well below peg appears as above peg, or the peg distance is inflated), then in the same transaction call `convert`/`pipelineConvert`. Effects: (1) `_beansToPeg`/`lpToPeg` returns an inflated cap (`require(maxBeans > 0)` / `require(maxLp > 0)` is satisfied even when the true TWA price is on the other side of peg), allowing a convert that should be disallowed or much smaller; (2) the spot before/after deltaB makes the attacker's against-peg movement read as zero, so `stalkPenaltyBdv == 0` \u2014 in pipelineConvert this means `newGrownStalk = initialGrownStalk * (fromBdv - 0)/fromBdv`, i.e. the attacker preserves 100% of grown stalk while actually moving the pool against peg. After the convert, the attacker unwinds the flash swap; the Well returns to its true price but the attacker keeps the over-sized / penalty-free converted deposit (LP minted via `IWell.sync` at the manipulated ratio at LibWellConvert.sol#186, or Beans extracted via `removeLiquidityOneToken` at #143)."
+    },
+    {
+      "id": "LG-001",
+      "title": "ReseedField loop increments i instead of j, bricking field migration",
+      "severity": "High",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedField.sol",
+      "contract": "",
+      "function": "init",
+      "description": "ReseedField.init() re-issues every L1 Plot to its owner on L2. The migration iterates accounts in an outer loop (index i) and that account's plots in an inner loop. The inner loop is written `for (uint j; j < accountPlots[i].plots.length; i++)` \u2014 the post-statement increments the OUTER index `i`, not the inner index `j`. Because `j` is never incremented, the inner-loop guard `j < accountPlots[i].plots.length` evaluates plot[0] repeatedly while `i` keeps advancing. For any account whose `plots` array is non-empty, `i` quickly exceeds `accountPlots.length` and `accountPlots[i]` reverts with an array out-of-bounds panic. The init step therefore always reverts (whenever at least one migrated plot exists), so the entire reseed diamondCut batch reverts and the Field can never be initialized. In the only edge case where it does NOT revert (the very first account has an empty plots array), the loop body simply never executes and that account's plots are silently dropped while the `calculatedTotalPods == totalPods` check would then fail. Either way the documented behavior \u2014 're-issue plots to existing farmers, set Field to L1 state' \u2014 cannot be achieved. This is the classic wrong-loop-counter bug (cf. Solodit 'Incorrect logic in a while loop', High)."
+    },
+    {
+      "id": "SG-001",
+      "title": "transferPlots swaps fieldId/amount args; pod allowance never consumed",
+      "severity": "High",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/market/MarketplaceFacet/MarketplaceFacet.sol",
+      "contract": "",
+      "function": "transferPlots",
+      "description": "The pod-transfer family is split into a single-plot entry (transferPlot) and a batch entry (transferPlots) on MarketplaceFacet. Both consume the spender's pod allowance via the same internal helper:\n\n    function decrementAllowancePods(address owner, address spender, uint256 fieldId, uint256 amount) internal\n        (PodTransfer.sol#89)\n\ntransferPlot (single) calls it with the correct argument order (MarketplaceFacet.sol#128):\n    decrementAllowancePods(sender, LibTractor._user(), fieldId, transferAmount);\n\ntransferPlots (batch) calls it with fieldId and the amount TRANSPOSED (MarketplaceFacet.sol#163):\n    decrementAllowancePods(sender, LibTractor._user(), totalAmount, fieldId);\n                                                       ^^^^^^^^^^^  ^^^^^^^\n                                                       (fieldId pos) (amount pos)\n\nThere is only one definition of decrementAllowancePods (no overload), so this compiles with totalAmount bound to the `fieldId` parameter and fieldId bound to the `amount` parameter. Inside the helper this means:\n  - currentAllowance = allowancePods(owner, spender, totalAmount)  -> reads s.accts[owner].fields[totalAmount].podAllowances[spender], the WRONG field index (indexed by the pod amount, which is essentially never a real fieldId), so it is 0 in practice.\n  - require(currentAllowance < amount) becomes require(0 < fieldId).\n  - setAllowancePods(owner, spender, totalAmount, 0 - fieldId) writes to the wrong field slot.\n\nThe guard at MarketplaceFacet.sol#159-164 only runs for the delegated case (LibTractor._user() != sender, i.e. an approved spender moving the owner's plots) and only when the allowance is not unlimited. For the default/active Field (fieldId == 0, the production Beanstalk field per FieldFacet.activeField), the rewritten check is `0 < 0` which is false: no revert occurs, and the owner's REAL allowance in fields[0].podAllowances[spender] is never decremented. The spender's finite approval therefore behaves as an unlimited approval under the batch path. For a non-zero fieldId the same swap instead reverts (`0 < fieldId` true) for any finite allowance, bricking legitimate delegated batch transfers (secondary DoS).\n\nThis is an asymmetric/mis-scoped guard between sibling functions: the single-transfer guard correctly authorizes and consumes the allowance; the batch sibling reads and writes the wrong storage slot, so the authorization it appears to enforce is a no-op for the active field. Note also that in transferPlots the plots are moved by _transferPlots (MarketplaceFacet.sol#156) BEFORE this (broken) allowance check runs, so even the intended revert cannot un-move the plots."
+    },
+    {
+      "id": "SN-001",
+      "title": "Flood plenty paid on live roots vs fixed rain.roots divisor",
+      "severity": "High",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+      "contract": "",
+      "function": "balanceOfPlenty / handleRainAndSops / rewardSop",
+      "description": "Season-of-Plenty (Flood) rewards are distributed point-in-time, but the per-account root basis and the global divisor are snapshotted at two DIFFERENT points in time, and one of the per-account paths uses LIVE roots instead of the snapshot.\n\nGlobal divisor: `rewardSop()` computes plentyPerRoot for a well as `amount * SOP_PRECISION / s.sys.rain.roots` (LibFlood.sol#325). `s.sys.rain.roots` is set exactly once, at the season rain STARTS, to `s.sys.silo.roots` (LibFlood.sol#74 in `handleRain`), and is never refreshed for the duration of the rain. Conservation therefore requires that the sum over all accounts of (root-basis used to pay that account) equals `rain.roots`.\n\nPer-account basis: an account's plenty is credited in `handleRainAndSops()` -> `balanceOfPlenty()` (LibFlood.sol#115, #147). `balanceOfPlenty` has two payout branches:\n  (a) the rain branch (LibFlood.sol#154-171), which correctly multiplies plentyPerRoot by the SNAPSHOT `s.accts[account].sop.rainRoots`;\n  (b) the fallback branch (LibFlood.sol#178-181) `if (s.sys.season.lastSop > s.accts[account].lastUpdate) { plenty += (sops[lastSop]-previousPPR) * s.accts[account].roots / SOP_PRECISION; }` which multiplies by the account's LIVE current roots `s.accts[account].roots`.\n\nWhich account hits which branch is decided by the strict inequality in `handleRainAndSops` at LibFlood.sol#124: `if (s.sys.season.rainStart > lastUpdate)` snapshots `rainRoots = s.accts[account].roots` and sets `lastRain`. An account whose `lastUpdate == rainStart` (i.e. it mowed/interacted during the very season rain started) does NOT satisfy `rainStart > lastUpdate`, so it never captures `rainRoots` and never sets `lastRain` for this rain. When a Flood (SOP) then occurs in a later season of the same rain, that account's plenty is computed through fallback branch (b) on its LIVE roots, not on a rain-start snapshot.\n\nBecause roots grow over seasons (every `__mow` calls `mintActiveStalk`, LibSilo.sol#475/#180, which increases `s.accts[account].roots`), an account that was active at rain start and keeps mowing accrues more roots between rain start and the SOP. Its plenty is then paid on the inflated live root count while the divisor `rain.roots` reflects the smaller rain-start total. The fixed `plentyPerSopToken` pool (LibFlood.sol#331) is thereby over-allocated to these accounts, diluting accounts that were snapshotted via the correct `rainRoots` path. The two root bases (live vs snapshot) are mutually inconsistent against a single fixed divisor, so total credited plenty can exceed the tokens actually obtained in the sop swap, leaving some honest claimers unable to withdraw their full share (claimPlenty/claimAllPlenty draw from the shared `plentyPerSopToken[token]` balance)."
+    },
+    {
+      "id": "TI-001",
+      "title": "EIP-712 domain hardcodes chainId=1, breaking Diamond permits/Tractor on L2",
+      "severity": "High",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/C.sol",
+      "contract": "",
+      "function": "getChainId",
+      "description": "Beanstalk builds three independent EIP-712 domain separators inside the Diamond \u2014 LibSiloPermit (Silo Deposit permits), LibTokenPermit (farm-balance ERC20 permits), and LibTractor (Tractor blueprint signing). All three build the domain separator with `C.getChainId()` instead of the runtime `block.chainid`. `C.getChainId()` returns the constant `CHAIN_ID = 1` hardcoded in C.sol (line 22). EIP-712 requires the domain separator's `chainId` field to equal the chain the contract is actually executing on. The protocol is being redeployed to an L2 whose chainId is NOT 1 (e.g. Arbitrum 42161, Base 8453, Optimism 10). Every off-chain signer that follows EIP-712 correctly \u2014 MetaMask, ethers/viem `signTypedData`, and the Beanstalk SDK \u2014 will populate the domain `chainId` with the L2's real chainId. The on-chain verifier recomputes the digest with chainId=1, so `ECDSA.recover` returns an address that does not equal `owner`, and every permit/blueprint reverts with 'permit invalid signature'. Result: permit-based deposit approvals (ApprovalFacet.permitDeposit / permitDeposits), farm-balance ERC20 permits (TokenFacet.permitToken via TokenSupportFacet), and the entire Tractor blueprint/requisition system are non-functional on the L2 deployment. There is no on-chain setter to fix the constant; it would require a code upgrade. (Note: cross-chain replay against L1 Beanstalk is NOT possible because the domain also encodes `address(this)` and the L2 Diamond has a different address \u2014 the impact is functionality breakage / signature DoS, not replay.)"
+    },
+    {
+      "id": "TI-002",
+      "title": "Hardcoded mainnet WETH address bricks wrapEth/unwrapEth on L2",
+      "severity": "High",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Token/LibWeth.sol",
+      "contract": "",
+      "function": "wrap/unwrap/deposit/withdraw",
+      "description": "Both the active TokenFacet WETH wrapper (libraries/Token/LibWeth.sol) and the migration L1TokenFacet wrapper (beanstalk/migration/L1Libraries/LibWeth.sol) hardcode the Ethereum mainnet WETH9 address `0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2` as a `constant` (line 16 in each). The same value is the `C.WETH` constant in C.sol (line 64). TokenFacet imports the active Token/LibWeth and exposes wrapEth/unwrapEth guarded by `oneOutFlow(C.WETH)` (TokenFacet.sol:236). On the L2 target, the canonical WETH contract lives at a completely different address (Arbitrum 0x82aF...; Base 0x4200...0006; Optimism 0x4200...0006). On L2, `IWETH(WETH).deposit{value: amount}()` and `IWETH(WETH).withdraw(amount)` call code at the mainnet address \u2014 which on the L2 is either non-existent (call to an account with no code -> low-level call returns, but the contract has no fallback minting WETH, so the user pays ETH and receives nothing / interface call reverts) or, worse, an unrelated contract. ETH sent to a wrong/empty address during wrap is lost or trapped, and unwrap's subsequent `balanceOf`/`withdraw` accounting on the wrong token is meaningless."
+    },
+    {
+      "id": "TI-003",
+      "title": "Hardcoded mainnet PIPELINE address routes convert funds to wrong address on L2",
+      "severity": "High",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Convert/LibPipelineConvert.sol",
+      "contract": "",
+      "function": "executePipelineConvert / transferTokensFromPipeline",
+      "description": "LibPipelineConvert.executePipelineConvert transfers the user's input token to the hardcoded mainnet Pipeline address `C.PIPELINE = 0xb1bE0000C6B3C62749b5F0c92480146452D15423` (C.sol:66) via `IERC20(inputToken).transfer(C.PIPELINE, fromAmount)` (line 53), executes advanced farm calls, then recovers the output by reading `IERC20(tokenOut).balanceOf(C.PIPELINE)` (line 136) and pulling tokens back with `IPipeline(C.PIPELINE).pipe(...)` (line 142). The Pipeline contract on the L2 will be deployed at a different address than mainnet (Pipeline is deterministically deployed but the address depends on deployer nonce/CREATE2 salt and is not guaranteed identical across chains; the codebase itself marks the closely-related BEAN_WSTETH_WELL as `// TODO: Set` at C.sol:73, evidence these constants are not yet finalized for the new deployment). If C.PIPELINE does not match the actual L2 Pipeline: (a) the input-token transfer at line 53 sends user funds to an address with no/unrelated code, so the farm calls operate on a Pipeline that never received the funds and `transferTokensFromPipeline` reverts on `require(amountOut > 0)` at best \u2014 or (b) if some unrelated contract sits at that address, funds are stranded. Additionally line 53 uses a raw `IERC20.transfer` (return value unchecked) rather than SafeERC20 \u2014 for non-reverting non-standard tokens this would silently proceed, though Bean/Well LP tokens revert on failure so this sub-issue is secondary."
+    },
+    {
+      "id": "AR-002",
+      "title": "LibWell USD/bean-price math hardcodes 18-decimal non-Bean token assumption",
+      "severity": "Medium",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Well/LibWell.sol",
+      "contract": "",
+      "function": "getWellTwaUsdLiquidityFromReserves / getBeanTokenPriceFromTwaReserves",
+      "description": "Several LibWell helpers scale Well reserves with hardcoded 1e18 / 1e6 factors that are only correct when the non-Bean token has 18 decimals. The functions even document the assumption ('assumes TKN has 18 decimals', LibWell.sol#178 and #216) but nothing enforces it on whitelist.\n\n  - getWellTwaUsdLiquidityFromReserves (LibWell.sol#134-155): for the in-season path it returns twaReserves[j].mul(1e18).div(tokenUsd) where tokenUsd is a 6-decimal USD/TKN price and twaReserves[j] is the non-Bean reserve in its NATIVE decimals. The 1e18 numerator presumes the reserve is 1e18-scaled. For the out-of-season path it returns LibUsdOracle.getTokenPrice(token).mul(twaReserves[j]).div(1e6) \u2014 again assuming the reserve carries 18 decimals so the result lands at 1e18 USD precision.\n  - getBeanTokenPriceFromTwaReserves (LibWell.sol#241-259): price = reserveBean.mul(1e18).div(reserveTkn) (or the inverse). The fixed 1e18 only yields a correctly-scaled TKN/BEAN price when Bean (6 dec) is paired against an 18-dec token; a 6-dec or 8-dec non-Bean token shifts the result by 10**(18-decimals).\n\nThese values are consumed by LibEvaluate.calcLPToSupplyRatio (usdLiquidity at LibEvaluate.sol#260, drives the L2SR weather case) and LibEvaluate.evalPrice (beanUsdPrice = 1e30 / (usdTokenPrice * beanTknPrice), LibEvaluate.sol#111-113, drives the excessive-price case 6). A non-18-decimal token would make usdLiquidity and beanUsdPrice wrong by a factor of 10**(18-decimals), pushing the L2SR/price weather cases into the wrong bucket and mis-sizing the season's stalk/soil/temperature response. This is a latent decimal-mismatch bug: currently inert because the live Wells use WETH/wstETH (both 18-dec), but it is triggered the moment governance whitelists a Well with a 6- or 8-decimal non-Bean token (e.g. USDC, WBTC)."
+    },
+    {
+      "id": "BSA-003",
+      "title": "Migration redeem ignores verified internalBalances and zeroes global silo totals",
+      "severity": "Medium",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+      "contract": "",
+      "function": "addMigratedDepositsToAccount",
+      "description": "Two behavioral divergences in the same redemption routine. (1) Name/intent vs implementation: the function is named redeemDepositsAndInternalBalances and its @notice promises redemption of 'deposits and bean-asset internal balances'; the AccountInternalBalance[] internalBalances array is even committed into and validated by the Merkle leaf (verifyDepositsAndInternalBalances, #127-128). But the function body never credits internal balances anywhere \u2014 there is no write to s.accts[reciever].internalTokenBalance. Migrating contracts that present (and prove) internal balances have those balances silently dropped. (2) Cross-step global-state drift: addMigratedDepositsToAccount declares local `uint128 totalDeposited; uint128 totalDepositedBdv;` (#159-160) that are never incremented, then writes them to the GLOBAL aggregates `s.sys.silo.balances[token].deposited = totalDeposited;` and `.depositedBdv = totalDepositedBdv;` (#194-195) \u2014 i.e. it assigns 0, and uses `=` rather than `+=`. Any contract redemption therefore overwrites the global deposited/depositedBdv totals (set earlier by ReseedSilo) to 0 for that token, while the per-account deposit mappings remain populated. This makes the per-account deposits and the global silo balance permanently inconsistent across the migration lifecycle."
+    },
+    {
+      "id": "CC-002",
+      "title": "L1 burns Beans but L2 receiver always reverts (EXTERNAL_L1_BEANS=0)",
+      "severity": "Medium",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/migration/BeanL1RecieverFacet.sol",
+      "contract": "",
+      "function": "recieveL1Beans",
+      "description": "The external-Bean L1->L2 migration is a two-sided cross-chain flow. On L1, BeanL2MigrationFacet.migrateL2Beans() (L43) irreversibly burns the user's Beans (C.bean().burnFrom(msg.sender, amount), L49) and then sends a cross-chain message instructing the L2 to mint the same amount to `reciever`. On L2, BeanL1RecieverFacet.recieveL1Beans() (L31) is the receiver. It increments s.sys.migration.migratedL1Beans by `amount` and then enforces `require(EXTERNAL_L1_BEANS >= s.sys.migration.migratedL1Beans, \"L2Migration: exceeds maximum migrated\")`. EXTERNAL_L1_BEANS is declared `uint256 constant EXTERNAL_L1_BEANS = 0;` (L22) with NO setter anywhere in scope. Therefore for any amount > 0 the require evaluates `0 >= amount` which is false, and the L2 mint reverts. The L1 burn has already succeeded and is irreversible. Result: a cross-chain accounting asymmetry where the source side destroys value but the destination side categorically refuses to credit it, stranding the migrated Beans. The BRIDGE addresses themselves are consistent with an Optimism/Base-stack deployment (L1 messenger 0x866E...0Afa, L2 CrossDomainMessenger predeploy 0x4200...0007) and xDomainMessageSender is checked against L1BEANSTALK, so the gate that fails is the supply cap, not the messenger auth."
+    },
+    {
+      "id": "EA-002",
+      "title": "Flood SOP swap uses minAmountOut=0 and max deadline, sandwichable by MEV bots",
+      "severity": "Medium",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+      "contract": "",
+      "function": "sopWell",
+      "description": "During a Flood (Season of Plenty), sopWell() mints Beans and dumps them on the SOP Well via IWell.swapFrom(C.bean(), sopToken, sopBeans, 0, address(this), type(uint256).max) (LibFlood.sol L299-306). The minAmountOut is hard-coded to 0 and the deadline to type(uint256).max. The amount of non-Bean token (e.g. WETH) received from this forced sale is exactly what is distributed to Stalkholders as 'plenty' (rewardSop L320-332 increments plentyPerSopToken and the per-root accumulator). Because the swap accepts any output amount, an MEV searcher can sandwich the protocol's own flood swap: buy the non-Bean token / skew the Well right before sunrise()->stepSun()->handleRain()->sopWell(), let Beanstalk sell its freshly minted Beans into the worsened price (receiving fewer WETH), then unwind. The deficit comes straight out of the WETH distributed to Stalkholders. The flood swap is triggered inside the permissionless sunrise()/gm() season step, so the searcher knows precisely when it will fire (it is bundled in the same block as the sunrise transaction the searcher can themselves submit)."
+    },
+    {
+      "id": "TI-004",
+      "title": "Hardcoded mainnet oracle and token addresses break price feeds on L2",
+      "severity": "Medium",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibUsdOracle.sol",
+      "contract": "",
+      "function": "getUsdPrice / chainlinkRegistry branches",
+      "description": "LibUsdOracle and LibWstethEthOracle resolve prices using hardcoded mainnet addresses from C.sol: the Chainlink registry `chainlinkRegistry = 0x47Fb2585...` (LibUsdOracle.sol:36), the ETH/USD, wstETH/ETH, USDC/USD and USDT/USD Chainlink aggregators (C.sol:79-84), the wstETH/ETH Uniswap V3 0.01% pool (C.sol:87), and token-address branch comparisons against `C.WETH` / `C.WSTETH` (LibUsdOracle.sol:50,55,78,83 and LibWstethEthOracle.sol:76,85,86). On the L2 these aggregator/pool/registry addresses point to contracts that do not exist or are unrelated, and the token-identity comparisons (`if (token == C.WETH)`) will never match the L2's real WETH/wstETH tokens \u2014 so the oracle either reverts (call to non-contract / Chainlink registry missing the feed) or silently falls through to a wrong branch and returns an incorrect or zero price. Because USD pricing feeds Fertilizer minting (LibUsdOracle is used by FertilizerFacet via getBarnRaiseToken pricing) and Silo BDV/deltaB logic, a wrong/stale/zero price corrupts mint amounts and convert penalties. This is reported separately from the EIP-712 issue because the failure surface is the price layer, but it is the same root cause class: mainnet-only constants in C.sol used unchanged on L2."
+    },
+    {
+      "id": "TI-005",
+      "title": "Fertilizer ERC1155 safe-mint acceptance check can brick mintFertilizer",
+      "severity": "Medium",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/tokens/Fertilizer/Fertilizer1155.sol",
+      "contract": "",
+      "function": "_safeMint / __doSafeTransferAcceptanceCheck",
+      "description": "Fertilizer1155._safeMint (Fertilizer1155.sol:79-89) always runs __doSafeTransferAcceptanceCheck on mint, which \u2014 when the recipient is a contract \u2014 calls `IERC1155Receiver(to).onERC1155Received(...)` and reverts the whole mint if the receiver returns a non-magic value or reverts (lines 95-116). beanstalkMint (Fertilizer.sol:47-60) is invoked by FertilizerFacet.mintFertilizer (FertilizerFacet.sol:85) with recipient `LibTractor._user()`. A smart-contract account (Safe, abstract-account wallet, or any contract that bought through the Barn Raise) that does not implement onERC1155Received will cause its OWN mintFertilizer call to revert after the LP/recapitalization side effects in addFertilizer have begun \u2014 making it impossible for such accounts to buy Fertilizer. Because Beanstalk increasingly targets contract/AA users on L2 and the Tractor system lets operators act on behalf of publishers, this is a realistic griefing/DoS surface for contract buyers, not merely self-inflicted. The acceptance check is correct per the ERC-1155 spec, but combined with a single-shot mint-and-recapitalize flow it converts an unsupported-receiver into a hard buy failure. This is the only Fertilizer ERC1155 correctness item found: the TransferSingle/TransferBatch event operator/from/to ordering (Fertilizer1155.sol:45,72,86) is spec-correct, and safeTransferFrom/safeBatchTransferFrom auth checks are present."
+    },
+    {
+      "id": "AC-002",
+      "title": "LibTractor domain separator uses BLUEPRINT_TYPE_HASH not EIP712Domain typehash",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/LibTractor.sol",
+      "contract": "",
+      "function": "_domainSeparatorV4",
+      "description": "LibTractor._domainSeparatorV4() (LibTractor.sol#173-184) builds the EIP-712 domain separator with BLUEPRINT_TYPE_HASH as its first encoded field instead of the EIP712Domain typehash (the file defines EIP712_TYPE_HASH at L24-27 but never uses it). The separator is internally consistent \u2014 the same (wrong) value is used both when the contract computes _getBlueprintHash for verification and there is no second producer on-chain \u2014 so signatures created via getBlueprintHash() still verify and CANNOT be forged; this is not an on-chain auth bypass. The defect is EIP-712 non-compliance: a standard wallet signing the Tractor typed data via eth_signTypedData computes the correct EIP712Domain-based separator, producing a signature that FAILS verifyRequisition (TractorFacet.sol#32-41). Conversely the sibling L2ContractMigrationFacet._domainSeparatorV4 (L230-241) correctly uses EIP712_TYPE_HASH, confirming this is an unintended inconsistency in LibTractor."
+    },
+    {
+      "id": "AC-003",
+      "title": "UnwrapAndSendETH sweeps full WETH balance to any caller-supplied address",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/pipeline/junctions/UnwrapAndSendETH.sol",
+      "contract": "",
+      "function": "unwrapAndSendETH",
+      "description": "UnwrapAndSendETH.unwrapAndSendETH(address to) (UnwrapAndSendETH.sol#26-32) is an unguarded external function that unwraps the contract's ENTIRE WETH balance and forwards address(this).balance to a fully caller-supplied `to` (L30, slither arbitrary-send-eth). This is a standalone pipeline junction, not a Beanstalk facet and not delegatecalled by the diamond, so it never holds Beanstalk protocol funds and is designed to be used atomically inside a single pipe with no resting balance. The residual risk is purely junction-local: any WETH transiently left in the junction between pipe calls (e.g. a user who funds it but reverts before sweeping, or an over-funded pipe) is claimable by any account that calls unwrapAndSendETH(attacker) first. No diamond ETH or approvals are reachable through this path."
+    },
+    {
+      "id": "AM-001",
+      "title": "sunrise: potential oracle-manipulation entry point (score 5)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/sun/SeasonFacet/SeasonFacet.sol",
+      "contract": "",
+      "function": "sunrise",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] sunrise (user, external payable) in contracts/beanstalk/sun/SeasonFacet/SeasonFacet.sol. moves_funds=True, reads_external_state=True, modifiers=['fundsSafu', 'noOutFlow']. Intent: Manipulate the BEAN price oracle in the same block that sunrise() reads it, so deltaB is wrong and Beanstalk mints/burns the wrong supply, profiting the caller via mispriced soil/pods/rewards. Technique: Permissionless call to sunrise()->gm() at SeasonFacet.sol#37/48; gm() calls stepOracle() (deltaB) then stepSun() (Sun.sol#41) which mints Beans (C.bean().mint at Sun.sol#46) and sets soil/pod issuance; an attacker who skews the Well/pump reserves immediately before the season boundary biases deltaB and the freshly-minted supply distribution. Evasion: Beanstalk relies on TWA pump reserves rather than spot price to resist single-block manipulation; gap is whether the TWA window and the once-per-season cadence fully neutralise a multi-block or first-after-gap manipulation \u2014 oracle specialist must confirm the pump freshness/window."
+    },
+    {
+      "id": "AM-003",
+      "title": "claimFertilized: potential reentrancy entry point (score 4)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/barn/FertilizerFacet.sol",
+      "contract": "",
+      "function": "claimFertilized",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] claimFertilized (user, external payable) in contracts/beanstalk/barn/FertilizerFacet.sol. moves_funds=True, reads_external_state=False, modifiers=['fundsSafu', 'noSupplyChange', 'oneOutFlow']. Intent: Re-enter Beanstalk through the Fertilizer ERC-1155 update/payFertilizer callback path to over-claim rinsable Beans (Sprouts). Technique: claimFertilized() (FertilizerFacet.sol#47) calls C.fertilizer().beanstalkUpdate(...) which (Fertilizer._update at Fertilizer.sol#77) calls back into the diamond via IBS(owner()).payFertilizer(); fertilizedPaidIndex is updated at L52 and Beans sent at L53. The cross-contract callback (Beanstalk->Fertilizer->Beanstalk) is the reentrancy seam. Evasion: No nonReentrant on claimFertilized (only oneOutFlow); the Fertilizer side methods are onlyOwner so only the diamond can invoke them, but the payFertilizer re-entry into the diamond mid-update is the gap. reentrancy specialist to trace the diamond<->Fertilizer round trip."
+    },
+    {
+      "id": "AM-004",
+      "title": "fillPodOrder: potential reentrancy entry point (score 4)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/market/MarketplaceFacet/MarketplaceFacet.sol",
+      "contract": "",
+      "function": "fillPodOrder",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] fillPodOrder (user, external payable) in contracts/beanstalk/market/MarketplaceFacet/MarketplaceFacet.sol. moves_funds=True, reads_external_state=False, modifiers=['fundsSafu', 'noSupplyChange', 'oneOutFlow']. Intent: Re-enter the marketplace during the Bean payout to a filler to refill/cancel the same order twice, extracting Beans escrowed in podOrders beyond what the order funded. Technique: fillPodOrder()->_fillPodOrder() (Order.sol#79): order balance is decremented at L105 then LibTransfer.sendToken(C.bean(),costInBeans,filler,mode) at L107, THEN _transferPlot at L113 and delete at L115-117. The plot transfer and order deletion happen AFTER the outbound token send; with To.INTERNAL or a Bean-side hook the post-send state is reachable. Evasion: oneOutFlow(C.BEAN) invariant bounds net Bean outflow, and order amount is debited before the send (partial CEI). No nonReentrant on this entry (unlike transferPlot). reentrancy specialist must confirm whether oneOutFlow fully blocks a second fill within the same tx."
+    },
+    {
+      "id": "AM-008",
+      "title": "claimAllPlenty: potential reentrancy entry point (score 4)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/SiloFacet/ClaimFacet.sol",
+      "contract": "",
+      "function": "claimAllPlenty",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] claimAllPlenty (user, external payable) in contracts/beanstalk/silo/SiloFacet/ClaimFacet.sol. moves_funds=True, reads_external_state=False, modifiers=['fundsSafu', 'noSupplyChange', 'nonReentrant']. Intent: Loop-claim every whitelisted well's plenty; same CEI/reentrancy surface as claimPlenty across all SOP tokens at once. Technique: claimAllPlenty() iterates getWhitelistedWellLpTokens() calling _claimPlenty per token (ClaimFacet.sol#79); each iteration repeats the send-before-zero ordering at ClaimFacet.sol#100-104. Note: unlike claimPlenty(), this lacks the oneOutFlow invariant guard. Evasion: nonReentrant present but no oneOutFlow flow-accounting guard; if a SOP token has a transfer hook, the unbounded token loop is also a DoS/gas vector. reentrancy + dos specialists to confirm."
+    },
+    {
+      "id": "AM-010",
+      "title": "init(ReseedBarn): potential proxy-upgrade entry point (score 3)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedBarn.sol",
+      "contract": "",
+      "function": "init(ReseedBarn)",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] init(ReseedBarn) (admin, external nonpayable) in contracts/beanstalk/init/reseed/L2/ReseedBarn.sol. moves_funds=True, reads_external_state=False, modifiers=['(none \u2014 diamondCut gated)']. Intent: (Privileged migration) Mis-seed fertilizer supply or front-run the one-time L2 reseed initializer to corrupt barn accounting before normal operation. Technique: ReseedBarn.init() (line 47) deploys a TransparentUpgradeableProxy for Fertilizer (L58) and calls mintFertilizers (L64), writing fert.fertFirst/fertLast/bpf/activeFertilizer (L66-69). Runs as a diamondCut init step; if callable out of band the fert ledger is attacker-set. Evasion: Intended to run exactly once via the diamond upgrade; gap is the standard uninitialized-proxy/init-front-run class. upgrade_storage to confirm init guard and proxy admin."
+    },
+    {
+      "id": "AM-011",
+      "title": "mintFertilizers: potential logic-error entry point (score 3)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedBarn.sol",
+      "contract": "",
+      "function": "mintFertilizers",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] mintFertilizers (internal, internal nonpayable) in contracts/beanstalk/init/reseed/L2/ReseedBarn.sol. moves_funds=False, reads_external_state=False, modifiers=['(none)']. Intent: (Privileged migration) Establish fertilizer balances during reseed; wrong inputs over/under-mint fertilizer. Technique: mintFertilizers() (line 72): loops fertilizerProxy.beanstalkMint(account,fid,amount,lastBpf) (L88) seeding per-account fertilizer and the fert linked list (L80-82). Evasion: Reached only from ReseedBarn.init(); trust depends entirely on the reseed data. upgrade_storage/logic to sanity-check the seeded totals against invariants."
+    },
+    {
+      "id": "AM-012",
+      "title": "mintAndSync: potential logic-error entry point (score 3)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedBean.sol",
+      "contract": "",
+      "function": "mintAndSync",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] mintAndSync (internal, internal nonpayable) in contracts/beanstalk/init/reseed/L2/ReseedBean.sol. moves_funds=True, reads_external_state=False, modifiers=['(none)']. Intent: (Privileged migration) Mint Beans and seed a Well's reserves during reseed; arbitrary-from transfer if OWNER approval is mis-set. Technique: mintAndSync() (ReseedBean.sol#213): IERC20(nonBeanToken).safeTransferFrom(OWNER,address(well),tokenAmount) at L221 (arbitrary-send-erc20, High) plus a Bean mint to sync Well reserves. Evasion: OWNER is a constant migration source, not attacker-controllable; runs once at reseed. logic/oracle: confirm seeded Well reserves match intended initial price (sets the starting oracle state)."
+    },
+    {
+      "id": "AM-014",
+      "title": "_cancelPodOrder: potential reentrancy entry point (score 3)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/market/MarketplaceFacet/Order.sol",
+      "contract": "",
+      "function": "_cancelPodOrder",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] _cancelPodOrder (internal, internal nonpayable) in contracts/beanstalk/market/MarketplaceFacet/Order.sol. moves_funds=True, reads_external_state=False, modifiers=['(none)']. Intent: Re-enter during the Bean refund to cancel/refund the same order more than once, draining escrowed order Beans. Technique: Order.sol#134: amountBeans=podOrders[id]; sendToken(C.bean(),amountBeans,orderer) at L137 BEFORE delete podOrders[id] at L138 \u2014 classic send-before-delete CEI violation. Evasion: External cancelPodOrder has oneOutFlow but no nonReentrant; _createPodOrder also calls _cancelPodOrder internally. reentrancy specialist: prioritise this send-before-delete."
+    },
+    {
+      "id": "AM-015",
+      "title": "refundEth: potential logic-error entry point (score 3)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/migration/L1Libraries/LibEth.sol",
+      "contract": "",
+      "function": "refundEth",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] refundEth (internal, internal nonpayable) in contracts/beanstalk/migration/L1Libraries/LibEth.sol. moves_funds=True, reads_external_state=False, modifiers=['(none)']. Intent: Sweep the contract's full ETH balance to msg.sender \u2014 if reachable with residual diamond ETH, drain it. Technique: refundEth() (LibEth.sol#16): msg.sender.call{value:address(this).balance}(\"\") at L19 sends the entire balance (slither arbitrary-send-eth, High). Called by DepotFacet/FarmFacet/TokenFacet after farm batches. Evasion: Intended to refund leftover msg.value within a single farm() call; gap is whether address(this).balance can include pre-existing protocol ETH (forced send / other deposits) so the refund over-pays. dos/logic to check for forced-ETH inflation."
+    },
+    {
+      "id": "AM-017",
+      "title": "unwrap: potential logic-error entry point (score 3)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/migration/L1Libraries/LibWeth.sol",
+      "contract": "",
+      "function": "unwrap",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] unwrap (internal, internal nonpayable) in contracts/beanstalk/migration/L1Libraries/LibWeth.sol. moves_funds=True, reads_external_state=False, modifiers=['(none)']. Intent: Withdraw WETH to ETH and forward to msg.sender \u2014 drain if balance accounting is loose. Technique: unwrap() (LibWeth.sol#23): after WETH.withdraw, msg.sender.call{value:amount}(\"\") at L26 (arbitrary-send-eth, High). Evasion: amount is the just-unwrapped amount, scoped to the caller's flow. logic to confirm amount cannot exceed the caller's contribution."
+    },
+    {
+      "id": "AM-018",
+      "title": "_claimPlenty: potential reentrancy entry point (score 3)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/SiloFacet/ClaimFacet.sol",
+      "contract": "",
+      "function": "_claimPlenty",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] _claimPlenty (internal, internal nonpayable) in contracts/beanstalk/silo/SiloFacet/ClaimFacet.sol. moves_funds=True, reads_external_state=False, modifiers=['(none)']. Intent: Drain protocol SOP-token reserves by re-entering before plenty is zeroed (the actual CEI-violating body behind claimPlenty/claimAllPlenty). Technique: sendToken(sopToken,plenty,user) at ClaimFacet.sol#100 precedes plenty=0 (L101) and plentyPerSopToken-=plenty (L104). Evasion: Reachable only through nonReentrant-guarded externals; cross-function/read-only reentrancy is the residual path. reentrancy specialist."
+    },
+    {
+      "id": "AM-019",
+      "title": "_pipeMem: potential access-control entry point (score 3)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/pipeline/Pipeline.sol",
+      "contract": "",
+      "function": "_pipeMem",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] _pipeMem (internal, internal payable) in contracts/pipeline/Pipeline.sol. moves_funds=True, reads_external_state=False, modifiers=['(none)']. Intent: Arbitrary external call with attacker-controlled target/value/data executed in the context that calls Pipeline \u2014 move ETH/tokens to any address. Technique: _pipeMem() (Pipeline.sol#82): target.call{value:value}(data) at L88 with fully caller-supplied target/value/data (slither arbitrary-send-eth, High). Reached via pipe()/multiPipe()/advancedPipe() externals. Evasion: Pipeline is a stateless pass-through holding no user funds by design; danger is only if invoked via delegatecall/Farm with the diamond's balance. dos/access_control/logic: confirm no delegatecall path exposes Beanstalk's own ETH/approvals."
+    },
+    {
+      "id": "AM-020",
+      "title": "unwrapAndSendETH: potential logic-error entry point (score 3)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/pipeline/junctions/UnwrapAndSendETH.sol",
+      "contract": "",
+      "function": "unwrapAndSendETH",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] unwrapAndSendETH (user, external nonpayable) in contracts/pipeline/junctions/UnwrapAndSendETH.sol. moves_funds=True, reads_external_state=False, modifiers=['(none)']. Intent: Unwrap this junction's entire WETH balance and send all ETH to an arbitrary 'to' \u2014 steal WETH parked in the junction. Technique: unwrapAndSendETH(to) (UnwrapAndSendETH.sol#26): to.call{value:address(this).balance}(\"\") at L30 sends the FULL balance to a caller-supplied address (arbitrary-send-eth, High). Evasion: Junction is meant to be used atomically inside a pipe with no resting balance; gap is any WETH left in the junction between calls becomes claimable by anyone. logic/dos/access_control: confirm balance is always 0 outside a pipe call."
+    },
+    {
+      "id": "AM-021",
+      "title": "beanstalkUpdate: potential reentrancy entry point (score 3)",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/tokens/Fertilizer/Fertilizer.sol",
+      "contract": "",
+      "function": "beanstalkUpdate",
+      "description": "[RECON HYPOTHESIS \u2014 specialist confirmation required] beanstalkUpdate (admin, external nonpayable) in contracts/tokens/Fertilizer/Fertilizer.sol. moves_funds=False, reads_external_state=True, modifiers=['onlyOwner']. Intent: (Cross-contract reentrancy seam) Re-enter the Beanstalk diamond via payFertilizer during a fertilizer update to corrupt fert accounting / over-pay Beans. Technique: beanstalkUpdate()->__update; the sibling _update (Fertilizer.sol#77) calls IBS(owner()).payFertilizer(account,amount) \u2014 an external call back into the diamond \u2014 before/while balances[].lastBpf is being written. Evasion: onlyOwner restricts the caller to the diamond, but the diamond->Fertilizer->diamond round trip is unguarded by a shared reentrancy lock across contracts. reentrancy specialist to trace the round trip."
+    },
+    {
+      "id": "DS-002",
+      "title": "claimAllPlenty loops all whitelisted Well tokens with external send each iter",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/SiloFacet/ClaimFacet.sol",
+      "contract": "",
+      "function": "claimAllPlenty",
+      "description": "claimAllPlenty (ClaimFacet.sol#79) iterates LibWhitelistedTokens.getWhitelistedWellLpTokens() and calls _claimPlenty for each, which performs an external token send (LibTransfer.sendToken at ClaimFacet.sol#100) per iteration. If any whitelisted Well's non-Bean SOP token is a contract whose transfer reverts (e.g. a paused or blacklisting token, or a To.INTERNAL/hook path that reverts), the entire claimAllPlenty reverts, blocking the caller from claiming plenty across all wells in one call. Unlike claimPlenty, claimAllPlenty also lacks the oneOutFlow invariant guard. The whitelist is governance-controlled (not attacker-controllable), so this is a robustness/availability issue rather than a permissionless attack: the per-well claimPlenty(well, ...) entry point remains available as a workaround, so no funds are locked."
+    },
+    {
+      "id": "DS-003",
+      "title": "Reseed mintFertilizers nested unbounded loops risk OOG on L2 init",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedBarn.sol",
+      "contract": "",
+      "function": "mintFertilizers",
+      "description": "ReseedBarn.init -> mintFertilizers (ReseedBarn.sol#72) runs a nested loop over fertilizerIds[] and, for each, over f.accountData[], calling fertilizerProxy.beanstalkMint per holder (an external 1155 mint). The full holder set could exceed a single transaction's gas budget. This is an admin/owner one-shot migration routine (called via diamondCut init by the protocol deployer, not permissionless), and the input is operator-supplied, so the operator can chunk the data across multiple calls. It is a deployment-robustness concern, not an attacker-exploitable DoS. Flagged for completeness since the task scope calls out reseed init OOG."
+    },
+    {
+      "id": "EA-003",
+      "title": "SOP per-account rainRoots snapshot may diverge from global rain.roots divisor",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Silo/LibFlood.sol",
+      "contract": "",
+      "function": "handleRainAndSops",
+      "description": "Season-of-Plenty rewards are distributed pro-rata using two snapshots that are taken at different times. The global divisor s.sys.rain.roots is set once, synchronously, when rain starts: handleRain() (LibFlood L72-74) does s.sys.rain.roots = s.sys.silo.roots inside calcCaseIdandUpdate (Weather L97), which runs BEFORE LibGerminate.endTotalGermination (SeasonFacet L57). The per-account numerator s.accts[account].sop.rainRoots is captured LAZILY, the first time each account mows during the rain: handleRainAndSops (LibFlood L124-127) sets rainRoots = s.accts[account].roots, and inside _mow this also runs before endAccountGermination (LibSilo L438 vs L444). rewardSop divides minted plenty by s.sys.rain.roots (L325) while balanceOfPlenty multiplies each account's claim by rainRoots (L169). The design relies on the invariant sum(account.rainRoots) == s.sys.rain.roots. Because rainRoots is a per-account snapshot that is NOT decremented on withdraw/transfer during the rain and is captured at a per-account time that differs from the global snapshot, there are plausible boundary cases (e.g. roots that finish germinating exactly at the rain boundary, or deposit/withdraw/transfer sequences across the rain start) where the sum of account rainRoots does not equal rain.roots. If the sum exceeds rain.roots, total claimable plenty exceeds the WETH actually received in rewardSop, leading to claim shortfall for the last claimers (DoS) or, combined with plentyPerSopToken accounting, protocol token imbalance. I traced the snapshot ordering and confirmed the two snapshots are taken at structurally different points, but could not construct a concrete sequence that makes sum(rainRoots) > rain.roots with the germination ordering as written; the residual risk is in multi-season germination/transfer boundary conditions."
+    },
+    {
+      "id": "OR-003",
+      "title": "Chainlink getTwap aborts to 0 if any historical round is unavailable",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibChainlinkOracle.sol",
+      "contract": "",
+      "function": "getTwap",
+      "description": "LibChainlinkOracle.getTwap walks backwards through Chainlink rounds (roundId -= 1, line 140) accumulating a cumulative price until a round at least `lookback` seconds old is reached. getRoundData returns (-1, 0) on any failed round read (line 178), and checkForInvalidTimestampOrAnswer treats a 0 timestamp or non-positive answer as invalid (lines 188-194), causing getTwap to return 0 for the entire window (line 151). A single missing/stale historical round (e.g. a phase transition where the predecessor roundId belongs to a prior aggregator phase, or a gap in round IDs) therefore collapses the whole TWAP to 0 rather than skipping that round. Because the broader oracle stack treats a 0 price as 'oracle off' (LibWellMinting.twaDeltaB returns deltaB 0 / success=false; LibUsdOracle returns 0), this degrades to the minting oracle silently turning off rather than direct fund loss, but it makes the TWAP path fragile precisely when it is most needed (volatile periods with rapid round turnover). Note also that decrementing the uint80 roundId across a Chainlink phase boundary does not move to the previous phase's last round, so the lookup will fail at the boundary."
+    },
+    {
+      "id": "PC-001",
+      "title": "totalDeltaB() getter sums only BEAN_ETH_WELL, not all minting wells",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/sun/SeasonFacet/SeasonGettersFacet.sol",
+      "contract": "",
+      "function": "totalDeltaB",
+      "description": "SeasonGettersFacet.totalDeltaB() is documented as 'Returns the total Delta B across all whitelisted minting liquidity Wells' but its body computes deltaB = LibWellMinting.check(C.BEAN_ETH_WELL) \u2014 a single hardcoded well. The protocol's actual season-minting path, Oracle.stepOracle() (Oracle.sol#21-27), instead iterates LibWhitelistedTokens.getWhitelistedWellLpTokens() and accumulates LibWellMinting.capture() over EVERY whitelisted well: `for (i) deltaB = deltaB.add(LibWellMinting.capture(tokens[i]))`. LibDeltaB.overallCurrentDeltaB() (LibDeltaB.sol#54-60) likewise sums all wells. The protocol is explicitly multi-well: both C.BEAN_ETH_WELL and C.BEAN_WSTETH_WELL are migrated/whitelisted (ReseedL2Migration.sol#35-40, mock inits set isWhitelistedWell + stalkEarnedPerSeason for BEAN_WSTETH). Therefore once BEAN_WSTETH (or any second well) holds liquidity, the value returned by totalDeltaB() is NOT the protocol's aggregate peg deviation \u2014 it omits every well except BEAN_ETH. The function name and NatSpec assert an aggregate ('total ... across all') that the implementation does not deliver. This is a behavioral/semantic divergence between the documented protocol-level invariant (this getter reports the figure that drives mint/burn) and the actual code."
+    },
+    {
+      "id": "RE-003",
+      "title": "Diamond<->Fertilizer callback loop unguarded by shared nonReentrant lock",
+      "severity": "Low",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/tokens/Fertilizer/Fertilizer.sol",
+      "contract": "",
+      "function": "_update",
+      "description": "The Beanstalk diamond and the external Fertilizer (ERC-1155) contract form a cross-contract callback loop, and none of the diamond-side participants carry nonReentrant. claimFertilized (FertilizerFacet.sol#47-54) calls C.fertilizer().beanstalkUpdate(...), which inside Fertilizer._update (Fertilizer.sol#75-78) calls back into the diamond via IBS(owner()).payFertilizer(account, amount) (FertilizerFacet.sol#96-103). Separately, any holder can call Fertilizer1155.safeTransferFrom directly (Fertilizer1155.sol#19, a public function on the standalone Fertilizer contract, so the diamond's reentrant lock is NOT engaged when entering it); its _beforeTokenTransfer (Fertilizer.sol#62-73) calls _update -> payFertilizer for both from and to BEFORE _transfer moves the 1155 balance, and the recipient onERC1155Received hook (Fertilizer1155.sol#104) fires AFTER _transfer. I traced both directions and did NOT find a double-payout: __update updates _balances[id][account].lastBpf (Fertilizer.sol#90) before computing further deltaBpf, so a second pass yields deltaBpf=0; and payFertilizer sends Beans only To.INTERNAL (no external call, no hook). In mintFertilizer the 1155 mint (which triggers onERC1155Received) is the LAST action after all diamond state is finalized. Thus no concrete over-claim is currently reachable. The residual concern is structural: the cross-contract round trip is unguarded by any shared lock, so its safety depends on the precise effects-before-callback ordering inside Fertilizer staying correct across future changes, and on the onERC1155Received hook never being able to re-enter a diamond fund-mover mid-update. Reported Low."
+    },
+    {
+      "id": "AC-004",
+      "title": "Arbitrary-send sinks non-exploitable: all callers authenticate sender",
+      "severity": "Informational",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Token/LibTransfer.sol",
+      "contract": "",
+      "function": "transferToken",
+      "description": "Resolution of the High slither arbitrary-send-erc20 / arbitrary-send-eth flags from the access-control angle. (1) LibTransfer.transferToken/receiveToken take a `sender` parameter used as the safeTransferFrom `from` (LibTransfer.sol#39,64). Every active (non-L1-migration) caller was traced: MarketplaceFacet.fillPodListing (L36-38) and createPodOrder (L70), SiloFacet.deposit (L57), and TokenFacet.transferToken (L60) all pass LibTractor._user() (the authenticated publisher/msg.sender). The ONLY caller that forwards a raw `sender` param is TokenFacet.transferInternalTokenFrom (L67-86), and it is guarded: it uses From.INTERNAL (moves the sender's Beanstalk internal balance, not an external ERC20 approval) and, when sender != _user(), calls LibTokenApprove.spendAllowance(sender, _user(), token, amount) which reverts on insufficient allowance (LibTokenApprove.sol#36-42). No path forwards an attacker-controlled `from` without an allowance. (2) LibEth.refundEth (LibEth.sol#15-21) sends address(this).balance to msg.sender but is gated by s.sys.isFarm != 2 so it cannot fire mid-farm; it refunds leftover msg.value at the end of a single farm/pipe call frame (FarmFacet withEth, DepotFacet etherPipe/advancedPipe). (3) Pipeline._pipeMem arbitrary-send-eth executes in Pipeline's own standalone context (DepotFacet calls it via plain external call to a fixed PIPELINE address, NOT delegatecall), so it can only move the ETH the caller supplied, never diamond funds. Tractor was also reviewed: tractor() sets activePublisher to the signed blueprint.publisher and executes only the publisher-signed AdvancedFarmCall[]; the operator can paste only operator-supplied bytes into publisher-authorized positions (operatorPasteInstrs are part of the signed hash), and _setPublisher reverts on nesting (LibTractor.sol#95), so an operator cannot make the protocol act as the publisher beyond the signed scope."
+    },
+    {
+      "id": "AR-003",
+      "title": "addMigratedUnderlying credits trusted amount, not measured balance diff",
+      "severity": "Informational",
+      "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/barn/UnripeFacet.sol",
+      "contract": "",
+      "function": "addMigratedUnderlying",
+      "description": "UnripeFacet.addMigratedUnderlying (contracts/beanstalk/barn/UnripeFacet.sol#284-295) does safeTransferFrom(user, this, amount) then LibUnripe.incrementUnderlying(unripeToken, amount), crediting the caller-supplied `amount` rather than the actually-received balance delta. If the underlying token charges a fee-on-transfer or rebases down, balanceOfUnderlying is credited more than was received, breaking the invariant balanceOfUnderlying <= actual token balance and over-valuing chop/redemption math (unripeToUnderlying / _getUnderlying read balanceOfUnderlying). The same trust-the-amount pattern (vs the balance-diff accounting that LibTransfer.receiveToken uses) appears here. However the function is gated by LibDiamond.enforceIsContractOwner() and nonReentrant, the underlying token is owner-chosen, and it carries noNetFlow/noSupplyChange invariant guards, so this is a privileged-only correctness/operational concern, not a permissionless exploit."
+    }
+  ],
+  "summary": {
+    "awarded_total": 12,
+    "awarded_source": "ground_truth.jsonl",
+    "adjudicated": 12,
+    "pending": 0,
+    "auto_adjudicated": 12,
+    "misses_detected": 0,
+    "recall_of_surfaced": 1.0,
+    "strong_only": 0.0,
+    "by_label": {
+      "MISSED": 0,
+      "SAME_AREA": 0,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 12,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

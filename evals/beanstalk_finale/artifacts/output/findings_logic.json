@@ -1,0 +1,360 @@
+{
+  "agent": "logic",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T22:10:00+00:00",
+  "findings": [
+    {
+      "id": "LG-001",
+      "title": "L2ContractMigrationFacet zeroes global per-token silo balances on every redeem",
+      "severity": "Critical",
+      "vuln_type": "logic-error",
+      "description": "addMigratedDepositsToAccount declares local uint128 totalDeposited and totalDepositedBdv (lines 159-160) but never increments them inside the deposit loop. After crediting per-account deposits, lines 194-195 assign these still-zero locals to the protocol-wide totals s.sys.silo.balances[token].deposited and .depositedBdv. The redeem entry point (redeemDepositsAndInternalBalances) is permissionless (anyone with a valid proof+signature can call it), so the global silo balance for every migrated token is overwritten to 0 on each call, while per-account deposit records (s.accts[account].deposits[depositId]) are written correctly and remain non-zero. This is a hard assignment (=), not an increment, so it also clobbers whatever ReseedSilo previously set. Independently verified against source: locals are declared and never written before being stored to global state.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "addMigratedDepositsToAccount",
+        "line_start": 152,
+        "line_end": 200,
+        "code_snippet": "uint128 totalDeposited;\nuint128 totalDepositedBdv;\nfor (...) { /* totalDeposited / totalDepositedBdv NEVER incremented */ }\n// set global state\ns.sys.silo.balances[depositData.token].deposited = totalDeposited;      // = 0\ns.sys.silo.balances[depositData.token].depositedBdv = totalDepositedBdv; // = 0"
+      },
+      "impact": "Global deposited/depositedBdv for every token routed through contract migration is set to 0 while per-account deposits exist, breaking the core invariant total == sum(accounts) (ACC-002). Downstream consumers that read s.sys.silo.balances[token] for BDV ratios, convert valuation, gauge weighting and withdrawal accounting are corrupted protocol-wide: a depositor whose token total reads 0 cannot have their withdrawal decrement reconciled (DoS / underflow), and BDV/convert math that scales by global deposited can be skewed to mint unbacked BDV/stalk. Permissionless, deterministic, protocol-wide accounting corruption with no rescue path short of a governance upgrade.",
+      "proof_of_concept": "1) Attacker (or any migrant) crafts a valid proof+signature for an owner with deposits in token T. 2) Calls redeemDepositsAndInternalBalances. 3) vm.load(silo.balances[T].deposited) before/after: non-zero -> 0. 4) Outcome: a subsequent SiloFacet.withdrawDeposit for any holder of T attempts to decrement the (now 0) global total -> underflow revert (token withdrawals bricked) OR convert/BDV reads scaled by 0 misprice. Assert global total == 0 while sum of per-account deposit.amount > 0.",
+      "recommendation": "Accumulate totalDeposited += depositData.amounts[i] and totalDepositedBdv += depositData.bdvs[i] inside the loop, and use += (not =) when writing to s.sys.silo.balances[token] so concurrent reseed/migration paths do not clobber each other. Add an invariant check that the post-write global total equals the sum of all migrated deposits.",
+      "confidence": "High",
+      "invariant_violated": "ACC-002",
+      "thread_id": "DT-002",
+      "interaction_chain_id": "CH-001",
+      "trace_depth": 3,
+      "attack_surface_rank": 4,
+      "ite": {
+        "intent": "Corrupt protocol-wide silo balances to 0 while per-account deposits persist, desyncing all withdraw/convert/BDV math",
+        "technique": "Locals totalDeposited/totalDepositedBdv never incremented (L2ContractMigrationFacet.sol:159-160) then assigned to s.sys.silo.balances[token] (lines 194-195) via the permissionless redeem path",
+        "evasion": "fundsSafu/noSupplyChange/nonReentrant guard reentrancy and net supply, not internal accounting consistency; no invariant reconciles global total to the sum of accounts"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.silo.balances[token].deposited and .depositedBdv (overwritten to 0)",
+        "consumer_found": true,
+        "consumer_function": "LibTokenSilo / SiloFacet.withdrawDeposit decrements global deposited; LibConvert and BDV getters scale by global depositedBdv",
+        "consumer_action": "decrements/scales against a zeroed global total -> withdrawal underflow (DoS) or mispriced BDV/convert (unbacked value)",
+        "severity_ceiling": "Critical",
+        "search_method": "manual_trace"
+      },
+      "thread_refs": [
+        "T-004"
+      ],
+      "thread_note": "T-004: High (score=?) \u2014 "
+    },
+    {
+      "id": "LG-002",
+      "title": "ReseedSilo overwrites account stalk per token (= not +=), zeroing multi-token depositors",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "reseedSiloDeposit computes accountStalk for one token then sets s.accts[deposits.accounts].stalk = accountStalk (line 164, assignment not increment). init() calls reseedSiloDeposit six times (bean, beanEth, beanWstEth, bean3Crv, urBean, urBeanLp) against the same s.accts mapping. Any account holding deposits in more than one token has its stalk overwritten on each subsequent token pass, so its final stalk equals only the stalk from the last token reseeded (urBeanLp). Verified directly: line 164 uses = inside the per-account loop, and init() invokes the function once per token.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+        "function": "reseedSiloDeposit",
+        "line_start": 159,
+        "line_end": 164,
+        "code_snippet": "accountStalk += stalkIssuedPerBdv * totalBdvForAccount;\n// set stalk for account.\ns.accts[deposits.accounts].stalk = accountStalk;   // = overwrites prior token's stalk"
+      },
+      "impact": "Every multi-token depositor loses all stalk except their last-token contribution after the L1->L2 reseed, permanently reducing or zeroing their governance weight and earned-Bean (yield) share. Stalk is consumed by LibSilo root issuance and LibReceiving earned-Bean distribution; the loss is permanent post-migration with no user-recoverable path. Deterministic for the large class of holders with deposits in >1 whitelisted token.",
+      "proof_of_concept": "1) Account A holds bean deposits (stalk Sb) and beanEth deposits (stalk Se). 2) init() runs: reseedSiloDeposit(bean) sets A.stalk = Sb; reseedSiloDeposit(beanEth) sets A.stalk = Se (overwrite). 3) Assert post-reseed A.stalk == Se, not Sb+Se. Expected sum lost = Sb. 4) Outcome: A's governance vote weight and balanceOfEarnedBeans understated by Sb forever.",
+      "recommendation": "Use s.accts[deposits.accounts].stalk += accountStalk so contributions from each token accumulate. Additionally accumulate and set the global s.sys.silo.stalk to the sum of all issued account stalk (see LG-006).",
+      "confidence": "High",
+      "invariant_violated": "ACC-001",
+      "thread_id": "DT-001",
+      "interaction_chain_id": "CH-002",
+      "trace_depth": 2,
+      "attack_surface_rank": 4,
+      "ite": {
+        "intent": "Strip multi-token depositors of stalk (governance weight + yield) during migration",
+        "technique": "Per-token assignment s.accts[account].stalk = accountStalk (ReseedSilo.sol:164) inside init()'s six sequential reseedSiloDeposit calls",
+        "evasion": "init has no per-account reconciliation; the require checks only validate per-token deposited totals, not cumulative stalk"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[account].stalk (set to last-token value, not the sum across tokens)",
+        "consumer_found": true,
+        "consumer_function": "LibSilo.mintActiveStalk/balanceOfEarnedBeans and governance vote-weight readers read s.accts[].stalk",
+        "consumer_action": "scales yield distribution and voting power by understated stalk",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "thread_refs": [
+        "T-001"
+      ],
+      "thread_note": "T-001: High (score=?) \u2014 "
+    },
+    {
+      "id": "LG-003",
+      "title": "Migration redeem has no replay marker; setStalk += inflates stalk/roots on replay",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "redeemDepositsAndInternalBalances verifies a merkle proof and an EIP-712 signature but never records that an owner/leaf has been redeemed. setStalk uses += for both stalk and roots (lines 206-207). The merkle leaf (line 127) commits to (owner, deposits, internalBalances, ownerRoots) but NOT to reciever (DT-010); reciever is bound only by the EIP-712 signature over (owner, reciever, deadline). Because the proof and signature are public on-chain calldata once submitted, the same call can be resubmitted before the deadline: deposit amounts are written with = (line 169) so they do not compound, but stalk and roots accumulate via += on every replay, minting unbacked stalk and roots to reciever. Verified: no spent/nonce mapping exists in the contract and setStalk uses +=.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "redeemDepositsAndInternalBalances",
+        "line_start": 88,
+        "line_end": 211,
+        "code_snippet": "function redeemDepositsAndInternalBalances(...) external ... {\n  verifyDepositsAndInternalBalances(...); // merkle proof, no spent marker\n  verifySignature(...);                    // sig over owner,reciever,deadline\n  ... setStalk(reciever, accountStalk, ownerRoots);\n}\nfunction setStalk(...) internal {\n  s.accts[account].stalk += accountStalk;   // accumulates on replay\n  s.accts[account].roots += accountRoots;   // accumulates on replay\n}"
+      },
+      "impact": "Within the deadline window an attacker who observes a victim's redeem (or front-runs/replays their own) can repeatedly re-credit stalk and roots to reciever without any backing deposits. Inflated stalk/roots translate directly into stolen earned-Bean (yield) share and inflated governance vote weight / quorum manipulation. Because the merkle leaf omits reciever, a leaked or on-chain-visible signature also lets the credit be redirected to an attacker-chosen address. Permissionless and repeatable until deadline.",
+      "proof_of_concept": "1) Observe a successful redeemDepositsAndInternalBalances tx (proof+signature are public calldata) with deadline in the future. 2) Resubmit identical calldata N times before deadline. 3) vm.load(s.accts[reciever].stalk) and .roots: each replay adds accountStalk/ownerRoots again; deposits unchanged. 4) Outcome: reciever.stalk == N * legitimate stalk, reciever.roots == N * ownerRoots, all unbacked -> inflated yield + governance weight.",
+      "recommendation": "Record a per-owner (or per-leaf) redeemed marker that transitions false->true and revert on replay; include reciever in the merkle leaf so the credit cannot be redirected; consider that even a single legitimate redeem should set deposits with = and stalk/roots with = to the migrated value, not +=, unless partial multi-call redemption is intentionally supported (in which case track remaining entitlement).",
+      "confidence": "High",
+      "invariant_violated": "ACC-003",
+      "thread_id": "DT-003",
+      "interaction_chain_id": "CH-001",
+      "trace_depth": 3,
+      "attack_surface_rank": 5,
+      "cross_agent_refs": [
+        "LG-004"
+      ],
+      "ite": {
+        "intent": "Mint unbacked stalk/roots (yield + governance weight) to an attacker-chosen reciever",
+        "technique": "Replay public proof+signature calldata before deadline; setStalk += accumulates stalk/roots (L2ContractMigrationFacet.sol:206-207); merkle leaf omits reciever (line 127) so credit is redirectable",
+        "evasion": "verifyDepositsAndInternalBalances + verifySignature pass identically on each replay; no spent-marker or nonce is stored"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[reciever].stalk and s.accts[reciever].roots (incremented per replay, unbacked)",
+        "consumer_found": true,
+        "consumer_function": "LibReceiving earned-Bean distribution and governance vote-weight readers read stalk/roots",
+        "consumer_action": "pays yield and grants voting power proportional to unbacked stalk/roots",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "thread_refs": [
+        "T-003"
+      ],
+      "thread_note": "T-003: High (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-006",
+          "note": "score-3 invariant covers same state vars (s.accts[account].stalk); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "LG-004",
+      "title": "Migration merkle leaf excludes reciever, enabling credit redirection",
+      "severity": "Medium",
+      "vuln_type": "signature-replay",
+      "description": "verifyDepositsAndInternalBalances computes leaf = keccak256(abi.encode(account, deposits, internalBalances, ownerRoots)) (line 127). reciever is absent from the leaf; it is bound only by the EIP-712 signature over (owner, reciever, deadline) in verifySignature. Verified directly. Standalone this means the migration credit is fully determined by the signature, which is public on-chain calldata after first use; combined with the missing replay guard (LG-003) the credit is both duplicable and redirectable.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "verifyDepositsAndInternalBalances",
+        "line_start": 120,
+        "line_end": 129,
+        "code_snippet": "bytes32 leaf = keccak256(abi.encode(account, deposits, internalBalances, ownerRoots)); // reciever NOT committed"
+      },
+      "impact": "An attacker holding the owner's public signature can redeem the migration credit to an arbitrary reciever address. As a standalone issue it requires signature exposure (which occurs naturally once the legitimate redeem is broadcast). Folds into and amplifies the High of LG-003.",
+      "proof_of_concept": "1) Obtain the owner's EIP-712 signature (visible in any prior redeem tx calldata). 2) Call redeemDepositsAndInternalBalances with the same proof/signature but reciever = attacker. 3) Assert deposits/stalk credited to attacker rather than the intended L2 address.",
+      "recommendation": "Include reciever in the merkle leaf: leaf = keccak256(abi.encode(owner, reciever, deposits, internalBalances, ownerRoots)), or bind the redemption to a per-owner spent marker so the first redeem fixes the destination.",
+      "confidence": "High",
+      "invariant_violated": "CC-001",
+      "thread_id": "DT-010",
+      "interaction_chain_id": "CH-001",
+      "trace_depth": 2,
+      "attack_surface_rank": 3,
+      "duplicate_of": "LG-003",
+      "ite": {
+        "intent": "Redirect a victim's migration deposit/stalk credit to an attacker address",
+        "technique": "reciever omitted from merkle leaf (line 127); only the replayable signature binds it",
+        "evasion": "Signature alone is treated as sufficient binding, but it is public calldata after first broadcast"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[reciever].deposits/stalk for an attacker-chosen reciever",
+        "consumer_found": true,
+        "consumer_function": "silo deposit / stalk consumers credit the attacker reciever",
+        "consumer_action": "credits deposits and stalk to a redirected address",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      }
+    },
+    {
+      "id": "LG-005",
+      "title": "ReseedField inner loop increments i instead of j, bricking Field migration",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "The inner plot loop header is `for (uint j; j < accountPlots[i].plots.length; i++)` (line 49). The post-statement increments the outer index i rather than the inner index j. j therefore never advances, while i is incremented inside the inner loop. For any account with at least one plot, i is driven past accountPlots.length on the first inner iteration set, causing an out-of-bounds array read accountPlots[i] and a revert. Verified directly against source line 49.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedField.sol",
+        "function": "init",
+        "line_start": 48,
+        "line_end": 57,
+        "code_snippet": "for (uint i; i < accountPlots.length; i++) {\n    for (uint j; j < accountPlots[i].plots.length; i++) {   // increments i, not j -> OOB\n        ...\n    }\n}"
+      },
+      "impact": "ReseedField.init reverts for any migration input containing plots, so the L1->L2 upgrade transaction that runs the Field reseed cannot complete. The entire Beanstalk Field (all pods / harvestable debt) cannot be migrated, blocking the migration until the bug is patched and the upgrade re-attempted. Deterministic; triggers on the first account that owns plots. Classified High: a core protocol subsystem (the Field) is inoperable / its migration is bricked, a significant availability and protocol-function failure.",
+      "proof_of_concept": "1) Construct accountPlots with one account holding one plot. 2) Call ReseedField.init. 3) Inner loop: j=0 < 1, body runs, then i++ makes i exceed accountPlots.length. 4) Next outer condition re-reads accountPlots[i] -> index OOB -> revert. Assert the call reverts and s.sys.field.pods is never set.",
+      "recommendation": "Fix the loop post-statement to increment the inner index: `for (uint j; j < accountPlots[i].plots.length; j++)`.",
+      "confidence": "High",
+      "invariant_violated": "STATE-001",
+      "thread_id": "DT-004",
+      "interaction_chain_id": "CH-003",
+      "trace_depth": 1,
+      "attack_surface_rank": 4,
+      "ite": {
+        "intent": "Permanently block the Field (pod) migration to L2",
+        "technique": "Loop post-statement increments wrong variable i (ReseedField.sol:49) -> accountPlots[i] out-of-bounds -> revert",
+        "evasion": "No bounds reconciliation; the totalPods require is never reached because the loop reverts first"
+      },
+      "ice_chain": {
+        "corrupted_state": "control flow: array index i runs out of bounds; s.sys.field.pods/harvestable/harvested never set",
+        "consumer_found": true,
+        "consumer_function": "FieldFacet harvest/sow and the migration upgrade transaction depend on a completed Field reseed",
+        "consumer_action": "migration tx reverts; Field state remains uninitialized on L2",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "thread_refs": [
+        "T-004",
+        "T-009"
+      ],
+      "thread_note": "T-004: High (score=?) \u2014 ; T-009: Medium (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-009",
+          "note": "score-3 invariant covers same state vars (s.sys.field.pods, s.sys.field.harvestable, s.sys.field.harvested); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "LG-006",
+      "title": "Reseed never initializes global s.sys.silo.stalk/roots, breaking root issuance post-migration",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "Across the entire production reseed/init set, no contract ever assigns s.sys.silo.stalk or s.sys.silo.roots to the migrated totals. ReseedSilo.reseedSiloDeposit writes per-account stalk and per-token deposited/depositedBdv but never accumulates a global total stalk; ReseedSun, InitalizeDiamond and the other Reseed* contracts do not set it either (only mock facets assign s.sys.silo.stalk directly). In production, s.sys.silo.stalk and .roots are only mutated by LibSilo.mintActiveStalk/burnStalk, LibGerminate and LibReceiving via .add()/.sub(). Verified by exhaustive grep: zero non-mock assignments of these globals to the migrated sum.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+        "function": "reseedSiloDeposit",
+        "line_start": 109,
+        "line_end": 180,
+        "code_snippet": "// writes s.accts[account].stalk and s.sys.silo.balances[token].* \n// but never sets s.sys.silo.stalk or s.sys.silo.roots to the migrated total"
+      },
+      "impact": "After migration, accounts hold non-zero stalk/roots but the global totals s.sys.silo.stalk and s.sys.silo.roots are 0 (or stale). The first earned-stalk mint (LibSilo.mintActiveStalk, line 188) computes roots = s.sys.silo.roots.mul(stalk).div(s.sys.silo.stalk); with global stalk == 0 this either takes the roots==0 bootstrap branch (mis-issuing roots relative to existing account roots) or divides by zero. Either way root accounting diverges from the migrated per-account roots, corrupting earned-Bean distribution (which divides by total roots/stalk) and governance quorum across the whole protocol. Re-derived independently of DT-009: the gap is confirmed (no production initializer exists), so this is escalated from the deep-trace Medium to High.",
+      "proof_of_concept": "1) After reseed, vm.load(s.sys.silo.stalk) and s.sys.silo.roots == 0 while sum over accounts of s.accts[a].stalk > 0. 2) Any user triggers mow/plant -> mintActiveStalk -> roots = roots.mul(stalk).div(stalk) with denominator 0. 3) Outcome: revert (DoS of all stalk-minting flows) or bootstrap-branch root over-issuance; assert global total != sum of account stalk.",
+      "recommendation": "In the reseed sequence, after all account stalk/roots are issued, set s.sys.silo.stalk and s.sys.silo.roots to the exact sums of all migrated account stalk and roots, and add an invariant check SUM(s.accts[a].stalk) == s.sys.silo.stalk before completing the upgrade.",
+      "confidence": "Medium",
+      "invariant_violated": "ACC-010",
+      "thread_id": "DT-009",
+      "interaction_chain_id": "CH-002",
+      "trace_depth": 2,
+      "attack_surface_rank": 4,
+      "critical_assumptions": [
+        "No reseed contract outside the in-scope set sets s.sys.silo.stalk/roots to the migrated total (confirmed for all non-mock contracts examined)"
+      ],
+      "assumption_count": 1,
+      "ite": {
+        "intent": "Break protocol-wide root/earned-Bean accounting by leaving global stalk/roots uninitialized after migration",
+        "technique": "Per-account stalk/roots issued without a corresponding global total assignment anywhere in the production reseed path",
+        "evasion": "Reseed require checks validate per-token deposited totals only; no global stalk/roots reconciliation exists"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.silo.stalk and s.sys.silo.roots (0/stale relative to sum of migrated accounts)",
+        "consumer_found": true,
+        "consumer_function": "LibSilo.mintActiveStalk (roots = roots.mul(stalk).div(s.sys.silo.stalk)) and LibReceiving earned-Bean distribution",
+        "consumer_action": "divides by zero (DoS) or mis-scales root issuance and yield/quorum",
+        "severity_ceiling": "High",
+        "search_method": "static_search"
+      },
+      "thread_refs": [
+        "T-001"
+      ],
+      "thread_note": "T-001: High (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-006",
+          "note": "score-3 invariant covers same state vars (s.accts[account].stalk); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "LG-007",
+      "title": "EXTERNAL_L1_BEANS hardcoded to 0 reverts every L2 mint after L1 burn",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "BeanL1RecieverFacet sets EXTERNAL_L1_BEANS = 0 (line 22). recieveL1Beans increments s.sys.migration.migratedL1Beans += amount (line 38) then requires EXTERNAL_L1_BEANS >= s.sys.migration.migratedL1Beans (line 40). For any amount > 0 this is 0 >= positive == false, so the call reverts and C.bean().mint (line 43) is never reached. The L1 side BeanL2MigrationFacet.migrateL2Beans burns the user's Beans via C.bean().burnFrom(msg.sender, amount) (line 49) BEFORE sending the cross-chain message that invokes recieveL1Beans. Both sides verified directly.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/migration/BeanL1RecieverFacet.sol",
+        "function": "recieveL1Beans",
+        "line_start": 22,
+        "line_end": 44,
+        "code_snippet": "uint256 constant EXTERNAL_L1_BEANS = 0;\n...\ns.sys.migration.migratedL1Beans += amount;\nrequire(EXTERNAL_L1_BEANS >= s.sys.migration.migratedL1Beans, \"L2Migration: exceeds maximum migrated\"); // 0 >= amount -> reverts\nC.bean().mint(reciever, amount); // unreachable"
+      },
+      "impact": "Every externally-held L1 Bean that a user attempts to migrate is burned on L1 (BeanL2MigrationFacet.migrateL2Beans line 49) and then the L2 mint always reverts, so the user receives nothing on L2. This is permanent, unconditional loss of all migrated external Beans for every honest migrant. High fund-loss severity (it is a deterministic loss for affected users rather than a single-key/whole-protocol insolvency, but with no recovery path).",
+      "proof_of_concept": "1) L1: user calls migrateL2Beans(reciever, L2Beanstalk, amount>0, gasLimit) -> C.bean().burnFrom burns user's L1 Beans, message dispatched. 2) L2: bridge relays recieveL1Beans(reciever, amount); migratedL1Beans becomes amount; require(0 >= amount) reverts. 3) Outcome: L1 balance reduced by amount, L2 balance unchanged -> assert reciever L2 Bean balance == 0 after a successful L1 burn.",
+      "recommendation": "Set EXTERNAL_L1_BEANS to the actual externally-migratable Bean supply (the value the placeholder was meant to hold) before the upgrade, and add a test asserting recieveL1Beans succeeds for the full migratable amount. Consider making the L2 mint resilient to message-relay failure so a failed mint does not strand already-burned L1 Beans.",
+      "confidence": "High",
+      "invariant_violated": "ACC-004",
+      "thread_id": "DT-005",
+      "interaction_chain_id": "CH-004",
+      "trace_depth": 4,
+      "attack_surface_rank": 4,
+      "ite": {
+        "intent": "Allow externally-held L1 Beans to be reminted on L2 up to the migratable supply",
+        "technique": "Cap constant left at 0 placeholder makes require(0 >= migratedL1Beans) always fail (BeanL1RecieverFacet.sol:22,40)",
+        "evasion": "No attacker needed; the L1 burn (BeanL2MigrationFacet.sol:49) precedes the always-reverting L2 mint"
+      },
+      "ice_chain": {
+        "corrupted_state": "n/a (revert) \u2014 user's L1 Beans already burned via burnFrom",
+        "consumer_found": true,
+        "consumer_function": "C.bean().mint(reciever, amount) is never reached due to the require revert",
+        "consumer_action": "L2 mint never executes; burned L1 Beans are unrecoverable",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "thread_refs": [
+        "T-005"
+      ],
+      "thread_note": "T-005: High (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACCESS-002",
+          "note": "score-3 invariant covers same state vars (s.sys.migration.migratedL1Beans); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "LG-008",
+      "title": "ReseedBarn builds fertilizer linked list without enforcing ascending IDs",
+      "severity": "Medium",
+      "vuln_type": "logic-error",
+      "description": "ReseedBarn.mintFertilizers constructs the fertilizer nextFid linked list (fertFirst, nextFid[prev]=cur, fertLast) assuming the input fertilizerIds arrive in ascending order \u2014 a requirement stated only in NatSpec, not enforced by a require in code. Out-of-order input produces a malformed or cyclic linked list. (Flagged from deep_trace DT-012; treated as a logic/state-machine input-validation gap. Bounded by trusted upgrade-input correctness, hence Medium.)",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedBarn.sol",
+        "function": "mintFertilizers",
+        "line_start": 72,
+        "line_end": 96,
+        "code_snippet": "// nextFid linked-list assembly assumes ascending fertilizerIds; no require enforces ordering"
+      },
+      "impact": "If the migration input fertilizer IDs are not strictly ascending, the nextFid linked list becomes malformed or cyclic, corrupting the Sun fertilizer payout iteration (which walks nextFid in ID order to pay Beans to fertilizer holders). This can strand or mispay fertilizer rewards. Bounded by trusted upgrade caller input, so Medium.",
+      "proof_of_concept": "1) Supply fertilizerIds in non-ascending order to ReseedBarn.init. 2) Inspect s.sys.fert.nextFid / fertFirst / fertLast: chain points backwards or cycles. 3) Outcome: Sun payout traversal skips or loops over fertilizer entries -> mispaid/stranded rewards.",
+      "recommendation": "Enforce strictly ascending fertilizer IDs in code: require(fertilizerIds[i] > fertilizerIds[i-1]) inside the loop, and validate the resulting list is acyclic (fertLast.nextFid == 0).",
+      "confidence": "Medium",
+      "thread_id": "DT-012",
+      "trace_depth": 2,
+      "attack_surface_rank": 3,
+      "critical_assumptions": [
+        "Upgrade caller could supply non-ascending fertilizer IDs (no on-chain enforcement)"
+      ],
+      "assumption_count": 1,
+      "ite": {
+        "intent": "Form a correct ascending fertilizer linked list during reseed",
+        "technique": "Ordering enforced only by NatSpec comment, no require; non-ascending input -> malformed/cyclic nextFid",
+        "evasion": "No on-chain ordering check; relies entirely on upgrade-input correctness"
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.fert.nextFid / fertFirst / fertLast (malformed chain)",
+        "consumer_found": true,
+        "consumer_function": "Sun fertilizer payout traverses nextFid in ID order",
+        "consumer_action": "mispays or strands fertilizer Bean rewards",
+        "severity_ceiling": "Medium",
+        "search_method": "manual_trace"
+      },
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-007",
+          "note": "score-3 invariant covers same state vars (s.sys.fert.fertFirst, s.sys.fert.nextFid, s.sys.fert.fertLast); not traced \u2014 consider manual review"
+        }
+      ]
+    }
+  ]
+}

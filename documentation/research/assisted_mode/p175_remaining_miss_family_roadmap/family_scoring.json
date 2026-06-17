@@ -1,0 +1,592 @@
+{
+  "phase": "P175",
+  "type": "cross_corpus_remaining_miss_family_roadmap",
+  "read_only": true,
+  "score_rubric": {
+    "detectability": {
+      "3": "surface visible from source signatures/standard patterns (e.g. setWeights sig, chainlink call, missing slippage arg)",
+      "2": "needs a new but tractable lens",
+      "1": "low-signal / deep cross-function / semantic only"
+    },
+    "expected_precision": {
+      "3": "two-signal FP-tight selector feasible",
+      "2": "moderate FP risk, needs gates",
+      "1": "FP-prone / integration-specific / design-intent ambiguity"
+    },
+    "priority": "total_remaining_misses * detectability * expected_precision",
+    "priority_sevweighted": "sev_weighted_remaining(High=3,Med=2,Low=1) * detectability * expected_precision"
+  },
+  "corpora_used": [
+    "quantamm",
+    "panoptic",
+    "recall",
+    "revert-lend",
+    "silo",
+    "zaros",
+    "ark",
+    "hybra",
+    "swan-dria"
+  ],
+  "excluded": {
+    "quantamm-2024-12-strict-eval": "duplicate of quantamm corpus (same 44 findings)",
+    "beanstalk-2024-05-eval2": "file is upgrades_applied log, not a finding match matrix"
+  },
+  "corpus_totals": {
+    "quantamm": {
+      "n": 44,
+      "recovered_or_touched": 19,
+      "remaining_miss": 25,
+      "scorable": true
+    },
+    "panoptic": {
+      "n": 22,
+      "recovered_or_touched": 3,
+      "remaining_miss": 19,
+      "scorable": true
+    },
+    "recall": {
+      "n": 13,
+      "recovered_or_touched": 5,
+      "remaining_miss": 8,
+      "scorable": true
+    },
+    "revert-lend": {
+      "n": 31,
+      "recovered_or_touched": 4,
+      "remaining_miss": 27,
+      "scorable": true
+    },
+    "silo": {
+      "n": 6,
+      "recovered_or_touched": 5,
+      "remaining_miss": 1,
+      "scorable": true
+    },
+    "zaros": {
+      "n": 70,
+      "recovered_or_touched": 8,
+      "remaining_miss": 62,
+      "scorable": true
+    },
+    "ark": {
+      "n": 17,
+      "recovered_or_touched": 8,
+      "remaining_miss": 9,
+      "scorable": false
+    },
+    "hybra": {
+      "n": 10,
+      "recovered_or_touched": 4,
+      "remaining_miss": 6,
+      "scorable": false
+    },
+    "swan-dria": {
+      "n": 19,
+      "recovered_or_touched": 13,
+      "remaining_miss": 6,
+      "scorable": false
+    }
+  },
+  "coverage_limited_corpora": {
+    "ark": {
+      "n": 17,
+      "remaining_miss": 9
+    },
+    "hybra": {
+      "n": 10,
+      "remaining_miss": 6
+    },
+    "swan-dria": {
+      "n": 19,
+      "remaining_miss": 6
+    }
+  },
+  "quantamm_post_p174": {
+    "recovered_or_touched": 19,
+    "remaining_miss": 25,
+    "n": 44
+  },
+  "family_scoring": [
+    {
+      "family": "oracle_robustness",
+      "total_remaining": 14,
+      "by_corpus": {
+        "panoptic": 3,
+        "quantamm": 6,
+        "zaros": 5
+      },
+      "sev_weighted_remaining": 20,
+      "high_sev_misses": [],
+      "detectability": 3,
+      "expected_precision": 2,
+      "reportable_yield": "low (DoS/Low-sev heavy)",
+      "shipped_lens": null,
+      "members": [
+        "panoptic:M-03 MEDI | TWAP EMA weighting incorrect",
+        "panoptic:M-06 MEDI | dispatchFrom() DoS via stale oracle gate",
+        "panoptic:M-11 MEDI | Oracle easily manipulated",
+        "quantamm:L-02 LOW  | L-02",
+        "quantamm:L-07 LOW  | L-07",
+        "quantamm:L-08 LOW  | L-08",
+        "quantamm:L-12 LOW  | L-12",
+        "quantamm:M-06 MEDI | M-06",
+        "quantamm:M-19 MEDI | M-19",
+        "zaros:L-09 LOW  | Protocol uses CurveRegistryExchange which is outdated",
+        "zaros:L-10 LOW  | Chainlink Oracle incompatibilities",
+        "zaros:L-12 LOW  | Chainlink Keeper Cannot Process All Swap Logs in a Block",
+        "zaros:L-13 LOW  | High Severity - Incorrect Timestamp Validation at `StabilityConfiguration` ",
+        "zaros:M-20 MEDI | Incorrect Timestamp Usage in `StreamsLookup Revert`"
+      ],
+      "priority": 84,
+      "priority_sevweighted": 120
+    },
+    {
+      "family": "liquidation_accounting",
+      "total_remaining": 15,
+      "by_corpus": {
+        "panoptic": 4,
+        "revert-lend": 7,
+        "zaros": 4
+      },
+      "sev_weighted_remaining": 31,
+      "high_sev_misses": [
+        "revert-lend:H-06",
+        "zaros:H-13"
+      ],
+      "detectability": 2,
+      "expected_precision": 2,
+      "reportable_yield": "med-high",
+      "shipped_lens": null,
+      "members": [
+        "panoptic:M-07 MEDI | Liquidator receives inflated bonus",
+        "panoptic:M-14 MEDI | State-price mismatch in liquidation",
+        "panoptic:M-18 MEDI | Solvency tick divergence blind spot",
+        "panoptic:M-19 MEDI | Withdrawal before bad debt increases losses",
+        "revert-lend:H-06 HIGH | Owner prevents liquidation via onERC721Received callback",
+        "revert-lend:M-03 MEDI | No minLoanSize \u2192 no incentive to liquidate small positions",
+        "revert-lend:M-11 MEDI | No safety buffer in _checkLoanIsHealthy",
+        "revert-lend:M-15 MEDI | New positions can be prematurely liquidated/removed",
+        "revert-lend:M-18 MEDI | Users cannot stop loss in AutoRange/AutoExit",
+        "revert-lend:M-20 MEDI | Tokens can't be removed as collateral without breaking liquidations",
+        "revert-lend:M-22 MEDI | dailyDebtIncreaseLimitLeft not updated in liquidate()",
+        "zaros:H-13 HIGH | Incorrect `AutoDeleverageFactor`.",
+        "zaros:L-19 LOW  | wrong value emitted in `LogLiquidateAccount` event",
+        "zaros:M-02 MEDI | Incorrect weight assignment in Vault::updateVaultAndCreditDelegationWeight ",
+        "zaros:M-09 MEDI | Assets can be drained for vaults with LTV greater than certain threshold"
+      ],
+      "priority": 60,
+      "priority_sevweighted": 124
+    },
+    {
+      "family": "hook_lifecycle",
+      "total_remaining": 10,
+      "by_corpus": {
+        "panoptic": 1,
+        "quantamm": 7,
+        "zaros": 2
+      },
+      "sev_weighted_remaining": 21,
+      "high_sev_misses": [
+        "panoptic:H-01",
+        "quantamm:H-07"
+      ],
+      "detectability": 2,
+      "expected_precision": 2,
+      "reportable_yield": "med",
+      "shipped_lens": null,
+      "members": [
+        "panoptic:H-01 HIGH | BuilderWallet init() unprotected re-initialization",
+        "quantamm:H-07 HIGH | H-07",
+        "quantamm:M-03 MEDI | M-03",
+        "quantamm:M-05 MEDI | M-05",
+        "quantamm:M-10 MEDI | M-10",
+        "quantamm:M-11 MEDI | M-11",
+        "quantamm:M-15 MEDI | M-15",
+        "quantamm:M-18 MEDI | M-18",
+        "zaros:L-03 LOW  | Anyone can call `BaseAdapter::__BaseAdapter_init` function because the func",
+        "zaros:M-13 MEDI | `_Ownable_init()` is not called in `MarketMakingEngineConfigurationBranch` "
+      ],
+      "priority": 40,
+      "priority_sevweighted": 84
+    },
+    {
+      "family": "fee_accounting",
+      "total_remaining": 20,
+      "by_corpus": {
+        "panoptic": 3,
+        "quantamm": 3,
+        "revert-lend": 2,
+        "zaros": 12
+      },
+      "sev_weighted_remaining": 40,
+      "high_sev_misses": [
+        "panoptic:H-03",
+        "quantamm:H-03",
+        "quantamm:H-05",
+        "zaros:H-01",
+        "zaros:H-12"
+      ],
+      "detectability": 1,
+      "expected_precision": 2,
+      "reportable_yield": "med",
+      "shipped_lens": null,
+      "members": [
+        "panoptic:H-03 HIGH | Commission fees bypassed",
+        "panoptic:M-15 MEDI | Commission distribution JIT-capturable",
+        "panoptic:M-16 MEDI | Force exercise lacks caller-side fee bounds",
+        "quantamm:H-03 HIGH | H-03",
+        "quantamm:H-05 HIGH | H-05",
+        "quantamm:M-17 MEDI | M-17",
+        "revert-lend:M-17 MEDI | AutoExit rewards from entire position even if onlyFee",
+        "revert-lend:M-23 MEDI | AutoRange execution front-ran to avoid fee",
+        "zaros:H-01 HIGH | Vaults weth reward is not distributed correctly",
+        "zaros:H-12 HIGH | Incorrect WETH reward distribution in `FeeDistributionBranch.sol#_handleWet",
+        "zaros:L-02 LOW  | Users Guaranteed To Lose Base Fees When Initiating Swaps on Non-Live Vaults",
+        "zaros:L-06 LOW  | Custom Referral Code Conflict Across Engines",
+        "zaros:L-11 LOW  | Incorrect Array Length Parameters in Error Message for Deposit and Redeem F",
+        "zaros:L-14 LOW  | Invalid referral data retrieval",
+        "zaros:L-16 LOW  | Users could potentially use their own referral code",
+        "zaros:M-01 MEDI | Incorrect Logic in MarketMakingEngineConfigurationBranch::configureFeeRecip",
+        "zaros:M-05 MEDI | Staking design is not fair for users who staked earlier and longer",
+        "zaros:M-07 MEDI | FeeConversionKeeper.performUpkeep always reverts because of incorrect array",
+        "zaros:M-16 MEDI | No Mechanism to Remove Fee Recipients Can Lead to Failed Reward Distributio",
+        "zaros:M-31 MEDI | FeeConversionKeeper::performUpkeep May Exceed Gas Limit Due to Vault Update"
+      ],
+      "priority": 40,
+      "priority_sevweighted": 80
+    },
+    {
+      "family": "vault_accounting",
+      "total_remaining": 8,
+      "by_corpus": {
+        "panoptic": 1,
+        "quantamm": 1,
+        "revert-lend": 3,
+        "zaros": 3
+      },
+      "sev_weighted_remaining": 15,
+      "high_sev_misses": [
+        "revert-lend:H-01"
+      ],
+      "detectability": 2,
+      "expected_precision": 2,
+      "reportable_yield": "med",
+      "shipped_lens": null,
+      "members": [
+        "panoptic:M-04 MEDI | Incorrect bit mask clears EMA and lock data",
+        "quantamm:L-13 LOW  | L-13",
+        "revert-lend:H-01 HIGH | Permit signature does not check receiving token is the vault asset",
+        "revert-lend:M-10 MEDI | Tokens stuck in AutoCompound after vault deactivated",
+        "revert-lend:M-14 MEDI | V3Vault not ERC-4626 compliant",
+        "zaros:L-08 LOW  | Missing ERC-20 Metadata in ZlpVault (EIP-4626 Violation)",
+        "zaros:M-06 MEDI | Stuck Funds",
+        "zaros:M-33 MEDI | Usd token can be overwithdrawn from market"
+      ],
+      "priority": 32,
+      "priority_sevweighted": 60
+    },
+    {
+      "family": "accounting_drift",
+      "total_remaining": 31,
+      "by_corpus": {
+        "panoptic": 2,
+        "recall": 1,
+        "revert-lend": 5,
+        "zaros": 23
+      },
+      "sev_weighted_remaining": 68,
+      "high_sev_misses": [
+        "zaros:H-02",
+        "zaros:H-04",
+        "zaros:H-05",
+        "zaros:H-06",
+        "zaros:H-07",
+        "zaros:H-11",
+        "zaros:H-15",
+        "zaros:H-16"
+      ],
+      "detectability": 1,
+      "expected_precision": 1,
+      "reportable_yield": "med (deep, FP-prone)",
+      "shipped_lens": null,
+      "members": [
+        "panoptic:M-02 MEDI | Credits not accumulated across multiple legs",
+        "panoptic:M-12 MEDI | Self-settlement bypasses refund mechanism",
+        "recall:M-01 MEDI | Incorrect genesisValidators state updates",
+        "revert-lend:M-04 MEDI | Interest-free loans via once-per-block interest update",
+        "revert-lend:M-05 MEDI | setReserveFactor doesn't update global interest first",
+        "revert-lend:M-06 MEDI | Lend/borrow above limits",
+        "revert-lend:M-08 MEDI | Daily limit left not adjusted accurately",
+        "revert-lend:M-12 MEDI | Wrong global lending limit check in _deposit",
+        "zaros:H-02 HIGH | After an LP provider's initial stake, if they stake again in the same vault",
+        "zaros:H-04 HIGH | recalculateVaultsCreditCapacity() function always reverts after first redee",
+        "zaros:H-05 HIGH | settleVaultDebts will increase vaults' debt/credit instead of settling it",
+        "zaros:H-06 HIGH | Incorrect calculation in CreditDelegationBranch::withdrawUsdTokenFromMarket",
+        "zaros:H-07 HIGH | `Market::getRealizedDebtUsd` calculates realized debt incorrectly",
+        "zaros:H-11 HIGH | Markets and vaults will not update their state until market fee is received",
+        "zaros:H-15 HIGH | Market-vault disconnection will bring permanent inconsistent state",
+        "zaros:H-16 HIGH | UsdTokenSwapConfig::Data::usdcAvailableForEngine Increases but Never Used, ",
+        "zaros:L-05 LOW  | Total debt used in fulfiling swap actions is wrong because we did not updat",
+        "zaros:L-07 LOW  | Lack of an update of the pool state will cause Initiate Swap to return an i",
+        "zaros:M-03 MEDI | rebalanceVaultsAssets incorrectly accounts vaults' depositedUsdc",
+        "zaros:M-08 MEDI | PremiumDiscountFactor Feature is Not Working",
+        "zaros:M-10 MEDI | CreditDelegationBranch::settlevaultsdebt incorrectly swaps token from marke",
+        "zaros:M-11 MEDI | Lack of credit capacity update from VaultRouterBranch::deposit causes DOS i",
+        "zaros:M-12 MEDI | market's realized debt per vault share is not updated after clearing market",
+        "zaros:M-17 MEDI | Vault accumulated values do not reflect market change correctly",
+        "zaros:M-18 MEDI | Adjusted profit will not use the current state of the system hence a use ca",
+        "zaros:M-25 MEDI | Vault credit capacity may not be correctly calculated",
+        "zaros:M-26 MEDI | Wrong amount in calcaulation when performing a swap from vault asset to usd",
+        "zaros:M-28 MEDI | CreditDelegationBranch::depositCreditForMarket cannot update market realize",
+        "zaros:M-32 MEDI | The `settleCreditDeposit` function is incorrect.",
+        "zaros:M-34 MEDI | Vault's total credit capacity keeps changing when being recalculated even t",
+        "zaros:M-35 MEDI | Wrong values of newly added `vault`"
+      ],
+      "priority": 31,
+      "priority_sevweighted": 68
+    },
+    {
+      "family": "arithmetic_overflow",
+      "total_remaining": 7,
+      "by_corpus": {
+        "panoptic": 1,
+        "recall": 3,
+        "revert-lend": 1,
+        "zaros": 2
+      },
+      "sev_weighted_remaining": 17,
+      "high_sev_misses": [
+        "recall:H-03",
+        "recall:H-04",
+        "recall:H-07"
+      ],
+      "detectability": 2,
+      "expected_precision": 2,
+      "reportable_yield": "med",
+      "shipped_lens": null,
+      "members": [
+        "panoptic:M-05 MEDI | Division-by-zero in long leg collateral",
+        "recall:H-03 HIGH | Incorrect hash (toHash vs toTracingId) in IpcContract.sol causes permanent ",
+        "recall:H-04 HIGH | Attacker can overflow message count in a bottom-up batch",
+        "recall:H-07 HIGH | Loop indexing error in LibAddressStakingReleases.compact() (release queue)",
+        "revert-lend:M-07 MEDI | Large referenceToken decimals overflow in oracle",
+        "zaros:M-04 MEDI | `Market::configureConnectedVaults` Will Always Fail with Array Out of Bound",
+        "zaros:M-19 MEDI | CreditDelegationBranch Rebalancing Underflows When Debt Exceeds USDC Balanc"
+      ],
+      "priority": 28,
+      "priority_sevweighted": 68
+    },
+    {
+      "family": "reentrancy",
+      "total_remaining": 3,
+      "by_corpus": {
+        "panoptic": 1,
+        "recall": 1,
+        "revert-lend": 1
+      },
+      "sev_weighted_remaining": 9,
+      "high_sev_misses": [
+        "panoptic:H-02",
+        "recall:H-06",
+        "revert-lend:H-02"
+      ],
+      "detectability": 3,
+      "expected_precision": 3,
+      "reportable_yield": "high",
+      "shipped_lens": "reentrancy specialist (pre-existing)",
+      "members": [
+        "panoptic:H-02 HIGH | Cross-contract reentrancy in liquidation",
+        "recall:H-06 HIGH | Reentrancy via native transfer in leave() halts checkpoint confirmation",
+        "revert-lend:H-02 HIGH | Reentrancy in onERC721Received to manipulate collateral configs"
+      ],
+      "priority": 27,
+      "priority_sevweighted": 81
+    },
+    {
+      "family": "estimator_math",
+      "total_remaining": 6,
+      "by_corpus": {
+        "panoptic": 1,
+        "quantamm": 1,
+        "revert-lend": 2,
+        "zaros": 2
+      },
+      "sev_weighted_remaining": 15,
+      "high_sev_misses": [
+        "revert-lend:H-05",
+        "zaros:H-08",
+        "zaros:H-10"
+      ],
+      "detectability": 2,
+      "expected_precision": 2,
+      "reportable_yield": "med-high",
+      "shipped_lens": "math_estimator (pre-existing)",
+      "members": [
+        "panoptic:M-09 MEDI | Incorrect delayed swap collateral calculation",
+        "quantamm:M-07 MEDI | M-07",
+        "revert-lend:H-05 HIGH | _getReferencePoolPriceX96 incorrect price for negative tick deltas",
+        "revert-lend:M-25 MEDI | Asymmetric calculation of price difference",
+        "zaros:H-08 HIGH | During _fillOrder with positive PnL, usdToken is minted less than trade acc",
+        "zaros:H-10 HIGH | Amount Of Asset Out Wrong Calculation"
+      ],
+      "priority": 24,
+      "priority_sevweighted": 60
+    },
+    {
+      "family": "authorization_mismatch",
+      "total_remaining": 6,
+      "by_corpus": {
+        "quantamm": 2,
+        "recall": 1,
+        "revert-lend": 2,
+        "zaros": 1
+      },
+      "sev_weighted_remaining": 14,
+      "high_sev_misses": [
+        "quantamm:H-08",
+        "recall:H-08",
+        "revert-lend:H-04"
+      ],
+      "detectability": 2,
+      "expected_precision": 2,
+      "reportable_yield": "med-high",
+      "shipped_lens": null,
+      "members": [
+        "quantamm:H-08 HIGH | H-08",
+        "quantamm:M-13 MEDI | M-13",
+        "recall:H-08 HIGH | Permissionless subnet creation under gateway drains gateway funds",
+        "revert-lend:H-04 HIGH | V3Utils.execute() has no caller validation",
+        "revert-lend:M-13 MEDI | Execute PositionToken set by previous owner",
+        "zaros:L-15 LOW  | Users can initiate multiple swaps against the same vault/collateral causing"
+      ],
+      "priority": 24,
+      "priority_sevweighted": 56
+    },
+    {
+      "family": "dos_griefing",
+      "total_remaining": 7,
+      "by_corpus": {
+        "panoptic": 2,
+        "recall": 2,
+        "revert-lend": 1,
+        "zaros": 2
+      },
+      "sev_weighted_remaining": 16,
+      "high_sev_misses": [
+        "recall:H-09",
+        "zaros:H-09"
+      ],
+      "detectability": 2,
+      "expected_precision": 1,
+      "reportable_yield": "low-med",
+      "shipped_lens": null,
+      "members": [
+        "panoptic:M-08 MEDI | Wide-range short legs cause revert",
+        "panoptic:M-10 MEDI | LP withdrawals lock long position closures",
+        "recall:H-09 HIGH | Cross-msg recipient gas bomb (returndata) blocks checkpoint submission",
+        "recall:M-04 MEDI | DoS via validator stake/unstake flooding (confirmChange)",
+        "revert-lend:M-02 MEDI | Gas griefing in AutoRange external call",
+        "zaros:H-09 HIGH | `rebalanceVaultsAssets` will always revert",
+        "zaros:M-24 MEDI | Unable to swap USD token to collateral for vaults in credit"
+      ],
+      "priority": 14,
+      "priority_sevweighted": 32
+    },
+    {
+      "family": "rounding_with_impact",
+      "total_remaining": 3,
+      "by_corpus": {
+        "revert-lend": 1,
+        "zaros": 2
+      },
+      "sev_weighted_remaining": 6,
+      "high_sev_misses": [],
+      "detectability": 2,
+      "expected_precision": 2,
+      "reportable_yield": "med",
+      "shipped_lens": null,
+      "members": [
+        "revert-lend:M-16 MEDI | Repay/liquidate revert via minuscule share repayments",
+        "zaros:M-27 MEDI | `checkFeeDistributionNeeded` Will Not Work With Low Decimal Assets",
+        "zaros:M-29 MEDI | Decimal Precision Mismatch Causing Incorrect Swap Reverts in `StabilityBran"
+      ],
+      "priority": 12,
+      "priority_sevweighted": 24
+    },
+    {
+      "family": "slippage_deadline",
+      "total_remaining": 2,
+      "by_corpus": {
+        "revert-lend": 1,
+        "silo": 1
+      },
+      "sev_weighted_remaining": 4,
+      "high_sev_misses": [],
+      "detectability": 3,
+      "expected_precision": 2,
+      "reportable_yield": "low-med",
+      "shipped_lens": null,
+      "members": [
+        "revert-lend:M-21 MEDI | Dangerous use of deadline parameter",
+        "silo:M-04 MEDI | Lack of slippage and deadline protection in deposit/withdraw/redeem"
+      ],
+      "priority": 12,
+      "priority_sevweighted": 24
+    },
+    {
+      "family": "recipient_beneficiary",
+      "total_remaining": 3,
+      "by_corpus": {
+        "quantamm": 1,
+        "revert-lend": 1,
+        "zaros": 1
+      },
+      "sev_weighted_remaining": 5,
+      "high_sev_misses": [],
+      "detectability": 2,
+      "expected_precision": 2,
+      "reportable_yield": "med",
+      "shipped_lens": null,
+      "members": [
+        "quantamm:M-02 MEDI | M-02",
+        "revert-lend:M-09 MEDI | Liquidation reward sent to msg.sender not recipient",
+        "zaros:L-18 LOW  | Whitelisted users can create trading accounts for non-whitelisted users"
+      ],
+      "priority": 12,
+      "priority_sevweighted": 20
+    },
+    {
+      "family": "lifecycle_hygiene",
+      "total_remaining": 7,
+      "by_corpus": {
+        "quantamm": 4,
+        "zaros": 3
+      },
+      "sev_weighted_remaining": 8,
+      "high_sev_misses": [],
+      "detectability": 1,
+      "expected_precision": 1,
+      "reportable_yield": "low (mostly out-of-scope Low)",
+      "shipped_lens": null,
+      "members": [
+        "quantamm:L-01 LOW  | L-01",
+        "quantamm:L-10 LOW  | L-10",
+        "quantamm:L-11 LOW  | L-11",
+        "quantamm:L-14 LOW  | L-14",
+        "zaros:L-01 LOW  | Low issues collection",
+        "zaros:L-04 LOW  | Low issues collection",
+        "zaros:M-30 MEDI | Duplicate `Collateral.Data` struct causes admin configuration conflict"
+      ],
+      "priority": 7,
+      "priority_sevweighted": 8
+    }
+  ],
+  "clustering_verdict": {
+    "open_remaining_total": 133,
+    "top2_pct": 21.8,
+    "top3_pct": 29.3,
+    "top4_pct": 44.4,
+    "n_open_families": 13
+  },
+  "unclassified": []
+}

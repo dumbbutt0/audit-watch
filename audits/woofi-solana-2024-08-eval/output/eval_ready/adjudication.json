@@ -1,0 +1,137 @@
+{
+ "audit_id": "woofi-solana-2024-08-eval",
+ "set": "training",
+ "language": "rust",
+ "generated_at": "2026-06-12",
+ "awarded_source": "_sealed_answer_key/report.md (Sherlock #535, WOOFi Solana)",
+ "auto_heuristic": false,
+ "_do_not_auto_overwrite": "Hand-adjudicated FULL-COVERAGE cold pass (first Solana recall-lab iteration). Rust-only; never mixes into the Solidity scoreboard.",
+ "awarded": [
+  {
+   "id": "H-1",
+   "severity": "High",
+   "title": "rebate_info/rebate_manager seeds() omit bump -> cannot sign CPI (claim/withdraw bricked)",
+   "label": "MISSED",
+   "read_file": true,
+   "mechanism_class": "solana-pda-signer-seeds-missing-bump",
+   "source": "human"
+  },
+  {
+   "id": "H-2",
+   "severity": "High",
+   "title": "quote pool base==quote not enforced -> fee charged to a non-quote pool",
+   "label": "MISSED",
+   "read_file": true,
+   "mechanism_class": "solana-missing-anchor-constraint",
+   "source": "human"
+  },
+  {
+   "id": "M-1",
+   "severity": "Medium",
+   "title": "rebate_info created by an admin != manager.authority -> claim_rebate_fee permanently reverts",
+   "label": "MISSED",
+   "read_file": true,
+   "mechanism_class": "solana-init-authority-mismatch-vs-use",
+   "source": "human"
+  },
+  {
+   "id": "M-2",
+   "severity": "Medium",
+   "title": "create_oracle / create_pool missing permission control (anyone can init)",
+   "label": "MISSED",
+   "read_file": true,
+   "mechanism_class": "solana-missing-signer-check",
+   "source": "human"
+  },
+  {
+   "id": "M-3",
+   "severity": "Medium",
+   "title": "duplicate mutable pool accounts -> Anchor serialization overwrites the fee credit",
+   "label": "MISSED",
+   "read_file": true,
+   "mechanism_class": "solana-duplicate-mutable-account-serialization",
+   "source": "human"
+  }
+ ],
+ "candidates": [
+  {
+   "id": "W-01",
+   "title": "get_price cross-price ignores base feed exponent",
+   "matched": null
+  },
+  {
+   "id": "W-02",
+   "title": "negative Pyth price cast as u128 wraps",
+   "matched": null
+  },
+  {
+   "id": "W-03",
+   "title": "incase_token_got_stuck drains vault without reserve update (admin/OOS)",
+   "matched": null
+  }
+ ],
+ "summary": {
+  "awarded_total": 5,
+  "adjudicated": 5,
+  "pending": 0,
+  "misses_detected": 5,
+  "recall_of_surfaced": 0.0,
+  "strong_only": 0.0,
+  "by_label": {
+   "STRONG": 0,
+   "SAME_AREA": 0,
+   "SUBSYSTEM_ONLY": 0,
+   "MISSED": 5,
+   "UNADJUDICATED": 0
+  },
+  "coverage_gap_misses": 0,
+  "reasoning_gap_misses": 5,
+  "complete": true,
+  "note": "FIRST Solana cold pass, FULL coverage (all 32 in-scope .rs read). recall 0.0 \u2014 all 5 awarded were reasoning-gap misses in files I READ (seeded Solana knowledge existed for H-2/M-2 but the cold pass didn't apply it sharply; H-1/M-1/M-3 were novel classes). My candidates (W-01/02/03) matched none. ALL 5 reincorporated -> 2 seeded classes upgraded seeded->reincorporated (+examples), 3 new classes authored, specialist sections \u00a78/\u00a79 + cpi \u00a75. This is the expected bootstrap signal: seeded != earned; the eval just earned 5 Solana classes."
+ },
+ "verification_repass": {
+  "kind": "source-grounded section-coverage verification (NON-BLIND / CONTAMINATED)",
+  "generated_at": "2026-06-17T16:13:09.491082+00:00",
+  "why_contaminated": "This contest was already cold-passed AND fully adjudicated (2026-06-12); the answer key and prior misses are in this lineage. A fresh cold pass cannot be honest blind recall. Run at user request ('proceed with woofi-solana anyway, note it's contaminated').",
+  "banked_as_blind_recall": false,
+  "section_coverage": "5/5",
+  "checks": [
+   {
+    "finding": "H-1",
+    "class": "solana-pda-signer-seeds-missing-bump",
+    "source": "programs/rebate_manager/src/state/rebate_manager.rs:54 seeds()->[&[u8];2] (SEED,quote_token_mint); no bump",
+    "authored_section": "solana_cpi.md \u00a75",
+    "maps": true
+   },
+   {
+    "finding": "H-2",
+    "class": "solana-missing-anchor-constraint",
+    "source": "programs/woofi/src/instructions/swap.rs woopool_quote constraint checks token_mint==quote only, not base==quote",
+    "authored_section": "solana_account_model.md \u00a74 (WOOFi anchor)",
+    "maps": true
+   },
+   {
+    "finding": "M-1",
+    "class": "solana-init-authority-mismatch-vs-use",
+    "source": "programs/rebate_manager/src/instructions/claim_rebate_fee.rs:26 constraint rebate_info.authority==rebate_manager.authority",
+    "authored_section": "solana_account_model.md \u00a78",
+    "maps": true
+   },
+   {
+    "finding": "M-2",
+    "class": "solana-missing-signer-check",
+    "source": "programs/woofi/src/instructions/admin/create_wooracle.rs:14 + create_pool.rs authority:Signer unbound to wooconfig.authority",
+    "authored_section": "solana_account_model.md \u00a71 (WOOFi init anchor)",
+    "maps": true
+   },
+   {
+    "finding": "M-3",
+    "class": "solana-duplicate-mutable-account-serialization",
+    "source": "programs/woofi/src/instructions/swap.rs woopool_to==woopool_quote aliasing",
+    "authored_section": "solana_account_model.md \u00a79",
+    "maps": true
+   }
+  ],
+  "conclusion": "All 5 authored Solana \u00a7-sections were re-confirmed against the real source sites: each names the exact mechanism at the exact code shape. The reincorporated prompts now encode every WOOFi miss. Locked by tests/coverage/test_woofi_solana_recall.py. NOT counted toward the blind-recall headline (woofi stays excluded as contaminated/thin)."
+ }
+}

@@ -1,0 +1,48 @@
+P152 — runtime execution (real ecg ERC20MultiVotes) + panel
+
+=== forge test (audits/ecg-2023-12-holdout/pocs/p152) ===
+Compiling with Solc 0.8.13 (ERC20MultiVotes [abstract, real] + OZ v4.9 ERC20Permit/EnumerableSet + local SafeCastLib)
+
+Ran 3 tests for test/ERC20MultiVotesAccounting.t.sol:ERC20MultiVotesAccounting
+[PASS] test_real_transfer_decrements_delegated_votes()
+Logs:
+  real_votes_after_transfer: 0
+[PASS] test_vulnerable_reference_retains_votes()
+Logs:
+  naive_votes_after_transfer: 1000000000000000000000
+[PASS] test_control_no_transfer_votes_stable()
+3 passed; 0 failed; 0 skipped
+
+Interpretation:
+- Suspected mechanism (canonical ERC20MultiVotes risk): does a holder retain/inflate delegated votes by transferring
+  tokens away? REFUTED at runtime. The REAL transfer (ERC20MultiVotes.transfer -> _decrementVotesUntilFree) frees
+  the delegation so getVotes(delegatee) drops 1000e18 -> 0 on transfer.
+- Vulnerable reference (NaiveMultiVotesRef, unguarded transfer) RETAINS 1000e18 -> shows the bug shape the real
+  contract AVOIDS.
+- Control (delegate, no transfer): votes stable.
+- Real production logic inherited unmodified by a minimal concrete shim (mint/setMaxDelegates only); no source edit.
+- Surface is fully UNPRIVILEGED (any holder delegate/transfer) -> reachability answered: the mechanism is absent in
+  the real guarded code.
+
+=== harness all (panel + scorecard) ===
+$ python scripts/research/value_provenance_eval_harness.py all
+[all] totals={'queued': 11, ... 'finding': 3,'needs_human': 1,'strong_clear': 7,'useful_recall': 0.8,
+      'clean_false_finding_rate': 0.0}                         # == P138 baseline (byte-for-byte; corpus unchanged)
+
+runtime_panel.summary = {'rows': 15, 'runtime_only': 4, 'by_status': {'runtime_confirmed': 4, 'not_run': 9, 'runtime_refuted': 2}}
+runtime_only_rows = [H1-centrifuge, H2-velodrome, H3-decent, H4-ecg]
+H4-ecg-multivotes-accounting: runtime_refuted, runtime_only=True, duplicate_unknown, routing/submission=false
+
+conversion schema (runtime-only rows):
+  H1 centrifuge: outcome=needs_context (intent_ambiguous)
+  H2 velodrome:  outcome=runtime_refuted
+  H3 decent:     outcome=runtime_confirmed_but_privileged_only (privileged_router_binds_fees)
+  H4 ecg:        outcome=runtime_refuted (mechanism_absent_guard_present)
+
+=== tests / integrity ===
+$ python -m pytest tests/research/test_value_provenance_eval_harness.py -q -> 36 passed
+$ grep -rn value_provenance_eval_harness run_pipeline.sh config/agent_policy.json -> UN-WIRED (no match)
+$ readlink output -> audits/quantamm-2024-12-eval/output (unchanged)
+$ python -m pytest -q -> 2 failed (pre-existing deep_solidity snapshots), 1673 passed, 4 skipped
+
+DECISION: RUNTIME_REFUTED (distinct class; reachability answered = unprivileged-but-mechanism-absent); not submission-ready

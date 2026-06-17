@@ -1,0 +1,60 @@
+{
+  "research_only": true,
+  "phase": "P102",
+  "subject": "iq-ai-2025-01",
+  "commit": "db0d369b8625c3b451ccba69c273a3de3ff99ff1",
+  "answer_key": {
+    "high": 1,
+    "medium": 3,
+    "source": "code4rena.com/reports/2025-01-iq-ai",
+    "findings": [
+      "H-01 TokenGovernor quorum 4 vs 25 (constructor)",
+      "M-01 moveLiquidity: permissionless pre-create Fraxswap pair w/ low fee -> loss",
+      "M-02 moveLiquidity: raw currencyToken.balanceOf injectable -> migration DoS",
+      "M-03 setProposalThresholdPercentage validates wrong variable"
+    ]
+  },
+  "blind_prediction_pre_key": "LiquidityManager.moveLiquidity ordering_race/cross_contract -> NEEDS_EXECUTION (permissionless migration seeds Fraxswap at a manipulable price)",
+  "recall_metrics": {
+    "relevant_invariant_generated": {
+      "M-01": true,
+      "M-02": true,
+      "M-03": true,
+      "H-01": false,
+      "summary": "3/4 (H-01 is a constructor constant, outside per-function invariant scope)"
+    },
+    "relevant_invariant_validated_or_actionable": {
+      "M-01": true,
+      "M-02": false,
+      "M-03": false,
+      "H-01": false,
+      "summary": "1/4 reached human-actionable (M-01 NEEDS_EXECUTION)"
+    },
+    "relevant_invariant_top1": "M-01 (the #1 / only human-actionable candidate)",
+    "relevant_invariant_top3": "M-01 present"
+  },
+  "precision_metrics": {
+    "total_generated": 224,
+    "functions_covered": 35,
+    "validated_for_poc": 0,
+    "needs_execution": 1,
+    "needs_context": "majority (un-traced blind)",
+    "false_promotions": 0,
+    "decoys_validated": 0,
+    "hypothesis_only_to_poc_handoff": 0
+  },
+  "failure_analysis": {
+    "H-01": "ENUMERATION SCOPE MISS \u2014 quorum numerator is a constructor magic-constant, not a function-level invariant the generator targets.",
+    "M-02": "VALIDATION/RANKING MISS \u2014 value_conservation/per_user_accounting generated on moveLiquidity but blind validation left it NEEDS_CONTEXT (did not trace the raw-balanceOf injection); flagged the sibling M-01 instead.",
+    "M-03": "VALIDATION MISS \u2014 setProposalThresholdPercentage WAS enumerated (cap_limit category) but TokenGovernor functions were not blind-traced -> NEEDS_CONTEXT.",
+    "M-01": "HIT \u2014 cross_contract/ordering_race generated autonomously on moveLiquidity; surfaced as #1 human-actionable NEEDS_EXECUTION WITHOUT human invariant selection; no false promotion."
+  },
+  "verdict": "PARTIAL PASS \u2014 recall+precision objectives met for M-01 (the relevant invariant was autonomously generated and surfaced as the top human-actionable candidate with no human selection and zero false promotions); validation DEPTH is capability-bound (NEEDS_EXECUTION, not VALIDATED \u2014 exactly as predicted). Misses: H-01 (constructor scope), M-02/M-03 (generated but not blind-validated). No decoy promoted; no precision gate weakened; no frozen artifact mutated.",
+  "primary_question_answer": "YES for the top migration finding: the system autonomously generated the correct invariant (M-01) among 224 candidates and the precision gates surfaced it as #1 human-actionable WITHOUT human invariant selection, while correctly holding it at NEEDS_EXECUTION (no false promotion). Elevation to a CONFIRMED finding still needs the human/fork PoC.",
+  "caveats": [
+    "validation reached NEEDS_EXECUTION not VALIDATED (blind-trace ceiling, as predicted)",
+    "the LENS selection initially MISSED moveLiquidity; broad enumeration over all surfaced fns was needed \u2014 selection is a recall bottleneck",
+    "one additive bug-fix mid-run: enumerator now reads source_text (was source_snippet only); backward-compatible, P101 tests green",
+    "per-candidate trace = blind LLM analyst reasoning over candidates (no invariant SELECTION); the capability-bound step"
+  ]
+}

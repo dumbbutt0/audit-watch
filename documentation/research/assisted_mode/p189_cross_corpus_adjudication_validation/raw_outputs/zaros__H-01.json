@@ -1,0 +1,70 @@
+{
+  "mechanism_inventory": [
+    "value exceeds a logical / economic bound (feeRecipientsSharesX18 > MAX_SHARES causes protocol share > 100%, making vault reward negative or underflow)",
+    "precision / packing / normalization edge (UD60x18 multiplication of two UD60x18 values without scaling correction)",
+    "stale accounting snapshot (feeRecipientsSharesX18 loaded once from storage)",
+    "missing invariant enforcement (no check that feeRecipientsSharesX18 <= MAX_SHARES before computing receivedProtocolWethRewardX18)",
+    "victim accounting direction (if protocol share exceeds 100%, vaults receive zero)"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "No upper-bound enforcement on feeRecipientsSharesX18 relative to MAX_SHARES. ud60x18(MAX_SHARES).sub(feeRecipientsSharesX18) underflows or misallocates; receivedWethX18.mul(feeRecipientsSharesX18) has no cap.",
+      "attacker_model": "Actor who can influence totalFeeRecipientsShares above MAX_SHARES (admin misconfig or separate AC bug).",
+      "exploit_path": "shares >= MAX_SHARES -> sub underflow revert (DoS of fee distribution) OR all WETH routed to protocol; vault depositors get zero.",
+      "who_loses": "Vault depositors (zero WETH rewards, permanently if stuck).",
+      "who_gains": "Protocol fee recipients (all WETH) or nobody (DoS).",
+      "why_carried": "No require(feeRecipientsSharesX18 <= MAX_SHARES) before subtraction; underflow is a hard DoS; over-allocation misdirects funds; clears Medium, potentially High."
+    },
+    {
+      "root_cause": "Precision/normalization edge in UD60x18 mul: ud60x18(totalFeeRecipientsShares) raw-integer cast then mul against a UD60x18 WETH amount; if stored as raw integer not a 1e18 fraction, result is N times wrong.",
+      "attacker_model": "No agency needed; systematic miscalc on every distribution.",
+      "exploit_path": "feeRecipientsSharesX18 = ud60x18(N) -> mul gives receivedWethX18*N instead of receivedWethX18*N/MAX_SHARES; leftover underflow revert or wrong split.",
+      "who_loses": "Vault depositors or protocol depending on direction.",
+      "who_gains": "Whichever side over-allocated; or nobody if revert.",
+      "why_carried": "Storage layout of totalFeeRecipientsShares not visible from this function; execution-dependent; routes to NEEDS_HARNESS."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "precision/normalization edge — UD60x18 casting of raw integer totalFeeRecipientsShares",
+      "source_evidence": "ud60x18(MarketMakingEngineConfiguration.load().totalFeeRecipientsShares) casts storage integer to UD60x18 with no documented scaling.",
+      "unresolved_question": "Is totalFeeRecipientsShares stored as a UD60x18 fraction (0..1e18) or a raw count (0..MAX_SHARES)?",
+      "who_loses": "Vault depositors or protocol fee recipients; or both on revert.",
+      "who_gains": "Whichever side over-allocated.",
+      "status": "NEEDS_HARNESS"
+    },
+    {
+      "mechanism": "stale accounting snapshot — totalFeeRecipientsShares loaded once",
+      "source_evidence": "feeRecipientsSharesX18 loaded at function entry; could be stale if updated atomically earlier in same call stack.",
+      "unresolved_question": "Can totalFeeRecipientsShares be atomically updated within the same tx that triggers distribution?",
+      "who_loses": "Protocol or vaults depending on delta direction.",
+      "who_gains": "Whichever side benefits.",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [
+    {
+      "mechanism": "unauthorized state deletion",
+      "claimed_locus": "market.receiveWethReward / Vault.recalculateVaultsCreditCapacity",
+      "rejecting_source_fact": "No deletion operation is visible in the function under trace.",
+      "why_unexploitable": "No deletion of state occurs in the visible path.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    },
+    {
+      "mechanism": "hook caller or hook-timing mismatch",
+      "claimed_locus": "recalculateVaultsCreditCapacity call ordering",
+      "rejecting_source_fact": "Not a hook implementation; fixed internal call sequence, not a hook dispatch.",
+      "why_unexploitable": "Hook-timing not applicable; no external caller supplies a hook address.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    }
+  ],
+  "impact_direction": {
+    "attacker_receives": "Protocol fee recipients receive disproportionate/total WETH share if feeRecipientsSharesX18 >= MAX_SHARES or UD60x18 inflates protocol allocation.",
+    "attacker_preserves": "N/A unless attacker is a fee recipient.",
+    "victim_loses": "Vault depositors lose entitled WETH fee share (zero or revert DoS).",
+    "invariant_violated": "protocol_share + vault_share = total_received_WETH violated on underflow/scaling mismatch.",
+    "not_self_funded_or_dust_or_admin_or_timing": true
+  },
+  "stop_condition": "more_mechanisms_pending: UD60x18 normalization (NEEDS_HARNESS) + stale snapshot affect different state vars with independent who-loses paths.",
+  "verdict": "HIGH_THREAD"
+}

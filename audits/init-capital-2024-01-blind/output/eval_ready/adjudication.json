@@ -1,0 +1,33 @@
+{
+  "audit_id": "init-capital-2024-01-blind",
+  "set": "holdout",
+  "language": "solidity",
+  "generated_at": "2026-06-12",
+  "awarded_source": "_sealed_answer_key/report.md (C4 2024-01-init-capital-invitational, 3H/4M)",
+  "auto_heuristic": false,
+  "_do_not_auto_overwrite": "Hand-adjudicated GENUINE-BLIND FULL-COVERAGE cold pass (22/22 in-scope). Only counts + scope peeked pre-pass; titles SEALED until reveal. Cutoff waived by user.",
+  "awarded": [
+    {"id": "H-01", "severity": "High", "title": "MarginTradingHook#updateOrder lacks access control", "label": "STRONG", "read_file": true, "mechanism_class": "missing-order-ownership-check", "source": "human", "matched_candidate": "I-01", "note": "STRONG exact: my I-01 named the identical bug — updateOrder omits the `order.initPosId == initPosId` ownership check that cancelOrder has, so anyone can modify anyone's order, and the same fix."},
+    {"id": "H-02", "severity": "High", "title": "Order's creator can update tokenOut to an arbitrary token", "label": "SAME_AREA", "read_file": true, "mechanism_class": "missing-order-ownership-check", "source": "human", "matched_candidate": "I-01", "note": "SAME_AREA: same updateOrder flaw; my I-01 explicitly noted updateOrder lets order params incl tokenOut be rewritten to rob the fill, but I framed it as one access-control finding rather than splitting out the tokenOut-to-arbitrary-token variant."},
+    {"id": "H-03", "severity": "High", "title": "fillOrder executor front-run by creator changing limitPrice_e36 -> executor assets stolen", "label": "SAME_AREA", "read_file": true, "mechanism_class": "missing-order-ownership-check", "source": "human", "matched_candidate": "I-01", "note": "SAME_AREA: my I-01 named the updateOrder->change limitPrice->'the fill robs the victim/filler' mechanism; the awarded H-03 is the precise filler-front-run-via-limitPrice variant."},
+    {"id": "M-01", "severity": "Medium", "title": "MarginTradingHook users could be DOSed (refundNative sends native unconditionally; reverts if caller can't receive)", "label": "MISSED", "read_file": true, "mechanism_class": "unconditional-native-refund-dos", "source": "human", "note": "MISS (reasoning): I read the refundNative modifier but did not flag that it always unwraps+sends native to msg.sender (even on non-native trades) and reverts for contract callers that can't receive ETH."},
+    {"id": "M-02", "severity": "Medium", "title": "fillOrder does not actually cancel the order when position collateral is empty (writes to a memory copy)", "label": "MISSED", "read_file": true, "mechanism_class": "memory-copy-state-write-lost", "source": "human", "note": "MISS (reasoning): I READ fillOrder (line 373 `Order memory order`; line 380 `order.status = Cancelled; return;`) but did not catch that the cancel writes the MEMORY copy, not storage, so the order stays Active -> re-fillable. Classic memory-vs-storage bug I missed."},
+    {"id": "M-03", "severity": "Medium", "title": "coreCallback SwapType.CloseExactOut strict balance==amtOut check can be DoSed", "label": "MISSED", "read_file": true, "mechanism_class": "strict-equality-balance-dos", "source": "human", "note": "MISS (reasoning): I READ coreCallback line 422 `require(balanceOf == swapInfo.amtOut)` but did not flag that exact equality (any dust/over-swap from the router) bricks reducePos/close."},
+    {"id": "M-04", "severity": "Medium", "title": "WLpMoeMasterChef unwrap/wrap reverts if MasterChef has insufficient reward tokens -> blocks decollateralize/liquidation of wLp", "label": "SUBSYSTEM_ONLY", "read_file": true, "mechanism_class": "reward-transfer-revert-blocks-core-op", "source": "human", "matched_candidate": "I-02", "note": "SUBSYSTEM_ONLY: same wrapper/reward subsystem as my I-02 (which found the reward-accounting over-claim that DRAINS the reward balance) — but the awarded root is that _transferRewards' reward safeTransfer reverts on insufficient balance and is on the unwrap path used by decollateralizeWLp/liquidateWLp, a DoS angle I flagged the subsystem of but not the specific revert-blocks-liquidation impact."}
+  ],
+  "candidates": [
+    {"id": "I-01", "matched": "H-01 (STRONG) + H-02/H-03 (SAME_AREA)"},
+    {"id": "I-02", "matched": "M-04 (SUBSYSTEM_ONLY)"},
+    {"id": "I-03", "title": "oracle one-sided staleness / no min price", "matched": null, "note": "not awarded"},
+    {"id": "I-04", "title": "LP kLast pricing", "matched": null, "note": "not awarded"},
+    {"id": "I-05", "title": "oracle single-source no-deviation", "matched": null, "note": "not awarded"}
+  ],
+  "summary": {
+    "awarded_total": 7, "adjudicated": 7, "pending": 0,
+    "recall_of_surfaced": 0.571, "strong_only": 0.143,
+    "missed": 3, "missed_coverage_gap": 0, "missed_reasoning_gap": 3,
+    "by_label": {"STRONG": 1, "SAME_AREA": 2, "SUBSYSTEM_ONLY": 1, "MISSED": 3, "UNADJUDICATED": 0},
+    "complete": true, "blind": true, "full_coverage": true,
+    "note": "GENUINE-BLIND FULL-COVERAGE (22/22). recall_of_surfaced 0.571 (4/7), strong 0.143 (1/7); ALL 3 misses are REASONING gaps (0 coverage-gap). STRONG H-01 updateOrder access control (I-01), which also covers the H-02 tokenOut + H-03 limitPrice-frontrun variants (SAME_AREA). M-04 reward-wrapper DoS = SUBSYSTEM via I-02. Reasoning misses to reincorporate: M-01 unconditional-native-refund DoS, M-02 memory-copy-state-write-lost (fillOrder cancel), M-03 strict-equality balance DoS. 2nd honest full-coverage Solidity datapoint (after neobase 0.375)."
+  }
+}

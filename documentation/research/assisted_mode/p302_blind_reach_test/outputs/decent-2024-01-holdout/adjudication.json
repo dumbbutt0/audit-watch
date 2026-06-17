@@ -1,0 +1,21 @@
+{
+  "_doc": "P306 in-session adjudication of each AWARDED decent finding vs the COLD-surfaced set. Mechanism-based, P287/P295 vocabulary; key not seen before discovery froze. P305/P303-lens validation: all 5 lenses = 0 candidates on decent (classes absent -> FP-control).",
+  "H-01": {"match_level": "STRONG_MECHANISM_MATCH", "surfaced_id": "AC-01/DT-01",
+    "evidence": "Awarded: anyone can update DcntEth.router. Surfaced AC-01/DT-01: DcntEth.setRouter is unprotected -> attacker becomes router -> unlimited mint. Identical root cause + locus (Critical)."},
+  "H-02": {"match_level": "MISSED", "surfaced_id": null,
+    "evidence": "Missing minimum-gas check on the LayerZero call (dstGasForCall) -> destination execution fails. Not surfaced: a cross-chain min-gas validation class. New."},
+  "H-03": {"match_level": "MISSED", "surfaced_id": null,
+    "evidence": "DecentBridgeExecutor.execute failure refunds to `from`, a source-chain address that may be unusable on the dest chain. No surfaced finding on DecentBridgeExecutor's refund path. New (cross-chain refund-recipient)."},
+  "H-04": {"match_level": "SAME_AREA_WRONG_MECHANISM", "surfaced_id": "CC-02/DT-04",
+    "evidence": "Awarded: user loses the cross-chain tx if the destination router lacks WETH reserves. Surfaced CC-02 (onOFTReceived delivers dcntEth instead of ETH when reserves low) + DT-04 (reserve/ledger desync) — same locus/reserve-insufficiency, framed as degraded delivery rather than tx loss."},
+  "M-01": {"match_level": "SUBSYSTEM_ONLY_RECALL", "surfaced_id": "CC-01",
+    "evidence": "Awarded: permanent loss if post-bridge swap data is outdated (stale slippage/amountOut). Surfaced the post-bridge swap-sizing subsystem (CC-01 getBridgedAmount) but not the swap-data-staleness mechanism."},
+  "M-02": {"match_level": "MISSED", "surfaced_id": null,
+    "evidence": "Users bridge fee-free by calling DecentEthRouter.bridgeWithPayload() directly (bypassing UTB fee collection). Not surfaced: a direct-entrypoint fee-bypass. New."},
+  "M-03": {"match_level": "STRONG_MECHANISM_MATCH", "surfaced_id": "AC-02/DT-02",
+    "evidence": "Awarded: missing access control on UTB.receiveFromBridge (bypasses fee/signature verification). Surfaced AC-02/DT-02: receiveFromBridge is public with no caller restriction. Same root cause + locus (awarded frames impact as fee bypass; I framed it as arbitrary-execute)."},
+  "M-04": {"match_level": "STRONG_MECHANISM_MATCH", "surfaced_id": "CC-01/DT-05",
+    "evidence": "Awarded: loss due to fixed fee calculations. Surfaced CC-01/DT-05: hardcoded SG_FEE_BPS=6 in getBridgedAmount diverges from real output. Identical root cause + locus."},
+  "M-05": {"match_level": "MISSED", "surfaced_id": null,
+    "evidence": "_bridgeWithPayload sets LzCallParams.refundAddress = msg.sender (the DecentBridgeAdapter), so refunded ETH is stuck at the adapter. Not surfaced: the outgoing-bridge refund-recipient mechanism. New."}
+}

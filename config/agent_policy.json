@@ -1,0 +1,273 @@
+{
+  "active_mode": "deep",
+  "auto_promote_learning": {
+    "enabled": true,
+    "require_recall_safety": true,
+    "require_dedup": true,
+    "kinds": [
+      "rejection",
+      "duplicate",
+      "severity"
+    ],
+    "disable_in_eval": true
+  },
+  "coverage_policy": {
+    "mode": "full_enumeration_first",
+    "require_manifest": true,
+    "require_minimal_pass_for_all_in_scope_items": true,
+    "deep_pass_attack_surface_score_min": 3,
+    "library_internal_surface_boost": true,
+    "library_internal_surface_boost_cap_per_contract": 3,
+    "cheap_sweep_enabled": true,
+    "mandatory_full_sweep": true,
+    "mandatory_full_sweep_doc": "P315: the full workflow ALWAYS stages a coverage sweep over every in-scope item (run_pipeline Step 3.85) and fail-closes (review_gate_blocks_unassigned/unexamined) until 100% of necessary files are examined with evidence. Specialists deep-dive hot clusters; the mandatory sweep covers the remainder. Override AUDITWATCH_COVERAGE_OVERRIDE=1 (loudly logged).",
+    "allow_orchestrator_hand_scoping": false,
+    "clear_requires_evidence": true,
+    "finding_requires_manifest_refs": true,
+    "review_gate_blocks_unassigned": true,
+    "review_gate_blocks_unexamined": true,
+    "review_gate_blocks_unevidenced_clears": true,
+    "allow_examined_without_disposition": false,
+    "high_score_strong_clear": true,
+    "high_score_threshold": 3,
+    "strong_clear_fields": [
+      "attacker_reachability",
+      "guard_or_invariant",
+      "no_impact_reason"
+    ],
+    "require_dependency_clear_metadata": true,
+    "guarded_downstream_require_structured": true,
+    "dependency_clear_strict": false,
+    "dependency_clear_strict_full_audit": true,
+    "dependency_locality_strict": false,
+    "dependency_locality_strict_full_audit": true,
+    "require_math_estimator_proof": true,
+    "math_estimator_strict": false,
+    "math_estimator_strict_full_audit": true,
+    "math_adversarial_proof": true,
+    "require_dynamic_weight_lifecycle_proof": true,
+    "dynamic_weight_lifecycle_strict": false,
+    "dynamic_weight_lifecycle_strict_full_audit": true,
+    "lifecycle_adversarial_proof": true,
+    "cross_artifact_lifecycle_advisory": true,
+    "recipient_custody_advisory": true,
+    "bridge_thread_escalation_strict": false,
+    "bridge_thread_escalation_strict_full_audit": true,
+    "cross_function_invariant_advisory": true,
+    "asset_source_consistency_advisory": true,
+    "checkpoint_liveness_advisory": true,
+    "special_focus_strong_clear": true,
+    "special_focus_strong_clear_strict": false,
+    "special_focus_strong_clear_strict_full_audit": true,
+    "advisory_escalation_strict": false,
+    "advisory_escalation_strict_full_audit": true,
+    "abi_getter_mismatch_advisory": true,
+    "abi_getter_mismatch_strict": false,
+    "abi_getter_mismatch_strict_full_audit": true,
+    "arithmetic_conservation_advisory": true,
+    "arithmetic_conservation_strict": false,
+    "arithmetic_conservation_strict_full_audit": true,
+    "connector_position_accounting_advisory": true,
+    "connector_position_accounting_strict": false,
+    "connector_position_accounting_strict_full_audit": true,
+    "liquidation_health_accounting_advisory": true,
+    "liquidation_health_accounting_strict": false,
+    "liquidation_health_accounting_strict_full_audit": true,
+    "gate_vs_dos_enabled": true,
+    "gate_vs_dos_strict": false,
+    "gate_vs_dos_strict_full_audit": true,
+    "enforce_read_completeness": false,
+    "enforce_read_completeness_full_audit": false,
+    "rejection_depth_record_enforced": false,
+    "accounting_checkpoint_enabled": false,
+    "state_transition_checkpoint_enabled": false,
+    "mandatory_specialist_profiles_enabled": true,
+    "mandatory_specialist_strict": false,
+    "mandatory_specialist_strict_full_audit": true,
+    "deep_pass_priority_enabled": true,
+    "deep_pass_high_priority_block_strict": false,
+    "deep_pass_high_priority_block_strict_full_audit": true,
+    "waiver_discipline_enabled": true,
+    "waiver_discipline_strict": false,
+    "waiver_discipline_strict_full_audit": true,
+    "high_risk_waiver_max": 8,
+    "spec_checklist_enabled": true,
+    "spec_checklist_strict": false,
+    "spec_checklist_strict_full_audit": true,
+    "spec_checklist_adversarial": true,
+    "spec_checklist_adversarial_strict": false,
+    "spec_checklist_adversarial_strict_full_audit": true,
+    "specialist_density_threshold": 0.15,
+    "high_density_specialists_strict": false,
+    "high_density_specialists_strict_full_audit": true,
+    "scope_file_ingestion_enabled": true,
+    "exclude_globs": [
+      "**/mocks/**",
+      "**/Mock*.sol",
+      "**/test/**",
+      "**/tests/**",
+      "**/*.t.sol",
+      "**/*_test.move",
+      "**/*_tests.move",
+      "**/build/**"
+    ],
+    "description": "Deterministic coverage enforcement. The orchestrator may prioritize but may not silently exclude in-scope manifest items; every in-scope item needs a disposition (examined/cleared/finding/deferred). The coverage_completeness_gate blocks the review gate otherwise. See documentation/coverage_system.md. Override: AUDITWATCH_COVERAGE_OVERRIDE=1."
+  },
+  "modes": {
+    "fast": {
+      "description": "Triage only; no full repo scan, no PoC generation",
+      "run_deep_analysis": false,
+      "run_static_analysis": false,
+      "run_specialist_agents": false,
+      "run_specialist_review": false,
+      "run_poc_generation": false,
+      "run_judge_simulation": false,
+      "max_pocs": 0,
+      "use_cases": [
+        "Re-triage existing findings",
+        "Check submission readiness",
+        "Review judge simulation results already on disk"
+      ]
+    },
+    "normal": {
+      "description": "Specialists on high-impact flows; PoC for top 3 findings",
+      "run_deep_analysis": true,
+      "run_static_analysis": true,
+      "run_specialist_agents": true,
+      "run_specialist_review": true,
+      "run_poc_generation": true,
+      "run_judge_simulation": true,
+      "max_pocs": 3,
+      "poc_min_exploitability": 3,
+      "use_cases": [
+        "Standard audit run",
+        "Focused pass on a new contract",
+        "Validating top findings before submission"
+      ]
+    },
+    "deep": {
+      "description": "Full specialist pass; PoC for all High/Critical candidates; full judge simulation",
+      "run_deep_analysis": true,
+      "run_static_analysis": true,
+      "run_specialist_agents": true,
+      "run_specialist_review": true,
+      "run_poc_generation": true,
+      "run_judge_simulation": true,
+      "max_pocs": -1,
+      "poc_min_exploitability": 3,
+      "require_approval_before_deep": true,
+      "use_cases": [
+        "Pre-submission final pass",
+        "Overnight unattended run",
+        "Full audit of a new protocol"
+      ]
+    }
+  },
+  "budget_rules": {
+    "estimate_scope_before_deep": true,
+    "ask_approval_for_deep_unless_explicit": true,
+    "stop_poc_after_n_repair_cycles": 3,
+    "max_pocs_without_approval": 3
+  },
+  "layer3_verification": {
+    "run_glider_on_critical": true,
+    "run_glider_on_high": true,
+    "mythril_timeout_seconds": 300,
+    "require_mythril_clean_for_submit": false,
+    "glider_limit_per_finding": 20
+  },
+  "zero_trust": {
+    "sandbox_check_required": true,
+    "validate_agent_output_required": true,
+    "policy_file": "config/zero_trust_policy.json"
+  },
+  "multi_pass": {
+    "enabled": true,
+    "passes_high": 3,
+    "passes_critical": 5,
+    "confirmation_threshold": 0.6,
+    "skip_in_fast_mode": true,
+    "description": "Multi-pass LLM confirmation for High/Critical findings. Handles LLM non-determinism per Jason Hadex methodology: confirm 3x (High) or 5x (Critical) independently; findings below threshold go to human review."
+  },
+  "invalidation_tags": {
+    "canonical_tags": [
+      "already_guarded",
+      "admin_only",
+      "impossible_state",
+      "no_profitability",
+      "non_exploitable",
+      "unrealistic_liquidity",
+      "requires_compromised_key",
+      "unverifiable_assumption",
+      "duplicate_pattern",
+      "duplicate_finding"
+    ],
+    "trust_level": 5,
+    "description": "Hard invalidation tags. Any tag prevents a finding from reaching submit.jsonl without explicit human override. Tags set by defense_mapper.py, pre_submission_gate.py, or record_fp_autopsy.py are trust level 5 (historical report). AI-generated hypotheses (trust level 7) cannot remove them.",
+    "human_override_field": "invalidation_tag_override",
+    "fp_autopsy_rules_path": "data/fp_autopsies/rejection_rules.jsonl",
+    "fp_pattern_similarity_reject": 0.85,
+    "fp_pattern_similarity_warn": 0.6
+  },
+  "human_review": {
+    "kb_similarity_threshold": 0.4,
+    "min_criteria_for_human_queue": 2,
+    "novel_pattern_auto_human": true,
+    "criteria": [
+      "kb_similarity_below_threshold",
+      "confirmation_score_below_threshold",
+      "trace_depth_gte_3",
+      "no_compound_pattern_match",
+      "cross_chain_or_upgrade_category",
+      "critical_without_level2_poc",
+      "bsa_finding",
+      "multi_pass_human_flag"
+    ],
+    "description": "Human-AI routing rules per Jason Hadex 90/10 principle. A finding requires human review if 2+ criteria trigger. The 10% that needs human review: novel patterns, low AI consistency, deep cross-contract chains, Critical claims without PoC."
+  },
+  "mechanism_advisory": {
+    "surface_mechanism_advisories": true,
+    "surface_research_only_advisories": false,
+    "mechanism_advisory_standalone_queue": false,
+    "mechanism_advisory_max_per_detector": 10,
+    "mechanism_advisory_max_total": 40,
+    "mechanism_advisory_allowed_detectors": [
+      "connector_position_accounting",
+      "arithmetic_conservation",
+      "units_invariant",
+      "semantic_tvl_completeness",
+      "registry_position_lifecycle"
+    ],
+    "description": "P135 advisory surfacing of EXISTING mechanism-detector output into human review (scripts/surface_mechanism_advisories.py). ADVISORY-ONLY: every entry advisory_only=true, submission_ready=false, requires_human_review=true; never a finding, never assigns severity, never submission-ready. research_only/report_only status preserved. Production default: advisory+report surfaced, research-only off, standalone queue off (capped). Eval mode (--eval) surfaces research-only + standalone queue. Master switch surface_mechanism_advisories=false disables all."
+  },
+  "value_provenance_auto_run": {
+    "auto_run_value_provenance_advisories": true,
+    "auto_run_value_provenance_mode": "review_only",
+    "auto_run_value_provenance_max_total": 5,
+    "auto_run_value_provenance_max_per_audit": 5,
+    "auto_run_value_provenance_timeout_seconds": 120,
+    "auto_run_value_provenance_allowed_prompts": [
+      "deep_pass_value_provenance"
+    ],
+    "auto_run_value_provenance_attach_to_human_queue": false,
+    "auto_run_value_provenance_render_in_review_gate": true,
+    "auto_run_value_provenance_surface_research_only": false,
+    "auto_run_value_provenance_manual_results_dir": "output/value_provenance_manual_results",
+    "auto_run_value_provenance_hide_strong_clear": false,
+    "auto_run_value_provenance_ingest_on_review_gate": true,
+    "description": "P139 auto-route + P140 completion loop for H-03-class value-provenance deep-pass jobs (scripts/run_value_provenance_advisories.py). SCAFFOLD: api-free has no non-interactive LLM runner, so jobs are queued as auto_run_status=pending_manual_execution and EXECUTED via the in-session /deep-pass skill; output is ADVISORY-ONLY (advisory_only=true, submission_ready=false, requires_human_review=true), never confirmed/severity/submission-ready, never faked. Triggers only on deep_pass_recommendations with recommended_prompt in allowed_prompts + a re-verified value-provenance loop signal; excludes mock/trivial/confirmed/submission_ready (+ research-only unless enabled). Capped + fail-open. P140 --ingest-results folds manual completion artifacts from auto_run_value_provenance_manual_results_dir back into the report deterministically (idempotent, quarantines unsafe/malformed, forces the advisory triplet, never confirms); auto_run_value_provenance_hide_strong_clear optionally hides cleared rows in the review gate; auto_run_value_provenance_ingest_on_review_gate runs ingestion during full/review-gate. Master switch auto_run_value_provenance_advisories=false (or mode=off) disables all."
+  },
+  "fuzz_synthesis": {
+    "enabled": true,
+    "require_cause_confirmation": true,
+    "never_set_severity": true,
+    "languages": ["solidity", "evm", "move"],
+    "max_findings_per_run": 25,
+    "description": "P141 fuzz-informed attacker-mindset synthesis (PRODUCTION stage, NOT research_only — this is wired into the real hunt). Deep harness fuzzing (Echidna/Foundry-invariant for solidity, the differential EVM harness for evm-core, the move_property_fuzz template for move) emits normalized signals to data/fuzz_results/divergences.jsonl; scripts/fuzz_evidence_gate.py marks each confirmed|harness_artifact|unreproduced|held. ONLY status=='confirmed' (reproduced AND harness/oracle artifact ruled out via tie-break/negative-control) is promoted. The agents/fuzz_attacker_synthesis.md Step-2 specialist then reads ONLY confirmed evidence + the source + attack_surface and reasons attacker-first, writing output/findings_fuzz_synthesis.json. require_cause_confirmation=true forbids promoting any non-confirmed signal; never_set_severity=true forbids the synthesis agent from writing final severity/triage_status. Those findings ride the EXISTING FP gauntlet UNCHANGED (3.4 ICE -> 3.5 multi-pass -> 3.6 fp_pattern_check -> 3.7 8 gates -> 3.8 dupe -> 3.9 confirm -> 4 triage). Master switch enabled=false disables the lane (the rest of the pipeline is byte-identical)."
+  },
+  "research_platform": {
+    "enabled": false,
+    "note": "T9: the research detector platform (multicall_invariant_v1, permit_asset_binding, sibling/cross-contract parity, value_flow_parity, registry_position_lifecycle + composition layers) is UN-WIRED and routes_in_production:false. enabled=false = opt-in / not maintained as production. Its tests are auto-marked `research` (tests/conftest.py); run the production suite fast with `pytest -m 'not research'`. Promotion to production is a separate human decision (documentation/architecture/research_family_promotion_status.md). This flag changes NO production routing — those detectors are already un-wired."
+  },
+  "active_audit": "flare-network-2026-05"
+}

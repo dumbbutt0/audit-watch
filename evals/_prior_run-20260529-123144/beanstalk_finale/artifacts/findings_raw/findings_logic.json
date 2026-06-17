@@ -1,0 +1,149 @@
+{
+  "agent": "logic",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-28T23:55:00+00:00",
+  "findings": [
+    {
+      "id": "LG-001",
+      "title": "ReseedField loop increments i instead of j, bricking field migration",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "ReseedField.init() re-issues every L1 Plot to its owner on L2. The migration iterates accounts in an outer loop (index i) and that account's plots in an inner loop. The inner loop is written `for (uint j; j < accountPlots[i].plots.length; i++)` \u2014 the post-statement increments the OUTER index `i`, not the inner index `j`. Because `j` is never incremented, the inner-loop guard `j < accountPlots[i].plots.length` evaluates plot[0] repeatedly while `i` keeps advancing. For any account whose `plots` array is non-empty, `i` quickly exceeds `accountPlots.length` and `accountPlots[i]` reverts with an array out-of-bounds panic. The init step therefore always reverts (whenever at least one migrated plot exists), so the entire reseed diamondCut batch reverts and the Field can never be initialized. In the only edge case where it does NOT revert (the very first account has an empty plots array), the loop body simply never executes and that account's plots are silently dropped while the `calculatedTotalPods == totalPods` check would then fail. Either way the documented behavior \u2014 're-issue plots to existing farmers, set Field to L1 state' \u2014 cannot be achieved. This is the classic wrong-loop-counter bug (cf. Solodit 'Incorrect logic in a while loop', High).",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedField.sol",
+        "function": "init",
+        "line_start": 48,
+        "line_end": 57,
+        "code_snippet": "for (uint i; i < accountPlots.length; i++) {\n    for (uint j; j < accountPlots[i].plots.length; i++) {   // BUG: i++ should be j++\n        uint256 podIndex = accountPlots[i].plots[j].podIndex;\n        uint256 podAmount = accountPlots[i].plots[j].podAmounts;\n        s.accts[accountPlots[i].account].fields[fieldId].plots[podIndex] = podAmount;\n        s.accts[accountPlots[i].account].fields[fieldId].plotIndexes.push(podIndex);\n        emit MigratedPlot(accountPlots[i].account, podIndex, podAmount);\n        calculatedTotalPods += podAmount;\n    }\n}"
+      },
+      "impact": "The one-time L1->L2 Field reseed always reverts for any non-empty plot set, so the diamondCut migration cannot complete and Field state (pods/harvestable/harvested/temperature) is never seeded. All Pod holders' debt positions fail to migrate; the protocol cannot launch on L2 with this init in the cut. In the degenerate non-reverting path, plots beyond plot[0] of the first account are silently dropped and the totalPods invariant check reverts. A bricked one-time migration of all Pod balances is a broken core invariant / loss-of-position class issue.",
+      "proof_of_concept": "L1: Construct accountPlots = [{account: A, plots: [P0, P1]}]. Call ReseedField.init(accountPlots, totalPods, ...). Iteration: i=0,j=0 -> processes P0, then i becomes 1. Guard re-checks j(=0) < accountPlots[1].plots.length -> accountPlots[1] is out of bounds (length 1) -> Panic(0x32) revert. The whole init reverts. Assert: vm.expectRevert() on init() with any single account holding >=1 plot. L2/L3: vm.load on s.sys.field.pods after the (reverted) cut == 0, proving Field never seeded.",
+      "recommendation": "Change the inner loop post-statement from `i++` to `j++`:\n    for (uint j; j < accountPlots[i].plots.length; j++) {\nAdd a unit test that reseeds multiple accounts each holding multiple plots and asserts calculatedTotalPods, plotIndexes length, and per-plot amounts match the L1 snapshot.",
+      "references": [
+        {
+          "title": "Incorrect logic in a while loop (wrong index increment skips elements)",
+          "url": "https://github.com/solodit/solodit_content/blob/main/reports/Zokyo/2024-06-29-Realize.md",
+          "source": "solodit"
+        }
+      ],
+      "confidence": "High",
+      "attack_surface_rank": 3,
+      "ite": {
+        "intent": "Permanently prevent (DoS) the one-time L1->L2 Field migration so no Pod holder's position is re-issued on L2; protocol cannot launch the Field correctly.",
+        "technique": "ReseedField.sol#49 `for (uint j; j < accountPlots[i].plots.length; i++)` never increments j and increments the outer i inside the inner loop. After processing plot[0] of account 0, i advances and `accountPlots[i]` (#50) reads past the array end, triggering an out-of-bounds Panic that reverts the init() delegatecall and the entire reseed diamondCut.",
+        "evasion": "Developer intended a standard nested account->plots iteration with a `calculatedTotalPods == totalPods` consistency check (#60). The check would have caught dropped plots, but the loop reverts before reaching it; the typo defeats both the iteration and the guard. No test exercised multi-plot accounts (coverage_gaps: ReseedField.init untested)."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.field.pods / s.accts[account].fields[fieldId].plots (never written; init reverts)",
+        "impact": "Field reseed reverts -> migration diamondCut reverts -> Pod debt positions for all farmers are not migrated to L2",
+        "consumer_found": true,
+        "consumer_function": "FieldFacet.harvest() / sow() (reads s.accts[].fields[].plots and s.sys.field.pods)",
+        "consumer_action": "Pod holders cannot harvest/transact migrated plots because the plot mapping and global pod totals are never seeded",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "critical_assumptions": [
+        "At least one migrated account holds at least one Plot (true for any real Beanstalk Field snapshot)",
+        "ReseedField.init is included in the reseed diamondCut as written"
+      ],
+      "assumption_count": 2,
+      "human_review_required": false,
+      "cross_agent_refs": []
+    },
+    {
+      "id": "LG-002",
+      "title": "ReseedSilo overwrites per-account stalk (=) per token vs accumulate",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "ReseedSilo.init() reseeds the Silo by calling reseedSiloDeposit() six times \u2014 once for each whitelisted token (Bean, BeanEth, BeanWstEth, Bean3Crv, urBean, urBeanLp). Inside reseedSiloDeposit, after summing an account's grown + base stalk for THAT token, the routine writes the result with an assignment: `s.accts[deposits.accounts].stalk = accountStalk;` (line 164). Account.stalk (Account.sol#34) is a SINGLE per-account scalar \u2014 it is not keyed by token. Therefore, for any farmer who holds deposits in more than one Silo token, each subsequent reseedSiloDeposit() call OVERWRITES the stalk computed for the previous token(s) instead of accumulating it. The farmer ends up with only the stalk attributable to the LAST token whose reseed touched their account, losing all stalk from earlier tokens. The sibling migration path L2ContractMigrationFacet.setStalk() (line 206) correctly uses `s.accts[account].stalk += accountStalk;`, confirming that accumulation is the intended semantics and that the `=` here is a bug, not a design choice.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+        "function": "reseedSiloDeposit",
+        "line_start": 159,
+        "line_end": 164,
+        "code_snippet": "// increment stalkForAccount by the stalk issued per BDV.\naccountStalk += stalkIssuedPerBdv * totalBdvForAccount;\n\n// set stalk for account.\ns.accts[deposits.accounts].stalk = accountStalk;   // BUG: '=' overwrites prior tokens' stalk; should be '+='"
+      },
+      "impact": "Every farmer with deposits in 2+ Silo tokens (e.g. BEAN + BEAN:ETH LP, very common) is under-credited stalk after migration \u2014 they keep only the last-processed token's stalk and silently lose the rest. Stalk governs (a) Beanstalk governance weight and (b) the pro-rata share of earned Beans / Season-of-Plenty distributions. The loss is permanent on L2 and there is no user-facing path to restore the missing stalk. This is a direct loss of the migrated value/yield-share for a large class of legitimate users and a broken accounting invariant (sum of per-account stalk no longer reflects total deposited BDV * stalkIssuedPerBdv + grown stalk).",
+      "proof_of_concept": "L1 snapshot: account A holds a BEAN deposit (stalk_bean) and a BEAN:ETH deposit (stalk_lp). init() calls reseedSiloDeposit(beanDeposits) -> s.accts[A].stalk = stalk_bean. Then reseedSiloDeposit(beanEthDeposits) -> s.accts[A].stalk = stalk_lp (overwrite). L2 assert via vm.load on Account.stalk slot: final == stalk_lp, NOT stalk_bean + stalk_lp. Compare against L2ContractMigrationFacet.setStalk (uses +=) for the same account to show divergence.",
+      "recommendation": "Use accumulation: `s.accts[deposits.accounts].stalk += accountStalk;` (matching L2ContractMigrationFacet.setStalk). Add a migration test that reseeds an account holding deposits across multiple tokens and asserts final stalk equals the sum across all tokens. Also assert the system-level invariant after all six calls.",
+      "references": [
+        {
+          "title": "Insecure Migration Logic Allowing State Loss",
+          "url": "https://cdn.cantina.xyz/reports/cantina_riskiit_february2025.pdf",
+          "source": "solodit"
+        }
+      ],
+      "confidence": "High",
+      "attack_surface_rank": 3,
+      "ite": {
+        "intent": "Multi-token Silo depositors permanently lose the stalk (governance weight + earned-Bean/SOP yield share) accrued from all but the last token migrated, with no recovery path.",
+        "technique": "ReseedSilo.init() (#85-101) invokes reseedSiloDeposit() once per token; each call ends with `s.accts[acct].stalk = accountStalk` (#164), an assignment to the single per-account Account.stalk field (Account.sol#34). Token N+1 overwrites token N's value for any account appearing in both token lists.",
+        "evasion": "Developer intended each account's total stalk to be set during reseed; the inline comment 'set stalk for account' and the sibling L2ContractMigrationFacet.setStalk (#206, uses +=) show accumulation was the intent. Using `=` instead of `+=` silently discards earlier-token stalk; no per-account cross-token total is asserted (only per-token totalDeposited/Bdv at #168-175)."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[account].stalk (under-set for multi-token depositors)",
+        "impact": "Account holds less stalk than its deposited BDV warrants -> reduced governance weight and reduced pro-rata earned-Bean / Season-of-Plenty distribution",
+        "consumer_found": true,
+        "consumer_function": "LibSilo.balanceOfEarnedBeans / __mow / mintRoots (reads s.accts[].stalk for proportional distribution); SiloGettersFacet.balanceOfStalk",
+        "consumer_action": "Earned Beans and plenty are distributed in proportion to stalk/roots; an under-credited account receives less than its fair share permanently",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "critical_assumptions": [
+        "At least one account holds deposits in 2+ of the six reseeded Silo tokens (extremely common: BEAN holders also holding BEAN:ETH LP)",
+        "The same account address appears in more than one SiloDeposits.siloDepositsAccount list"
+      ],
+      "assumption_count": 2,
+      "human_review_required": false,
+      "cross_agent_refs": []
+    },
+    {
+      "id": "LG-003",
+      "title": "Silo reseed never sets account roots or global silo.stalk/roots",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "The Silo reseed (ReseedSilo) writes per-account stalk and per-token deposited totals, but never initializes (a) per-account roots `s.accts[account].roots`, (b) the global total stalk `s.sys.silo.stalk`, or (c) the global total roots `s.sys.silo.roots`. A grep across the entire init/reseed tree shows the ONLY stalk/roots write is the single `s.accts[].stalk =` line in ReseedSilo; there is no roots seeding and no global silo total seeding anywhere in beanstalk/init/. By contrast the contract-account migration path L2ContractMigrationFacet.setStalk (line 205-207) sets BOTH `s.accts[account].stalk += accountStalk` AND `s.accts[account].roots += accountRoots`, proving roots are a required per-account migration field. Roots and the global stalk/roots aggregates are core consumers: LibSilo computes a Farmer's earned Beans and Season-of-Plenty share from `s.sys.silo.roots`, `s.sys.silo.stalk`, and `s.accts[account].roots` (LibSilo.sol#183-198, #244-253, #687-689); LibGauge divides by `s.sys.silo.stalk` (#351); and the Invariable guards read `s.sys.silo.stalk` as the baseline (Invariable.sol#53,76). With per-account stalk set but global roots/stalk left at 0 and per-account roots left at 0, the migrated Silo is internally inconsistent: earned-Bean and plenty distribution math operates on zero roots (users get 0 distribution, or division behavior diverges from the intended ratio), while the per-account stalk values imply governance weight that the global totals do not reflect.",
+      "location": {
+        "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+        "function": "reseedSiloDeposit",
+        "line_start": 154,
+        "line_end": 180,
+        "code_snippet": "s.accts[deposits.accounts].mowStatuses[siloDeposit.token].bdv = totalBdvForAccount;\ns.accts[deposits.accounts].mowStatuses[siloDeposit.token].lastStem = siloDeposit.stemTip;\naccountStalk += stalkIssuedPerBdv * totalBdvForAccount;\ns.accts[deposits.accounts].stalk = accountStalk;\n// ... no write to s.accts[].roots, s.sys.silo.stalk, or s.sys.silo.roots anywhere in reseed ...\ns.sys.silo.balances[siloDeposit.token].deposited = siloDeposit.totalDeposited;\ns.sys.silo.balances[siloDeposit.token].depositedBdv = siloDeposit.totalDepositedBdv;"
+      },
+      "impact": "After migration the Silo's global stalk/roots totals and every account's roots are zero while per-account stalk is non-zero. Earned-Bean and Season-of-Plenty distributions (proportional to roots) misbehave for all migrated depositors \u2014 either paying 0 or computing on inconsistent denominators \u2014 and the gauge / invariant baselines read a stalk total of 0. This is a protocol-wide accounting corruption of the migrated Silo affecting all depositors, not a single account. Severity High (broken core invariant + loss/misallocation of yield); flagged for human review because the exact downstream behavior depends on whether a later season step (sunrise) is expected to rebuild the global aggregates, which is multi-block reasoning the reseed code itself does not perform.",
+      "proof_of_concept": "After running the full reseed cut on a snapshot, vm.load the slots for s.sys.silo.stalk and s.sys.silo.roots and assert both == 0; vm.load s.accts[A].roots for a migrated depositor A and assert == 0 while s.accts[A].stalk != 0. Then call a getter/flow that reads roots (e.g. balanceOfEarnedBeans via LibSilo, which uses s.sys.silo.roots/stalk and s.accts[A].roots) and show it returns 0 / diverges from the intended pro-rata value despite A holding stalk.",
+      "recommendation": "Within reseed, also seed each account's roots and the global aggregates so the Silo is internally consistent at genesis: accumulate `s.sys.silo.stalk += accountStalk` per account and set `s.accts[account].roots` plus `s.sys.silo.roots` using the same stalk->roots base used by LibSilo (C.getRootsBase()) for the zero-roots genesis case. Mirror the field set used by L2ContractMigrationFacet.setStalk (stalk and roots). Add an invariant test after the full cut: sum(per-account stalk) == s.sys.silo.stalk and sum(per-account roots) == s.sys.silo.roots.",
+      "references": [
+        {
+          "title": "Migration.sol users may forfeit rewards (state not fully migrated)",
+          "url": "https://code4rena.com/reports/2022-06-yieldy",
+          "source": "solodit"
+        }
+      ],
+      "confidence": "Medium",
+      "attack_surface_rank": 3,
+      "ite": {
+        "intent": "All migrated Silo depositors lose correct earned-Bean / Season-of-Plenty yield and governance accounting because roots and global stalk/roots totals are never seeded on L2.",
+        "technique": "ReseedSilo.reseedSiloDeposit (#109-180) writes per-account stalk and per-token deposited balances but never writes s.accts[].roots, s.sys.silo.stalk, or s.sys.silo.roots. LibSilo (#183-198, #244, #687-689) and LibGauge (#351) consume those exact aggregates for distribution and gauge math; reading them as 0 yields 0/inconsistent distributions.",
+        "evasion": "L2ContractMigrationFacet.setStalk (#205-207) sets both stalk and roots, evidencing roots are a required migration field. The bulk reseed omits roots and all global totals; the only consistency checks present are per-token deposited/Bdv (#168-175), which do not cover stalk/roots aggregates. Coverage_gaps confirm ReseedSilo.init is untested."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[account].roots == 0, s.sys.silo.roots == 0, s.sys.silo.stalk == 0 (never seeded)",
+        "impact": "Roots-proportional earned-Bean and Season-of-Plenty distribution computes on zero/inconsistent aggregates; gauge and invariant baselines read 0 stalk",
+        "consumer_found": true,
+        "consumer_function": "LibSilo.balanceOfEarnedBeans / mintRoots / _mow (LibSilo.sol#183-198,#687-689); LibGauge (#351); Invariable.noNetFlow/oneOutFlow (Invariable.sol#53,76)",
+        "consumer_action": "Distributes earned Beans / plenty pro-rata to roots and divides the gauge by global stalk \u2014 with zero aggregates these return 0 or revert/diverge for all migrated users",
+        "severity_ceiling": "High",
+        "search_method": "static_search"
+      },
+      "critical_assumptions": [
+        "No other init step (outside beanstalk/init/) rebuilds s.sys.silo.stalk/roots or per-account roots before normal operation",
+        "First post-migration sunrise/season step does not implicitly reconstruct the missing aggregates"
+      ],
+      "assumption_count": 2,
+      "human_review_required": true,
+      "human_review_reason": "Downstream impact depends on whether a later season/sunrise step is expected to rebuild global silo aggregates (multi-block reasoning the reseed code does not itself perform); a human should confirm no other init contract seeds roots/global stalk before deciding the exact severity.",
+      "cross_agent_refs": []
+    }
+  ]
+}

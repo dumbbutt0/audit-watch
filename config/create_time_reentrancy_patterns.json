@@ -1,0 +1,23 @@
+{
+  "lens": "create_time_reentrancy",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Detects create/registration-time reentrancy: a create/mint/register/list/deposit/stake flow performs a callback-yielding external interaction (safeMint / ERC721/1155 safeTransfer receiver callback / external hook / low-level call) BEFORE committing the registration/limit/accounting state, with no reentrancy guard — so a reentrant call observes partially-initialized state (e.g. a stale per-address mint counter) and bypasses the invariant. 4-signal gate: S1 create-verb fn + S2 callback-yielding interaction + S3 state-commit AFTER the callback (CEI violation) + S4 no nonReentrant. Anchor: nextgen H-01 (NextGenCore.mint -> _mintProcessing -> _safeMint before tokensMintedPerAddress += 1, no guard). Scope: callback-before-commit in create flows ONLY; does NOT detect generic reentrancy, cross-contract stale-check reentrancy (e.g. reNFT H-03 Seaport-mediated), or read-only reentrancy.",
+
+  "create_verbs": ["mint", "create", "register", "list", "deposit", "stake", "open", "start", "add", "airdrop", "burntomint", "initialize", "enter", "join"],
+
+  "callback_interactions": ["_safemint", "safemint(", "safebatchtransferfrom", "onerc721received", "onerc1155received", "_mintprocessing", ".call{", "ontransaction", "beforetokentransfer", "_checkonerc721received"],
+  "_removed_ambiguous": "P242 fix: dropped 'safetransferfrom'/'safetransfer('/.call( - ERC20 SafeERC20.safeTransferFrom-before-_mint is the INTENTIONAL CEI-safe deposit pattern (pooltogether/sentiment/concrete/reserve FPs); ERC20 transferFrom triggers no recipient callback. Kept ERC721-1155-specific receiver callbacks (_safeMint/safeBatchTransferFrom/onERCxReceived) + arbitrary .call{value}.",
+
+  "state_commit_markers": ["+= 1", "+ 1", "++", ".push(", "= true", "[msg.sender]", "mintedperaddress", "mintedallowlist", "tokensminted", "balanceof[", "_balances[", "totalsupply", "registered", "addrentals", "orders[", "_mint(", "storage"],
+
+  "reentrancy_guard_markers": ["nonreentrant", "reentrancyguard", "_reentrancyguard", "lock()", "nonreentrantbefore", "mutex"],
+
+  "trusted_callback_markers": ["address(this)", "internal callback", "_safetransfer(token", "trustedforwarder"],
+
+  "fp_controls": {
+    "four_signal_required": "S1 create-verb fn AND S2 callback-yielding interaction AND S3 a state-commit textually AFTER the S2 call site AND S4 no nonReentrant. A CEI-correct flow (state committed before the callback) or a guarded fn is suppressed.",
+    "ordering_based": "S3 requires the state write to appear AFTER the callback call index in the body (a true callback-before-commit ordering), not merely co-present.",
+    "guard_suppression": "any nonReentrant / ReentrancyGuard / mutex on the function -> suppressed.",
+    "known_blind_spots": "cross-CONTRACT stale-check reentrancy (the check in a different contract than the callback) and Seaport/conduit-mediated transfers are not detected by this per-function source classifier."
+  }
+}

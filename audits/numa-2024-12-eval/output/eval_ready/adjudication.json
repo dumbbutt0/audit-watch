@@ -1,0 +1,207 @@
+{
+  "audit_id": "numa-2024-12-eval",
+  "set": "training",
+  "generated_at": "2026-06-12T16:06:38Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": false,
+  "awarded": [
+    {
+      "id": "H-1",
+      "severity": "High",
+      "title": "CNumaToken.leverageStrategy() can be re-entered, causing all the vault funds to be moved to a cToken, crashing NUMA price.",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "cross-function-reentrancy",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "H-2",
+      "severity": "High",
+      "title": "Vault is vulnerable to inflation attack which can cause complete loss of user funds",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "erc4626-ctoken-inflation",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "M-1",
+      "severity": "Medium",
+      "title": "Debasing/rebasing periods can be decreased by 50% by a malicious actor",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "round-boundary-decay-reset",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-2",
+      "severity": "Medium",
+      "title": "OracleUtils.ethLeftSide() is not correct for some tokens, leading to incorrect nuAsset pricing",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "oracle-decimals",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "M-3",
+      "severity": "Medium",
+      "title": "CF minimum can be bypassed when minting nuAssets",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "cf-bypass-mint",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "M-4",
+      "severity": "Medium",
+      "title": "No RWAs have a chainlink feed in ETH, so RWAs cannot be minted as nuAssets",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "config-feed-missing",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "M-5",
+      "severity": "Medium",
+      "title": "Deprecated markets allow profitable exploitation of bad debt liquidations",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "deprecated-market-baddebt",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "M-6",
+      "severity": "Medium",
+      "title": "Incorrect liquidation mechanics either causes revert on liquidation due to insufficient seizeTokens or causes transition into bad debt",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "liquidation-mechanics",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "M-7",
+      "severity": "Medium",
+      "title": "leverageStrategy will revert due users interest rate accrual",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "leverage-accrual-revert",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "M-8",
+      "severity": "Medium",
+      "title": "User will Received Less Amount Of Numa",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "pricing-rounding",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "M-9",
+      "severity": "Medium",
+      "title": "Before transferring `CToken`, the `accrueInterest()` function should be called first.",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "accrual-before-transfer",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "M-10",
+      "severity": "Medium",
+      "title": "Precision loss in setMaxSpotOffsetBps function leads to Incorrect Numa Prices",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "bps-sqrt-precision-loss",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-11",
+      "severity": "Medium",
+      "title": "No slippage check for leverageStrategy function",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "missing-slippage",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "M-12",
+      "severity": "Medium",
+      "title": "Numa tokens fee on transfer can be bypassed",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "fot-bypass",
+      "read_file": false,
+      "source": "preserved"
+    },
+    {
+      "id": "M-13",
+      "severity": "Medium",
+      "title": "Buy fee PID is updated with wrong amounts leading to unexpected fee growth",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "controller-fed-pre-fee-amount",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-14",
+      "severity": "Medium",
+      "title": "Vaults can be purposefully bricked by leaving small amounts of rETH",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "pct-cap-below-abs-floor",
+      "read_file": true,
+      "source": "preserved"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "N-01",
+      "title": "NumaOracle TWAP average-tick uses integer division -> negative-tick rounding skew",
+      "severity": "Low",
+      "file": "NumaProtocol/NumaOracle.sol",
+      "contract": "",
+      "function": "getV3SqrtPriceAvg",
+      "description": "getV3SqrtPriceAvg computes avg tick = (tickCumulatives[1]-tickCumulatives[0]) / int56(int32(interval)); integer division truncates toward zero, so for a NEGATIVE cumulative-tick delta the avg tick rounds UP (less negative) -> price skew (the revert-lend H-05 / oracle.md negative-tick class). LIKELY MITIGATED here by the min/max-of-{short,long,spot} selection + spot-offset bound; record as SAME_AREA-to-an-already-covered-class pending reveal."
+    },
+    {
+      "id": "N-02",
+      "title": "withdrawToken (onlyOwner) can pull any ERC20 incl. backing until revokeWithdraw",
+      "severity": "Low",
+      "file": "NumaProtocol/NumaVault.sol",
+      "contract": "",
+      "function": "withdrawToken",
+      "description": "owner can safeTransfer any token (incl. lstToken backing) out of the vault while isWithdrawRevoked==false. revokeWithdraw() exists to disable it. Sherlock treats admin as trusted -> likely Informational/centralization, not a contest finding."
+    }
+  ],
+  "summary": {
+    "awarded_total": 16,
+    "awarded_source": "report.md",
+    "adjudicated": 16,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 16,
+    "recall_of_surfaced": 0.0,
+    "strong_only": 0.0,
+    "by_label": {
+      "MISSED": 16,
+      "SAME_AREA": 0,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 0,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

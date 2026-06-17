@@ -1,0 +1,96 @@
+{
+  "finding_id": "DS-003",
+  "title": "LibUsdOracle 1e24/price no zero-check: frozen feed reverts, DoSing sunrise",
+  "agent": "",
+  "claimed_severity": "Medium",
+  "claimed_confidence": "High",
+  "location": {
+    "file": "contracts/2024-05-beanstalk-the-finale/protocol/contracts/libraries/Oracle/LibUsdOracle.sol",
+    "function": "getTokenPriceFromExternal",
+    "line_start": 120,
+    "line_end": 127,
+    "code_snippet": "return uint256(1e24).div(LibChainlinkOracle.getTokenPrice(chainlinkOraclePriceAddress, LibChainlinkOracle.FOUR_HOUR_TIMEOUT, lookback));"
+  },
+  "description": "In the encodeType 0x01 branch, getTokenPriceFromExternal returns `uint256(1e24).div(LibChainlinkOracle.getTokenPrice(addr, FOUR_HOUR_TIMEOUT, lookback))`. LibChainlinkOracle.getTokenPrice \u2014 through both getPrice() and getTwap() \u2014 is explicitly documented and coded to RETURN 0 (not revert) when the feed is broken or frozen: it returns 0 on a decimals() revert, a latestRoundData() revert, roundId==0, or a stale/invalid timestamp/answer (LibChainlinkOracle.sol L67/L79/L81/L87 and L109/L121/L123/L151/L161). When that 0 is fed into `1e24.div(0)`, the division reverts (LibRedundantMath / Solidity panic 0x12) instead of degrading gracefully. The whole pricing call therefore reverts during a feed outage, contrary to the 0-sentinel contract the rest of the file relies on. This is DT-007 and violates ARITH-003. (Note: this DoS is independent of the inverted ternary in DT-006/OR-001 \u2014 whichever helper is selected, a frozen feed yields 0 and the unguarded division reverts.)",
+  "impact": "When a Chainlink feed backing a whitelisted token (encodeType 0x01) is frozen, stale beyond FOUR_HOUR_TIMEOUT, or reverting, every consumer of getUsdPrice/getTokenPriceFromExternal for that token reverts instead of receiving the documented 0 sentinel. Consumers include the sunrise oracle step and convert pricing; a reverting price call can block season advancement and conversions for the affected token during the outage. Temporary availability DoS gated by an external feed condition (not attacker-triggered). Medium under Immunefi v2.2 (temporary DoS of a core flow). Strong KB precedent (Solodit ~0.58: Chainlink frozen/phase-change feed DoS, Medium).",
+  "ite": {},
+  "ice_chain": {
+    "corrupted_state": "n/a (revert via 1e24/0)",
+    "impact": "Pricing call reverts during a feed outage, blocking season advancement / conversions for the affected token until the feed recovers.",
+    "consumer_found": true,
+    "consumer_function": "sunrise/oracle step and convert pricing consumers of LibUsdOracle.getUsdPrice / getTokenPriceFromExternal",
+    "exploit_path": "feed frozen/stale -> LibChainlinkOracle.getTokenPrice returns 0 -> 1e24.div(0) reverts -> caller (sunrise/convert) reverts"
+  },
+  "source_slice": "90:         // or a custom oracle implementation are called here.\n91:         return getTokenPriceFromExternal(token, lookback);\n92:     }\n93: \n94:     /**\n95:      * @notice gets the token price from an external oracle.\n96:      * @dev if address is 0, use the current contract.\n97:      * If encodeType is 0x01, use the default chainlink implementation.\n98:      * Returns 0 rather than reverting if the call fails.\n99:      */\n100:     function getTokenPriceFromExternal(\n101:         address token,\n102:         uint256 lookback\n103:     ) internal view returns (uint256 tokenPrice) {\n104:         AppStorage storage s = LibAppStorage.diamondStorage();\n105:         Implementation memory oracleImpl = s.sys.oracleImplementation[token];\n106: \n107:         // If the encode type is type 1, use the default chainlink implementation instead.\n108:         // `target` refers to the address of the price aggergator implmenation\n109:         if (oracleImpl.encodeType == bytes1(0x01)) {\n110:             // if the address in the oracle implementation is 0, use the chainlink registry to lookup address\n111:             address chainlinkOraclePriceAddress = oracleImpl.target;\n112:             if (chainlinkOraclePriceAddress == address(0)) {\n113:                 // use the chainlink registry\n114:                 chainlinkOraclePriceAddress = ChainlinkPriceFeedRegistry(chainlinkRegistry).getFeed(\n115:                         token,\n116:                         0x0000000000000000000000000000000000000348\n117:                     ); // 0x0348 is the address for USD\n118:             }\n119: \n120:             return\n121:                 uint256(1e24).div(\n122:                     LibChainlinkOracle.getTokenPrice(\n123:                         chainlinkOraclePriceAddress,\n124:                         LibChainlinkOracle.FOUR_HOUR_TIMEOUT,\n125:                         lookback\n126:                     )\n127:                 );\n128:         } else if (oracleImpl.encodeType == bytes1(0x02)) {\n129:             // assumes a dollar stablecoin is passed in\n130:             // if the encodeType is type 2, use a uniswap oracle implementation.\n131:             address chainlinkToken = IUniswapV3PoolImmutables(oracleImpl.target).token0();\n132:             chainlinkToken = chainlinkToken == token\n133:                 ? IUniswapV3PoolImmutables(oracleImpl.target).token1()\n134:                 : token;\n135:             tokenPrice = LibUniswapOracle.getTwap(\n136:                 lookback == 0 ? LibUniswapOracle.FIFTEEN_MINUTES : uint32(lookback),\n137:                 oracleImpl.target,\n138:                 chainlinkToken,\n139:                 token,\n140:                 uint128(10) ** uint128(IERC20Decimals(token).decimals())\n141:             );\n142:             // USDC/USD\n143:             // call chainlink oracle from the OracleImplmentation contract\n144:             Implementation memory chainlinkOracleImpl = s.sys.oracleImplementation[chainlinkToken];\n145:             address chainlinkOraclePriceAddress = chainlinkOracleImpl.target;\n146: \n147:             if (chainlinkOraclePriceAddress == address(0)) {\n148:                 // use the chainlink registry\n149:                 chainlinkOraclePriceAddress = ChainlinkPriceFeedRegistry(chainlinkRegistry).getFeed(\n150:                         chainlinkToken,\n151:                         0x0000000000000000000000000000000000000348\n152:                     ); // 0x0348 is the address for USD\n153:             }\n154: \n155:             uint256 chainlinkTokenPrice = LibChainlinkOracle.getTokenPrice(\n156:                 chainlinkOraclePriceAddress,\n157:                 LibChainlinkOracle.FOUR_HOUR_TIMEOUT,",
+  "gate_verdict": {
+    "finding_id": "DS-003",
+    "severity": "Medium",
+    "vuln_type": "dos",
+    "gate_results": [
+      {
+        "gate": 1,
+        "name": "reachability",
+        "verdict": "WARN",
+        "reason": "No exploitability model found \u2014 cannot assess reachability",
+        "tag": null
+      },
+      {
+        "gate": 2,
+        "name": "state_realism",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 3,
+        "name": "privilege",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 4,
+        "name": "defense",
+        "verdict": "PASS",
+        "reason": "No defense mapping found \u2014 cannot assess (defense_mapper.py may not have run)",
+        "tag": null
+      },
+      {
+        "gate": 5,
+        "name": "economics",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      },
+      {
+        "gate": 6,
+        "name": "poc",
+        "verdict": "PASS",
+        "reason": "PoC not required for Medium/Low findings",
+        "tag": null
+      },
+      {
+        "gate": 7,
+        "name": "severity_realism",
+        "verdict": "WARN",
+        "reason": "No judge simulation found \u2014 cannot assess severity realism",
+        "tag": null
+      },
+      {
+        "gate": 8,
+        "name": "duplicate",
+        "verdict": "PASS",
+        "reason": "",
+        "tag": null
+      }
+    ],
+    "overall_verdict": "PASS",
+    "fail_count": 0,
+    "warn_count": 2,
+    "invalidation_tags": [],
+    "blocking_issues": [],
+    "evaluated_at": "2026-05-29T20:50:56.541996+00:00"
+  },
+  "dupe_verdict": {},
+  "is_safety_net_code": true
+}

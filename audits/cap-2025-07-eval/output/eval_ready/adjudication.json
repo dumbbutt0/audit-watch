@@ -1,0 +1,192 @@
+{
+  "audit_id": "cap-2025-07-eval",
+  "set": "training",
+  "generated_at": "2026-06-12T15:39:14Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": false,
+  "awarded": [
+    {
+      "id": "M-1",
+      "severity": "Medium",
+      "title": "Attacker/partial liquidator can extend Liquidation action by resetting  $.liquidationStart[_agent] to 0.",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "stale-intermediate-state-gate",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-2",
+      "severity": "Medium",
+      "title": "Utilization rate multiplier will not shift if oracle is consulted frequently",
+      "label": "STRONG",
+      "matched_candidate_id": "C-03",
+      "mechanism_class": "checkpoint-timing-manipulation",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-3",
+      "severity": "Medium",
+      "title": "Lender DoS if all asset is borrowed or realized",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "zero-amount-external-call-reverts",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-4",
+      "severity": "Medium",
+      "title": "Cannot repay or liquidate on paused asset",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "pause-blocks-derisk-path",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-5",
+      "severity": "Medium",
+      "title": "Agents can evade the full extent of a slash",
+      "label": "SAME_AREA",
+      "matched_candidate_id": "C-08 (wrongly dropped)",
+      "mechanism_class": "stale-checkpoint-collateral-slash",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-6",
+      "severity": "Medium",
+      "title": "VaultAdapter::multiplier not initialized can  lead first borrows to have `utilizationRate` = 0",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "multiplier-default-zero-not-one",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-7",
+      "severity": "Medium",
+      "title": "post burn state fee calculation model can be gamed by burning small amounts",
+      "label": "SAME_AREA",
+      "matched_candidate_id": "C-04",
+      "mechanism_class": "basket-cross-asset-price-drift-arbitrage",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-8",
+      "severity": "Medium",
+      "title": "Restaker rewards on zero coverage agent will be stolen by subsequent restaker interest realization",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "stranded-reward-swept-by-next-caller",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-9",
+      "severity": "Medium",
+      "title": "Missing slippage protection in liquidation allows unexpected collateral loss",
+      "label": "SAME_AREA",
+      "matched_candidate_id": "C-07",
+      "mechanism_class": "underwater-liquidation-undercompensation",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-10",
+      "severity": "Medium",
+      "title": "`ViewLogic::maxLiquidatable()` doesn't take the bonus into account, making the agent liquidatable again",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "liquidation-sizing-ignores-bonus",
+      "read_file": true,
+      "source": "preserved"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "C-01",
+      "title": "ChainlinkAdapter ignores answeredInRound + Chainlink min/maxAnswer circuit-breaker bounds",
+      "severity": "Medium",
+      "file": "oracle/libraries/ChainlinkAdapter.sol",
+      "contract": "",
+      "function": "price",
+      "description": "price() uses only answer+updatedAt; no answeredInRound>=roundId and no min/maxAnswer bound check. A frozen-at-bound price is accepted within PriceOracle staleness (which only checks updatedAt)."
+    },
+    {
+      "id": "C-02",
+      "title": "PriceOracle unconfigured staleness (0) forces every primary price stale -> silent backup routing",
+      "severity": "Low",
+      "file": "oracle/PriceOracle.sol",
+      "contract": "",
+      "function": "_isStale",
+      "description": "staleness unset (0) => any lastUpdated<now is stale => primary discarded, backup (or revert) used."
+    },
+    {
+      "id": "C-03",
+      "title": "Permissionless rate poke compounds the interest multiplier per-call (timing-gameable)",
+      "severity": "Medium",
+      "file": "oracle/RateOracle.sol",
+      "contract": "",
+      "function": "utilizationRate -> VaultAdapter.rate",
+      "description": "RateOracle._getRate uses .call (not staticcall) to VaultAdapter.rate which MUTATES utilizationData.multiplier per invocation as a function of elapsed; poke frequency/timing changes the accrued rate-multiplier (compounding granularity)."
+    },
+    {
+      "id": "C-04",
+      "title": "Single-asset cap mint/burn priced per-asset -> cross-asset oracle-drift / depeg basket arbitrage",
+      "severity": "High",
+      "file": "vault/libraries/MinterLogic.sol",
+      "contract": "",
+      "function": "_amountOutBeforeFee",
+      "description": "mint/burn value each basket asset independently at oracle prices; single-asset mint+burn let a user pick the asset; fee slopes penalize only basket ratio, not divergence between two assets' oracle prices. If one basket asset depegs or its oracle drifts, mint cheap / burn dear drains backing. Contingent on oracle accuracy (cf C-01)."
+    },
+    {
+      "id": "C-06",
+      "title": "FractionalReserve realizeInterest rounding can dip into principal-backing shares",
+      "severity": "Low",
+      "file": "vault/libraries/FractionalReserveLogic.sol",
+      "contract": "",
+      "function": "realizeInterest",
+      "description": "withdraw(claimableInterest) burns previewWithdraw (rounds UP) vs claimableInterest convertToAssets (rounds DOWN); repeated realize can erode principal backing. NatSpec acknowledges dust. Likely Low."
+    },
+    {
+      "id": "C-07",
+      "title": "Deeply-underwater agents give zero liquidation bonus + liquidatedValue capped at slashable -> liquidator under-compensated -> bad debt",
+      "severity": "Medium",
+      "file": "lendingPool/libraries/ViewLogic.sol",
+      "contract": "",
+      "function": "bonus / LiquidationLogic.liquidate",
+      "description": "bonus() returns 0 when totalDelegation<=totalDebt; liquidatedValue is capped at totalSlashableCollateral while the liquidator still repays `liquidated` debt. For deeply underwater agents the liquidator receives less value than they repay -> no incentive -> bad debt accrues. (Already-covered class from revert-lend M-24.)"
+    },
+    {
+      "id": "C-08",
+      "title": "Liquidation slashes against PAST-epoch slashable collateral; restaker collateral reduced since slashTimestamp can under-slash the liquidator",
+      "severity": "Medium",
+      "file": "delegation/Delegation.sol",
+      "contract": "",
+      "function": "slash / slashTimestamp / coverage",
+      "description": "slash uses networkSlashableCollateral at slashTimestamp = max((epoch-1)*dur, lastBorrow); slashShare = amount/pastCollateral applied by the middleware. If restaker collateral decreased between the checkpoint and the slash, actual slashed value < liquidatedValue -> liquidator under-paid / backing overstated. VERIFY in SymbioticNetworkMiddleware (whether slash applies share to current vs past collateral)."
+    }
+  ],
+  "summary": {
+    "awarded_total": 10,
+    "awarded_source": "report.md",
+    "adjudicated": 10,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 6,
+    "recall_of_surfaced": 0.4,
+    "strong_only": 0.1,
+    "by_label": {
+      "MISSED": 6,
+      "SAME_AREA": 3,
+      "STRONG": 1,
+      "SUBSYSTEM_ONLY": 0,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

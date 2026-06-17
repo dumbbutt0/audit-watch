@@ -1,0 +1,36 @@
+{
+  "audit_id": "neobase-2024-03-blind",
+  "set": "holdout",
+  "language": "solidity",
+  "generated_at": "2026-06-12",
+  "awarded_source": "_sealed_answer_key/report.md (C4 2024-03-neobase, 1H/7M)",
+  "auto_heuristic": false,
+  "_do_not_auto_overwrite": "Hand-adjudicated GENUINE-BLIND FULL-COVERAGE cold pass (4/4 in-scope files). Only severity counts + scope peeked pre-pass; finding titles SEALED until reveal. Cutoff waived by user. FIRST honest full-coverage Solidity number.",
+  "awarded": [
+    {"id": "H-01", "severity": "High", "title": "Voting power lost when a voted-for gauge is removed (require gauge_type>=0 blocks vote-withdrawal from removed gauges)", "label": "MISSED", "read_file": true, "mechanism_class": "vote-power-stranded-on-gauge-removal", "source": "human", "note": "MISS (reasoning): I READ the exact lines — flagged the comment-vs-require contradiction at L387/L402 in coverage notes but did NOT raise it as a finding. The require(gauge_type>=0,'Gauge not added') prevents users from setting weight 0 on a removed gauge, so their vote_user_power stays consumed forever."},
+    {"id": "M-01", "severity": "Medium", "title": "change_gauge_weight can permanently DoS a gauge (slope underflow in _get_weight/_get_sum)", "label": "MISSED", "read_file": true, "mechanism_class": "slope-underflow-dos", "source": "human", "note": "MISS (reasoning): pt.slope -= d_slope can underflow when weight was manually reduced; I did not flag the slope-underflow path (only the bias path). Downstream DoSes claim + gauge withdraw via update_market."},
+    {"id": "M-02", "severity": "Medium", "title": "remove_gauge always reverts when gauge has non-zero weight (gauge_types_ erased before _remove_gauge_weight -> gauge_type -1 underflow)", "label": "STRONG", "read_file": true, "mechanism_class": "ordering-state-cleared-before-read", "source": "human", "matched_candidate": "N-01", "note": "STRONG: my N-01 named the identical root cause (remove_gauge zeroes gauge_types_ BEFORE _remove_gauge_weight reads gauge_types_[_gauge]-1 = -1) and the identical fix (move the zeroing AFTER _remove_gauge_weight). I described the consequence as type -1 corruption/weight-not-removed; the awarded impact is the resulting arithmetic underflow revert — same bug, same line, same mitigation."},
+    {"id": "M-03", "severity": "Medium", "title": "change_gauge_weight allows a gauge to have a bigger weight than intended", "label": "MISSED", "read_file": true, "mechanism_class": "governance-weight-override", "source": "human", "note": "MISS (design): recommendation is to remove change_gauge_weight; I treated it as governance-intended and didn't flag."},
+    {"id": "M-04", "severity": "Medium", "title": "Improper adjustment of LendingLedger config: setRewards/setBlockTimeParameters retroactively apply to non-updated markets", "label": "SUBSYSTEM_ONLY", "read_file": true, "mechanism_class": "reward-epoch-weight-misattribution", "source": "human", "matched_candidate": "N-04", "note": "SUBSYSTEM_ONLY: my N-04 flagged the LendingLedger parallel-time/epoch reward-misattribution subsystem (current-block epochTime applied to historical epochs), but the awarded angle is config-change (setRewards/setBlockTimeParameters) retroactivity across not-same-block markets — same subsystem, different trigger."},
+    {"id": "M-05", "severity": "Medium", "title": "Truncation exploitation of sync_ledger (rounding-down rewardDebt -> free rewards via repeated tiny transfers)", "label": "MISSED", "read_file": true, "mechanism_class": "masterchef-rewarddebt-rounding", "source": "human", "note": "MISS (reasoning): the rewardDebt += (delta*accPerShare)/1e18 rounds down; repeated tiny syncs accumulate untracked reward -> free claim. I noted the scaling but did not derive the truncation exploit."},
+    {"id": "M-06", "severity": "Medium", "title": "Improper parallel time system: block-number->time estimation feeds gauge_relative_weight, future timestamp yields 0 -> lost epoch rewards", "label": "SAME_AREA", "read_file": true, "mechanism_class": "reward-epoch-weight-misattribution", "source": "human", "matched_candidate": "N-04", "note": "SAME_AREA: my N-04 named the same mechanism — update_market's epochTime (from block.number deltas) is mis-fed to gauge_relative_weight_write, misattributing/zeroing epoch weight. Awarded core = the parallel-time-system drift; I flagged the epochTime-in-loop variant of it."},
+    {"id": "M-07", "severity": "Medium", "title": "unlockOverride=true lets users createLock/increaseAmount, vote, then immediately withdraw -> free gauge-weight manipulation", "label": "MISSED", "read_file": true, "mechanism_class": "unlock-override-free-vote", "source": "human", "note": "MISS (reasoning): I READ unlockOverride in withdraw() but did not connect that createLock/increaseAmount lack an unlockOverride guard, enabling lock->vote->instant-withdraw for free voting power."}
+  ],
+  "candidates": [
+    {"id": "N-01", "matched": "M-02 (STRONG)"},
+    {"id": "N-02", "title": "missing vote cooldown", "matched": null, "note": "not awarded (Neobase didn't have the Curve cooldown to begin with; not flagged by wardens)."},
+    {"id": "N-03", "title": "de-whitelist DoS of claim/withdraw", "matched": "Low-03 (downgraded to Low; not in scored H/M set) + overlaps M-01's DoS surface"},
+    {"id": "N-04", "matched": "M-06 (SAME_AREA) + M-04 (SUBSYSTEM_ONLY)"},
+    {"id": "N-05", "title": "VE withdraw delegated=0 wipes delegators' power", "matched": null, "note": "not awarded (delegation unused in Neobase per G-01; gas report suggests removing it)."},
+    {"id": "N-06", "title": "gauge frozen on de-whitelist", "matched": "Low-03 area"},
+    {"id": "N-07", "title": "claim current-epoch spec mismatch", "matched": null}
+  ],
+  "summary": {
+    "awarded_total": 8, "adjudicated": 8, "pending": 0,
+    "recall_of_surfaced": 0.375, "strong_only": 0.125,
+    "missed": 5, "missed_coverage_gap": 0, "missed_reasoning_gap": 5,
+    "by_label": {"STRONG": 1, "SAME_AREA": 1, "SUBSYSTEM_ONLY": 1, "MISSED": 5, "UNADJUDICATED": 0},
+    "complete": true, "blind": true, "full_coverage": true,
+    "note": "FIRST honest FULL-COVERAGE Solidity recall number. 4/4 in-scope files read, so ALL 5 misses are REASONING gaps (zero coverage-gap). recall_of_surfaced=0.375 (3/8), strong 0.125 (1/8). STRONG: M-02 remove_gauge ordering (N-01). Partial: M-06 SAME_AREA + M-04 SUBSYSTEM_ONLY (N-04 parallel-time reward subsystem). The 5 reasoning misses (H-01 vote-power-stranded, M-01 slope-underflow-DoS, M-03 governance-overweight, M-05 rewardDebt-rounding-free-claim, M-07 unlockOverride-free-vote) are the concrete improvement areas for the Solidity specialists."
+  }
+}

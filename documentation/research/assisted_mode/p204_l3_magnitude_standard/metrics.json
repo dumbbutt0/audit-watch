@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "phase": "P204", "corpus": "decent-2024-01-holdout",
+    "method": "executable Foundry harnesses (real decent contracts + mocked external deps, honest custody)",
+    "production_hashes_start_eq_end": true,
+    "decent_source_tree": "623aedd6 (unchanged)",
+    "frozen_inputs": {"p202_raw": "54abf9ca", "p202_v1_calibration": "90cf2a4f", "p203_v2_regrade": "e2100588"},
+    "harness_run": "5 tests passed, 0 failed (pocs/run_log.txt)"
+  },
+  "targets": {
+    "H-01_setRouter": {"awarded": "High", "v1": "HIGH_CONFIRMED", "v2": "HIGH_CONFIRMED",
+      "L3": "HIGH_CONFIRMED", "harness": "test_H01_permissionless_arbitrary_mint PASS",
+      "realized_impact": "permissionless attacker minted 1,000,000 ether unbacked DcntEth; totalSupply + attacker balance inflated; control: mint reverts without router hijack"},
+    "M-03_receiveFromBridge": {"awarded": "Medium", "v1": "HIGH_CONFIRMED", "v2": "HIGH_CONFIRMED",
+      "L3": "MEDIUM_OR_LOWER_CALIBRATED", "harness": "test_M03_cannot_steal_victim_approved_funds + test_M03_no_material_theft_self_funded_only PASS",
+      "realized_impact": "NO material theft under honest custody: cannot pull victim's approved funds (transferFrom is msg.sender), cannot drain UTB treasury; attacker only self-funds a swap (no profit) -> unauthorized/self-funded call"},
+    "decent-06_swapNoPath": {"awarded": "unawarded", "v1": "HIGH_CONFIRMED", "v2": "HIGH_CONFIRMED",
+      "L3": "MEDIUM_OR_LOWER_CALIBRATED", "harness": "test_D06_no_drain_under_honest_custody PASS",
+      "realized_impact": "no drain: UniSwapper holds no valuable token under honest custody; _sendToRecipient reverts; realizing it needs an unsourced residual balance"},
+    "decent-12_double_withdrawal": {"awarded": "unawarded (loosely H-04)", "v1": "HIGH_CONFIRMED", "v2": "HIGH_CONFIRMED",
+      "L3": "NEEDS_HARNESS_FOR_SEVERITY", "harness": "not built (documented source obstacle)",
+      "realized_impact": "addLiquidityEth mints dcntEth to address(this) not the depositor; no source-valid flow gives attacker redeemable dcntEth -> double-withdrawal not realizable without arbitrary custody"}
+  },
+  "counts": {
+    "v2_HIGH_CONFIRMED_surfaces": 6,
+    "L3_HIGH_CONFIRMED_surfaces": 1,
+    "v2_false_high_targets": ["M-03(x3 surfaces)", "decent-06", "decent-12"],
+    "L3_false_high_targets": [],
+    "genuine_high_preserved": ["H-01"],
+    "genuine_high_wrongly_demoted": [],
+    "demoted_by_L3": ["M-03", "decent-06"],
+    "needs_harness_by_L3": ["decent-12"],
+    "harness_failures_due_to_setup_limits": []
+  },
+  "decision": "L3_STANDARD_PROMISING"
+}

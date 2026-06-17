@@ -1,0 +1,128 @@
+{
+  "lens": "safe_management_coverage",
+  "generated_at": "2026-06-08T21:53:22.904948+00:00",
+  "manifest": "audits/renft-2024-01-fresh/output/coverage_manifest.json",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "raw_candidates": 4,
+  "by_confidence": {
+    "high": 2,
+    "medium": 2
+  },
+  "by_shape": {
+    "decode_offset_mismatch": 1,
+    "incomplete_selector_coverage": 3
+  },
+  "high": 2,
+  "medium": 2,
+  "low": 0,
+  "candidates": [
+    {
+      "finding_shape": "decode_offset_mismatch",
+      "confidence": "high",
+      "selector": "disableModule",
+      "signature": "disableModule(address,address)",
+      "used_offset": "0x24",
+      "expected_offset": "0x44",
+      "explanation": "Guard guards disableModule(address,address) but decodes the argument at offset 0x24 (the wrong argument) instead of 0x44 (the protected `module`). The whitelist/allow check therefore validates the wrong address, so a renter can remove a required module (reclaim/stop/settlement) by routing the disable through an allowed predecessor (reNFT H-04 class).",
+      "signals": {
+        "covered_safe_selectors": [
+          "enableModule",
+          "disableModule",
+          "setGuard"
+        ],
+        "decode_used_offset": "0x24",
+        "decode_expected_offset": "0x44"
+      },
+      "contract": "Guard",
+      "file": "audits/renft-2024-01-fresh/_src/smart-contracts/src/policies/Guard.sol",
+      "file_line_refs": "audits/renft-2024-01-fresh/_src/smart-contracts/src/policies/Guard.sol:52",
+      "in_scope": true,
+      "manifest_id": "constructor:Guard:constructor#e2c9831c",
+      "lens_id": "Guard:decode_offset_mismatch:disableModule",
+      "false_positive_controls": "two-signal (Safe-guard selector-filter context + >=1 Safe self-mgmt selector covered) AND a concrete defect (decode-offset mismatch OR missing high-impact selector); admin-only downgraded; non-guard suppressed"
+    },
+    {
+      "finding_shape": "incomplete_selector_coverage",
+      "confidence": "high",
+      "selector": "setFallbackHandler",
+      "signature": "setFallbackHandler(address)",
+      "explanation": "Guard restricts Safe self-management (covers enableModule, disableModule, setGuard) but does NOT cover setFallbackHandler(address), so a renter can install malicious fallback behavior (callback hijack) \u2014 bypassing the guard (reNFT H-02/H-05 class).",
+      "signals": {
+        "covered_safe_selectors": [
+          "enableModule",
+          "disableModule",
+          "setGuard"
+        ],
+        "missing_selector": "setFallbackHandler",
+        "family": "fallback_guard"
+      },
+      "contract": "Guard",
+      "file": "audits/renft-2024-01-fresh/_src/smart-contracts/src/policies/Guard.sol",
+      "file_line_refs": "audits/renft-2024-01-fresh/_src/smart-contracts/src/policies/Guard.sol:52",
+      "in_scope": true,
+      "manifest_id": "constructor:Guard:constructor#e2c9831c",
+      "lens_id": "Guard:incomplete_selector_coverage:setFallbackHandler",
+      "false_positive_controls": "two-signal (Safe-guard selector-filter context + >=1 Safe self-mgmt selector covered) AND a concrete defect (decode-offset mismatch OR missing high-impact selector); admin-only downgraded; non-guard suppressed"
+    },
+    {
+      "finding_shape": "incomplete_selector_coverage",
+      "confidence": "medium",
+      "selector": "execTransactionFromModule,execTransactionFromModuleReturnData,multiSend,addOwnerWithThreshold,removeOwner,swapOwner,changeThreshold",
+      "signature": "privileged Safe selectors",
+      "explanation": "Guard restricts Safe self-management but leaves privileged Safe selectors uncovered: execTransactionFromModule, execTransactionFromModuleReturnData, multiSend, addOwnerWithThreshold, removeOwner, swapOwner, changeThreshold. Each is a residual escape path (module execution / owner-threshold change / batched delegate execution / gasless approval) the guard does not block.",
+      "signals": {
+        "covered_safe_selectors": [
+          "enableModule",
+          "disableModule",
+          "setGuard"
+        ],
+        "missing_selectors": [
+          "execTransactionFromModule",
+          "execTransactionFromModuleReturnData",
+          "multiSend",
+          "addOwnerWithThreshold",
+          "removeOwner",
+          "swapOwner",
+          "changeThreshold"
+        ],
+        "group": "privileged Safe selectors"
+      },
+      "contract": "Guard",
+      "file": "audits/renft-2024-01-fresh/_src/smart-contracts/src/policies/Guard.sol",
+      "file_line_refs": "audits/renft-2024-01-fresh/_src/smart-contracts/src/policies/Guard.sol:52",
+      "in_scope": true,
+      "manifest_id": "constructor:Guard:constructor#e2c9831c",
+      "lens_id": "Guard:incomplete_selector_coverage:execTransactionFromModule,execTransactionFromModuleReturnData,multiSend,addOwnerWithThreshold,removeOwner,swapOwner,changeThreshold",
+      "false_positive_controls": "two-signal (Safe-guard selector-filter context + >=1 Safe self-mgmt selector covered) AND a concrete defect (decode-offset mismatch OR missing high-impact selector); admin-only downgraded; non-guard suppressed"
+    },
+    {
+      "finding_shape": "incomplete_selector_coverage",
+      "confidence": "medium",
+      "selector": "permit,increaseAllowance",
+      "signature": "approval-equivalent selectors",
+      "explanation": "Guard restricts Safe self-management but leaves approval-equivalent selectors uncovered: permit, increaseAllowance. Each is a residual escape path (module execution / owner-threshold change / batched delegate execution / gasless approval) the guard does not block.",
+      "signals": {
+        "covered_safe_selectors": [
+          "enableModule",
+          "disableModule",
+          "setGuard"
+        ],
+        "missing_selectors": [
+          "permit",
+          "increaseAllowance"
+        ],
+        "group": "approval-equivalent selectors"
+      },
+      "contract": "Guard",
+      "file": "audits/renft-2024-01-fresh/_src/smart-contracts/src/policies/Guard.sol",
+      "file_line_refs": "audits/renft-2024-01-fresh/_src/smart-contracts/src/policies/Guard.sol:52",
+      "in_scope": true,
+      "manifest_id": "constructor:Guard:constructor#e2c9831c",
+      "lens_id": "Guard:incomplete_selector_coverage:permit,increaseAllowance",
+      "false_positive_controls": "two-signal (Safe-guard selector-filter context + >=1 Safe self-mgmt selector covered) AND a concrete defect (decode-offset mismatch OR missing high-impact selector); admin-only downgraded; non-guard suppressed"
+    }
+  ]
+}

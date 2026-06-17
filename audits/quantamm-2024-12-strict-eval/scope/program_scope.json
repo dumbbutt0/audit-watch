@@ -1,0 +1,94 @@
+{
+  "program": "QuantAMM",
+  "platform": "CodeHawks",
+  "contest_slug": "2024-12-quantamm",
+  "source_url": "https://codehawks.cyfrin.io/c/2024-12-quantamm",
+  "repo_url": "https://github.com/Cyfrin/2024-12-quantamm",
+  "commit": "a775db4273eb36e7b4536c5b60207c9f17541b92",
+  "branch_or_tag": "main",
+  "contest_window": "2024-12-20T12:00:00Z to 2025-01-15T12:00:00Z",
+  "prize_pool": "49,600 OP (44,640 H/M + 4,960 Low)",
+  "nsloc_reported": 3359,
+  "language": "Solidity",
+  "framework": "Foundry (forge) inside a yarn-managed Balancer V3 monorepo fork (per-pkg foundry.toml)",
+  "sponsor": "QuantAMM",
+  "reconstructed_from": ["repo README.md (scope-open/scope-close block)", "pkg/pool-quantamm/foundry.toml", "in-scope contract pragmas", "package.json workspaces"],
+  "answer_key_used": false,
+  "answer_key_access_status": "post_freeze_only_not_yet_accessed",
+  "compiler": {
+    "solc_version": "0.8.26",
+    "auto_detect_solc": false,
+    "evm_version": "cancun",
+    "optimizer": true,
+    "optimizer_runs": 999,
+    "pragma_observed": ["pragma solidity >=0.8.24 (24 files)", "pragma solidity >=0.8.20 (1 file)"],
+    "ignored_error_codes": [2394, 5574, 3860]
+  },
+  "build": {
+    "install": "yarn install (monorepo root)",
+    "compile": "forge compile (from pkg/pool-quantamm, pkg/pool-hooks, or pkg/interfaces)",
+    "test": "forge test (same per-pkg cwd)",
+    "ffi": true,
+    "notes": "ffi=true is set in pkg/pool-quantamm/foundry.toml; build depends on node_modules (Balancer @balancer-labs, @openzeppelin, @prb/math PRBMath, permit2, @chainlink, forge-std) resolved via yarn workspaces."
+  },
+  "dependencies": [
+    "@balancer-labs/v3-* (vault, solidity-utils, interfaces — Balancer V3 base infrastructure)",
+    "@openzeppelin/contracts",
+    "@prb/math (PRBMath 18dp fixed-point)",
+    "permit2",
+    "@chainlink (AggregatorV3Interface)",
+    "forge-std"
+  ],
+  "in_scope_count": 25,
+  "in_scope_contracts": [
+    "pkg/pool-quantamm/contracts/ChainlinkOracle.sol",
+    "pkg/pool-quantamm/contracts/MultiHopOracle.sol",
+    "pkg/pool-quantamm/contracts/QuantAMMStorage.sol",
+    "pkg/pool-quantamm/contracts/QuantAMMWeightedPoolFactory.sol",
+    "pkg/pool-quantamm/contracts/QuantAMMWeightedPool.sol",
+    "pkg/pool-quantamm/contracts/UpdateWeightRunner.sol",
+    "pkg/pool-quantamm/contracts/rules/AntimomentumUpdateRule.sol",
+    "pkg/pool-quantamm/contracts/rules/ChannelFollowingUpdateRule.sol",
+    "pkg/pool-quantamm/contracts/rules/DifferenceMomentumUpdateRule.sol",
+    "pkg/pool-quantamm/contracts/rules/MinimumVarianceUpdateRule.sol",
+    "pkg/pool-quantamm/contracts/rules/MomentumUpdateRule.sol",
+    "pkg/pool-quantamm/contracts/rules/PowerChannelUpdateRule.sol",
+    "pkg/pool-quantamm/contracts/rules/UpdateRule.sol",
+    "pkg/pool-quantamm/contracts/rules/base/QuantammBasedRuleHelpers.sol",
+    "pkg/pool-quantamm/contracts/rules/base/QuantammCovarianceBasedRule.sol",
+    "pkg/pool-quantamm/contracts/rules/base/QuantammGradientBasedRule.sol",
+    "pkg/pool-quantamm/contracts/rules/base/QuantammMathGuard.sol",
+    "pkg/pool-quantamm/contracts/rules/base/QuantammMathMovingAverage.sol",
+    "pkg/pool-quantamm/contracts/rules/base/QuantammVarianceBasedRule.sol",
+    "pkg/pool-hooks/contracts/hooks-quantamm/LPNFT.sol",
+    "pkg/pool-hooks/contracts/hooks-quantamm/UpliftOnlyExample.sol",
+    "pkg/interfaces/contracts/pool-quantamm/IQuantAMMWeightedPool.sol",
+    "pkg/interfaces/contracts/pool-quantamm/IUpdateRule.sol",
+    "pkg/interfaces/contracts/pool-quantamm/IUpdateWeightRunner.sol",
+    "pkg/interfaces/contracts/pool-quantamm/OracleWrapper.sol"
+  ],
+  "out_of_scope": [
+    "All base Balancer V3 infrastructure (pkg/vault, pkg/pool-weighted, pkg/pool-stable, pkg/pool-gyro, pkg/pool-utils, pkg/solidity-utils) except where an issue is a combination of batch-swap router + QuantAMMWeightedPool",
+    "Vault / Swap / deposit / withdraw mechanics inherited from Balancer V3",
+    "Test files, mocks, scripts",
+    "Issues already acknowledged in included root + pool-quantamm audit folder reports (known issues)"
+  ],
+  "compatibilities": {
+    "chains": ["Ethereum Mainnet", "OP Mainnet", "Arbitrum", "Base"],
+    "tokens": "Standard ERC20 only. Non-standard (rebasing, allowlist, fee-on-transfer/double-entrypoint, etc.) explicitly OUT of scope."
+  },
+  "known_issues_out_of_scope": [
+    "Oracle manipulation of update-rule weight trajectories or fee quantity (Chainlink assumed in-spec); but in-spec-data mishandling (e.g. wrong decimal conversion in Chainlink wrapper) IS in scope",
+    "Unguarded theoretical rule-equation limits that revert (div-by-0, caught overflow) are expected to revert; BUT silent overflows, unintended sign changes vs whitepaper, weight vectors violating whitepaper equations, or guard-rail breaches inside the weighted pool ARE in scope",
+    "Multi-block MEV when guard rails are configured inappropriately (inappropriate-guard-rail config is out of scope)",
+    "Random/irregular update-interval effects; failures/restarts of updates; block.timestamp use",
+    "Manipulation on 0-fee pools; single-asset-deposit extreme-value failures (unless usable to attack the pool without out-of-scope properties)",
+    "quantammAdmin assumed a correctly configured OZ timelock and secure; malicious-admin-takeover issues out of scope",
+    "Pool-creator trust levels: types 1 and 2 trust the pool creator; TYPE 3 (creator NOT in approvedPoolActions) is untrusted and creator manipulation IS in scope"
+  ],
+  "confidence": "HIGH",
+  "ambiguities": [
+    "README references included root + pool-quantamm 'audit folder' reports as the source of known/acknowledged issues; those acknowledged items are out of scope but the exact list lives in audits/ folder reports, not the README.",
+    "Interfaces and QuantammBasedRuleHelpers are listed in scope but are largely declarative; substantive logic concentrates in UpdateWeightRunner, QuantAMMWeightedPool, the rules, the rules/base estimators, QuantAMMStorage, the oracles, and UpliftOnlyExample/LPNFT."
+  ]
+}

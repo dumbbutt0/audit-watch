@@ -1,0 +1,48 @@
+{
+  "bug_class": "reentrancy_forced_liquidation",
+  "description": "Reentrancy vulnerability enabling forced liquidation through a guarded protocol path",
+  "required_for_medium": [
+    "locked_state_entered",
+    "nested_call_or_callback",
+    "unguarded_state_mutation_called",
+    "state_change_proven"
+  ],
+  "required_for_high": [
+    "locked_state_entered",
+    "nested_call_or_callback",
+    "unguarded_state_mutation_called",
+    "state_change_proven",
+    "victim_liquidatable_state_proven",
+    "liquidation_entrypoint_called",
+    "liquidation_succeeds",
+    "profit_or_loss_asserted"
+  ],
+  "poc_level_descriptors": {
+    "L3A": "public entrypoint (aToken or flash_loan) reached from attacker entry",
+    "L3B": "full hop chain executed; unguarded function called while locked; state change asserted",
+    "L3C": "victim liquidated in same callback path; attacker profit or victim loss asserted"
+  },
+  "poc_level_requirements": {
+    "L3A": ["nested_call_or_callback"],
+    "L3B": ["nested_call_or_callback", "unguarded_state_mutation_called", "state_change_proven"],
+    "L3C": ["nested_call_or_callback", "unguarded_state_mutation_called", "state_change_proven",
+             "liquidation_entrypoint_called", "liquidation_succeeds", "profit_or_loss_asserted"]
+  },
+  "proof_signatures": {
+    "locked_state_entered":              ["PROTOCOL_LOCKED", "read_locked", "flash_loan", "inject_state", "REENTRY"],
+    "nested_call_or_callback":           ["transfer_from", "MockAToken", "callback", "invoke_contract"],
+    "unguarded_state_mutation_called":   ["validate_and_finalize_transfer"],
+    "state_change_proven":               ["read_collateral_bit", "assert!(!read_collateral_bit", "collateral_bit"],
+    "victim_liquidatable_state_proven":  ["health_factor", "validate_liquidation", "is_liquidatable", "liquidatable"],
+    "liquidation_entrypoint_called":     ["execute_liquidation", "MockLiquidationEngine", "liquidation_call"],
+    "liquidation_succeeds":              ["result.liquidator", "result.collateral_to_liquidate", "LiquidationCall {"],
+    "profit_or_loss_asserted":           [
+      "attacker_balance_after > attacker_balance_before",
+      "victim_balance_after < victim_balance_before",
+      "assert!(attacker_collateral",
+      "assert!(victim_collateral_after"
+    ]
+  },
+  "high_severity_rationale": "High requires proving the full chain: reentrancy path accessible, state manipulated, victim liquidatable, liquidation executes, attacker profits. Without the liquidation step the finding is a state-manipulation bug (Medium).",
+  "negative_control_template": "Register the same test with acquire_reentrancy_guard inserted into validate_and_finalize_transfer. Assert that transfer_from reverts or that collateral bit remains set."
+}

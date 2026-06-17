@@ -1,0 +1,290 @@
+{
+  "research_only": true,
+  "is_gate": false,
+  "emits_findings": false,
+  "severity": null,
+  "auto_submitted": false,
+  "reportable": false,
+  "submission_ready": false,
+  "routes_in_production": false,
+  "label": "P302_REACH_REPORT",
+  "target": "predy-2024-05-holdout",
+  "scored_at": "2026-06-10T17:04:56.165500+00:00",
+  "totals": {
+    "awarded": 12,
+    "surfaced_findings_total": 9,
+    "strong": 0,
+    "same_area": 4,
+    "subsystem": 3,
+    "missed": 5
+  },
+  "recall_of_surfaced": 0.583,
+  "recall_strong_only": 0.0,
+  "recall_strong_or_area": 0.333,
+  "missed_ids": [
+    "H-03",
+    "M-02",
+    "M-05",
+    "M-07",
+    "M-08"
+  ],
+  "per_locus": [
+    {
+      "id": "H-01",
+      "severity": "High",
+      "title": "Reallocation depends on the `slot0` price, which can be manipulated",
+      "match_level": "SUBSYSTEM_ONLY_RECALL",
+      "surfaced_id": "OR-01/DT-01",
+      "evidence": "Awarded: reallocate() depends on slot0 spot price (manipulable). Surfaced the oracle-price-manipulation subsystem (OR-01 UniHelper TWAP), but not the slot0-in-Reallocation mechanism (Reallocation.sol not read)."
+    },
+    {
+      "id": "H-02",
+      "severity": "High",
+      "title": "Liquidators can bypass remaining negative margin check and leave the loss to the protocol",
+      "match_level": "SAME_AREA_WRONG_MECHANISM",
+      "surfaced_id": "DT-02/DOS-01",
+      "evidence": "Awarded: liquidators bypass the remaining-negative-margin check, leaving loss to the protocol. Surfaced the exact remainingMargin<0 branch (DT-02/DOS-01) but framed it as DoS-blocks-liquidation rather than the bypass-leaves-loss mechanism."
+    },
+    {
+      "id": "H-03",
+      "severity": "High",
+      "title": "One pair can steal another pair's Uniswap liquidity during `reallocate()` call if both pairs operate on the same Uniswap pool and both have the same upper and lower tick during reallocation",
+      "match_level": "MISSED",
+      "surfaced_id": null,
+      "evidence": "Cross-pair Uniswap liquidity theft during reallocate(). Reallocation/ReallocationLogic not read. New."
+    },
+    {
+      "id": "H-04",
+      "severity": "High",
+      "title": "Liquidation incorrectly tries to transfer token from Market instead of liquidator if `remainingMargin` is negative",
+      "match_level": "SAME_AREA_WRONG_MECHANISM",
+      "surfaced_id": "DT-02/DOS-01",
+      "evidence": "Awarded: liquidation's transferFrom pulls from the Market, not the liquidator, when remainingMargin<0. Surfaced the same remainingMargin<0 branch (DT-02) but identified the loss-coverage concern, not the wrong-payer (msg.sender==Market) mechanism."
+    },
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Liquidity manipulation is possible when trading",
+      "match_level": "SUBSYSTEM_ONLY_RECALL",
+      "surfaced_id": "EA-01/DT-04",
+      "evidence": "Awarded: liquidity manipulation possible when trading. Surfaced the trade/settlement-pricing subsystem (EA-01 direct-fill price) but not the AMM-liquidity-manipulation mechanism."
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "`updateIRMParams` does not call `applyInterestForToken` before updating `irmParams` which leads to incorrect calculation of interest rate for subsequent trades.",
+      "match_level": "MISSED",
+      "surfaced_id": null,
+      "evidence": "updateIRMParams does not applyInterestForToken before updating irmParams (stale accrual). InterestRateModel/AddPairLogic not read. New."
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "Incorrect price for negative ticks due to lack of rounding down",
+      "match_level": "SAME_AREA_WRONG_MECHANISM",
+      "surfaced_id": "OR-01/DT-01",
+      "evidence": "Awarded: incorrect price for negative ticks (no round-down). Surfaced the same UniHelper.callUniswapObserve tick computation (OR-01 TWAP) but flagged the OLD-fallback window, not the negative-tick integer-division rounding."
+    },
+    {
+      "id": "M-04",
+      "severity": "Medium",
+      "title": "Chainlink's `latestRoundData` might return stale or incorrect results",
+      "match_level": "SUBSYSTEM_ONLY_RECALL",
+      "surfaced_id": "OR-01",
+      "evidence": "Awarded: Chainlink latestRoundData staleness. Surfaced the oracle-pricing subsystem (OR-01) but not the Chainlink staleness path in PriceFeed (PriceFeed.sol not read)."
+    },
+    {
+      "id": "M-05",
+      "severity": "Medium",
+      "title": "Possible DoS When calling `GammaTradeMarket::_removePosition` will cause user position to not be able to get liquidated",
+      "match_level": "MISSED",
+      "surfaced_id": null,
+      "evidence": "DoS in GammaTradeMarket._removePosition (array removal). Gamma market / ArrayLib not read. New."
+    },
+    {
+      "id": "M-06",
+      "severity": "Medium",
+      "title": "Vaults can become immune from liquidation by setting `vault.recipient` to a blacklisted quote token address",
+      "match_level": "SAME_AREA_WRONG_MECHANISM",
+      "surfaced_id": "DT-03/LG-01",
+      "evidence": "Awarded: a vault becomes immune from liquidation by setting vault.recipient to a blacklisted token recipient (safeTransfer reverts). Surfaced the same recipient-transfer branch (DT-03 residual margin) but flagged the stranded-when-zero case, not the blacklist-revert DoS."
+    },
+    {
+      "id": "M-07",
+      "severity": "Medium",
+      "title": "Reallocation incorrectly sends the exceed `quoteTokens` to Market contract instead of reallocator",
+      "match_level": "MISSED",
+      "surfaced_id": null,
+      "evidence": "reallocate() sends excess quoteTokens to the Market instead of the reallocator. Reallocation not read. New."
+    },
+    {
+      "id": "M-08",
+      "severity": "Medium",
+      "title": "PriceFeed does not return to the correct price for quote pairs",
+      "match_level": "MISSED",
+      "surfaced_id": null,
+      "evidence": "PriceFeed returns an incorrect price for quote pairs. PriceFeed.sol not read; distinct from the surfaced UniHelper TWAP path. New."
+    }
+  ],
+  "coverage": {
+    "in_scope": 391,
+    "resolved": 0,
+    "unexamined": 391,
+    "coverage_percent": 0.0,
+    "complete": false,
+    "unexamined_file_count": 57,
+    "unexamined_files": [
+      {
+        "file": "src/markets/gamma/GammaTradeMarket.sol",
+        "unexamined": 18,
+        "max_score": 6
+      },
+      {
+        "file": "src/markets/perp/PerpMarketV1.sol",
+        "unexamined": 13,
+        "max_score": 6
+      },
+      {
+        "file": "src/PredyPool.sol",
+        "unexamined": 28,
+        "max_score": 5
+      },
+      {
+        "file": "src/markets/spot/SpotMarket.sol",
+        "unexamined": 17,
+        "max_score": 5
+      },
+      {
+        "file": "src/base/BaseMarketUpgradable.sol",
+        "unexamined": 14,
+        "max_score": 5
+      },
+      {
+        "file": "src/base/BaseMarket.sol",
+        "unexamined": 13,
+        "max_score": 5
+      },
+      {
+        "file": "src/libraries/logic/AddPairLogic.sol",
+        "unexamined": 13,
+        "max_score": 5
+      },
+      {
+        "file": "src/markets/spot/SpotMarketL2.sol",
+        "unexamined": 3,
+        "max_score": 5
+      },
+      {
+        "file": "src/markets/gamma/GammaTradeMarketL2.sol",
+        "unexamined": 2,
+        "max_score": 5
+      },
+      {
+        "file": "src/markets/perp/PerpMarket.sol",
+        "unexamined": 1,
+        "max_score": 5
+      },
+      {
+        "file": "src/lens/PredyPoolQuoter.sol",
+        "unexamined": 15,
+        "max_score": 4
+      },
+      {
+        "file": "src/PriceFeed.sol",
+        "unexamined": 10,
+        "max_score": 4
+      },
+      {
+        "file": "src/settlements/UniswapSettlement.sol",
+        "unexamined": 7,
+        "max_score": 4
+      },
+      {
+        "file": "src/lens/SpotMarketQuoter.sol",
+        "unexamined": 4,
+        "max_score": 4
+      },
+      {
+        "file": "src/libraries/logic/SupplyLogic.sol",
+        "unexamined": 4,
+        "max_score": 4
+      },
+      {
+        "file": "src/tokenization/SupplyToken.sol",
+        "unexamined": 4,
+        "max_score": 4
+      },
+      {
+        "file": "src/lens/PerpMarketQuoter.sol",
+        "unexamined": 3,
+        "max_score": 4
+      },
+      {
+        "file": "src/libraries/Perp.sol",
+        "unexamined": 22,
+        "max_score": 3
+      },
+      {
+        "file": "src/libraries/Constants.sol",
+        "unexamined": 15,
+        "max_score": 3
+      },
+      {
+        "file": "src/libraries/PositionCalculator.sol",
+        "unexamined": 15,
+        "max_score": 3
+      },
+      {
+        "file": "src/libraries/ScaledAsset.sol",
+        "unexamined": 15,
+        "max_score": 3
+      },
+      {
+        "file": "src/markets/gamma/GammaOrder.sol",
+        "unexamined": 10,
+        "max_score": 3
+      },
+      {
+        "file": "src/libraries/Reallocation.sol",
+        "unexamined": 9,
+        "max_score": 3
+      },
+      {
+        "file": "src/libraries/UniHelper.sol",
+        "unexamined": 8,
+        "max_score": 3
+      },
+      {
+        "file": "src/libraries/math/Math.sol",
+        "unexamined": 8,
+        "max_score": 3
+      },
+      {
+        "file": "src/markets/perp/PerpOrder.sol",
+        "unexamined": 7,
+        "max_score": 3
+      },
+      {
+        "file": "src/markets/perp/PerpOrderV3.sol",
+        "unexamined": 7,
+        "max_score": 3
+      },
+      {
+        "file": "src/markets/spot/SpotOrder.sol",
+        "unexamined": 7,
+        "max_score": 3
+      },
+      {
+        "file": "src/types/GlobalData.sol",
+        "unexamined": 7,
+        "max_score": 3
+      },
+      {
+        "file": "src/base/SettlementCallbackLib.sol",
+        "unexamined": 6,
+        "max_score": 3
+      }
+    ]
+  },
+  "result_status": "partial"
+}

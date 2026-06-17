@@ -1,0 +1,11 @@
+{"surface":"Tranche.transfer",
+ "mechanism_inventory":["access-control mismatch — restricted modifier may not enforce all membership checks","hook-timing — restricted runs before super.transfer; base hooks after gate","wrong lifecycle — transfers permitted during epoch/freeze windows","missing invariant — restricted may check only one of sender/recipient","victim accounting direction — restriction bypass forcibly moves tokens / affects share accounting"],
+ "selected_mechanisms":[
+  {"root_cause":"restricted(_msgSender(),to,value) is the sole gate; if the modifier checks only sender (not recipient to), an allowlisted holder can transfer restricted tranche tokens to a non-allowlisted address -> compliance/transfer-restriction invariant broken","who_loses":"protocol compliance + accounting integrity (regulated tokens in non-KYC wallet)","who_gains":"non-allowlisted recipient","why_carried":"modifier args visible but body not in scope; recipient-check gap is compliance-breaking; source-evidence + plausible impact, can't reject without modifier body"}],
+ "unresolved_mechanisms":[
+  {"mechanism":"restricted may not check BOTH sender+recipient or epoch state","source_evidence":"restricted(_msgSender(),to,value); body not in scope","unresolved_question":"does modifier enforce membership for both parties + epoch lock?","who_loses":"non-allowlisted recipient / pool accounting","status":"NEEDS_HARNESS"},
+  {"mechanism":"hook reentrancy via super.transfer","unresolved_question":"does base ERC20 invoke external hooks?","who_loses":"LPs if accounting corrupted","status":"NEEDS_HARNESS"},
+  {"mechanism":"transfer during epoch settlement freeze","unresolved_question":"does restricted gate epoch/pool state?","who_loses":"pool accounting","status":"NEEDS_HARNESS"}],
+ "rejected_mechanisms":[],
+ "impact_direction":"restricted tranche tokens escape allowlist to unauthorized address; compliance invariant violated; permissionless for any allowlisted holder; not dust",
+ "stop_condition":"more_mechanisms_pending: 3 NEEDS_HARNESS (modifier body)","verdict":"HIGH_THREAD"}

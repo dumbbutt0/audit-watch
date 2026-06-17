@@ -1,0 +1,66 @@
+{
+  "audit_id": "monetrix-2026-04-blind",
+  "set": "holdout",
+  "generated_at": "2026-06-12T14:13:52Z",
+  "awarded_source": "report.md",
+  "auto_heuristic": false,
+  "awarded": [
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "PM borrow liabilities are omitted from backing, allowing phantom surplus settlement",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": null,
+      "mechanism_class": "cross-function-conservation",
+      "read_file": false,
+      "source": "preserved"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "F-001",
+      "title": "MonetrixVault.deposit maxTVL cap counts yield-minted USDM, shrinking deposit headroom over time",
+      "severity": "Low",
+      "file": "src/core/MonetrixVault.sol",
+      "contract": "MonetrixVault",
+      "function": "deposit/distributeYield",
+      "description": "deposit() enforces usdm.totalSupply() + amount <= maxTVL. distributeYield() mints additional USDM to sUSDM (userShare) which permanently increases usdm.totalSupply() without a corresponding user deposit, so the maxTVL headroom monotonically shrinks as yield accrues even though that USDM is fully backed. Over time legitimate deposits revert against a stale-feeling cap."
+    },
+    {
+      "id": "F-002",
+      "title": "User redeem/unstake claims are blocked while guardian-paused (liveness/centralization)",
+      "severity": "Low",
+      "file": "src/core/MonetrixVault.sol",
+      "contract": "MonetrixVault/sUSDM",
+      "function": "claimRedeem/claimUnstake",
+      "description": "MonetrixVault.claimRedeem and sUSDM.claimUnstake carry whenNotPaused, so a GUARDIAN pause (delay=0) freezes users from claiming already-cooled-down funds, not just from initiating new actions. A compromised/aggressive guardian can withhold settled redemptions for the pause duration."
+    },
+    {
+      "id": "F-003",
+      "title": "sUSDM totalAssets uses raw balanceOf \u2014 direct USDM donation re-prices shares (ERC4626 donation)",
+      "severity": "Low",
+      "file": "src/tokens/sUSDM.sol",
+      "contract": "sUSDM",
+      "function": "totalAssets",
+      "description": "sUSDM.totalAssets() returns IERC20(asset).balanceOf(this). A direct USDM transfer to sUSDM (outside injectYield) raises the exchange rate for existing holders. _decimalsOffset()=6 mitigates the classic first-depositor inflation/round-to-zero attack, but donation-based rate movement (front-running a large staker, or skewing recorded exchangeRate in cooldown requests) is still possible; impact is bounded and mostly benign (acts like uncredited yield)."
+    }
+  ],
+  "summary": {
+    "awarded_total": 1,
+    "awarded_source": "report.md",
+    "adjudicated": 1,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 0,
+    "recall_of_surfaced": 1.0,
+    "strong_only": 0.0,
+    "by_label": {
+      "MISSED": 0,
+      "SAME_AREA": 0,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 1,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

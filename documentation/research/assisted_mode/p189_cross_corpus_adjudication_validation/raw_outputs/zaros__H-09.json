@@ -1,0 +1,55 @@
+{
+  "mechanism_inventory": [
+    "precision / packing / normalization edge — depositedUsdc (6 decimals) cast via ud60x18 without 1e12 scaling, understated -> vault looks over-indebted",
+    "stale accounting snapshot — marketsRealizedDebtUsd/depositedUsdc read from storage, possibly stale",
+    "victim accounting direction — realizedDebt - depositedUsdc; if sign convention wrong, misrepresents liability",
+    "missing invariant enforcement — no bounds before SD59x18/UD60x18 arithmetic",
+    "external-call failure / DoS — view-only, no external calls; dismissed"
+  ],
+  "selected_mechanisms": [
+    {
+      "root_cause": "Units/decimal mismatch: depositedUsdc stored in 6 decimals but ud60x18(depositedUsdc).intoSD59x18() treats it as 18-decimal fixed-point; collateral under-counted by ~1e12 when subtracted from marketsRealizedDebtUsd; getUnsettledRealizedDebt returns ~1e12x too high.",
+      "attacker_model": "Internal view called by higher-level accounting; any user triggers downstream callers permissionlessly.",
+      "exploit_path": "depositedUsdc=1e6 ($1) -> ud60x18(1e6).intoSD59x18() = $1e18 in 18-dec terms -> vault reported ~$1e12 more debt -> erroneous liquidations / blocked withdrawals / mispriced LP shares.",
+      "who_loses": "LPs/vault depositors (erroneous liquidation, blocked withdrawals).",
+      "who_gains": "Liquidators/counterparties exploiting mispriced state.",
+      "why_carried": "ud60x18(depositedUsdc) wraps raw storage int; intoSD59x18 interprets as 18-decimal; no 1e12 scaling visible; ~1e12x magnitude, material fund-loss risk; clears High/Critical."
+    }
+  ],
+  "unresolved_mechanisms": [
+    {
+      "mechanism": "stale accounting snapshot — fields not updated atomically",
+      "source_evidence": "Reads self.marketsRealizedDebtUsd and self.depositedUsdc; no update logic; depends on callers.",
+      "unresolved_question": "Always written atomically before this call in all callers?",
+      "who_loses": "LPs/depositors if stale under/over-estimates liability.",
+      "who_gains": "Counterparties/arbitrageurs on stale snapshot.",
+      "status": "NEEDS_HARNESS"
+    },
+    {
+      "mechanism": "victim accounting direction — sign/operand of subtraction",
+      "source_evidence": "unary(ud60x18(depositedUsdc).intoSD59x18()) negates depositedUsdc -> realizedDebt - depositedUsdc; intent unclear from snippet.",
+      "unresolved_question": "Is the economic model debt - collateral (correct) or debt + liability (sign wrong)?",
+      "who_loses": "LPs if debt understated (under-liquidation); depositors if double-counted.",
+      "who_gains": "Counterparties/protocol depending on direction.",
+      "status": "NEEDS_HARNESS"
+    }
+  ],
+  "rejected_mechanisms": [
+    {
+      "mechanism": "external-call failure / DoS",
+      "claimed_locus": "any external call within getUnsettledRealizedDebt",
+      "rejecting_source_fact": "Declared view; no external calls — only arithmetic and fixed-point conversions.",
+      "why_unexploitable": "No external call to fail or reenter.",
+      "who_loses": "N/A", "who_gains": "N/A", "leans_on_unproven_guard": false
+    }
+  ],
+  "impact_direction": {
+    "attacker_receives": "Liquidators receive unearned proceeds against a solvent vault appearing insolvent (~1e12 inflation).",
+    "attacker_preserves": "Own funds while triggering erroneous transitions.",
+    "victim_loses": "LP depositors lose collateral to liquidation / blocked withdrawals.",
+    "invariant_violated": "getUnsettledRealizedDebt must return accurate 18-decimal SD59x18 net debt.",
+    "not_self_funded_or_dust_or_admin_or_timing": true
+  },
+  "stop_condition": "more_mechanisms_pending: stale snapshot + sign-direction carried NEEDS_HARNESS; primary decimal normalization High/Critical.",
+  "verdict": "HIGH_THREAD"
+}

@@ -1,0 +1,32 @@
+{
+  "lens": "hostile_token_settlement",
+  "research_only": true,
+  "description": "RESEARCH-ONLY (is_gate:false, routes_in_production:false, un-wired). Flags MUST-SUCCEED settlement/cleanup flows (stop/reclaim/close/settle/liquidate/withdraw/refund/return/claim/finalize/resolve) that push an attacker- or user-SELECTED token whose revert/blacklist/false-return/reentrancy can BLOCK the cleanup -> permanent lock or DoS of another user, with NO containment (try/catch, pull-payment, allowlist, escrow fallback). Multi-signal gate: S1 cleanup-verb fn + S2 must-succeed token push (no try/catch) + S3 order/array-sourced token + S4 missing containment + S5 counterparty recipient. Mechanism-based, NOT answer-key matching. Anchor: reNFT 2024-01 H-01 (Stop.stopRent -> PaymentEscrow._settlePayment _safeTransfer of attacker-tipped consideration token, no try/catch -> reverting token locks the rental), #64/#605 (blacklisting payment ERC20 / blacklisted lender freeze). Scope: settlement-path hostile-token DoS ONLY; NOT a generic token audit.",
+
+  "cleanup_verbs": ["stop", "reclaim", "close", "settle", "liquidat", "withdraw", "refund", "finaliz", "resolve", "unwind", "redeem", "payout", "claim"],
+
+  "transfer_primitives": ["safetransferfrom", "safebatchtransferfrom", "safetransfer(", "_safetransfer", "_transfererc721", "_transfererc1155", "transferfrom(", ".transfer(", "erc20.transfer"],
+
+  "attacker_source_markers": ["item.token", "items[", "order.items", "consideration", "offer", ".token,", ".token)", ".token ", ".token;", "[i].token", "collection", "asset.token", "rentalitems"],
+
+  "param_token_markers": ["address token", "address _token", "address asset", "address collection", "ierc20 token"],
+
+  "immutable_asset_markers": ["immutable", "asset()", "i_asset", "address(asset)", "_asset)"],
+
+  "counterparty_terms": ["lender", "renter", "recipient", "receiver", "treasury", "beneficiary", "settleto", "payee", "seller", "buyer", "borrower", "(to,", " to,", " to)"],
+
+  "containment_trycatch": ["try ", "} catch", "catch error", "catch (", "catch panic", "trycatch"],
+  "pull_payment_markers": ["pending", "withdrawable", "claimable", "credit[", "owed[", "owed +=", "debt[", "debts[", "unclaimed", "_credit", "escrowedbalance", "failedtransfers", "recorddebt"],
+  "allowlist_markers": ["allowlist", "whitelist", "issupported", "supportedtoken", "trustedtoken", "prevalidated", "tokenregistry", "isallowed"],
+
+  "admin_only_terms": ["onlyowner", "onlyadmin", "onlyrole(\"admin", "onlygovernance", "onlytimelock", "requiresauth", "onlyowneroradmin", "msg.sender == owner", "msg.sender==owner", "msg.sender == admin"],
+
+  "fp_controls": {
+    "five_signal_required": "S1 cleanup-verb fn AND S2 must-succeed token push (not in try/catch) AND S4 missing containment AND S5 counterparty recipient; S3 (order/array-sourced token) -> high, a bare attacker-supplied token param -> medium. A plain deposit/swap/mint that transfers tokens is not a cleanup flow -> suppressed.",
+    "caller_own_only_suppression": "if the only transfer recipient is msg.sender (caller withdraws their OWN asset), a transfer failure harms only the caller -> suppressed (spec reject).",
+    "containment_suppression": "try/catch isolation, a pull-payment/record-debt path, or a token allowlist/registry check -> the hostile token cannot block cleanup -> suppressed.",
+    "trusted_asset_suppression": "token bound to an immutable/allowlisted protocol asset (not order/array-selected) -> not attacker-selected -> suppressed.",
+    "admin_downgrade": "admin/owner-gated settlement path -> downgraded to low.",
+    "accounting_not_pull_payment": "a plain balance ledger (balanceOf[token] -= amount) is accounting, NOT a pull-payment fallback, and does NOT suppress (the push still reverts the flow)."
+  }
+}

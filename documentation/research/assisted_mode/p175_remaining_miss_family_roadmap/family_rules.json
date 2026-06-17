@@ -1,0 +1,60 @@
+{
+  "_doc": "P175 shared root-cause family taxonomy + transparent title->family classifier. Read-only. quantamm uses the P171 verbatim tags (NOT these rules); all other corpora are classified by `rules` (first match wins, ordered). `families` carries the scoring priors: detectability/expected_precision (1=low,2=med,3=high) grounded in P171 taxonomy_gap_recommendations.md + portfolio judgment; reportable_yield is a note only. shipped_lens marks families the P174-shipped production lenses address (measured on quantamm, ESTIMATE elsewhere).",
+  "score_rubric": {
+    "detectability": {"3": "surface visible from source signatures/standard patterns (e.g. setWeights sig, chainlink call, missing slippage arg)", "2": "needs a new but tractable lens", "1": "low-signal / deep cross-function / semantic only"},
+    "expected_precision": {"3": "two-signal FP-tight selector feasible", "2": "moderate FP risk, needs gates", "1": "FP-prone / integration-specific / design-intent ambiguity"},
+    "priority": "total_remaining_misses * detectability * expected_precision",
+    "priority_sevweighted": "sev_weighted_remaining(High=3,Med=2,Low=1) * detectability * expected_precision"
+  },
+  "families": {
+    "dynamic_weight_lifecycle": {"detectability": 3, "expected_precision": 3, "reportable_yield": "med-high", "shipped_lens": "F1 dynamic_weight_lifecycle (P174)"},
+    "estimator_math":           {"detectability": 2, "expected_precision": 2, "reportable_yield": "med-high", "shipped_lens": "math_estimator (pre-existing)"},
+    "hook_lifecycle":           {"detectability": 2, "expected_precision": 2, "reportable_yield": "med", "shipped_lens": null},
+    "oracle_robustness":        {"detectability": 3, "expected_precision": 2, "reportable_yield": "low (DoS/Low-sev heavy)", "shipped_lens": null},
+    "accounting_drift":         {"detectability": 1, "expected_precision": 1, "reportable_yield": "med (deep, FP-prone)", "shipped_lens": null},
+    "vault_accounting":         {"detectability": 2, "expected_precision": 2, "reportable_yield": "med", "shipped_lens": null},
+    "liquidation_accounting":   {"detectability": 2, "expected_precision": 2, "reportable_yield": "med-high", "shipped_lens": null},
+    "fee_accounting":           {"detectability": 1, "expected_precision": 2, "reportable_yield": "med", "shipped_lens": null},
+    "authorization_mismatch":   {"detectability": 2, "expected_precision": 2, "reportable_yield": "med-high", "shipped_lens": null},
+    "reentrancy":               {"detectability": 3, "expected_precision": 3, "reportable_yield": "high", "shipped_lens": "reentrancy specialist (pre-existing)"},
+    "dos_griefing":             {"detectability": 2, "expected_precision": 1, "reportable_yield": "low-med", "shipped_lens": null},
+    "arithmetic_overflow":      {"detectability": 2, "expected_precision": 2, "reportable_yield": "med", "shipped_lens": null},
+    "rounding_with_impact":     {"detectability": 2, "expected_precision": 2, "reportable_yield": "med", "shipped_lens": null},
+    "slippage_deadline":        {"detectability": 3, "expected_precision": 2, "reportable_yield": "low-med", "shipped_lens": null},
+    "recipient_beneficiary":    {"detectability": 2, "expected_precision": 2, "reportable_yield": "med", "shipped_lens": null},
+    "weight_validation":        {"detectability": 2, "expected_precision": 2, "reportable_yield": "low", "shipped_lens": null},
+    "permissionless_update":    {"detectability": 2, "expected_precision": 2, "reportable_yield": "med", "shipped_lens": null},
+    "lifecycle_hygiene":        {"detectability": 1, "expected_precision": 1, "reportable_yield": "low (mostly out-of-scope Low)", "shipped_lens": null},
+    "fee_bypass_nft":           {"detectability": 2, "expected_precision": 2, "reportable_yield": "high", "shipped_lens": null},
+    "fee_precision":            {"detectability": 2, "expected_precision": 2, "reportable_yield": "med", "shipped_lens": null},
+    "oracle_provenance":        {"detectability": 2, "expected_precision": 2, "reportable_yield": "med", "shipped_lens": "value-provenance advisory (pre-existing)"},
+    "hook_underflow":           {"detectability": 2, "expected_precision": 2, "reportable_yield": "med", "shipped_lens": null}
+  },
+  "_rules_doc": "Ordered most-specific -> least-specific; first match wins. Approximate by design: family boundaries (liquidation vs accounting vs rounding) are fuzzy, so the doc reports by_corpus membership + a precision caveat. manual_overrides (corpus:id -> family) pin the genuinely idiosyncratic residual after a hand-review of titles.",
+  "manual_overrides": {
+    "recall:H-03": "arithmetic_overflow",
+    "recall:M-01": "accounting_drift",
+    "zaros:M-30": "lifecycle_hygiene",
+    "zaros:M-05": "fee_accounting",
+    "panoptic:M-02": "accounting_drift"
+  },
+  "rules": [
+    ["reentrancy",             ["reentran"]],
+    ["fee_bypass_nft",         ["nft transfer", "lp nft", "cost basis"]],
+    ["slippage_deadline",      ["slippage", "deadline"]],
+    ["recipient_beneficiary",  ["sent to msg.sender not recipient", "not recipient", "reward sent to", "to non-whitelisted", "create trading accounts for"]],
+    ["arithmetic_overflow",    ["overflow", "underflow", "division-by-zero", "division by zero", "out of bounds", "array out of bounds", "out-of-bounds", "decimals overflow", "loop indexing", "indexing error", "incorrect hash", "hash (", "off-by-one"]],
+    ["hook_lifecycle",         ["re-initial", "reinitial", "re-initialization", "init() unprotected", "not called in", "_ownable_init", "ownable_init", "_init`", "initializer modifier", "missing initialize", "onregister", "onafter", "onbefore", "recovery mode", "recovery-mode", "hook"]],
+    ["oracle_robustness",      ["oracle", "chainlink", "twap", "stale ", "staleness", "stale price", "sequencer", "latestrounddata", "price feed", "ema weighting", "easily manipulated", "streamslookup", "curveregistry", "outdated"]],
+    ["rounding_with_impact",   ["rounding", "precision mismatch", "minuscule", "decimal precision", "low decimal", "low-decimal"]],
+    ["liquidation_accounting", ["liquidat", "bad debt", "baddebt", "_checkloanishealthy", "safety buffer", "ltv", "solvency", "autodeleverage", "stop loss", "prematurely liquidat"]],
+    ["accounting_drift",       ["credit capacity", "creditcapacity", "realized debt", "realizeddebt", "debt/credit", "settle", "not updated", "do not reflect", "not update their state", "recalculate", "depositedusdc", "inconsistent state", "disconnection", "credit delegation", "creditdelegation", "accumulated value", "not reflect market", "keeps changing", "interest", "reserve factor", "reservefactor", "global lending limit", "lending limit", "limit check", "limit left", "not adjusted", "above limits", "daily limit", "premiumdiscountfactor", "not working", "newly added", "did not update", "pool state", "credits not accumulated", "wrong values", "wrong global", "wrong amount in calcaulation", "current state of the system", "total debt", "never used", "increases but never used"]],
+    ["vault_accounting",       ["erc-4626", "erc4626", "eip-4626", "4626", "zlpvault", "vault asset", "share repay", "shares", "overwithdraw", "over-withdraw", "stuck funds", "tokens stuck", "locked", "lock data", "stuck in", "locking usdc", "stake again", "lose all accumulated"]],
+    ["fee_accounting",         ["reward distribut", "reward is not distributed", "weth reward", "fee recipient", "feerecipient", "fee distribution", "fees bypassed", "fee bounds", "base fees", "referral", "commission", "fee", "fair for users", "staking design"]],
+    ["authorization_mismatch", ["caller validation", "no caller", "permissionless", "unauthorized", "access control", "whitelist", "set by previous owner", "anyone can call", "without caller", "permission", "init"]],
+    ["dos_griefing",           ["dos", "gas bomb", "gas limit", "gas griefing", "griefing", "flooding", "always revert", "always fail", "revert", "blocks checkpoint", "halts", "cannot ", "unable to", "lock long position", "exceed gas", "cannot process all", "multiple swaps"]],
+    ["dynamic_weight_lifecycle", ["weight assignment", "updatevaultandcreditdelegationweight", "weight", "rebalanc", "interpolat", "maxtradesizeratio"]],
+    ["estimator_math",         ["covariance", "variance", "gradient", "moving average", "normaliz", "mathguard", "math guard", "pack32", "estimator", "calculation", "incorrect calc", "wrong calculation", "wrong amount", "amount of asset out", "incorrect logic", "incorrect price", "price difference", "asymmetric calculation", "bit mask", "bitmask", "minted less", "factor"]],
+    ["lifecycle_hygiene",      ["low issues collection", "config conflict", "duplicate `", "metadata", "event", "emitted"]]
+  ]
+}

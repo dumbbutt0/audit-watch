@@ -1,0 +1,239 @@
+{
+  "audit_id": "silo-finance-2025-03-strict-eval",
+  "set": "unknown",
+  "generated_at": "2026-06-12T14:13:53Z",
+  "awarded_source": "answer_key_normalization.json",
+  "auto_heuristic": true,
+  "awarded": [
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Supply doesn't account for market maxDeposit when providing assets",
+      "label": "SAME_AREA",
+      "matched_candidate_id": "DT-001",
+      "mechanism_class": null,
+      "read_file": true,
+      "source": "auto-heuristic",
+      "confidence": "medium"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "Incorrect reward accrual on transfer/transferFrom due to unsynced totalSupply",
+      "label": "SAME_AREA",
+      "matched_candidate_id": "RCB-001",
+      "mechanism_class": null,
+      "read_file": true,
+      "source": "auto-heuristic",
+      "confidence": "medium"
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "Markets with assets that revert on zero approvals cannot be removed",
+      "label": "SAME_AREA",
+      "matched_candidate_id": "DT-001",
+      "mechanism_class": null,
+      "read_file": true,
+      "source": "auto-heuristic",
+      "confidence": "medium"
+    },
+    {
+      "id": "M-04",
+      "severity": "Medium",
+      "title": "Lack of slippage and deadline protection in deposit/withdraw/redeem",
+      "label": "SAME_AREA",
+      "matched_candidate_id": "DT-001",
+      "mechanism_class": null,
+      "read_file": true,
+      "source": "auto-heuristic",
+      "confidence": "medium"
+    },
+    {
+      "id": "M-05",
+      "severity": "Medium",
+      "title": "Incorrect reward distribution due to feeShares minting order",
+      "label": "SAME_AREA",
+      "matched_candidate_id": "EVA-001",
+      "mechanism_class": null,
+      "read_file": true,
+      "source": "auto-heuristic",
+      "confidence": "medium"
+    },
+    {
+      "id": "M-06",
+      "severity": "Medium",
+      "title": "Deflation attack via market-deposit rounding",
+      "label": "SAME_AREA",
+      "matched_candidate_id": "E46-001",
+      "mechanism_class": null,
+      "read_file": true,
+      "source": "auto-heuristic",
+      "confidence": "medium"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "DT-001",
+      "title": "Reward claim/notification revert bricks all vault share operations (DoS)",
+      "severity": "Medium",
+      "file": "silo-vaults/contracts/SiloVault.sol",
+      "contract": "",
+      "function": "_update/_claimRewards/_afterTokenTransfer",
+      "description": "SiloVault._update runs _claimRewards() (delegatecall to each claiming-logic; reverts on any failure) and _afterTokenTransfer() (calls each notification receiver) on EVERY mint/burn/transfer. A single reverting claiming-logic, notification-receiver, or underlying-market reward claim makes every deposit/withdraw/redeem/transfer revert \u2014 a full vault availability loss. removeNotificationReceiver is gated by _allProgramsStopped, so a misbehaving receiver cannot be removed while any program runs."
+    },
+    {
+      "id": "ECON-001",
+      "title": "Reward-component revert is a griefing DoS on all vault withdrawals",
+      "severity": "Medium",
+      "file": "silo-vaults/contracts/SiloVault.sol",
+      "contract": "",
+      "function": "_update/_claimRewards",
+      "description": "Tied to DT-001/RCB-001: any reverting claiming-logic / notification-receiver / underlying-market reward claim makes every deposit/withdraw/redeem/transfer revert. A curator-added market that reverts on reward claim, or a reward token that reverts, freezes user funds; receiver removal is blocked by _allProgramsStopped."
+    },
+    {
+      "id": "EVA-001",
+      "title": "feeShares minting triggers reward notification for feeRecipient (ordering deep pass)",
+      "severity": "Medium",
+      "file": "silo-vaults/contracts/SiloVault.sol",
+      "contract": "",
+      "function": "_accrueFee/_update",
+      "description": "_accrueFee mints fee shares to feeRecipient (_mint\u2192_update\u2192_claimRewards+_afterTokenTransfer) on every deposit/withdraw before the user's action. Whether the feeRecipient's reward accrual on freshly-minted fee shares is credited at the correct (post-mint) index, and whether the double _claimRewards per deposit (fee mint + user mint) causes a reward-distribution discrepancy, needs an end-to-end trace (REW-004)."
+    },
+    {
+      "id": "LOG-001",
+      "title": "Market cap / market-removal / withdraw-queue reallocation (MetaMorpho-class) \u2014 deep pass",
+      "severity": "Medium",
+      "file": "silo-vaults/contracts/SiloVault.sol",
+      "contract": "",
+      "function": "submitMarketRemoval/updateWithdrawQueue/reallocate",
+      "description": "submitCap/acceptCap/submitMarketRemoval/updateWithdrawQueue/reallocate + _maxDeposit mirror MetaMorpho; the Silo-novel risk is the interaction with the reward layer (a removed market still a notification receiver/claiming-logic source) and PublicAllocator flow caps. Needs the full reallocate + queue-removal trace to find a non-inherited bug."
+    },
+    {
+      "id": "REE-001",
+      "title": "Reward delegatecall + notification run external calls inside _update (reentrancy window)",
+      "severity": "Medium",
+      "file": "silo-vaults/contracts/SiloVault.sol",
+      "contract": "",
+      "function": "_update/_claimRewards/_afterTokenTransfer",
+      "description": "SiloVault._update calls _claimRewards() (delegatecall to claiming-logics that make external reward-claim calls) and _afterTokenTransfer() (external receiver calls) around super._update. deposit/withdraw use _nonReentrantOn, but a reward-claim callback executing mid-_update (before balances finalize) is a reentrancy surface; confirm transfer()/all entrypoints hold the lock and that the delegatecall logic can't reenter share ops."
+    },
+    {
+      "id": "RCB-001",
+      "title": "Notification-receiver / claiming-logic callback can revert or reenter on every share op",
+      "severity": "Medium",
+      "file": "silo-vaults/contracts/SiloVault.sol",
+      "contract": "",
+      "function": "_update/_afterTokenTransfer",
+      "description": "Callback trace: entrypoint deposit/withdraw/redeem/transfer \u2192 _update \u2192 (1) _claimRewards delegatecall logics (external claims), (2) super._update mutates balances/totalSupply, (3) _afterTokenTransfer \u2192 receiver.afterTokenTransfer. State during callback: balances mid-mutation; cross-contract: vault\u2194controller reward state. A reverting callback bricks the op (DoS, DT-001); a reentrant callback hits balances before finalize. nonReentrant covers deposit/withdraw; verify it covers transfer and the delegatecall path."
+    },
+    {
+      "id": "DT-002",
+      "title": "_claimRewards delegatecalls claiming-logics in the vault storage context (trust + reentrancy surface)",
+      "severity": "Low",
+      "file": "silo-vaults/contracts/SiloVault.sol",
+      "contract": "",
+      "function": "_claimRewards",
+      "description": "_claimRewards delegatecalls each owner-submitted claiming-logic, executing in SiloVault's storage context; the logic also makes external reward-claim calls mid-_update (before super._update). Owner+timelock gating makes this trusted, but the blast radius (arbitrary vault storage write; reentrancy window) is large; whether transfer() holds the reentrancy lock during _update should be confirmed."
+    },
+    {
+      "id": "E46-001",
+      "title": "ERC4626 fee-share + conversion reviewed; rounding favors vault, OZ virtual-share offset present",
+      "severity": "Low",
+      "file": "silo-vaults/contracts/SiloVault.sol",
+      "contract": "",
+      "function": "deposit/mint/withdraw/redeem/_accruedFeeShares",
+      "description": "deposit/mint/withdraw/redeem accrue fee shares via _accruedFeeShares (uses totalSupply + newTotalAssets-feeAssets, Floor) and convert with _convertTo*WithTotals; _decimalsOffset provides OZ virtual-share inflation protection. Reviewed: rounding directions protect existing holders; donation handled by lastTotalAssets model. Residual: confirm feeShares minting order vs reward accrual (REW-004) and zero-share deposit revert."
+    },
+    {
+      "id": "MP-001",
+      "title": "Reward emission math under very small totalStaked \u2014 deep pass",
+      "severity": "Low",
+      "file": "silo-core/contracts/incentives/base/DistributionManager.sol",
+      "contract": "",
+      "function": "_updateAssetStateInternal",
+      "description": "When totalStaked is tiny (1 wei share) the per-share index increment emission*elapsed*1e36/totalStaked can be very large; confirm no overflow of the uint index and no truncation that lets a 1-share holder capture a full emission. Needs the exact _updateAssetStateInternal formula bounds."
+    },
+    {
+      "id": "AC-001",
+      "title": "Vault roles + incentives-module access reviewed (Owner/Curator/Allocator/Guardian; acceptLogic permissionless-after-timelock)",
+      "severity": "Info",
+      "file": "silo-vaults/contracts/incentives/VaultIncentivesModule.sol",
+      "contract": "",
+      "function": "submit/accept/removeIncentivesClaimingLogic, addNotificationReceiver",
+      "description": "Reviewed: SiloVault uses MetaMorpho role model (onlyOwner/onlyCuratorRole/onlyAllocatorRole/onlyGuardianRole) + Ownable2Step + PendingLib timelocks. VaultIncentivesModule submit/remove claiming-logic + addNotificationReceiver are onlyOwner; acceptIncentivesClaimingLogic is permissionless but only finalizes an owner-submitted, timelock-elapsed pending (standard). No missing-auth found. removeNotificationReceiver gated by _allProgramsStopped (see DT-001 DoS angle)."
+    },
+    {
+      "id": "ACI-001",
+      "title": "Factory + module initializer reviewed (init-once via initializer; Ownable2Step init)",
+      "severity": "Info",
+      "file": "silo-vaults/contracts/incentives/VaultIncentivesModule.sol",
+      "contract": "",
+      "function": "__VaultIncentivesModule_init",
+      "description": "VaultIncentivesModule.__VaultIncentivesModule_init uses the OZ initializer modifier (init-once) and __Ownable_init; SiloVaultsFactory/IdleVaultsFactory deploy via Clones. Confirm the cloned module/vault cannot be re-initialized by a front-runner (initializer guard present). No re-init path found at this depth."
+    },
+    {
+      "id": "ARI-001",
+      "title": "Reward index precision (PRECISION=36) and fee-share rounding reviewed",
+      "severity": "Info",
+      "file": "silo-core/contracts/incentives/base/DistributionManager.sol",
+      "contract": "",
+      "function": "_updateAssetStateInternal/PRECISION",
+      "description": "DistributionManager uses index PRECISION=36 (1e36) reducing reward-index rounding; _accruedFeeShares acknowledges feeAssets may round to 0 (mulDiv(fee,WAD)). Reviewed: high-precision index; fee rounding-to-zero is documented/benign. Residual: emission*elapsed/totalStaked rounding in _updateAssetStateInternal under tiny totalStaked."
+    },
+    {
+      "id": "FL-000",
+      "title": "No flash-loan surface in scope",
+      "severity": "Info",
+      "file": "silo-vaults/contracts/SiloVault.sol",
+      "contract": "",
+      "function": "(none)",
+      "description": "No flash-loan/flash-mint in scope (flash-mint is explicitly out of scope per README)."
+    },
+    {
+      "id": "ORA-000",
+      "title": "No oracle surface in the in-scope vault layer",
+      "severity": "Info",
+      "file": "silo-vaults/contracts/SiloVault.sol",
+      "contract": "",
+      "function": "(none)",
+      "description": "The SiloVault + incentives scope reads no price oracle directly (the vault sits over ERC4626 markets; pricing/liquidation live in the out-of-scope Silo core). No oracle vulnerability surface in scope."
+    },
+    {
+      "id": "PS-001",
+      "title": "SiloVault uses OZ ERC20Permit unchanged (no custom permit logic)",
+      "severity": "Info",
+      "file": "silo-vaults/contracts/SiloVault.sol",
+      "contract": "",
+      "function": "(inherited ERC20Permit)",
+      "description": "SiloVault is itself the share token and inherits openzeppelin5 ERC20Permit (EIP-2612) without overriding permit/_useNonce/_approve. Reviewed: token_address (the vault), spender, owner_signer, nonce, deadline, and EIP-712 domain separator are handled by audited OZ code; no custom permit path that could authorize unintended asset movement. Multicall + permit interaction reviewed (no signed-permit front-run beyond the known OZ griefing, which is out of scope)."
+    },
+    {
+      "id": "TOK-001",
+      "title": "In-scope token handling uses SafeERC20; FoT/rebasing/approval-race are OUT OF SCOPE",
+      "severity": "Info",
+      "file": "silo-vaults/contracts/SiloVault.sol",
+      "contract": "",
+      "function": "SafeERC20 usage",
+      "description": "Asset + reward transfers use OZ SafeERC20 (safeTransfer/safeTransferFrom). Per the README weird-ERC20 table, fee-on-transfer, rebasing, approval-race/reset, blocklists, high-decimals are explicitly OUT OF SCOPE \u2014 so non-standard-ERC20 findings are ineligible. Reviewed the in-scope handling: standard ERC20 assumed; SafeERC20 covers missing-bool-return."
+    }
+  ],
+  "summary": {
+    "awarded_total": 6,
+    "awarded_source": "answer_key_normalization.json",
+    "adjudicated": 6,
+    "pending": 0,
+    "auto_adjudicated": 6,
+    "misses_detected": 0,
+    "recall_of_surfaced": 1.0,
+    "strong_only": 0.0,
+    "by_label": {
+      "MISSED": 0,
+      "SAME_AREA": 6,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 0,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
+  }
+}

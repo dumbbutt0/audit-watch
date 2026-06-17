@@ -1,0 +1,806 @@
+{
+  "label": "SUPERVISED_EVAL",
+  "mode": "SUPERVISED_EVAL_DERIVED_EVIDENCE",
+  "is_gate": false,
+  "research_only": true,
+  "emits_findings": false,
+  "packages": [
+    {
+      "candidate_id": "coverage_manifest:BuyerAgent:withdraw:0",
+      "award_class": "STATE_MACHINE_LIFECYCLE",
+      "contract_function": "BuyerAgent.withdraw",
+      "source_refs": "BuyerAgent.withdraw function withdraw(uint96 _amount) public onlyAuthorized {",
+      "mechanism_hypothesis": "[T2] BuyerAgent.withdraw: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "BuyerAgent.withdraw function withdraw(uint96 _amount) public onlyAuthorized {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "BuyerAgent.withdraw is guarded by modifier(s) ['onlyAuthorized']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function withdraw(uint96 _amount) public onlyAuthorized {",
+      "victim_gainer": "victim = users/LPs of BuyerAgent (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in BuyerAgent via withdraw (value-moving op)",
+      "invariant_expected": "BuyerAgent.withdraw preserves the relevant protocol invariant",
+      "invariant_broken": "BuyerAgent.withdraw violates the relevant protocol invariant",
+      "tx_sequence": [
+        "attacker calls BuyerAgent.withdraw with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: What is the precise invariant and corrected reference?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert BuyerAgent.withdraw produces an outcome inconsistent with its intended invariant",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyAuthorized'] would be the CORE exploitability claim - needs source review"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyAuthorized'], external_calls=False, has_loop=False, tags=['accounting', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyAuthorized'], external_calls=False, has_loop=False, tags=['accounting', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "modifier_auth(only*)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "transfer"
+        ],
+        "state_write": false,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/swan-dria-2024-10-strict-eval/contracts/swan-dria/inscope/swan/BuyerAgent.sol",
+        "source_span": [
+          262,
+          277
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [262, 277] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/swan-dria-2024-10-strict-eval/contracts/swan-dria/inscope/swan/BuyerAgent.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LLMOracleCoordinator:withdrawPlatformFees:3",
+      "award_class": "ACCOUNTING_LIQUIDATION_BAD_DEBT",
+      "contract_function": "LLMOracleCoordinator.withdrawPlatformFees",
+      "source_refs": "LLMOracleCoordinator.withdrawPlatformFees function withdrawPlatformFees() public onlyOwner {",
+      "mechanism_hypothesis": "[T2] LLMOracleCoordinator.withdrawPlatformFees: A withdraw/redeem/burn/settle/claim path may alter accounting state affecting later solvency/fees/shares/debt.",
+      "root_cause": "LLMOracleCoordinator.withdrawPlatformFees function withdrawPlatformFees() public onlyOwner {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "LLMOracleCoordinator.withdrawPlatformFees is guarded by modifier(s) ['onlyOwner']; not a direct unauthorized entry",
+      "attacker_controlled_inputs": "msg.sender + args of function withdrawPlatformFees() public onlyOwner {",
+      "victim_gainer": "victim = users/LPs of LLMOracleCoordinator (value moved); gainer = attacker/recipient",
+      "state_value_liveness_delta": "state/value mutation in LLMOracleCoordinator via withdrawPlatformFees (value-moving op)",
+      "invariant_expected": "post-LLMOracleCoordinator.withdrawPlatformFees accounting equals the conservation/corrected reference (position == global; no residue)",
+      "invariant_broken": "LLMOracleCoordinator.withdrawPlatformFees leaves position/global mismatch, bad-debt residue, or mis-allocated collateral/fees",
+      "tx_sequence": [
+        "attacker calls LLMOracleCoordinator.withdrawPlatformFees with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Does this path mutate shared accounting that a later operation relies on for correctness?",
+      "refutation_result": "questions: Is the accounting set vs incremented consistently? Is there a corrected reference to compare?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert post-LLMOracleCoordinator.withdrawPlatformFees accounting differs from the conservation reference",
+      "unresolved_assumptions": [
+        "a bypass of ['onlyOwner'] would be the CORE exploitability claim - needs source review",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyOwner'], external_calls=False, has_loop=False, tags=['accounting', 'oracle', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "HIGH",
+          "source_basis": "manifest: visibility=public, mutability=nonpayable, modifiers=['onlyOwner'], external_calls=False, has_loop=False, tags=['accounting', 'oracle', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "MEDIUM",
+          "source_basis": "value-movement signal (name/tags/external_calls)"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "modifier_auth(only*)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": true,
+        "value_markers": [
+          "balanceof",
+          "transfer"
+        ],
+        "state_write": false,
+        "asset_move": true,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/swan-dria-2024-10-strict-eval/contracts/swan-dria/inscope/llm/LLMOracleCoordinator.sol",
+        "source_span": [
+          375,
+          377
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "value-flow present (state write / asset move) but no source-detectable anomaly",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [
+          "balanceof",
+          "transfer"
+        ],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [375, 377] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/swan-dria-2024-10-strict-eval/contracts/swan-dria/inscope/llm/LLMOracleCoordinator.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LLMOracleCoordinator:_authorizeUpgrade:6",
+      "award_class": "ACCESS_CONTROL_AUTHORIZATION",
+      "contract_function": "LLMOracleCoordinator._authorizeUpgrade",
+      "source_refs": "LLMOracleCoordinator._authorizeUpgrade function _authorizeUpgrade(address newImplementation) internal override onlyOwner {",
+      "mechanism_hypothesis": "[T4] LLMOracleCoordinator._authorizeUpgrade: Value/rewards/shares/debt/indexes/permissions may be lost, duplicated, or mispriced across old/new domains.",
+      "root_cause": "LLMOracleCoordinator._authorizeUpgrade function _authorizeUpgrade(address newImplementation) internal override onlyOwner {",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "LLMOracleCoordinator._authorizeUpgrade is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _authorizeUpgrade(address newImplementation) internal override onlyOwne",
+      "victim_gainer": "unclear from manifest signals",
+      "state_value_liveness_delta": "state mutation in LLMOracleCoordinator._authorizeUpgrade",
+      "invariant_expected": "only an authorized principal may execute the state-changing path in LLMOracleCoordinator._authorizeUpgrade",
+      "invariant_broken": "an unauthorized caller mutates protected state via LLMOracleCoordinator._authorizeUpgrade",
+      "tx_sequence": [
+        "attacker calls LLMOracleCoordinator._authorizeUpgrade with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Across this conversion/migration/split/merge, is every unit and right conserved exactly?",
+      "refutation_result": "questions: Is there an internal/inherited guard not captured as a modifier? Is the mutated state actually sensitive?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert an unauthorized EOA can call LLMOracleCoordinator._authorizeUpgrade and change protected state that should be restricted",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=['onlyOwner'], external_calls=False, has_loop=False, tags=['config', 'oracle', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=['onlyOwner'], external_calls=False, has_loop=False, tags=['config', 'oracle', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "LOW",
+          "source_basis": "no value-movement signal"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "modifier_auth(only*)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": false,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/swan-dria-2024-10-strict-eval/contracts/swan-dria/inscope/llm/LLMOracleCoordinator.sol",
+        "source_span": [
+          113,
+          115
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": false,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [113, 115] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/swan-dria-2024-10-strict-eval/contracts/swan-dria/inscope/llm/LLMOracleCoordinator.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:LLMOracleRegistry:_authorizeUpgrade:7",
+      "award_class": "ACCESS_CONTROL_AUTHORIZATION",
+      "contract_function": "LLMOracleRegistry._authorizeUpgrade",
+      "source_refs": "LLMOracleRegistry._authorizeUpgrade function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}",
+      "mechanism_hypothesis": "[T4] LLMOracleRegistry._authorizeUpgrade: Value/rewards/shares/debt/indexes/permissions may be lost, duplicated, or mispriced across old/new domains.",
+      "root_cause": "LLMOracleRegistry._authorizeUpgrade function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}",
+      "affected_state_vars": "operator-to-derive (which shares/debt/reward/collateral/permission)",
+      "attacker_model": "LLMOracleRegistry._authorizeUpgrade is internal/ - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _authorizeUpgrade(address newImplementation) internal override onlyOwne",
+      "victim_gainer": "unclear from manifest signals",
+      "state_value_liveness_delta": "state mutation in LLMOracleRegistry._authorizeUpgrade",
+      "invariant_expected": "only an authorized principal may execute the state-changing path in LLMOracleRegistry._authorizeUpgrade",
+      "invariant_broken": "an unauthorized caller mutates protected state via LLMOracleRegistry._authorizeUpgrade",
+      "tx_sequence": [
+        "attacker calls LLMOracleRegistry._authorizeUpgrade with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable ; durable if state corruption",
+      "runner_up_mechanism": "candidate_for_runner_up_overtake",
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Across this conversion/migration/split/merge, is every unit and right conserved exactly?",
+      "refutation_result": "questions: Is there an internal/inherited guard not captured as a modifier? Is the mutated state actually sensitive?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert an unauthorized EOA can call LLMOracleRegistry._authorizeUpgrade and change protected state that should be restricted",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=['onlyOwner'], external_calls=False, has_loop=False, tags=['config', 'oracle', 'permissions']"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest: visibility=internal, mutability=nonpayable, modifiers=['onlyOwner'], external_calls=False, has_loop=False, tags=['config', 'oracle', 'permissions']"
+        },
+        "victim_gainer": {
+          "confidence": "LOW",
+          "source_basis": "no value-movement signal"
+        },
+        "terminality_or_amplification": {
+          "confidence": "MEDIUM",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": true,
+        "guard_markers": [
+          "modifier_auth(only*)"
+        ],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": false,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/swan-dria-2024-10-strict-eval/contracts/swan-dria/inscope/llm/LLMOracleRegistry.sol",
+        "source_span": [
+          74,
+          74
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": false,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [74, 74] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/swan-dria-2024-10-strict-eval/contracts/swan-dria/inscope/llm/LLMOracleRegistry.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:Statistics:sqrt:9",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "Statistics.sqrt",
+      "source_refs": "Statistics.sqrt function sqrt(uint256 x) internal pure returns (uint256 y) {",
+      "mechanism_hypothesis": "[T9] Statistics.sqrt: Math/units/convergence boundary: decimal/scale/unit mismatch, iterative convergence failure, silent zero/fallback, rounding-direction or precision loss across token decimals.",
+      "root_cause": "Statistics.sqrt function sqrt(uint256 x) internal pure returns (uint256 y) {",
+      "affected_state_vars": "operator-to-derive (decimals/scale/precision/convergence)",
+      "attacker_model": "Statistics.sqrt is internal/pure - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function sqrt(uint256 x) internal pure returns (uint256 y) {",
+      "victim_gainer": "unclear from manifest signals",
+      "state_value_liveness_delta": "read-only - no state delta",
+      "invariant_expected": "share<->asset conversion in Statistics.sqrt conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "Statistics.sqrt rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls Statistics.sqrt with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable",
+      "runner_up_mechanism": null,
+      "why_selected": "coverage-routed; triage-selected",
+      "falsification_questions": "Are all decimal/scale conversions exact and does the iterative solver always converge or revert (never silently return 0/stale)?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through Statistics.sqrt nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "runner_up_mechanism",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=pure, modifiers=[], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "LOW",
+          "source_basis": "mutability is view/pure"
+        },
+        "victim_gainer": {
+          "confidence": "LOW",
+          "source_basis": "no value-movement signal"
+        },
+        "terminality_or_amplification": {
+          "confidence": "LOW",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": true,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/swan-dria-2024-10-strict-eval/contracts/swan-dria/inscope/libraries/Statistics.sol",
+        "source_span": [
+          40,
+          47
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "external entry + in-span state write",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": true,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [40, 47] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/swan-dria-2024-10-strict-eval/contracts/swan-dria/inscope/libraries/Statistics.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    },
+    {
+      "candidate_id": "coverage_manifest:BuyerAgent:_checkRoundPhase:10",
+      "award_class": "SHARE_ROUNDING_PRECISION",
+      "contract_function": "BuyerAgent._checkRoundPhase",
+      "source_refs": "BuyerAgent._checkRoundPhase function _checkRoundPhase(Phase _phase) internal view returns (uint256, Phase) {",
+      "mechanism_hypothesis": "[T9] BuyerAgent._checkRoundPhase: Math/units/convergence boundary: decimal/scale/unit mismatch, iterative convergence failure, silent zero/fallback, rounding-direction or precision loss across token decimals.",
+      "root_cause": "BuyerAgent._checkRoundPhase function _checkRoundPhase(Phase _phase) internal view returns (uint256, Phase) {",
+      "affected_state_vars": "operator-to-derive (decimals/scale/precision/convergence)",
+      "attacker_model": "BuyerAgent._checkRoundPhase is internal/view - not a direct attacker entry",
+      "attacker_controlled_inputs": "msg.sender + args of function _checkRoundPhase(Phase _phase) internal view returns (uint256, Phase) {",
+      "victim_gainer": "unclear from manifest signals",
+      "state_value_liveness_delta": "read-only - no state delta",
+      "invariant_expected": "share<->asset conversion in BuyerAgent._checkRoundPhase conserves value up to <=1 unit and never nets the actor positive",
+      "invariant_broken": "BuyerAgent._checkRoundPhase rounding/precision lets a round-trip net the actor more than input or strand funds",
+      "tx_sequence": [
+        "attacker calls BuyerAgent._checkRoundPhase with chosen args"
+      ],
+      "terminality_or_amplification": "repeatable while callable",
+      "runner_up_mechanism": null,
+      "why_selected": "coverage-routed",
+      "falsification_questions": "Are all decimal/scale conversions exact and does the iterative solver always converge or revert (never silently return 0/stale)?",
+      "refutation_result": "questions: Does every path round toward the protocol? Is the dust bounded and benign?",
+      "poc_feasibility_tier": "inherit_and_expose_internal",
+      "poc_assertion": "assert a crafted-amount round-trip through BuyerAgent._checkRoundPhase nets the actor > input (or strands funds)",
+      "unresolved_assumptions": [
+        "not externally reachable or read-only",
+        "value-flow anomaly unverified"
+      ],
+      "evidence_source": "auto_derived_p279",
+      "missing_fields": [
+        "attacker_controlled_inputs",
+        "attacker_model",
+        "poc_assertion",
+        "refutation_result",
+        "runner_up_mechanism",
+        "state_value_liveness_delta",
+        "terminality_or_amplification",
+        "tx_sequence",
+        "victim_gainer"
+      ],
+      "derivation_kind": "derived",
+      "derived_confidence": {
+        "attacker_path": {
+          "confidence": "LOW",
+          "source_basis": "manifest: visibility=internal, mutability=view, modifiers=[], external_calls=False, has_loop=False, tags=[]"
+        },
+        "attacker_controlled_inputs": {
+          "confidence": "LOW",
+          "source_basis": "manifest signature + visibility"
+        },
+        "impact_delta": {
+          "confidence": "LOW",
+          "source_basis": "mutability is view/pure"
+        },
+        "victim_gainer": {
+          "confidence": "LOW",
+          "source_basis": "no value-movement signal"
+        },
+        "terminality_or_amplification": {
+          "confidence": "LOW",
+          "source_basis": "state-changing + externally reachable"
+        },
+        "transaction_sequence": {
+          "confidence": "HIGH",
+          "source_basis": "manifest signature"
+        },
+        "invariant_expected": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "invariant_broken": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_assertion": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template + locus"
+        },
+        "refutation_questions": {
+          "confidence": "MEDIUM",
+          "source_basis": "class template"
+        },
+        "poc_tier_recommendation": {
+          "confidence": "MEDIUM",
+          "source_basis": "manifest complexity signals"
+        },
+        "unresolved_assumptions": {
+          "confidence": "LOW",
+          "source_basis": "derivation residue"
+        }
+      },
+      "gate_evidence": {
+        "inline_guard_detected": false,
+        "guard_markers": [],
+        "state_machine_detected": false,
+        "state_markers": [],
+        "or_state_gate": false,
+        "value_flow_detected": false,
+        "value_markers": [],
+        "state_write": false,
+        "asset_move": false,
+        "value_anomaly_div_before_mul": false,
+        "value_flow_out_of_span": false,
+        "body_available": true,
+        "is_declaration_only": false,
+        "file": "/home/dummy/clones/audit-watch/smart-contract-auditor/audits/swan-dria-2024-10-strict-eval/contracts/swan-dria/inscope/swan/BuyerAgent.sol",
+        "source_span": [
+          287,
+          294
+        ]
+      },
+      "value_flow_evidence": {
+        "value_flow_summary": "no concrete value-flow in this span",
+        "attacker_input_to_state_link": "unclear (no in-span state write)",
+        "affected_variables": [],
+        "value_movement_or_accounting_write": false,
+        "expected_invariant": null,
+        "broken_invariant_hypothesis": null,
+        "confidence": "LOW",
+        "source_basis": "source span [287, 294] of /home/dummy/clones/audit-watch/smart-contract-auditor/audits/swan-dria-2024-10-strict-eval/contracts/swan-dria/inscope/swan/BuyerAgent.sol",
+        "unresolved_assumptions": [
+          "no source-detectable anomaly; the broken invariant needs data-flow/corrected-reference reasoning (CORE)"
+        ]
+      },
+      "severity": null,
+      "reportable": false,
+      "submission_ready": false,
+      "concluded": false,
+      "emits_finding": false,
+      "production_routing": false
+    }
+  ]
+}

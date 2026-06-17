@@ -1,0 +1,150 @@
+{
+  "agent": "snapshot",
+  "contract": "contracts/2024-05-beanstalk-the-finale/protocol/contracts",
+  "timestamp": "2026-05-29T21:40:00+00:00",
+  "scope_note": "Traditional BIP/on-chain governance voting is OUT OF SCOPE in this codebase. The only governance-weight token wrapper (ecosystem/root/Root.sol) is present solely as a fully-commented-out `.sol.ref` file and does not compile. interfaces/IDelegation.sol is defined but never imported/used by any in-scope contract. There is no ERC20Votes/ERC20Snapshot, no getPriorVotes/balanceOfAt, no proposal/snapshot-block flow. The snapshot-correctness surface that IS in scope is Beanstalk's silo accounting: per-account `stalk`/`roots` act as the checkpointed weight, `roots` is the snapshot share used to distribute season-minted (earned) Beans, and germination is the snapshot defense. Germination is correctly implemented (see germination_assessment). The live findings below concern the L1->L2 reseed/migration paths that re-seed this snapshot weight incorrectly.",
+  "germination_assessment": "DEFENDED. A flash-deposit-before-sunrise reward-theft attack is correctly prevented. New deposits and mown stalk are minted via LibSilo.mintGerminatingStalk, which credits s.accts[account].germinatingStalk[side] and s.sys.silo.unclaimedGerminating[season].stalk WITHOUT incrementing the active s.sys.silo.stalk / s.sys.silo.roots used by _balanceOfEarnedBeans (LibSilo.sol#681-702). Germinating stalk earns zero Beans until LibGerminate.endTotalGermination runs after ~2 `gm` calls (LibGerminate.sol#86-114), at which point its roots are computed against the fully-germinated totals. There is no balanceOf-style live read in the earned-Bean snapshot path, no pre-announced snapshot block, and no _snapshot() callable by anyone. No finding written for this class.",
+  "findings": [
+    {
+      "id": "SN-001",
+      "title": "Reseed overwrites account snapshot stalk per token, destroying multi-token holders' weight",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "ReseedSilo.init() re-seeds the L2 silo by calling reseedSiloDeposit() once per whitelisted token (BEAN, BEAN:ETH, BEAN:wstETH, BEAN:3CRV, urBEAN, urBEAN:LP). Inside reseedSiloDeposit, after summing an account's grown+base stalk for THAT token into the local `accountStalk`, it writes `s.accts[deposits.accounts].stalk = accountStalk;` (ReseedSilo.sol#164) using a plain assignment (`=`) rather than an accumulating add (`+=`). `s.accts[account].stalk` is the account's checkpointed Stalk weight. For any farmer who held deposits in more than one of the six tokens on L1 (the common case for any LP+BEAN depositor), each subsequent reseedSiloDeposit call OVERWRITES the stalk written by the previous token. After init() completes, the account's stalk reflects ONLY the last token processed in init() (urBEAN:LP deposits), and all stalk from BEAN and the LP tokens is silently discarded. `s.accts[account].roots` is never written in the entire reseed path (confirmed: no write to `.roots` exists under beanstalk/init/), so the migrated account also has zero snapshot share until its first mow. This is a snapshot-checkpoint write bug: the historical weight being re-established at the migration boundary is corrupted, not preserved.",
+      "location": {
+        "file": "contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+        "function": "reseedSiloDeposit",
+        "line_start": 163,
+        "line_end": 164,
+        "code_snippet": "// set stalk for account.\n            s.accts[deposits.accounts].stalk = accountStalk;"
+      },
+      "impact": "Every farmer who migrated deposits in 2+ whitelisted tokens has their Stalk balance silently reduced to only the last token's contribution. Stalk is the basis for (a) earned-Bean distribution via roots, (b) Seed/grown-stalk accrual, and (c) any Stalk-weighted protocol decision. Affected farmers permanently lose the governance/reward weight of all but one of their deposit types at the L2 relaunch, while their underlying deposits remain. This is a direct, deterministic loss of a core protocol-state invariant (total Stalk == sum of account Stalk) at migration.",
+      "proof_of_concept": "Alice on L1 holds: 1000 BDV of BEAN (stalk_bean) and 2000 BDV of BEAN:ETH (stalk_lp). Migration data passes beanDeposits then beanEthDeposits. Step 1: reseedSiloDeposit(beanDeposits) sets s.accts[Alice].stalk = stalk_bean. Step 2: reseedSiloDeposit(beanEthDeposits) executes s.accts[Alice].stalk = stalk_lp, OVERWRITING stalk_bean. Final state: Alice.stalk == stalk_lp only; stalk_bean is gone. Assert before/after: pre = 0, after-step-1 = stalk_bean, after-step-2 = stalk_lp (not stalk_bean+stalk_lp). Because urBEAN:LP is the last init() argument, the surviving value is whatever that last call wrote (0 if Alice held none).",
+      "recommendation": "Use an accumulating write: `s.accts[deposits.accounts].stalk += accountStalk;`. Because reseedSiloDeposit is invoked across multiple tokens for the same accounts, the per-token stalk contributions must be summed. Add an explicit post-migration invariant check reconciling sum(account.stalk) to the seeded global s.sys.silo.stalk.",
+      "confidence": "High",
+      "attack_surface_rank": 4,
+      "invariant_violated": "total-stalk-equals-sum-account-stalk",
+      "cross_agent_refs": [
+        "ACC-001",
+        "ACC-010"
+      ],
+      "ite": {
+        "intent": "Migration must preserve each farmer's summed L1 Stalk as their L2 snapshot weight; instead multi-token holders lose all but one token's Stalk.",
+        "technique": "ReseedSilo.init() calls reseedSiloDeposit per token; line 164 assigns (=) rather than accumulates (+=) into s.accts[account].stalk, so each token's call clobbers the prior.",
+        "evasion": "No accumulation and no post-reseed sum-vs-global reconciliation; the require checks only validate per-token deposit totals, not the cross-token stalk sum."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[account].stalk",
+        "consumer_found": true,
+        "consumer_function": "LibSilo._balanceOfEarnedBeans / LibSilo.burnActiveStalk / grown-stalk accrual",
+        "consumer_action": "uses account stalk as the baseline for earned-Bean entitlement and as Stalk-weighted reward/decision weight",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "thread_refs": [
+        "T-001"
+      ],
+      "thread_note": "T-001: High (score=?) \u2014 ",
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-006",
+          "note": "score-3 invariant covers same state vars (s.accts[account].stalk); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "SN-002",
+      "title": "Reseed never seeds global silo stalk/roots, desyncing the earned-Bean snapshot denominator",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "The earned-Bean snapshot distribution in LibSilo._balanceOfEarnedBeans computes an account's claimable Beans as `s.sys.silo.stalk * s.accts[account].roots / s.sys.silo.roots - s.accts[account].stalk` (LibSilo.sol#689). The global denominators `s.sys.silo.stalk` and `s.sys.silo.roots` are the system-wide snapshot totals. A full scan of beanstalk/init/ shows that NO reseed/init contract ever writes `s.sys.silo.stalk` or `s.sys.silo.roots` (the only non-mock writers are LibReceiving.siloReceive, LibSilo.mint/burnActiveStalk, and LibGerminate.endTotalGermination \u2014 all live-operation paths, not migration seeding). ReseedSilo writes only per-account `s.accts[account].stalk` and per-token `s.sys.silo.balances[token]`. Account roots are likewise never seeded in the reseed path. The result is a snapshot whose per-account numerators and the system denominators are populated by different code paths that are not reconciled at the migration boundary: either the global totals are left at zero/stale (every earned-Bean and burnActiveStalk computation reverts on div-by-zero or returns garbage), or they are seeded by an out-of-scope global-reseed step to a value that does not equal sum(account.stalk) once SN-001 has corrupted the per-account values. Total Stalk != sum(account Stalk) and Total Roots != sum(account Roots) at relaunch.",
+      "location": {
+        "file": "contracts/beanstalk/init/reseed/L2/ReseedSilo.sol",
+        "function": "init / reseedSiloDeposit",
+        "line_start": 109,
+        "line_end": 180,
+        "code_snippet": "// only per-account stalk and per-token balances are written;\n// s.sys.silo.stalk, s.sys.silo.roots, and s.accts[account].roots are never set here"
+      },
+      "impact": "The earned-Bean snapshot is mis-scaled for the entire protocol after migration. _balanceOfEarnedBeans (LibSilo.sol#689) divides by s.sys.silo.roots; if it is 0 the function returns early (0 earned Beans for everyone) or, once seeded inconsistently, mis-distributes every season's minted Beans because the per-account roots numerators do not sum to the global roots denominator. burnActiveStalk (LibSilo.sol#244) and transfer (LibSilo.sol#298) also divide by s.sys.silo.stalk. A denominator that does not match the migrated per-account weights either bricks withdrawals/transfers (div underflow/inconsistent subtraction) or systematically over-/under-credits earned Beans, redistributing real Bean value among stalkholders.",
+      "proof_of_concept": "Trace: after ReseedSilo.init(), s.sys.silo.roots is unset by the reseed path while accounts have nonzero deposits. First season Beans ship to silo via LibReceiving.siloReceive (increments s.sys.silo.stalk only). When a farmer calls plant()->_balanceOfEarnedBeans: if s.sys.silo.roots==0 the function returns 0 (no farmer can claim their share of the minted Beans) \u2014 earned Beans accrue to earnedBeans accounting but are unclaimable, or, if roots are globally seeded to a value != sum(account.roots), claims sum to more/less than s.sys.silo.earnedBeans, breaking the per-holder cap and letting some holders claim Beans owed to others. Assert: sum over accounts of _balanceOfEarnedBeans should equal s.sys.silo.earnedBeans; with desynced denominators it does not.",
+      "recommendation": "The migration must seed s.sys.silo.stalk and s.sys.silo.roots to exactly the sum of the per-account stalk and roots written across ALL reseedSiloDeposit calls, and must seed s.accts[account].roots for every migrated account consistent with that global total. Add a post-reseed invariant assertion: s.sys.silo.stalk == sum(account.stalk) and s.sys.silo.roots == sum(account.roots). This must be fixed jointly with SN-001 (the per-account stalk must be correct before the global sum is taken).",
+      "confidence": "High",
+      "attack_surface_rank": 4,
+      "invariant_violated": "total-roots-equals-sum-account-roots",
+      "cross_agent_refs": [
+        "ACC-010",
+        "ACC-001"
+      ],
+      "critical_assumptions": [
+        "A separate out-of-scope global-state reseed step does not independently set s.sys.silo.stalk/roots to a value that happens to equal sum(account weights). If such a step exists and is correct, the impact reduces to consistency-with-SN-001 only.",
+        "Account roots are not seeded by another in-init contract not reviewed here."
+      ],
+      "ite": {
+        "intent": "The migrated silo snapshot must satisfy global total == sum of per-account weights so earned-Bean distribution is conserved; it does not.",
+        "technique": "ReseedSilo writes only per-account stalk and per-token balances; the global s.sys.silo.stalk/roots denominators consumed by _balanceOfEarnedBeans are never reconciled to the migrated account weights.",
+        "evasion": "Per-token require()s validate deposit totals only; there is no global stalk/roots conservation check across the reseed."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.sys.silo.roots / s.sys.silo.stalk (global snapshot denominators) and per-account roots",
+        "consumer_found": true,
+        "consumer_function": "LibSilo._balanceOfEarnedBeans",
+        "consumer_action": "computes each stalkholder's claimable share of season-minted Beans; a desynced denominator mis-distributes or blocks all earned Beans",
+        "severity_ceiling": "High",
+        "search_method": "static_search"
+      },
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-006",
+          "note": "score-3 invariant covers same state vars (s.accts[account].stalk); not traced \u2014 consider manual review"
+        }
+      ]
+    },
+    {
+      "id": "SN-003",
+      "title": "Replayable L2 migration inflates account roots, stealing earned-Bean snapshot share",
+      "severity": "High",
+      "vuln_type": "logic-error",
+      "description": "L2ContractMigrationFacet.redeemDepositsAndInternalBalances is permissionless and verifies only a Merkle proof over (owner, deposits, internalBalances, ownerRoots) plus an EIP-712 signature over (owner, reciever, deadline). It stores NO spent/redeemed marker and uses NO nonce. setStalk then does `s.accts[reciever].roots += ownerRoots;` (L2ContractMigrationFacet.sol#207) and `s.accts[reciever].stalk += accountStalk;` (#206) with accumulating adds. Because the proof and signature are public on-chain calldata and there is no replay guard, anyone can re-submit the same redeem call repeatedly before `deadline`, each time adding `ownerRoots` to the reciever's roots and `accountStalk` to its stalk. `roots` is the account's snapshot SHARE in the earned-Bean distribution (LibSilo._balanceOfEarnedBeans, LibSilo.sol#689: stalk*accountRoots/totalRoots). Inflated account roots directly inflate the holder's claim on every future season's minted Beans, drawn from the shared earnedBeans pool that belongs to honest stalkholders. This is the snapshot-consumer view of the replay defect; the replay/access-control root cause is owned by the access_control/logic specialists (DT-003).",
+      "location": {
+        "file": "contracts/beanstalk/silo/L2ContractMigrationFacet.sol",
+        "function": "setStalk / redeemDepositsAndInternalBalances",
+        "line_start": 205,
+        "line_end": 207,
+        "code_snippet": "function setStalk(address account, uint256 accountStalk, uint256 accountRoots) internal {\n        s.accts[account].stalk += accountStalk;\n        s.accts[account].roots += accountRoots;"
+      },
+      "impact": "An attacker (or any griefer) replays a victim's public migration proof N times, multiplying the reciever's roots and stalk by N. The inflated roots steal a proportionally larger share of every subsequent season's earned-Bean mint from honest stalkholders, and the inflated stalk distorts all Stalk-weighted accounting. With ownerRoots attacker-influenced only via the signed leaf, the cap is the deadline window and gas. Unbacked snapshot weight => earned-Bean theft.",
+      "proof_of_concept": "1) Victim/owner publishes a valid (proof, signature, ownerRoots) by calling redeem once (reciever = victim). 2) Attacker observes the calldata. 3) Before deadline, attacker re-calls redeemDepositsAndInternalBalances with the identical (owner, reciever, deposits, internalBalances, ownerRoots, proof, signature). verifyDepositsAndInternalBalances and verifySignature both pass (pure functions of the same inputs). setStalk adds ownerRoots again. 4) Repeat k times. Assert s.accts[reciever].roots before = R, after k replays = (k+1)*R. 5) Next sunrise mints E earned Beans; reciever's _balanceOfEarnedBeans share scales with its inflated roots, draining honest holders' share of E.",
+      "recommendation": "Record a per-leaf redeemed marker (e.g. mapping(bytes32 => bool) keyed by the Merkle leaf or by (owner)) and require(!redeemed) / set it before setStalk. Alternatively bind a nonce into the signed struct and consume it. This is the same fix surface as the access_control/logic replay finding (DT-003); coordinate to avoid duplicate submission.",
+      "confidence": "Medium",
+      "duplicate_of": "AC-DT-003",
+      "attack_surface_rank": 5,
+      "cross_agent_refs": [
+        "DT-003",
+        "CC-001"
+      ],
+      "critical_assumptions": [
+        "A redeemed-marker is not added by another facet or by diamondCut wiring before launch.",
+        "The deadline window is long enough to replay (signatures observed in mempool/history before deadline)."
+      ],
+      "ite": {
+        "intent": "Inflate a reciever's roots (earned-Bean snapshot share) and stalk without backing, stealing future earned Beans from honest stalkholders.",
+        "technique": "Replay the public (proof, signature, ownerRoots) of a redeem call; setStalk's `+=` on roots/stalk accumulates each replay (L2ContractMigrationFacet.sol#206-207); no spent marker exists.",
+        "evasion": "MerkleProof.verify + ECDSA.recover are deterministic on identical inputs and were the only guards; the intended one-shot redemption is not enforced by any stored state."
+      },
+      "ice_chain": {
+        "corrupted_state": "s.accts[reciever].roots and s.accts[reciever].stalk",
+        "consumer_found": true,
+        "consumer_function": "LibSilo._balanceOfEarnedBeans",
+        "consumer_action": "computes the reciever's claimable share of season-minted Beans from its roots; inflated roots steal the shared earnedBeans pool",
+        "severity_ceiling": "High",
+        "search_method": "manual_trace"
+      },
+      "soft_thread_match": [
+        {
+          "invariant_id": "ACC-006",
+          "note": "score-3 invariant covers same state vars (s.accts[account].stalk); not traced \u2014 consider manual review"
+        }
+      ]
+    }
+  ]
+}

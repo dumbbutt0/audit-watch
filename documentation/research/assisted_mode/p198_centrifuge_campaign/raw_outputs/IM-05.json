@@ -1,0 +1,27 @@
+{
+  "surface": "InvestmentManager.processRedeem",
+  "mechanism_inventory": [
+    "stale accounting snapshot — calculateRedeemPrice epoch-lagged NAV",
+    "missing invariant enforcement — maxRedeem decrement assumed in _redeem; replay if not atomic",
+    "wrong lifecycle ordering — no epoch-fulfilled check",
+    "access-control mismatch — auth gates liquidityPool",
+    "victim accounting direction — receiver and user independent params, not validated equal -> currency redirected while user's tokens burned",
+    "precision/packing edge — _toUint128 silent truncation of trancheTokenAmount",
+    "external-call DoS — _redeem currency transfer to receiver reverts -> blocked redemption"
+  ],
+  "selected_mechanisms": [
+    {"root_cause":"receiver caller-supplied with no check receiver==user; a permissioned/compromised liquidityPool calls processRedeem(amount, attacker, victim) -> victim maxRedeem consumed, currency to attacker","who_loses":"victim user","who_gains":"attacker receiver","why_carried":"receiver/user independent params, no equality check; auth only validates LP; High/Critical if LP compromisable"},
+    {"root_cause":"stale/epoch-inconsistent redeemPrice from calculateRedeemPrice -> wrong currencyAmount","who_loses":"escrow (over-pay) or redeemer (under-pay)","who_gains":"redeemer or protocol","why_carried":"epoch pricing lifecycle risk; calculateRedeemPrice body not shown"},
+    {"root_cause":"_toUint128 silent truncation of trancheTokenAmount -> require check vs maxRedeem on truncated value, escrow desync","who_loses":"protocol or user","who_gains":"redeemer if fewer tokens consumed than paid","why_carried":"_toUint128 no revert-on-overflow visible; different expression"}
+  ],
+  "unresolved_mechanisms": [
+    {"mechanism":"no epoch-fulfillment guard before redeem","unresolved_question":"does calculateRedeemPrice revert/0 if epoch unfulfilled? stale non-zero not caught","who_loses":"redeemer/protocol","status":"NEEDS_HARNESS"},
+    {"mechanism":"external-call DoS via receiver revert","unresolved_question":"UserEscrow safe-transfer? receiver changeable on retry?","who_loses":"user (blocked)","status":"NEEDS_HARNESS"}
+  ],
+  "rejected_mechanisms": [
+    {"mechanism":"reentrancy double-spend before maxRedeem decrement","claimed_locus":"orderbook maxRedeem vs _redeem","rejecting_source_fact":"no external call before _redeem in visible path; auth restricts callers to registered LPs","why_unexploitable":"re-entry vector not established within visible hops","leans_on_unproven_guard":true}
+  ],
+  "impact_direction":"redeemed currency diverted to attacker receiver while victim's tranche allocation consumed; victim loses real currency; compromised-LP precondition realistic in multi-pool arch",
+  "stop_condition":"more_mechanisms_pending: stale price + truncation + DoS unresolved",
+  "verdict":"HIGH_THREAD"
+}

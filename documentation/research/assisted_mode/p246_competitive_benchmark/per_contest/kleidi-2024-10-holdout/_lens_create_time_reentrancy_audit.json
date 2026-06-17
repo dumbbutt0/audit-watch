@@ -1,0 +1,78 @@
+{
+  "lens": "create_time_reentrancy",
+  "generated_at": "2026-06-09T00:42:56.701533+00:00",
+  "manifest": "audits/kleidi-2024-10-holdout/output/coverage_manifest.json",
+  "is_gate": false,
+  "research_only": true,
+  "routes_in_production": false,
+  "routed_manifest_ids": [],
+  "raw_candidates": 2,
+  "by_confidence": {
+    "high": 2
+  },
+  "high": 2,
+  "medium": 0,
+  "low": 0,
+  "candidates": [
+    {
+      "finding_shape": "create_time_reentrancy",
+      "confidence": "high",
+      "create_verb": "list",
+      "callback": ".call{",
+      "post_callback_commit": [
+        "++",
+        "storage"
+      ],
+      "explanation": "Timelock.executeWhitelisted is a 'list' create/registration flow that performs a callback-yielding interaction (.call{) BEFORE committing state (++, storage) and has no reentrancy guard. A reentrant call via the callback observes partially-initialized state (e.g. a stale per-address limit counter) and can bypass the invariant (nextgen H-01 class).",
+      "signals": {
+        "S1_create_verb": [
+          "list"
+        ],
+        "S2_callback": ".call{",
+        "S3_post_commit": [
+          "++",
+          "storage"
+        ],
+        "S4_no_guard": true
+      },
+      "contract": "Timelock",
+      "function": "executeWhitelisted",
+      "file": "audits/kleidi-2024-10-holdout/contracts/src/Timelock.sol",
+      "lens_id": "Timelock:executeWhitelisted:create_time_reentrancy",
+      "in_scope": true,
+      "manifest_id": "function:Timelock:executeWhitelisted#3323894d",
+      "file_line_refs": "audits/kleidi-2024-10-holdout/contracts/src/Timelock.sol:715",
+      "false_positive_controls": "four-signal (create-verb fn + callback-yielding interaction + state-commit AFTER callback (ordering) + no nonReentrant guard); guarded/CEI-correct suppressed; cross-contract stale-check + Seaport-mediated are blind spots"
+    },
+    {
+      "finding_shape": "create_time_reentrancy",
+      "confidence": "high",
+      "create_verb": "list",
+      "callback": ".call{",
+      "post_callback_commit": [
+        "++",
+        "storage"
+      ],
+      "explanation": "Timelock.executeWhitelistedBatch is a 'list' create/registration flow that performs a callback-yielding interaction (.call{) BEFORE committing state (++, storage) and has no reentrancy guard. A reentrant call via the callback observes partially-initialized state (e.g. a stale per-address limit counter) and can bypass the invariant (nextgen H-01 class).",
+      "signals": {
+        "S1_create_verb": [
+          "list"
+        ],
+        "S2_callback": ".call{",
+        "S3_post_commit": [
+          "++",
+          "storage"
+        ],
+        "S4_no_guard": true
+      },
+      "contract": "Timelock",
+      "function": "executeWhitelistedBatch",
+      "file": "audits/kleidi-2024-10-holdout/contracts/src/Timelock.sol",
+      "lens_id": "Timelock:executeWhitelistedBatch:create_time_reentrancy",
+      "in_scope": true,
+      "manifest_id": "function:Timelock:executeWhitelistedBatch#5daa1cf3",
+      "file_line_refs": "audits/kleidi-2024-10-holdout/contracts/src/Timelock.sol:733",
+      "false_positive_controls": "four-signal (create-verb fn + callback-yielding interaction + state-commit AFTER callback (ordering) + no nonReentrant guard); guarded/CEI-correct suppressed; cross-contract stale-check + Seaport-mediated are blind spots"
+    }
+  ]
+}

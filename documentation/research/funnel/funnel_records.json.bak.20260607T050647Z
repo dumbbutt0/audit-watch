@@ -1,0 +1,330 @@
+{
+  "schema_version": "funnel-1",
+  "research_only": true,
+  "review_only": true,
+  "routes_in_production": false,
+  "is_gate": false,
+  "note": "Read-only data for the Blind-to-Reproducible Funnel dashboard surface. Records are truthful transcriptions of the actual P81e/P82 research runs; the frozen artifacts under _p81e/ and _p82_h01_claim_poc/ are the source of truth and are NEVER mutated. Pipeline status is COMPUTED reject-first by scripts/funnel.py from the evidence below \u2014 a declared status is not trusted over the gate functions. The Vultisig H-01 record is the canonical seeded example/fixture; nothing here routes, submits, or sets production severity.",
+  "findings": [
+    {
+      "record_id": "vultisig-2024-06:H-01:ILOPool.claim",
+      "subject": "Vultisig 2024-06",
+      "phase_discovered": "P81e",
+      "finding_id": "H-01",
+      "contract": "ILOPool",
+      "function": "claim",
+      "blind_rank": 1,
+      "surface_score": 8,
+      "conversion": "CLEAN_HIT",
+      "mechanism_correctness": "correct",
+      "severity_gate": "passed",
+      "severity_fp_before_gate": false,
+      "severity_fp": false,
+      "adversarial_result": "PASS",
+      "safety": {
+        "source_false": false,
+        "unsupported_ready": false,
+        "hard_fail": false
+      },
+      "control": false,
+      "control_promoted_incorrectly": false,
+      "impact": "LPs other than the first claimant lose their share of accrued Uniswap fees (routed to feeTaker); once fees are material, later claims revert and vested funds are locked.",
+      "poc": {
+        "poc_status": "REPRODUCED",
+        "poc_phase": "P82",
+        "poc_artifact_dir": "documentation/research/_p82_h01_claim_poc",
+        "test_file": "documentation/research/_p82_h01_claim_poc/poc_test/H01ClaimFeeSiphon.t.sol",
+        "test_command": "forge test --match-test testH01_ClaimProceedsAreOrderIndependent -vv",
+        "vulnerable_result": "Test FAILS as intended: INVESTOR_2 claiming FIRST receives 15151 USDC; claiming SECOND (after INVESTOR) reverts and receives 0 \u2014 fees already swept to feeTaker.",
+        "patched_result": "PASS. Minimal patch collect(max,max) -> collect(uint128(amount0), uint128(amount1)) makes the order-independence invariant hold; source then restored.",
+        "unrelated_tests_result": "29/29 existing tests pass; only the PoC fails (the intended proof).",
+        "minimal_patch_validated": true,
+        "source_chain_complete": true,
+        "unsupported_claims_present": false,
+        "remaining_blockers": [],
+        "human_submission_ready": true
+      },
+      "submission": {
+        "submission_status": "READY_FOR_HUMAN_REVIEW",
+        "draft_path": "documentation/research/_p83_h01_submission/submission_draft.md",
+        "evidence_bundle_path": "documentation/research/_p83_h01_submission/evidence_bundle.md",
+        "pre_submission_gate_path": "documentation/research/_p83_h01_submission/pre_submission_gate.md",
+        "reviewer_notes_path": "documentation/research/_p83_h01_submission/reviewer_notes.md",
+        "duplicate_check_status": "PENDING",
+        "scope_check_status": "PENDING",
+        "severity_check_status": "SUPPORTED",
+        "final_human_gate": "PENDING"
+      },
+      "human_readiness": "P83 package built; READY_FOR_HUMAN_REVIEW. Only remaining blockers are external human checks (scope/program rules + duplicate status). Not auto-submitted.",
+      "blocker_reason": null,
+      "source_refs": {
+        "scores": "documentation/research/_p81e/scores.json",
+        "poc_freeze": "documentation/research/_p82_h01_claim_poc/_freeze/phase82_freeze.json",
+        "handoff_report": "documentation/research/_p82_h01_claim_poc/handoff_report.md"
+      }
+    },
+    {
+      "record_id": "vultisig-2024-06:H-02:Whitelist.receive",
+      "subject": "Vultisig 2024-06",
+      "phase_discovered": "P81e",
+      "finding_id": "H-02",
+      "contract": "Whitelist",
+      "function": "receive (self-whitelist)",
+      "blind_rank": 4,
+      "surface_score": 6,
+      "conversion": "ABSTAINED",
+      "mechanism_correctness": "not_named",
+      "severity_gate": "n/a",
+      "severity_fp_before_gate": false,
+      "severity_fp": false,
+      "adversarial_result": "n/a",
+      "safety": {
+        "source_false": false,
+        "unsupported_ready": false,
+        "hard_fail": false
+      },
+      "control": false,
+      "control_promoted_incorrectly": false,
+      "impact": "Surfaced as a lead but investigation abstained (NEEDS_CONTEXT); not converted.",
+      "blocker_reason": "Investigation abstained (NEEDS_CONTEXT) \u2014 honest miss, not promoted.",
+      "source_refs": {
+        "scores": "documentation/research/_p81e/scores.json"
+      }
+    },
+    {
+      "record_id": "vultisig-2024-06:H-03:ILOPool.launch",
+      "subject": "Vultisig 2024-06",
+      "phase_discovered": "P81e",
+      "finding_id": "H-03",
+      "contract": "ILOPool",
+      "function": "launch",
+      "blind_rank": 3,
+      "surface_score": 7,
+      "conversion": "ADJACENT",
+      "mechanism_correctness": "correct_under_rated",
+      "severity_gate": "demoted",
+      "severity_fp_before_gate": false,
+      "severity_fp": false,
+      "adversarial_result": "PASS",
+      "safety": {
+        "source_false": false,
+        "unsupported_ready": false,
+        "hard_fail": false
+      },
+      "control": false,
+      "control_promoted_incorrectly": false,
+      "impact": "Price-manipulation single-sided-liquidity DoS on launch; mechanism identified but blind reviewer under-rated as low griefing -> severity-demoted (judge=High).",
+      "blocker_reason": "Severity-gated: real DoS under-rated as transient griefing (honest false-demote, refinement signal).",
+      "source_refs": {
+        "scores": "documentation/research/_p81e/scores.json"
+      }
+    },
+    {
+      "record_id": "vultisig-2024-06:CTRL:ILOManager.setPerformanceFee",
+      "subject": "Vultisig 2024-06",
+      "phase_discovered": "P81e",
+      "finding_id": null,
+      "contract": "ILOManager",
+      "function": "setPerformanceFee",
+      "blind_rank": null,
+      "surface_score": 8,
+      "conversion": "REJECTED",
+      "mechanism_correctness": "n/a",
+      "severity_gate": "n/a",
+      "severity_fp_before_gate": false,
+      "severity_fp": false,
+      "adversarial_result": "n/a",
+      "safety": {
+        "source_false": false,
+        "unsupported_ready": false,
+        "hard_fail": false
+      },
+      "control": true,
+      "control_promoted_incorrectly": false,
+      "impact": "Privileged onlyOwner setter \u2014 control lead, correctly REJECTED by B/C (A over-promoted; B/C 0 FP).",
+      "blocker_reason": "Privileged-only control, rejected (correct).",
+      "source_refs": {
+        "scores": "documentation/research/_p81e/scores.json"
+      }
+    },
+    {
+      "record_id": "munchables-2024-07:P85-H05:LandManager.transferToUnoccupiedPlot",
+      "subject": "munchables-2024-07",
+      "phase_discovered": "P85",
+      "finding_id": "P85-H05 (= awarded H-05)",
+      "contract": "LandManager",
+      "function": "transferToUnoccupiedPlot",
+      "blind_rank": null,
+      "surface_score": 1,
+      "conversion": "CLEAN_HIT",
+      "mechanism_correctness": "correct",
+      "severity_gate": "passed",
+      "severity_fp_before_gate": false,
+      "severity_fp": false,
+      "adversarial_result": "PASS",
+      "safety": {
+        "source_false": false,
+        "unsupported_ready": false,
+        "hard_fail": false
+      },
+      "control": false,
+      "control_promoted_incorrectly": false,
+      "impact": "dirty flag never reset when a token returns to a valid plot -> permanent loss of renter reward accrual (awarded High H-05).",
+      "poc": {
+        "poc_status": "NOT_STARTED",
+        "poc_phase": "P85",
+        "poc_artifact_dir": "documentation/research/_p85_munchables/poc_handoff_H05",
+        "test_file": "documentation/research/_p85_munchables/poc_handoff_H05/LandManagerTransferToUnoccupiedPlotPoC.t.sol",
+        "source_chain_complete": false,
+        "human_submission_ready": false
+      },
+      "submission": {
+        "submission_status": "NOT_STARTED"
+      },
+      "human_readiness": "P85 blind CLEAN_HIT; P84 reject-first scaffold generated (DO_NOT_SUBMIT). Executable PoC NOT yet reproduced. Not submitted.",
+      "blocker_reason": "PoC scaffold only \u2014 executable reproduction not yet built (needs full Munchables harness mocks).",
+      "source_refs": {
+        "scores": "documentation/research/_p85_munchables/scores.json",
+        "poc_freeze": "documentation/research/_p85_munchables/poc_handoff_H05/funnel_record.json"
+      }
+    },
+    {
+      "record_id": "traitforge-2024-07:P87-H01:TraitForgeNft.mintWithBudget",
+      "subject": "traitforge-2024-07",
+      "phase_discovered": "P87",
+      "finding_id": "P87-H01 (= awarded H-01)",
+      "contract": "TraitForgeNft",
+      "function": "mintWithBudget",
+      "blind_rank": null,
+      "surface_score": 6,
+      "conversion": "CLEAN_HIT",
+      "mechanism_correctness": "correct_severity_under_rated",
+      "severity_gate": "passed",
+      "severity_fp_before_gate": false,
+      "severity_fp": false,
+      "adversarial_result": "PASS",
+      "safety": {
+        "source_false": false,
+        "unsupported_ready": false,
+        "hard_fail": false
+      },
+      "control": false,
+      "control_promoted_incorrectly": false,
+      "impact": "mintWithBudget loop guard uses global _tokenIds vs per-gen maxTokensPerGen -> budget-mint path bricked after 10000 (awarded High H-01; blind-rated Medium = under-rated).",
+      "poc": {
+        "poc_status": "NOT_STARTED",
+        "poc_phase": "P87",
+        "poc_artifact_dir": "documentation/research/_p87_traitforge/poc_handoff_H01",
+        "test_file": "documentation/research/_p87_traitforge/poc_handoff_H01/TraitForgeNftMintWithBudgetPoC.t.sol",
+        "source_chain_complete": false,
+        "human_submission_ready": false
+      },
+      "submission": {
+        "submission_status": "NOT_STARTED"
+      },
+      "human_readiness": "P87 blind CLEAN_HIT (H-01); P84 reject-first scaffold generated (DO_NOT_SUBMIT). Executable PoC NOT reproduced. Not submitted. Severity blind-rated Medium vs awarded High.",
+      "blocker_reason": "PoC scaffold only; P84 type is a closest-fit placeholder (no validation-liveness type).",
+      "source_refs": {
+        "scores": "documentation/research/_p87_traitforge/scores.json"
+      }
+    },
+    {
+      "record_id": "phi-2024-08:P89-H05:Cred._addCredIdPerAddress",
+      "subject": "phi-2024-08",
+      "phase_discovered": "P89",
+      "finding_id": "P89-H05 (= awarded H-05)",
+      "contract": "Cred",
+      "function": "_addCredIdPerAddress",
+      "blind_rank": null,
+      "surface_score": 5,
+      "conversion": "CLEAN_HIT",
+      "mechanism_correctness": "correct_severity_under_rated",
+      "severity_gate": "passed",
+      "severity_fp_before_gate": false,
+      "severity_fp": false,
+      "adversarial_result": "PASS",
+      "safety": {
+        "source_false": false,
+        "unsupported_ready": false,
+        "hard_fail": false
+      },
+      "control": false,
+      "control_promoted_incorrectly": false,
+      "impact": "public _add/_removeCredIdPerAddress (no auth) -> anyone corrupts any address's cred-list -> sell-DoS/bookkeeping corruption (awarded High; blind-rated Medium).",
+      "poc": {
+        "poc_status": "NOT_STARTED",
+        "poc_phase": "P89",
+        "poc_artifact_dir": "documentation/research/_p89_phi/poc_handoff_H05",
+        "test_file": "documentation/research/_p89_phi/poc_handoff_H05/CredAddCredIdPerAddressPoC.t.sol",
+        "source_chain_complete": false,
+        "human_submission_ready": false
+      },
+      "submission": {
+        "submission_status": "NOT_STARTED"
+      },
+      "human_readiness": "P89 blind CLEAN_HIT (H-05); P84 reject-first scaffold (DO_NOT_SUBMIT). No executable PoC reproduced. Not submitted. Severity blind-rated Medium vs awarded High.",
+      "blocker_reason": "PoC scaffold only; access_control_privileged type is a good fit (no taxonomy gap).",
+      "source_refs": {
+        "scores": "documentation/research/_p89_phi/scores.json"
+      }
+    },
+    {
+      "record_id": "secondswap-2024-12:ASSISTED-M11:SecondSwap_VestingManager.listVesting",
+      "subject": "secondswap-2024-12",
+      "phase_discovered": "P98",
+      "finding_id": "ASSISTED-M11",
+      "contract": "SecondSwap_VestingManager",
+      "function": "listVesting",
+      "source": "assisted",
+      "supplied_by": "human",
+      "candidate_invariant": "A vesting/listing holder must not be able to bypass or exceed the intended maxSellPercent restriction through sale/listing/claim state transitions, schedule inheritance, or accounting paths.",
+      "assisted_validation_status": "VALIDATED_FOR_POC_HANDOFF",
+      "requested_check": "VALIDATE",
+      "conversion": "STRONG_PARTIAL",
+      "mechanism_correctness": "human-supplied invariant; PASS_CANDIDATE confirmed by adversarial ordering",
+      "severity_gate": "passed",
+      "severity_fp_before_gate": false,
+      "severity_fp": false,
+      "adversarial_result": "PASS",
+      "safety": {"source_false": false, "unsupported_ready": false, "hard_fail": false},
+      "impact": "Medium — maxSellPercent cap bypassable via SELF-PURCHASE `bought`-inflation (single holder buys their own public listing; completePurchase credits bought unconditionally; bought added 100% to sellLimit). Source-derived under a human-supplied invariant; the autonomous P97 run false-rejected this.",
+      "human_readiness": "P98 assisted-mode pilot: VALIDATED_FOR_POC_HANDOFF then REPRODUCED. NOT a blind discovery — the correct invariant was supplied by a human; mechanism source-derived then proven executably. Foundry PoC on the real in-scope contracts (Marketplace.sol hash 80573b863544a3 = P97 frozen): self-purchase allowed (no buyer!=seller check) -> bought inflates -> sold reaches full allocation A (5x the 20% cap); external buyer receives real tokens. Minimal patch (require msg.sender != listing.seller) validated: self-purchase reverts, third-party purchase still works; source restored + hash re-verified. Not submitted — human scope/duplicate review pending.",
+      "blocker_reason": "human scope/duplicate/severity review pending before any submission.",
+      "poc": {
+        "poc_status": "REPRODUCED",
+        "poc_phase": "P98-pilot",
+        "poc_artifact_dir": "documentation/research/assisted_mode/pilot_m11",
+        "test_file": "documentation/research/assisted_mode/pilot_m11/M11SelfPurchasePoC.t.sol",
+        "test_command": "forge test --match-test test_M11_SelfPurchaseInflatesBoughtAndBypassesMaxSellPercent -vv",
+        "vulnerable_result": "PASS — self-purchase allowed; bought credited; sold reached full allocation (5x maxSellPercent cap); external buyer received real tokens",
+        "patched_result": "PASS — minimal _validatePurchase buyer!=seller guard makes self-purchase revert; third-party purchase unaffected",
+        "unrelated_tests_result": "n/a — repo's own suite is hardhat/TS; PoC is a self-contained local Foundry fixture (no in-scope contract modified except the temporary patch, then restored)",
+        "minimal_patch_validated": true,
+        "source_chain_complete": true,
+        "unsupported_claims_present": false,
+        "human_submission_ready": false
+      },
+      "submission": {
+        "submission_status": "READY_FOR_HUMAN_REVIEW",
+        "draft_path": "documentation/research/assisted_mode/pilot_m11/submission_package/submission_draft.md",
+        "evidence_bundle_path": "documentation/research/assisted_mode/pilot_m11/submission_package/evidence_bundle.md",
+        "pre_submission_gate_path": "documentation/research/assisted_mode/pilot_m11/submission_package/pre_submission_gate.md",
+        "reviewer_notes_path": "documentation/research/assisted_mode/pilot_m11/submission_package/reviewer_notes.md",
+        "duplicate_check_status": "PENDING",
+        "scope_check_status": "PENDING",
+        "severity_check_status": "SUPPORTED",
+        "final_human_gate": "PENDING"
+      },
+      "human_readiness_note": "READY_FOR_HUMAN_REVIEW: source+PoC backed package assembled; only human scope/duplicate/program-rule checks remain. NOT submitted; assisted-mode (human-supplied invariant), not autonomous discovery.",
+      "source_refs": {
+        "intake": "documentation/research/assisted_mode/pilot_m11/intake.json",
+        "decision": "documentation/research/assisted_mode/pilot_m11/bundle/decision.json",
+        "handoff": "documentation/research/assisted_mode/pilot_m11/handoff/funnel_record.json",
+        "poc_test": "documentation/research/assisted_mode/pilot_m11/M11SelfPurchasePoC.t.sol",
+        "poc_run_output": "documentation/research/assisted_mode/pilot_m11/poc_run_output.txt",
+        "bug_chain": "documentation/research/assisted_mode/pilot_m11/bug_chain.md",
+        "submission_package": "documentation/research/assisted_mode/pilot_m11/submission_package/"
+      }
+    }
+  ]
+}

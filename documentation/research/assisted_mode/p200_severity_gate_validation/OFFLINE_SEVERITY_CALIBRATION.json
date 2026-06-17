@@ -1,0 +1,700 @@
+{
+  "_meta": {
+    "phase": "P200",
+    "eval_harness_only": true,
+    "routes_in_production": false,
+    "note": "Offline P199 discriminator applied to FROZEN blind outputs, answer-key-blind. FREEZE 2."
+  },
+  "calibration": [
+    {
+      "id": "predy-01",
+      "surface": "trade (PredyPool.sol)",
+      "area": "trade entry / value-flow / reentrancy",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "NEEDS_HARNESS_FOR_SEVERITY",
+      "rubric": {
+        "label": "NEEDS_HARNESS_FOR_SEVERITY",
+        "value_path": "vault-takeover/theft",
+        "permissionless": true,
+        "magnitude": "unproven",
+        "reachability": "conditional_on_unseen",
+        "permanence": "n/a",
+        "rationale": "Theft claim rests on createOrGetVault having no owner check \u2014 that function is NOT in the shown file; reachability conditional on unseen GlobalData code. Reject-first: unproven reachability -> harness."
+      },
+      "keyword_signal_supplementary": {
+        "category": "value_extraction",
+        "label": "HIGH_CONFIRMED",
+        "permissionless": true,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [
+            "drain",
+            "bad debt",
+            "drained",
+            "absorbs",
+            "absorb",
+            "unauthorized vault"
+          ],
+          "dos_griefing": [],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "unprivileged",
+            "any caller",
+            "not admin-only"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": []
+        }
+      }
+    },
+    {
+      "id": "predy-02",
+      "surface": "reallocate (PredyPool.sol)",
+      "area": "reallocation accounting",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "MEDIUM_OR_LOWER_CALIBRATED",
+      "rubric": {
+        "label": "MEDIUM_OR_LOWER_CALIBRATED",
+        "value_path": "griefing/adversarial-timing",
+        "permissionless": true,
+        "magnitude": "bounded",
+        "reachability": "executable",
+        "permanence": "recoverable",
+        "rationale": "Primary impact = permissionless reallocate causing LP fee-loss via adversarial timing + settlement DoS ('may simply grief'). Griefing/MEV-timing, not proven theft -> Medium."
+      },
+      "keyword_signal_supplementary": {
+        "category": "precision",
+        "label": "MEDIUM_OR_LOWER_CALIBRATED",
+        "permissionless": true,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [],
+          "dos_griefing": [
+            "dos",
+            "grief"
+          ],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "any eoa",
+            "unprivileged",
+            "no role",
+            "not admin-only"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": []
+        }
+      }
+    },
+    {
+      "id": "predy-03",
+      "surface": "execLiquidationCall (PredyPool.sol)",
+      "area": "liquidation entry",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "NEEDS_HARNESS_FOR_SEVERITY",
+      "rubric": {
+        "label": "NEEDS_HARNESS_FOR_SEVERITY",
+        "value_path": "over-liquidation/theft",
+        "permissionless": true,
+        "magnitude": "unproven",
+        "reachability": "conditional_on_unseen",
+        "permanence": "n/a",
+        "rationale": "Agent itself: 'burden of proof ... belongs to harness review \u2014 source of that library not provided'. closeRatio bound unproven from shown source -> harness."
+      },
+      "keyword_signal_supplementary": {
+        "category": "indeterminate",
+        "label": "NEEDS_HARNESS_FOR_SEVERITY",
+        "permissionless": true,
+        "harness_conditional": true,
+        "signals": {
+          "value_extraction": [],
+          "dos_griefing": [],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "any eoa",
+            "unprivileged",
+            "no role",
+            "no privileged",
+            "not admin-gated"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": [
+            "not provided",
+            "burden of proof",
+            "source of that library",
+            "belongs to harness"
+          ]
+        }
+      }
+    },
+    {
+      "id": "predy-04",
+      "surface": "supply / withdraw (PredyPool.sol)",
+      "area": "supply accounting",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "NEEDS_HARNESS_FOR_SEVERITY",
+      "rubric": {
+        "label": "NEEDS_HARNESS_FOR_SEVERITY",
+        "value_path": "share-inflation/stale-rate theft",
+        "permissionless": true,
+        "magnitude": "unproven",
+        "reachability": "conditional_on_unseen",
+        "permanence": "n/a",
+        "rationale": "Stale-rate and first-depositor inflation both conditioned on unseen SupplyLogic ('accrual ordering cannot be confirmed'); generic pattern asserted without mint math -> harness."
+      },
+      "keyword_signal_supplementary": {
+        "category": "value_extraction",
+        "label": "NEEDS_HARNESS_FOR_SEVERITY",
+        "permissionless": true,
+        "harness_conditional": true,
+        "signals": {
+          "value_extraction": [
+            "drain",
+            "drained",
+            "more shares than",
+            "excess tokens",
+            "absorbs",
+            "absorb"
+          ],
+          "dos_griefing": [],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "unprivileged",
+            "no role",
+            "no admin"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": [
+            "not shown",
+            "cannot be confirmed"
+          ]
+        }
+      }
+    },
+    {
+      "id": "predy-05",
+      "surface": "take (onlyByLocker) (PredyPool.sol)",
+      "area": "locker auth / value-flow",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "NEEDS_HARNESS_FOR_SEVERITY",
+      "rubric": {
+        "label": "NEEDS_HARNESS_FOR_SEVERITY",
+        "value_path": "pool-drain/theft",
+        "permissionless": true,
+        "magnitude": "unproven",
+        "reachability": "conditional_on_unseen",
+        "permanence": "n/a",
+        "rationale": "Agent: entitlement cap 'depends entirely on globalData.take() internals, which are not visible'. Drain conditional on unseen code -> harness."
+      },
+      "keyword_signal_supplementary": {
+        "category": "value_extraction",
+        "label": "NEEDS_HARNESS_FOR_SEVERITY",
+        "permissionless": true,
+        "harness_conditional": true,
+        "signals": {
+          "value_extraction": [
+            "drain",
+            "drained"
+          ],
+          "dos_griefing": [],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "any caller",
+            "not admin-only"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": [
+            "not visible",
+            "cannot be ruled out",
+            "internals, which are not",
+            "depends entirely on"
+          ]
+        }
+      }
+    },
+    {
+      "id": "predy-06",
+      "surface": "liquidate / checkVaultIsDanger (libraries/logic/LiquidationLogic.sol)",
+      "area": "liquidation / solvency",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "MEDIUM_OR_LOWER_CALIBRATED",
+      "rubric": {
+        "label": "MEDIUM_OR_LOWER_CALIBRATED",
+        "value_path": "DoS/griefing (recipient revert)",
+        "permissionless": true,
+        "magnitude": "bounded",
+        "reachability": "executable",
+        "permanence": "recoverable",
+        "rationale": "Primary selected = vault.recipient revert bricks liquidation (DoS/griefing); secondary partial-close bad-debt is bounded/conditional. DoS-dominant -> Medium."
+      },
+      "keyword_signal_supplementary": {
+        "category": "value_extraction",
+        "label": "MEDIUM_OR_LOWER_CALIBRATED",
+        "permissionless": false,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [
+            "insolvent",
+            "bad debt"
+          ],
+          "dos_griefing": [
+            "dos",
+            "griefing",
+            "grief",
+            "brick",
+            "bricked",
+            "cannot be liquidated",
+            "permanent griefing"
+          ],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless"
+          ],
+          "admin_trusted": [
+            "admin key"
+          ],
+          "harness_conditional_primary": []
+        }
+      }
+    },
+    {
+      "id": "predy-07",
+      "surface": "isLiquidatable / calculateMinMargin (libraries/PositionCalculator.sol)",
+      "area": "solvency math",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "HIGH_CONFIRMED",
+      "rubric": {
+        "label": "HIGH_CONFIRMED",
+        "value_path": "oracle-no-staleness -> insolvency/wrongful-liq",
+        "permissionless": true,
+        "magnitude": "material",
+        "reachability": "executable",
+        "permanence": "permanent",
+        "rationale": "Missing staleness/deviation guard on getSqrtIndexPrice/external price IS visible in shown source; insolvency or wrongful-liquidation, permissionless. Matches P199 genuine-High oracle class."
+      },
+      "keyword_signal_supplementary": {
+        "category": "value_extraction",
+        "label": "MEDIUM_OR_LOWER_CALIBRATED",
+        "permissionless": false,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [
+            "insolvent",
+            "bad debt",
+            "fund loss"
+          ],
+          "dos_griefing": [],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "no privileged"
+          ],
+          "admin_trusted": [
+            "privileged keys needed"
+          ],
+          "harness_conditional_primary": []
+        }
+      }
+    },
+    {
+      "id": "predy-08",
+      "surface": "trade / callTradeAfterCallback (libraries/logic/TradeLogic.sol)",
+      "area": "settlement callback / reentrancy",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "HIGH_CONFIRMED",
+      "rubric": {
+        "label": "HIGH_CONFIRMED",
+        "value_path": "unchecked hook + checkSafe-after-callback -> theft",
+        "permissionless": true,
+        "magnitude": "material",
+        "reachability": "executable",
+        "permanence": "permanent",
+        "rationale": "IHooks(msg.sender) cast with no whitelist and checkSafe AFTER external callback both visible in shown source -> reentrancy/phantom-margin. (Caveat: callback-to-caller may be by design \u2014 flagged.)"
+      },
+      "keyword_signal_supplementary": {
+        "category": "value_extraction",
+        "label": "HIGH_CONFIRMED",
+        "permissionless": true,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [
+            "drain",
+            "lose funds",
+            "inflated margin"
+          ],
+          "dos_griefing": [],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "any eoa",
+            "unprivileged",
+            "no role",
+            "no privileged",
+            "any contract that",
+            "no admin"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": []
+        }
+      }
+    },
+    {
+      "id": "predy-09",
+      "surface": "getSqrtPrice (PriceFeed.sol)",
+      "area": "Pyth oracle",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "HIGH_CONFIRMED",
+      "rubric": {
+        "label": "HIGH_CONFIRMED",
+        "value_path": "Chainlink-no-staleness -> mispricing/insolvency",
+        "permissionless": true,
+        "magnitude": "material",
+        "reachability": "executable",
+        "permanence": "permanent",
+        "rationale": "latestRoundData destructured to quoteAnswer only, single require(>0), no updatedAt/answeredInRound \u2014 visible in shown source. Classic High oracle staleness."
+      },
+      "keyword_signal_supplementary": {
+        "category": "value_extraction",
+        "label": "HIGH_CONFIRMED",
+        "permissionless": true,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [
+            "extract value",
+            "bad debt",
+            "lose funds"
+          ],
+          "dos_griefing": [],
+          "precision": [
+            "dust",
+            "1 wei"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "no privileged",
+            "any user"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": []
+        }
+      }
+    },
+    {
+      "id": "predy-10",
+      "surface": "getSqrtTWAP / callUniswapObserve (libraries/UniHelper.sol)",
+      "area": "Uniswap TWAP oracle",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "HIGH_CONFIRMED",
+      "rubric": {
+        "label": "HIGH_CONFIRMED",
+        "value_path": "TWAP->spot manipulation -> insolvency",
+        "permissionless": true,
+        "magnitude": "material",
+        "reachability": "executable",
+        "permanence": "permanent",
+        "rationale": "Fallback to oldest observation with no minimum window IS visible; TWAP degrades to manipulable spot, flash-swap permissionless -> under-collateralized borrow."
+      },
+      "keyword_signal_supplementary": {
+        "category": "value_extraction",
+        "label": "HIGH_CONFIRMED",
+        "permissionless": true,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [
+            "drain",
+            "lose funds",
+            "drained"
+          ],
+          "dos_griefing": [
+            "blocking legitimate"
+          ],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "unprivileged",
+            "no privileged"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": []
+        }
+      }
+    },
+    {
+      "id": "predy-11",
+      "surface": "checkPrice (libraries/SlippageLib.sol)",
+      "area": "slippage / MEV",
+      "blind_verdict": "MEDIUM_THREAD",
+      "calibrated_label": "MEDIUM_OR_LOWER_CALIBRATED",
+      "rubric": {
+        "label": "MEDIUM_OR_LOWER_CALIBRATED",
+        "value_path": "bounded MEV / sandwich",
+        "permissionless": true,
+        "magnitude": "bounded",
+        "reachability": "speculative",
+        "permanence": "per-trade",
+        "rationale": "Agent verdict MEDIUM; short/long bound-label inversion is speculative ('if convention is opposite'); impact bounded per-trade MEV. Reject-first keeps Medium (must NOT promote)."
+      },
+      "keyword_signal_supplementary": {
+        "category": "value_extraction",
+        "label": "HIGH_CONFIRMED",
+        "permissionless": true,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [
+            "extracts the difference"
+          ],
+          "dos_griefing": [],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "no privileged",
+            "any user",
+            "no admin"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": []
+        }
+      }
+    },
+    {
+      "id": "predy-12",
+      "surface": "execSettlement / sell / buy (base/SettlementCallbackLib.sol)",
+      "area": "settlement value flow",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "HIGH_CONFIRMED",
+      "rubric": {
+        "label": "HIGH_CONFIRMED",
+        "value_path": "settlement accounting shortfall -> direct pool loss",
+        "permissionless": true,
+        "magnitude": "material",
+        "reachability": "executable",
+        "permanence": "permanent",
+        "rationale": "buy() returns maxQuoteAmount-quoteAmount (not -quoteAmountToUni) \u2014 arithmetic VISIBLE and traced concretely in shown source; pool short by quoteAmount-quoteAmountToUni, filler permissionless."
+      },
+      "keyword_signal_supplementary": {
+        "category": "value_extraction",
+        "label": "HIGH_CONFIRMED",
+        "permissionless": true,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [
+            "fund loss",
+            "pool is short",
+            "pool loss",
+            "net short",
+            "shortchanged",
+            "surplus quote"
+          ],
+          "dos_griefing": [],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "not admin-gated"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": []
+        }
+      }
+    },
+    {
+      "id": "predy-13",
+      "surface": "_executeTrade / _verifyOrder (markets/gamma/GammaTradeMarket.sol)",
+      "area": "order auth / signature",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "NEEDS_HARNESS_FOR_SEVERITY",
+      "rubric": {
+        "label": "NEEDS_HARNESS_FOR_SEVERITY",
+        "value_path": "filler-whitelist bypass (auth)",
+        "permissionless": true,
+        "magnitude": "unproven",
+        "reachability": "executable",
+        "permanence": "n/a",
+        "rationale": "minMargin==0 filler-check-after-trade ordering IS visible, but the fund-loss magnitude of executing a validly-signed order as non-filler is unproven (front-run/forced-liq speculative) -> harness, not auto-High."
+      },
+      "keyword_signal_supplementary": {
+        "category": "indeterminate",
+        "label": "NEEDS_HARNESS_FOR_SEVERITY",
+        "permissionless": true,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [],
+          "dos_griefing": [],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "unprivileged",
+            "any caller",
+            "no special role"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": []
+        }
+      }
+    },
+    {
+      "id": "predy-14",
+      "surface": "executeOrderV3 / _verifyOrderV3 (markets/perp/PerpMarketV1.sol)",
+      "area": "perp order auth",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "NEEDS_HARNESS_FOR_SEVERITY",
+      "rubric": {
+        "label": "NEEDS_HARNESS_FOR_SEVERITY",
+        "value_path": "filler bypass + verify-after-execute",
+        "permissionless": true,
+        "magnitude": "unproven",
+        "reachability": "executable",
+        "permanence": "n/a",
+        "rationale": "Same filler-ordering as predy-13 plus verify-after-execute; cost-pulled-post-trade fund-loss conditioned on price manipulation (unproven). Auth bug visible, magnitude unproven -> harness."
+      },
+      "keyword_signal_supplementary": {
+        "category": "indeterminate",
+        "label": "NEEDS_HARNESS_FOR_SEVERITY",
+        "permissionless": true,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [
+            "lose funds"
+          ],
+          "dos_griefing": [],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "any eoa",
+            "unprivileged"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": []
+        }
+      }
+    },
+    {
+      "id": "predy-15",
+      "surface": "decay / decay2 (libraries/orders/DecayLib.sol)",
+      "area": "dutch-auction pricing",
+      "blind_verdict": "MEDIUM_THREAD",
+      "calibrated_label": "MEDIUM_OR_LOWER_CALIBRATED",
+      "rubric": {
+        "label": "MEDIUM_OR_LOWER_CALIBRATED",
+        "value_path": "precision truncation + overflow DoS",
+        "permissionless": true,
+        "magnitude": "dust/bounded",
+        "reachability": "executable",
+        "permanence": "per-trade",
+        "rationale": "Agent verdict MEDIUM; division-truncation bias (dust) + overflow DoS. Precision/DoS -> Medium."
+      },
+      "keyword_signal_supplementary": {
+        "category": "precision",
+        "label": "MEDIUM_OR_LOWER_CALIBRATED",
+        "permissionless": true,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [],
+          "dos_griefing": [
+            "dos",
+            "liveness"
+          ],
+          "precision": [
+            "truncation",
+            "truncate",
+            "truncates",
+            "rounding",
+            "precision",
+            "dust",
+            "systematic rounding"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "unprivileged",
+            "any market participant",
+            "not admin-only"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": []
+        }
+      }
+    },
+    {
+      "id": "predy-16",
+      "surface": "reallocate / settleUserBalance (libraries/Perp.sol)",
+      "area": "share/interest accounting",
+      "blind_verdict": "HIGH_THREAD",
+      "calibrated_label": "HIGH_CONFIRMED",
+      "rubric": {
+        "label": "HIGH_CONFIRMED",
+        "value_path": "rebalance pool-can-go-negative -> insolvency",
+        "permissionless": true,
+        "magnitude": "material",
+        "reachability": "executable",
+        "permanence": "permanent",
+        "rationale": "settleUserBalance debits shared rebalance pool with no balance check (pool can go negative) + stale-index settle \u2014 both visible in the shown span; solvency break / fund mis-allocation, permissionless."
+      },
+      "keyword_signal_supplementary": {
+        "category": "value_extraction",
+        "label": "HIGH_CONFIRMED",
+        "permissionless": true,
+        "harness_conditional": false,
+        "signals": {
+          "value_extraction": [
+            "over-credited"
+          ],
+          "dos_griefing": [],
+          "precision": [
+            "dust"
+          ],
+          "compliance_local": [],
+          "permissionless_pos": [
+            "permissionless",
+            "any user"
+          ],
+          "admin_trusted": [],
+          "harness_conditional_primary": []
+        }
+      }
+    }
+  ]
+}
