@@ -1,51 +1,322 @@
 {
   "audit_id": "secondswap-2024-12-blind",
   "set": "holdout",
-  "language": "solidity",
-  "generated_at": "2026-06-12",
-  "awarded_source": "code4rena.com/reports/2024-12-secondswap (3H/20M)",
+  "generated_at": "2026-06-17T22:29:09Z",
+  "awarded_source": "report.md",
   "auto_heuristic": false,
-  "_do_not_auto_overwrite": "Hand-adjudicated GENUINE-BLIND FULL-COVERAGE cold pass (7/7). Counts + scope peeked; titles SEALED on code4rena until reveal. NOTE: code carried prior-audit remediation comments (inherent, not the C4 key). Cutoff waived.",
   "awarded": [
-    {"id": "H-01", "severity": "High", "title": "Vesting listing order affects claimable amounts at given steps", "label": "SAME_AREA", "read_file": true, "mechanism_class": "vesting-merge-stepsclaimed-ignored", "source": "human", "matched_candidate": "SS-05", "note": "SAME_AREA: same transferVesting/_createVesting stepsClaimed-merge cluster my SS-05 flagged (schedule drift from uniform stepsClaimed)."},
-    {"id": "H-02", "severity": "High", "title": "transferVesting creates incorrect vesting due to uniform stepsClaimed across sales", "label": "STRONG", "read_file": true, "mechanism_class": "vesting-merge-stepsclaimed-ignored", "source": "human", "matched_candidate": "SS-05", "note": "STRONG exact: my SS-05 named it — merging a transfer into an existing vesting ignores the incoming stepsClaimed, so sales share a uniform stepsClaimed and the schedule is wrong."},
-    {"id": "H-03", "severity": "High", "title": "Incorrect releaseRate calculation in transferVesting allows unlocking more tokens than locked", "label": "SAME_AREA", "read_file": true, "mechanism_class": "vesting-merge-stepsclaimed-ignored", "source": "human", "matched_candidate": "SS-05", "note": "SAME_AREA: my SS-05 flagged the releaseRate recompute on merge (using existing stepsClaimed); H-03 is the 'unlock more than locked' consequence of that miscalc."},
-    {"id": "M-01", "severity": "Medium", "title": "Incorrect listing type validation bypasses minimum purchase amount", "label": "MISSED", "read_file": true, "mechanism_class": "listing-type-validation", "source": "human"},
-    {"id": "M-02", "severity": "Medium", "title": "Discounted listings cannot be purchased due to rounding to zero baseAmount", "label": "MISSED", "read_file": true, "mechanism_class": "baseamount-rounding-zero", "source": "human", "note": "MISS: distinct from my SS-04 (discountPct underflow) — this is baseAmount=amount*price/10^decimals rounding to 0; I saw the prior-audit '3.1 rounding' comment but didn't raise it as my own finding."},
-    {"id": "M-03", "severity": "Medium", "title": "No mechanism to remove tokens from whitelist after depeg", "label": "SAME_AREA", "read_file": true, "mechanism_class": "missing-token-validation", "source": "human", "matched_candidate": "SS-06", "note": "SAME_AREA: same addCoin currency-management weakness my SS-06 flagged (no validation / no removal path)."},
-    {"id": "M-04", "severity": "Medium", "title": "Multiple vesting plan creators can affect each other's plans", "label": "STRONG", "read_file": true, "mechanism_class": "wrong-mapping-key-ownership", "source": "human", "matched_candidate": "SS-01", "note": "STRONG: my SS-01 named it — setTokenOwner keys uniqueness on the owner slot not the token, so multiple owners map to one token and can affect each other's plans."},
-    {"id": "M-05", "severity": "Medium", "title": "Price granularity limited by payment token decimals", "label": "MISSED", "read_file": true, "mechanism_class": "decimals-price-granularity", "source": "human"},
-    {"id": "M-06", "severity": "Medium", "title": "Underflow in claimable function DOS's claim after full vesting period", "label": "STRONG", "read_file": true, "mechanism_class": "step-underflow", "source": "human", "matched_candidate": "SS-07", "note": "STRONG: my SS-07 named the claimableSteps = currentStep - stepsClaimed underflow that bricks claim()."},
-    {"id": "M-07", "severity": "Medium", "title": "Dynamic fees unknown before purchase", "label": "MISSED", "read_file": true, "mechanism_class": "fee-transparency", "source": "human"},
-    {"id": "M-08", "severity": "Medium", "title": "Outdated penalty fee charged if fee modified since listing", "label": "MISSED", "read_file": true, "mechanism_class": "stale-param-at-action", "source": "human"},
-    {"id": "M-09", "severity": "Medium", "title": "Users prevent reallocation by listing to marketplace", "label": "MISSED", "read_file": true, "mechanism_class": "listing-blocks-realloc", "source": "human"},
-    {"id": "M-10", "severity": "Medium", "title": "Already-vested tokens can be transferred from users", "label": "MISSED", "read_file": true, "mechanism_class": "transfer-includes-vested", "source": "human", "note": "MISS: transferVesting checks totalAmount-amountClaimed>=amount but lets already-claimable tokens be moved (prior '3.8' comment area); read it, didn't raise."},
-    {"id": "M-11", "severity": "Medium", "title": "maxSellPercent bypassed by selling previously purchased vestings later", "label": "MISSED", "read_file": true, "mechanism_class": "maxsell-bypass-via-bought", "source": "human", "note": "MISS: I noted bought tokens become re-sellable but didn't flag the maxSellPercent bypass."},
-    {"id": "M-12", "severity": "Medium", "title": "Unauthorized increase of maxSellPercent possible", "label": "MISSED", "read_file": true, "mechanism_class": "maxsell-auth", "source": "human"},
-    {"id": "M-13", "severity": "Medium", "title": "Marketplace change in VestingManager loses previous marketplace listings", "label": "MISSED", "read_file": true, "mechanism_class": "global-param-change-affects-open-positions", "source": "human", "note": "MISS (notable): this IS the reincorporated global-param-change-affects-open-positions pattern (particle M-05) — I read setMarketplace but didn't apply the pattern. Having the class != applying it."},
-    {"id": "M-14", "severity": "Medium", "title": "Incorrect referral fee calculations", "label": "SAME_AREA", "read_file": true, "mechanism_class": "reward-computed-not-paid", "source": "human", "matched_candidate": "SS-03", "note": "SAME_AREA: my SS-03 flagged the referral fee in _handleTransfers (computed/emitted but not paid); M-14 is the incorrect-referral-calculation in the same code."},
-    {"id": "M-15", "severity": "Medium", "title": "Missing sellable check in completePurchase allows buying unsellable tokens", "label": "MISSED", "read_file": true, "mechanism_class": "missing-sellable-check", "source": "human"},
-    {"id": "M-16", "severity": "Medium", "title": "DOS scenario when transferring vests to another address", "label": "MISSED", "read_file": true, "mechanism_class": "transfer-dos", "source": "human"},
-    {"id": "M-17", "severity": "Medium", "title": "Rounding error in stepDuration calculations", "label": "MISSED", "read_file": true, "mechanism_class": "stepduration-rounding", "source": "human"},
-    {"id": "M-18", "severity": "Medium", "title": "Unlisting after claiming locks tokens that should be claimable", "label": "MISSED", "read_file": true, "mechanism_class": "unlist-locks-claimable", "source": "human"},
-    {"id": "M-19", "severity": "Medium", "title": "Large step counts may cause loss/uneven distribution", "label": "MISSED", "read_file": true, "mechanism_class": "large-steps-dust", "source": "human"},
-    {"id": "M-20", "severity": "Medium", "title": "maxSellPercent broken when delisting after seller claims steps", "label": "MISSED", "read_file": true, "mechanism_class": "maxsell-delist-claim", "source": "human"}
+    {
+      "id": "H-01",
+      "severity": "High",
+      "title": "Vesting listing order affects claimable amounts at given steps",
+      "label": "SAME_AREA",
+      "matched_candidate_id": null,
+      "mechanism_class": "vesting-merge-stepsclaimed-ignored",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "H-02",
+      "severity": "High",
+      "title": "transferVesting creates incorrect vesting for new users due to uniform stepsClaimed",
+      "label": "STRONG",
+      "matched_candidate_id": null,
+      "mechanism_class": "vesting-merge-stepsclaimed-ignored",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "H-03",
+      "severity": "High",
+      "title": "Incorrect releaseRate calculation allows unlocking more tokens than locked",
+      "label": "SAME_AREA",
+      "matched_candidate_id": null,
+      "mechanism_class": "vesting-merge-stepsclaimed-ignored",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Incorrect listing type validation bypasses minimum purchase enforcement",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "listing-type-validation",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "Discounted listings become unpurchasable due to rounding",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "baseamount-rounding-zero",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "Missing token removal option from whitelist risks financial losses",
+      "label": "SAME_AREA",
+      "matched_candidate_id": null,
+      "mechanism_class": "missing-token-validation",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-04",
+      "severity": "Medium",
+      "title": "One vesting plan creator can affect others' vesting plans",
+      "label": "STRONG",
+      "matched_candidate_id": null,
+      "mechanism_class": "wrong-mapping-key-ownership",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-05",
+      "severity": "Medium",
+      "title": "Price granularity limited by payment token decimals",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "decimals-price-granularity",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-06",
+      "severity": "Medium",
+      "title": "Underflow in claimable function prevents claiming",
+      "label": "STRONG",
+      "matched_candidate_id": null,
+      "mechanism_class": "step-underflow",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-07",
+      "severity": "Medium",
+      "title": "Buy and sell fees unknown before purchase execution",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "fee-transparency",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-08",
+      "severity": "Medium",
+      "title": "Outdated penalty fees charged if modified since listing",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "stale-param-at-action",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-09",
+      "severity": "Medium",
+      "title": "Users can prevent reallocation by listing to marketplace",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "listing-blocks-realloc",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-10",
+      "severity": "Medium",
+      "title": "Already-vested tokens can be transferred from users",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "transfer-includes-vested",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-11",
+      "severity": "Medium",
+      "title": "maxSellPercent bypassed by selling previously bought vestings",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "maxsell-bypass-via-bought",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-12",
+      "severity": "Medium",
+      "title": "Unauthorized increase of maxSellPercent possible",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "maxsell-auth",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-13",
+      "severity": "Medium",
+      "title": "Marketplace change in vesting manager loses previous listings",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "global-param-change-affects-open-positions",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-14",
+      "severity": "Medium",
+      "title": "Incorrect referral fee calculations",
+      "label": "SAME_AREA",
+      "matched_candidate_id": null,
+      "mechanism_class": "reward-computed-not-paid",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-15",
+      "severity": "Medium",
+      "title": "Missing sellable check allows buying unsellable tokens",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "missing-sellable-check",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-16",
+      "severity": "Medium",
+      "title": "DoS possible when transferring vests to another address",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "transfer-dos",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-17",
+      "severity": "Medium",
+      "title": "Rounding error in stepDuration calculations",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "stepduration-rounding",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-18",
+      "severity": "Medium",
+      "title": "Unlisting after claiming locks tokens that should be claimable",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "unlist-locks-claimable",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-19",
+      "severity": "Medium",
+      "title": "Large step counts may cause fund loss or uneven distribution",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "large-steps-dust",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-20",
+      "severity": "Medium",
+      "title": "maxSellPercent broken when delisting after additional claims",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "maxsell-delist-claim",
+      "read_file": true,
+      "source": "preserved"
+    }
   ],
   "candidates": [
-    {"id": "SS-01", "matched": "M-04 (STRONG)"},
-    {"id": "SS-02", "title": "spotPurchase CEI/reentrancy", "matched": null, "note": "no reentrancy finding awarded"},
-    {"id": "SS-03", "matched": "M-14 (SAME_AREA)"},
-    {"id": "SS-04", "title": "discountPct unbounded underflow", "matched": null, "note": "adjacent to M-02 (rounding) but distinct root"},
-    {"id": "SS-05", "matched": "H-02 (STRONG) + H-01/H-03 (SAME_AREA)"},
-    {"id": "SS-06", "matched": "M-03 (SAME_AREA)"},
-    {"id": "SS-07", "matched": "M-06 (STRONG)"}
+    {
+      "id": "SS-01",
+      "title": "VestingDeployer.setTokenOwner keys the check on the OWNER slot, not the TOKEN -> multiple owners can claim the same token -> unauthorized createVesting/transferVesting",
+      "severity": "High",
+      "file": "SecondSwap_VestingDeployer.sol",
+      "contract": "",
+      "function": "setTokenOwner",
+      "description": "`require(_tokenOwner[_owner] == address(0)); _tokenOwner[_owner] = token;` only ensures a given OWNER hasn't been assigned a token \u2014 it never checks the TOKEN already has an owner. Admin (or repeated calls) can map several owner addresses to the same token; deployVesting/createVesting/transferVesting authorize via `_tokenOwner[msg.sender] == token`, so any of those owners can create/transfer vestings for that token (arbitrary vesting mint/transfer). Fix: key uniqueness on the token (`tokenToOwner[token] == 0`)."
+    },
+    {
+      "id": "SS-02",
+      "title": "spotPurchase performs all token transfers BEFORE decrementing listing.balance (CEI violation) -> reentrancy via hook/callback currency drains a listing",
+      "severity": "High",
+      "file": "SecondSwap_Marketplace.sol",
+      "contract": "",
+      "function": "spotPurchase / _handleTransfers",
+      "description": "spotPurchase has no nonReentrant guard; _handleTransfers does safeTransferFrom(buyer) + safeTransfer(seller) + safeTransfer(feeCollector) and only AFTER does `listing.balance -= _amount`. A currency token with a transfer hook (ERC777/callback, admin-whitelisted via addCoin which no longer validates the token) lets the buyer re-enter spotPurchase before balance is decremented, buying the same balance repeatedly. Fix: nonReentrant + CEI (decrement balance before transfers)."
+    },
+    {
+      "id": "SS-03",
+      "title": "Referral reward is computed and emitted but never PAID to the referrer (feeCollector keeps the full buyer fee)",
+      "severity": "Medium",
+      "file": "SecondSwap_Marketplace.sol",
+      "contract": "",
+      "function": "_handleTransfers",
+      "description": "_handleTransfers computes referralFeeCost and spotPurchase emits it in Purchased, but no transfer to `_referral` ever happens \u2014 buyerFeeTotal+sellerFeeTotal are sent entirely to feeCollector. The referral program is a no-op on-chain (referrers earn nothing) / the discount the buyer should get is not applied. Fix: actually transfer the referral reward (or reduce the buyer charge)."
+    },
+    {
+      "id": "SS-04",
+      "title": "listVesting does not bound discountPct <= BASE -> _getDiscountedPrice underflow reverts (FIX/LINEAR) -> listing un-buyable (DoS) or mispriced",
+      "severity": "Medium",
+      "file": "SecondSwap_Marketplace.sol",
+      "contract": "",
+      "function": "listVesting / _getDiscountedPrice",
+      "description": "listVesting only checks discountType!=NO => discountPct>0; it never bounds discountPct <= BASE(10000). _getDiscountedPrice FIX computes `pricePerUnit*(BASE - discountPct)/BASE` (underflow revert if >BASE) and LINEAR `BASE - (_amount*discountPct/total)` (can underflow) -> any purchase reverts, DoSing the listing; near-BASE discount drives price ~0. Fix: require discountPct <= BASE."
+    },
+    {
+      "id": "SS-05",
+      "title": "StepVesting transfer into an EXISTING vesting ignores the incoming stepsClaimed -> vesting schedule drift (faster/slower release)",
+      "severity": "Medium",
+      "file": "SecondSwap_StepVesting.sol",
+      "contract": "",
+      "function": "_createVesting (else branch)",
+      "description": "When a beneficiary who already has a vesting receives a transfer (buy), _createVesting else-branch does totalAmount += amount and recomputes releaseRate using the EXISTING beneficiary stepsClaimed, discarding the grantor's stepsClaimed passed in. The merged tokens then vest on the recipient's schedule, not their own -> a buyer with many stepsClaimed releases newly-bought tokens over fewer remaining steps (faster), or vice-versa. Accounting/value drift across transfers. Fix: track per-tranche schedules or normalize stepsClaimed on merge."
+    },
+    {
+      "id": "SS-06",
+      "title": "addCoin decimals validation is commented out -> unsafe/fee-on-transfer/odd-decimals currency can be whitelisted, breaking transfer accounting",
+      "severity": "Low",
+      "file": "SecondSwap_Marketplace.sol",
+      "contract": "",
+      "function": "addCoin",
+      "description": "The decimals()/try-catch validation in addCoin is commented out, so any token can be added as currency. _handleTransfers safeTransferFrom(buyer, baseAmount+buyerFeeTotal) then transfers baseAmount-sellerFeeTotal to seller + fees to collector; a fee-on-transfer currency makes the contract receive less than it pays out -> later transfers revert / contract shortfall. Fix: restore decimals + behavior validation, or block fee-on-transfer."
+    },
+    {
+      "id": "SS-07",
+      "title": "claimable() underflows when stepsClaimed > currentStep (transferred vesting before its steps elapse)",
+      "severity": "Low",
+      "file": "SecondSwap_StepVesting.sol",
+      "contract": "",
+      "function": "claimable",
+      "description": "claimableSteps = currentStep - vesting.stepsClaimed. A vesting created via transfer inherits the grantor's stepsClaimed; if currentStep (from elapsed time) < that stepsClaimed, the subtraction underflows/reverts, bricking claim() for that beneficiary. Edge but reachable. Fix: clamp to zero."
+    }
   ],
   "summary": {
-    "awarded_total": 23, "adjudicated": 23, "pending": 0,
-    "recall_of_surfaced": 0.304, "strong_only": 0.13,
-    "missed": 16, "missed_coverage_gap": 0, "missed_reasoning_gap": 16,
-    "by_label": {"STRONG": 3, "SAME_AREA": 4, "SUBSYSTEM_ONLY": 0, "MISSED": 16, "UNADJUDICATED": 0},
-    "complete": true, "blind": true, "full_coverage": true,
-    "note": "GENUINE-BLIND FULL-COVERAGE (7/7). recall 0.304 (7/23), strong 0.13 (3/23); ALL 16 misses reasoning-gap. 3 STRONG: SS-05->H-02 (transferVesting stepsClaimed), SS-01->M-04 (setTokenOwner wrong key), SS-07->M-06 (claimable underflow). 4 SAME_AREA: SS-05->H-01/H-03, SS-03->M-14, SS-06->M-03. Dense 23-finding target. NOTABLE: M-13 = the reincorporated global-param-change-affects-open-positions pattern (particle M-05) was MISSED -> having the class != applying it (the Solana seeded!=earned lesson recurs for Solidity)."
+    "awarded_total": 23,
+    "awarded_source": "report.md",
+    "adjudicated": 23,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 16,
+    "recall_of_surfaced": 0.304,
+    "strong_only": 0.13,
+    "by_label": {
+      "MISSED": 16,
+      "SAME_AREA": 4,
+      "STRONG": 3,
+      "SUBSYSTEM_ONLY": 0,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
   }
 }

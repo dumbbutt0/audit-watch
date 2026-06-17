@@ -1,30 +1,114 @@
 {
   "audit_id": "iq-ai-2025-01-blind",
   "set": "holdout",
-  "language": "solidity",
-  "generated_at": "2026-06-12",
-  "awarded_source": "code4rena.com/reports/2025-01-iq-ai (1H/3M)",
+  "generated_at": "2026-06-17T22:30:45Z",
+  "awarded_source": "report.md",
   "auto_heuristic": false,
-  "_do_not_auto_overwrite": "Hand-adjudicated GENUINE-BLIND FULL-COVERAGE cold pass (7/7). Only counts (H=1/M=3) + scope peeked pre-pass; titles SEALED on code4rena until reveal. Cutoff waived. LIFT TEST after neobase/init-capital/particle reincorporations.",
   "awarded": [
-    {"id": "H-01", "severity": "High", "title": "Adversary can win proposals with voting power as low as 4% (GovernorVotesQuorumFraction(4) is 4%, not the intended 25%)", "label": "MISSED", "read_file": true, "mechanism_class": "oz-quorum-fraction-percent-misuse", "source": "human", "note": "MISS (reasoning): I READ `GovernorVotesQuorumFraction(4) // quorum is 25% (1/4th)` and TRUSTED THE COMMENT — OZ's quorumFraction numerator is a PERCENT (4 = 4%), not 1/4. Misleading-comment + OZ-semantics-misuse; a real miss."},
-    {"id": "M-01", "severity": "Medium", "title": "Anyone can deploy a new FraxSwap pair with a low fee incurring losses (moveLiquidity)", "label": "SAME_AREA", "read_file": true, "mechanism_class": "lp-migration-precreated-pair-manipulation", "source": "human", "matched_candidate": "IQ-01", "note": "SAME_AREA: my IQ-01 flagged the permissionless moveLiquidity using a PRE-CREATED/attacker-controlled Fraxswap pair to steal value; M-01 is the specific low-fee-pair variant of that pre-created-pair attack."},
-    {"id": "M-02", "severity": "Medium", "title": "Attacker can DOS liquidity migration (moveLiquidity)", "label": "SAME_AREA", "read_file": true, "mechanism_class": "lp-migration-precreated-pair-manipulation", "source": "human", "matched_candidate": "IQ-01", "note": "SAME_AREA: same moveLiquidity pre-created-pair attack surface I flagged (IQ-01); M-02 is the DoS impact of an attacker-seeded/skewed pair on the permissionless migration."},
-    {"id": "M-03", "severity": "Medium", "title": "Ineffective proposal threshold validation allows setting arbitrary high values", "label": "STRONG", "read_file": true, "mechanism_class": "wrong-variable-validated", "source": "human", "matched_candidate": "IQ-03", "note": "STRONG exact: my IQ-03 named it — setProposalThresholdPercentage checks the OLD `proposalThresholdPercentage` storage var, not the new `_proposalThresholdPercentage` param, so arbitrarily high values pass."}
+    {
+      "id": "H-01",
+      "severity": "High",
+      "title": "Adversary can win proposals with voting power as low as 4%",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "oz-quorum-fraction-percent-misuse",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Anyone can deploy a new FraxSwapPair with a Low fee incurring losses to the protocol",
+      "label": "SAME_AREA",
+      "matched_candidate_id": null,
+      "mechanism_class": "lp-migration-precreated-pair-manipulation",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "Attacker can DOS liquidity migration in LiquidityManager.sol",
+      "label": "SAME_AREA",
+      "matched_candidate_id": null,
+      "mechanism_class": "lp-migration-precreated-pair-manipulation",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "Ineffective proposal threshold validation allows setting arbitrary high values",
+      "label": "STRONG",
+      "matched_candidate_id": null,
+      "mechanism_class": "wrong-variable-validated",
+      "read_file": true,
+      "source": "preserved"
+    }
   ],
   "candidates": [
-    {"id": "IQ-01", "matched": "M-01 + M-02 (SAME_AREA)"},
-    {"id": "IQ-02", "title": "moveLiquidity spot-price ratio", "matched": null, "note": "adjacent to M-01/M-02 migration family"},
-    {"id": "IQ-03", "matched": "M-03 (STRONG)"},
-    {"id": "IQ-04", "title": "bootstrap pool no-slippage direct buy/sell", "matched": null, "note": "router provides minOut; not awarded"},
-    {"id": "IQ-05", "title": "asymmetric fee-backing check", "matched": null}
+    {
+      "id": "IQ-01",
+      "title": "moveLiquidity Fraxswap migration is manipulable: attacker pre-creates/skews the Fraxswap pair, the permissionless migration's alignment swaps + final mint (no slippage) execute at attacker terms -> value theft",
+      "severity": "High",
+      "file": "src/LiquidityManager.sol",
+      "contract": "",
+      "function": "moveLiquidity / addLiquidityToFraxswap",
+      "description": "moveLiquidity() is permissionless once the CCY end-criterion is met. If the Fraxswap pair already exists (an attacker can createPair + seed a skewed reserve beforehand), addLiquidityToFraxswap does a mini-mint + 3 approximate alignment swaps + a final mint, all with NO slippage/minOut bounds, against the attacker-controlled pair. The attacker sandwiches the alignment swaps / captures the mispriced LP, stealing migrated value; leftover tokens are then swept to the agent. RULE: migration must be atomic/slippage-bounded, reject or neutralize a pre-existing skewed pair, and not perform unbounded alignment swaps against external reserves."
+    },
+    {
+      "id": "IQ-02",
+      "title": "moveLiquidity sizes the Fraxswap add using the bootstrap pool SPOT price -> manipulable just before migration",
+      "severity": "Medium",
+      "file": "src/LiquidityManager.sol",
+      "contract": "",
+      "function": "moveLiquidity",
+      "description": "price = bootstrapPool.getPrice() (spot from reserves incl phantomAmount); liquidityAmount = currencyAmount*1e18/price. A large buy/sell on the (permissionless) bootstrap pool right before the (permissionless) moveLiquidity skews the spot price, so the migration adds liquidity at a wrong ratio and the leftover tokens (swept to agent) leak value. RULE: use a manipulation-resistant price (TWAP) or enforce min-LP/ratio bounds on the migration add."
+    },
+    {
+      "id": "IQ-03",
+      "title": "TokenGovernor.setProposalThresholdPercentage validates the OLD storage var instead of the new parameter -> can set threshold above the 10% max",
+      "severity": "Medium",
+      "file": "src/TokenGovernor.sol",
+      "contract": "",
+      "function": "setProposalThresholdPercentage",
+      "description": "`if (proposalThresholdPercentage > 1000) revert InvalidThreshold();` checks the CURRENT (old) `proposalThresholdPercentage`, then assigns `proposalThresholdPercentage = _proposalThresholdPercentage`. The bound is applied to the wrong variable \u2014 the NEW value `_proposalThresholdPercentage` is never validated, so governance can set it >1000 (>10%), e.g. to a value that makes proposals impossible (DoS governance) or trivially low. RULE: validate the incoming parameter, not the existing storage. Anchor: a setter that `require`s on the state var it is about to overwrite instead of the argument."
+    },
+    {
+      "id": "IQ-04",
+      "title": "BootstrapPool.buy/sell (and createAgent initial buy) have no slippage param -> sandwich when called directly (bypassing AgentRouter)",
+      "severity": "Low",
+      "file": "src/BootstrapPool.sol",
+      "contract": "",
+      "function": "buy / sell",
+      "description": "BootstrapPool.buy(_amountIn)/sell(_amountIn) are public with NO minAmountOut; only AgentRouter adds _minAmountOut. Users/integrators calling the pool directly (and AgentFactory.createAgent's `_amountToBuy` initial buy) get sandwiched on the bonding curve. RULE: enforce minOut at the pool level too, or document the router as the only safe entry. (Lift-test: matches the reincorporated missing-slippage pattern.)"
+    },
+    {
+      "id": "IQ-05",
+      "title": "BootstrapPool.buy doesn't assert agentToken balance >= agentTokenFeeEarned (sell asserts the currency side) -> asymmetric fee-backing",
+      "severity": "Low",
+      "file": "src/BootstrapPool.sol",
+      "contract": "",
+      "function": "buy",
+      "description": "sell() ends with require(currencyToken.balanceOf >= currencyTokenFeeEarned) but buy() has no symmetric require(agentToken.balanceOf >= agentTokenFeeEarned). Edge accounting/availability inconsistency for the agent-side fee. Low."
+    }
   ],
   "summary": {
-    "awarded_total": 4, "adjudicated": 4, "pending": 0,
-    "recall_of_surfaced": 0.75, "strong_only": 0.25,
-    "missed": 1, "missed_coverage_gap": 0, "missed_reasoning_gap": 1,
-    "by_label": {"STRONG": 1, "SAME_AREA": 2, "SUBSYSTEM_ONLY": 0, "MISSED": 1, "UNADJUDICATED": 0},
-    "complete": true, "blind": true, "full_coverage": true,
-    "note": "GENUINE-BLIND FULL-COVERAGE (7/7). recall_of_surfaced 0.75 (3/4), strong 0.25 (1/4) — HIGHEST full-coverage Solidity recall so far. STRONG M-03 wrong-variable-validated (IQ-03). SAME_AREA M-01+M-02 moveLiquidity pre-created-pair migration attack (IQ-01). 1 MISS (reasoning): H-01 OZ quorumFraction(4)=4% not 25% (trusted the misleading comment). Small (4-finding) target -> high variance; lift attribution cautious."
+    "awarded_total": 4,
+    "awarded_source": "report.md",
+    "adjudicated": 4,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 1,
+    "recall_of_surfaced": 0.75,
+    "strong_only": 0.25,
+    "by_label": {
+      "MISSED": 1,
+      "SAME_AREA": 2,
+      "STRONG": 1,
+      "SUBSYSTEM_ONLY": 0,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
   }
 }

@@ -245,6 +245,43 @@ Medium/Low (missing-functionality / spec-mismatch).
 
 ---
 
+## Fee charged OUTSIDE the approved allowance (fee-on-transfer in transferFrom) (fee-charged-outside-allowance)
+> (generalized from a Next Generation blind-eval miss, M-01)
+
+When a token charges a transfer fee by moving tokens from the OWNER separately from the transferred `amount`,
+check whether `transferFrom` makes the owner pay MORE than the spender's approved allowance. The bug shape: the
+allowance check (and decrement) in `super.transferFrom` covers only `amount`, but a fee hook (`_payTxFee`,
+`_update(owner, feeSink, fee)`) deducts an ADDITIONAL `fee` directly from the owner's balance. So a spender
+approved for exactly `amount` can force the owner to spend `amount + fee` — value leaves the owner beyond what
+was approved. RULE: when fee logic is layered on top of ERC20 `transferFrom`, confirm the TOTAL debited from the
+owner (transfer + fee) is bounded by the spender's allowance, or that the fee is taken from the `amount` (not
+added on top). The blind miss here was treating the separate fee charge as "intended fee model" — it is a real
+allowance-bypass when the fee is added on top of an allowance-checked amount. Anchor: `transferFrom` override
+that calls a fee/`_update` on `sender`/`owner` in addition to `super.transferFrom`, with the allowance covering
+only the base amount.
+
+---
+
+## Unchecked ERC20 approve()/transfer() return — raw call instead of SafeERC20 (unchecked-erc20-approve-return)
+> (generalized from a Garden blind-eval miss, M-01)
+
+When a contract calls a token's `approve()` / `transfer()` / `transferFrom()` as a RAW call (not via
+`SafeERC20`) and ignores the boolean return, it breaks on two common token classes: (a) tokens that return
+`false` instead of reverting on failure (the call "succeeds" but no allowance/transfer happened), and (b)
+non-standard tokens (USDT et al.) that return NO value (a raw `approve` typed to return `bool` reverts or
+mis-decodes). The downstream effect is silent: a later `safeTransferFrom` pulling on the missing allowance
+fails, and funds already escrowed (e.g. in a clone/deposit contract) can be stranded — Garden M-01:
+`UDA.sol` calls `token().approve(htlc, amount)` (raw, unchecked) before `initiateOnBehalf`, so on a
+false-returning / no-return token the swap can't be initiated and the deposited funds are stuck. RULE: every
+`approve`/`transfer`/`transferFrom` on an arbitrary/external token must go through `SafeERC20`
+(`forceApprove`/`safeTransfer`/`safeTransferFrom`) OR check the boolean return; a raw `.approve(...)` whose
+return is discarded is the finding. The blind miss here was reading the `approve` line but treating it as
+boilerplate — a raw approve on a non-whitelisted token is a real fund-loss/stuck-funds bug. Anchor: a bare
+`IERC20(token).approve(...)` / `.transfer(...)` (no `SafeERC20`, no `require(ok)`), especially feeding a later
+`safeTransferFrom` or holding escrow.
+
+---
+
 ## Auto-learned patterns
 > This section is auto-populated by `scripts/solodit_scraper.py --learn`.
 

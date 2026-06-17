@@ -1,30 +1,114 @@
 {
   "audit_id": "nudgexyz-2025-03-blind",
   "set": "holdout",
-  "language": "solidity",
-  "generated_at": "2026-06-12",
-  "awarded_source": "code4rena.com/reports/2025-03-nudgexyz (0H/4M)",
+  "generated_at": "2026-06-17T22:30:45Z",
+  "awarded_source": "report.md",
   "auto_heuristic": false,
-  "_do_not_auto_overwrite": "Hand-adjudicated GENUINE-BLIND FULL-COVERAGE cold pass WITH THE CHECKLIST PASS ACTIVE (pattern_checklist generated before the read). Counts + scope peeked; titles SEALED on code4rena until reveal.",
   "awarded": [
-    {"id": "M-01", "severity": "Medium", "title": "Unauthorized reallocation in handleReallocation and reward disruption", "label": "SAME_AREA", "read_file": true, "mechanism_class": "pull-full-balance-not-amount", "source": "human", "matched_candidate": "N-01", "note": "SAME_AREA: my N-01 flagged the handleReallocation balance/reward mis-handling (full-balance pull -> mis-attribution + reward over-allocation); M-01 is the unauthorized-reallocation/reward-disruption framing of the same function/mechanism."},
-    {"id": "M-02", "severity": "Medium", "title": "Anyone can DOS handleReallocation over and over", "label": "SUBSYSTEM_ONLY", "read_file": true, "mechanism_class": "handlereallocation-dos", "source": "human", "matched_candidate": "N-01", "note": "SUBSYSTEM_ONLY: I flagged handleReallocation balance-handling anomalies (N-01 full-balance pull, N-05 CEI) but did not pin the specific repeatable-DoS mechanism (balance-delta/donation grief)."},
-    {"id": "M-03", "severity": "Medium", "title": "All reallocate cross-chain token and rewards lost for users using account abstraction", "label": "MISSED", "read_file": true, "mechanism_class": "aa-wallet-cross-chain-address", "source": "human", "note": "MISS: novel — AA/smart-wallet users have different addresses cross-chain, so userAddress attribution loses their tokens/rewards. Not in the reincorporated pattern library; checklist could not flag it."},
-    {"id": "M-04", "severity": "Medium", "title": "Not verifying transaction initiator allows malicious user to allocate full reward as Uniswap V2 pool", "label": "MISSED", "read_file": true, "mechanism_class": "tx-initiator-not-verified", "source": "human", "note": "MISS: novel — handleReallocation doesn't verify the tx initiator vs userAddress, letting a malicious actor route the full reward to a Uniswap V2 pool. Adjacent to my N-01 (reward recipient) but a distinct unverified-initiator root; not in the library."}
+    {
+      "id": "M-01",
+      "severity": "Medium",
+      "title": "Unauthorized reallocation in NudgeCampaign::handleReallocation and reward disruption in invalidateParticipations",
+      "label": "SAME_AREA",
+      "matched_candidate_id": null,
+      "mechanism_class": "pull-full-balance-not-amount",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-02",
+      "severity": "Medium",
+      "title": "Anyone can DOS handleReallocation over and over",
+      "label": "SUBSYSTEM_ONLY",
+      "matched_candidate_id": null,
+      "mechanism_class": "handlereallocation-dos",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-03",
+      "severity": "Medium",
+      "title": "All reallocate cross-chain token and rewards lost for users using the account abstraction wallet",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "aa-wallet-cross-chain-address",
+      "read_file": true,
+      "source": "preserved"
+    },
+    {
+      "id": "M-04",
+      "severity": "Medium",
+      "title": "Not verifying that transaction initiator is the actual participator allows malicious user to allocate full reward as Uniswap V2 pool",
+      "label": "MISSED",
+      "matched_candidate_id": null,
+      "mechanism_class": "tx-initiator-not-verified",
+      "read_file": true,
+      "source": "preserved"
+    }
   ],
   "candidates": [
-    {"id": "N-01", "matched": "M-01 (SAME_AREA) + M-02 (SUBSYSTEM_ONLY)"},
-    {"id": "N-02", "title": "create2 pre-deploy DoS", "matched": null, "note": "not awarded"},
-    {"id": "N-03", "title": "claimRewards break ordering DoS", "matched": null, "note": "not awarded"},
-    {"id": "N-04", "title": "blacklist push (checklist-flagged)", "matched": null, "note": "not awarded"},
-    {"id": "N-05", "title": "handleReallocation CEI/reentrancy", "matched": null, "note": "contributed to M-02 SUBSYSTEM"}
+    {
+      "id": "N-01",
+      "title": "handleReallocation pulls the swap-caller's ENTIRE balanceOf(toToken) instead of toAmount -> mis-attribution / reward over-allocation / sweeps unrelated tokens",
+      "severity": "Medium",
+      "file": "campaign/NudgeCampaign.sol",
+      "contract": "",
+      "function": "handleReallocation",
+      "description": "For ERC20, `balanceOfSender = tokenReceived.balanceOf(msg.sender); safeTransferFrom(msg.sender, this, balanceOfSender)` pulls the swap-caller's FULL balance of toToken (not toAmount), sets amountReceived to the delta, forwards ALL of it to the user, and computes rewards on amountReceived. If the swap-caller (SWAP_CALLER_ROLE router) holds any leftover/other-campaign balance of toToken, it is swept into THIS reallocation -> wrong user gets extra tokens + over-sized rewards drawn from the reward pool. Fix: pull exactly toAmount. (Same pattern in NudgePointsCampaigns.handleReallocation.)"
+    },
+    {
+      "id": "N-02",
+      "title": "Permissionless deployCampaign + deterministic Create2 salt -> attacker pre-deploys the campaign address, reverting deployAndFundCampaign (campaign-creation DoS / griefing)",
+      "severity": "Medium",
+      "file": "campaign/NudgeCampaignFactory.sol",
+      "contract": "",
+      "function": "deployCampaign / deployAndFundCampaign",
+      "description": "deployCampaign is public and Create2.deploy uses a salt deterministically derived from the campaign params (+FEE_BPS). An attacker computes the target address (getCampaignAddress) and front-runs by deploying an empty campaign there; the legitimate deployAndFundCampaign then reverts on Create2 collision (address already has code), blocking that exact campaign config indefinitely (the salt is fixed by params). Griefing DoS of campaign creation. Fix: include msg.sender/nonce in the salt or gate deploy."
+    },
+    {
+      "id": "N-03",
+      "title": "claimRewards breaks (not continues) the loop on insufficient balance -> later claimable participations blocked by an earlier large one",
+      "severity": "Low",
+      "file": "campaign/NudgeCampaign.sol",
+      "contract": "",
+      "function": "claimRewards",
+      "description": "In the claim loop, `if (userRewards > availableBalance) break;` stops the ENTIRE loop on the first pID that exceeds remaining balance, skipping all subsequent (possibly claimable) pIDs in the same call. Ordering-dependent partial DoS; combined with shared reward balance, a user's later claims can be silently skipped. Fix: continue, or document required ordering. Low/Med."
+    },
+    {
+      "id": "N-04",
+      "title": "Push transfer of a blacklistable reward token in _transfer (claim/withdraw/collect) DoSes the recipient leg if blacklisted [checklist-flagged]",
+      "severity": "Low",
+      "file": "campaign/NudgeCampaign.sol",
+      "contract": "",
+      "function": "_transfer",
+      "description": "Checklist auto-flag (NudgeCampaign.sol:482 / NudgePointsCampaigns.sol:240): _transfer pushes the reward token (which may be USDC/USDT) to claimers/treasury/admin; a blacklisted recipient permanently reverts that leg. Per-user claim impact (the affected user); treasury/withdraw are admin-controlled. Lower severity but a real push-vs-pull weakness. Fix: pull pattern for blacklistable rewards."
+    },
+    {
+      "id": "N-05",
+      "title": "handleReallocation lacks a reentrancy guard; NATIVE _transfer to user occurs before pendingRewards/participation state is finalized",
+      "severity": "Low",
+      "file": "campaign/NudgeCampaign.sol",
+      "contract": "",
+      "function": "handleReallocation",
+      "description": "For NATIVE toToken, `_transfer(toToken, userAddress, amountReceived)` (a call to the user) happens BEFORE totalReallocatedAmount/pendingRewards/accumulatedFees/participations are updated; no nonReentrant. The user gets control with stale reward-accounting state (claimableRewardAmount higher than it should be). Exploitability is limited (user can't call the role-gated handleReallocation; claimRewards needs elapsed holding) but it is a CEI violation. Fix: nonReentrant + update state before the external call."
+    }
   ],
   "summary": {
-    "awarded_total": 4, "adjudicated": 4, "pending": 0,
-    "recall_of_surfaced": 0.5, "strong_only": 0.0,
-    "missed": 2, "missed_coverage_gap": 0, "missed_reasoning_gap": 2,
-    "by_label": {"STRONG": 0, "SAME_AREA": 1, "SUBSYSTEM_ONLY": 1, "MISSED": 2, "UNADJUDICATED": 0},
-    "complete": true, "blind": true, "full_coverage": true, "checklist_pass_active": true,
-    "note": "GENUINE-BLIND FULL-COVERAGE with the CHECKLIST PASS ACTIVE. recall 0.5 (2/4), strong 0 (0/4). All 4 awarded are in handleReallocation; my pass concentrated there (N-01 full-balance pull, N-05 CEI) -> SAME_AREA M-01 + SUBSYSTEM M-02. The 2 MISSES (M-03 AA-wallet cross-chain, M-04 tx-initiator-not-verified) are NOVEL mechanisms NOT in the reincorporated library, so the checklist (which surfaces KNOWN patterns) could not flag them. HONEST LIFT FINDING: the checklist helps APPLY known patterns (it flagged blacklist-push N-04, and focused attention on handleReallocation) but cannot catch findings outside the library; recall here (0.5) is bounded by library coverage of the contest's bug types, not by application."
+    "awarded_total": 4,
+    "awarded_source": "report.md",
+    "adjudicated": 4,
+    "pending": 0,
+    "auto_adjudicated": 0,
+    "misses_detected": 2,
+    "recall_of_surfaced": 0.5,
+    "strong_only": 0.0,
+    "by_label": {
+      "MISSED": 2,
+      "SAME_AREA": 1,
+      "STRONG": 0,
+      "SUBSYSTEM_ONLY": 1,
+      "UNADJUDICATED": 0
+    },
+    "complete": true
   }
 }

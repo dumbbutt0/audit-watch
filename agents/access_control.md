@@ -239,6 +239,23 @@ Populate `ice_chain` on every finding:
 
 ---
 
+## Meta-tx FORWARDER request has no deadline/expiry (forwarder-request-missing-deadline)
+> (generalized from a Next Generation blind-eval miss, M-03)
+
+A signed meta-tx is only replay-safe along TWO axes: a nonce (prevents re-execution) AND a deadline (bounds HOW
+LONG the signature is valid). When auditing a GSN-style `Forwarder` / `ForwardRequest` (or any relayed/gasless
+request struct), check the struct fields: a `nonce` with NO `deadline`/`validUntil`/`expiry` means a signed
+request, once captured (e.g. from the mempool or a failed relay), can be executed by a relayer at ANY later time
+of the attacker's choosing — delayed/withheld-then-replayed execution against stale intent. The blind miss here:
+the token's permit/transferWithAuthorization sigs DID check a deadline, but the separate `Forwarder.ForwardRequest`
+(from,to,value,gas,nonce,data) had none — the per-signature surfaces must EACH be checked, not assumed uniform.
+RULE: for every signed/relayed request type, confirm BOTH a per-signer nonce AND a deadline are present and
+enforced (`require(block.timestamp <= req.deadline)`); a forwarder request with a nonce but no deadline is the
+finding. Anchor: a `ForwardRequest`/meta-tx struct + `_verifyNonce`/`_verifySig` with no `deadline` field or no
+timestamp check. (Relates to `signature-missing-deadline`, extended to the forwarder-request surface.)
+
+---
+
 ## Fee-wrapper bypass (public underlying action)
 > Recall-widening class (P307, generalized from a blind-eval miss). Advisory pre-flags in
 > `output/fee_wrapper_bypass_audit.json` (research-only).
