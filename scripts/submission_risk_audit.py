@@ -48,16 +48,23 @@ def _finding_text(f: dict) -> str:
     return " ".join(str(p) for p in parts).lower()
 
 
-def _finding_locus(f: dict) -> str:
-    """Finding text PLUS its location (file/function/contract) — what deployment-manifest terms match against."""
+def _finding_path(f: dict) -> str:
+    """The finding's CODE LOCATION only (file / function / contract). Module & handler manifest terms are matched
+    against THIS, not the prose — so a generic crate name like 'token' matches contracts/token/... but NOT a
+    finding that merely says 'token amount' in its description."""
     loc = f.get("location")
-    locbits = []
+    bits = []
     if isinstance(loc, dict):
-        locbits = [loc.get("file") or "", loc.get("function") or "", loc.get("contract") or ""]
+        bits = [loc.get("file") or "", loc.get("function") or "", loc.get("contract") or ""]
     elif isinstance(loc, str):
-        locbits = [loc]
-    locbits.append(f.get("_contract") or "")
-    return (_finding_text(f) + " " + " ".join(str(b) for b in locbits)).lower()
+        bits = [loc]
+    bits.append(f.get("_contract") or "")
+    return " ".join(str(b) for b in bits).lower()
+
+
+def _finding_locus(f: dict) -> str:
+    """Finding text PLUS its path — what the text-anchored terms (profiles, no-op fallbacks) match against."""
+    return (_finding_text(f) + " " + _finding_path(f)).lower()
 
 
 _MANIFEST_TEMPLATE = {
@@ -108,29 +115,34 @@ def _design_axis(text: str, cfg: dict) -> dict:
     return {"level": "low", "rationale": "no known design-accepted/known-pattern shape matched"}
 
 
-_INACTIVE_KEYS = ("inactive_profiles", "inactive_modules", "unregistered_handlers", "noop_fallbacks")
-_ACTIVE_KEYS = ("active_profiles", "active_modules")
+# Module + handler names are CODE IDENTIFIERS -> match the path only (avoids generic-name prose FPs like
+# 'token' matching "token amount"). Profiles + no-op-fallback type names are described in prose -> match the locus.
+_PATH_INACTIVE = ("inactive_modules", "unregistered_handlers")
+_TEXT_INACTIVE = ("inactive_profiles", "noop_fallbacks")
+_PATH_ACTIVE = ("active_modules",)
+_TEXT_ACTIVE = ("active_profiles",)
 
 
-def _first_hit(locus: str, manifest: dict, keys) -> tuple[str, str] | None:
-    """Return (key, term) for the first manifest term (token-boundary) found in the finding's locus."""
+def _first_hit(s: str, manifest: dict, keys) -> tuple[str, str] | None:
+    """Return (key, term) for the first manifest term (token-boundary) found in string `s`."""
     for k in keys:
         for term in manifest.get(k, []) or []:
-            if _has(locus, term):
+            if _has(s, term):
                 return k, term
     return None
 
 
-def _reachability_axis(locus: str, cfg: dict, manifest: dict | None) -> dict:
+def _reachability_axis(path: str, locus: str, cfg: dict, manifest: dict | None) -> dict:
     # 1) Deployment manifest (human-supplied live-deployment facts) — auto-decides where it can.
+    #    Module/handler terms match the PATH; profile/fallback terms match the prose LOCUS.
     if manifest:
-        inactive = _first_hit(locus, manifest, _INACTIVE_KEYS)
+        inactive = _first_hit(path, manifest, _PATH_INACTIVE) or _first_hit(locus, manifest, _TEXT_INACTIVE)
         if inactive:
             return {"level": "not_wired", "matched": {"field": inactive[0], "term": inactive[1]},
                     "rationale": f"deployment manifest marks '{inactive[1]}' ({inactive[0]}) as NOT live — the "
                                  f"vulnerable path is likely UNREACHABLE in the deployment (probable OUT OF SCOPE); "
                                  f"verify against the deployed config before submitting"}
-        active = _first_hit(locus, manifest, _ACTIVE_KEYS)
+        active = _first_hit(path, manifest, _PATH_ACTIVE) or _first_hit(locus, manifest, _TEXT_ACTIVE)
         if active:
             return {"level": "wired", "matched": {"field": active[0], "term": active[1]},
                     "rationale": f"deployment manifest confirms '{active[1]}' ({active[0]}) is live — reachable"}
@@ -194,7 +206,7 @@ def build() -> dict:
             continue
         text = _finding_text(f)
         design = _design_axis(text, cfg)
-        reach = _reachability_axis(_finding_locus(f), cfg, manifest)
+        reach = _reachability_axis(_finding_path(f), _finding_locus(f), cfg, manifest)
         nov = _novelty_axis(text, kb_present)
         advisories = _advisories(fid, design, reach, nov)
         # overall: high if a design/known shape matched OR reachability is not_wired/flagged; review if anything

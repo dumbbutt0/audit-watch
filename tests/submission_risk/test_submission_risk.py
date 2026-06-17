@@ -89,6 +89,24 @@ def test_manifest_marks_inactive_module_not_wired(patched, monkeypatch):
     assert any("LIKELY OUT OF SCOPE" in a for a in _risk(patched, "P-1")["advisories"])
 
 
+def test_module_match_is_path_anchored_not_prose(patched, monkeypatch):
+    # A generic crate name ('token') in the manifest must match a finding's PATH (contracts/token/...) — NOT a
+    # finding that merely says 'token amount' in prose while living in an unrelated file. (Regression: K2 'token'
+    # active_module false-matched Origin ARM findings via description text.)
+    _merged(patched, [
+        {"id": "T-1", "title": "rounding on token amount in vault withdraw",
+         "description": "transfers the token amount; strict equality bug",
+         "location": {"file": "contracts/vault/Vault.sol", "function": "withdraw"}},
+        {"id": "T-2", "title": "a-token balance bug",
+         "description": "scaled balance drift",
+         "location": {"file": "contracts/token/src/balance.rs", "function": "burn"}},
+    ])
+    _manifest(patched, monkeypatch, {"active_modules": ["token"]})
+    sra.build()
+    assert _risk(patched, "T-1")["deployment_reachability_risk"]["level"] == "checklist_required"  # prose-only, no match
+    assert _risk(patched, "T-2")["deployment_reachability_risk"]["level"] == "wired"               # path match
+
+
 def test_manifest_confirms_active_module_wired(patched, monkeypatch):
     _merged(patched, [{"id": "P-2", "title": "predict market settlement bug",
                        "description": "x", "location": {"file": "src/predict/Market.sol", "function": "settle"}}])
