@@ -29,7 +29,7 @@ from audit_context import audit_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 PROMPTS = ROOT / "prompts"
-CONTRACT_EXTENSIONS = {".sol", ".rs", ".vy"}
+CONTRACT_EXTENSIONS = {".sol", ".rs", ".vy", ".move"}
 
 # The substage plan the /deep-analysis skill executes in order. Each entry names the reasoning
 # prompt to apply and the canonical artifact(s) to write — identical schemas to the API scripts.
