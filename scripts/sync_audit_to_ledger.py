@@ -73,8 +73,13 @@ def _contract_of(s: str) -> str:
     return base.split(".")[0].strip().lower()
 
 
-def _verifier_target(cand: dict) -> str:
-    """Best 'Contract.function' for the card, from manifest_refs else location."""
+def _verifier_target(cand: dict, overrides: dict | None = None) -> str:
+    """Best 'Contract.function' for the card. Order: meta override (per finding id) -> manifest_refs ->
+    location. A dotted result matters: funnel.py only uses verifier.target for the displayed location when it
+    contains a '.', else it falls back to the PoC filename (e.g. 'PoC_X.None')."""
+    fid = cand.get("id")
+    if overrides and fid in overrides and overrides[fid]:
+        return str(overrides[fid])
     for ref in cand.get("manifest_refs") or []:
         m = re.search(r"([A-Za-z0-9_]+)\.sol:([A-Za-z0-9_]+)", str(ref))
         if m:
@@ -153,10 +158,11 @@ def build(audit_id: str) -> tuple[dict, list[str]]:
     }
     prior_owned = {e.get("candidate_id"): e for e in cf if str(e.get("candidate_id", "")).startswith(owned_prefix)}
 
+    vtarget_overrides = meta.get("ledger_verifier_targets") or {}
     new_cards, kept_owned_ids, added_ids, updated_ids = [], set(), [], []
     for c in proven:
         fid = c.get("id")
-        vt = _verifier_target(c)
+        vt = _verifier_target(c, vtarget_overrides)
         contract = _contract_of(vt)
         cid = f"{audit_id}:{fid}"
         if cid not in prior_owned and contract in existing_contracts:
