@@ -384,6 +384,14 @@ print(json.loads(m.read_text()).get('contract_path','') if m.exists() else '')
     "${PYTHON}" "${ROOT}/scripts/submission_risk_audit.py" "${@:2}"
     ;;
 
+  ledger-sync)
+    # Sync this real-world audit's PoC-proven findings into documentation/real_world_results.json (the dashboard
+    # funnel source). Non-destructive (preserves human outcome_class); real-world-gated (no-op for eval/blind).
+    # Pass --dry-run to preview. Also runs automatically at review-gate and via the .githooks/pre-commit hook.
+    require_audit
+    "${PYTHON}" "${ROOT}/scripts/sync_audit_to_ledger.py" "${@:2}"
+    ;;
+
   calibration-worklist)
     # READ-ONLY: enumerate real-world accepted findings with no recorded outcome + emit record_outcome.py
     # stubs (documentation/metrics/outcome_worklist.md). Closing them moves FP/recall off 'unmeasured'.
@@ -585,6 +593,9 @@ print(json.loads(m.read_text()).get('contract_path','') if m.exists() else '')
     "${PYTHON}" "${ROOT}/scripts/run_value_provenance_advisories.py" 2>/dev/null || true
     # P140: fold any on-disk manual deep-pass completion artifacts back in (deterministic, advisory-only; never blocks).
     "${PYTHON}" "${ROOT}/scripts/run_value_provenance_advisories.py" --ingest-results 2>/dev/null || true
+    # Keep the real-world ledger (dashboard funnel source) in sync with this audit's PoC-proven findings.
+    # Non-destructive + real-world-gated (no-op for eval/blind audits); never blocks the pipeline.
+    "${PYTHON}" "${ROOT}/scripts/sync_audit_to_ledger.py" --quiet 2>/dev/null || true
     "${PYTHON}" "${ROOT}/scripts/generate_review_gate.py"
     exit 0
     ;;
@@ -612,6 +623,9 @@ print(json.loads(m.read_text()).get('contract_path','') if m.exists() else '')
     "${PYTHON}" "${ROOT}/scripts/run_value_provenance_advisories.py" 2>/dev/null || true
     # P140: fold any on-disk manual deep-pass completion artifacts back in (deterministic, advisory-only; never blocks).
     "${PYTHON}" "${ROOT}/scripts/run_value_provenance_advisories.py" --ingest-results 2>/dev/null || true
+    # Keep the real-world ledger (dashboard funnel source) in sync with this audit's PoC-proven findings.
+    # Non-destructive + real-world-gated (no-op for eval/blind audits); never blocks the pipeline.
+    "${PYTHON}" "${ROOT}/scripts/sync_audit_to_ledger.py" --quiet 2>/dev/null || true
     "${PYTHON}" "${ROOT}/scripts/generate_review_gate.py"
     exit 0
     ;;

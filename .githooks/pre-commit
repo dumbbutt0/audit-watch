@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Keep the real-world ledger (documentation/real_world_results.json, the dashboard funnel source) in sync with
+# the active real-world audit's PoC-proven findings on every commit. Non-destructive + real-world-gated:
+# it is a no-op for eval/blind audits and writes nothing when there are no changes. NEVER blocks a commit.
+set -u
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$ROOT" || exit 0
+PYTHON="${PYTHON:-python3}"
+LEDGER="documentation/real_world_results.json"
+
+# only act when the ledger isn't already part of this commit's explicit intent? — we still re-sync and stage it.
+"${PYTHON}" scripts/sync_audit_to_ledger.py --quiet >/dev/null 2>&1 || true
+
+# if the sync changed the ledger, stage it so the dashboard data rides this commit
+if ! git diff --quiet -- "$LEDGER" 2>/dev/null; then
+  git add -- "$LEDGER" 2>/dev/null || true
+fi
+
+exit 0

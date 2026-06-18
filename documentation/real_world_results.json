@@ -4,7 +4,7 @@
   "disclaimer": "Real-world bounty-hunt activity. As of 2026-06-17 some findings now carry HUMAN-CONFIRMED bounty outcomes (see candidate_findings[].outcome_class + outcome_provenance). Headline: 0 paid so far; rejections cluster on DEPLOYMENT-REACHABILITY, DUPLICATE/NOVELTY, and DESIGN-ACCEPTED/known-pattern \u2014 NOT on PoC validity (the PoCs reproduced). Eval/synthetic corpora excluded.",
   "summary": {
     "targets_engaged": 34,
-    "poc_proven_candidate_findings": 13,
+    "poc_proven_candidate_findings": 17,
     "honest_negatives": 24,
     "skipped": 2,
     "submitted": 8,
@@ -1262,6 +1262,42 @@
       "outcome_reason": "duplicate_and_reachability",
       "outcome_recorded_at": "2026-06-17",
       "outcome_provenance": "HackerOne 2026-05-20: closed as Duplicate (#3329553). Original (2025-09-06) closure noted builders not currently sequencing the chain (sequencer upgrades) -> proof validation would fail prior."
+    },
+    {
+      "candidate_id": "tiprun-2026-06-18:BSA-001",
+      "target": "TipRun",
+      "source": "re-audit",
+      "severity": "High",
+      "title": "Privilege escalation to ALLOW_ADMIN: non-admin user registers an ALLOW_ADMIN session key, then ADMIN_SET grants ALLOW_WITHDRAW on any victim account and drains it",
+      "status": "PoC reproduced",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "N-1 escalation: non-admin mints ALLOW_ADMIN at registration, admin-sets ALLOW_WITHDRAW on victim (adminAccountId=own acct, adminAccountId()==0), drains 5000 victim collateral to attacker address. Synchronous, no approval/queue.",
+      "poc_path": "reports/tiprun-2026-06-13/harness/test/PoC_PermissionEscalation.t.sol",
+      "writeup": "",
+      "verifier": {
+        "target": "PermissionsTransLib",
+        "surface_function": "PermissionsTransLib",
+        "suspected_mechanism": "Privilege escalation to ALLOW_ADMIN: non-admin user registers an ALLOW_ADMIN session key, then ADMIN_SET grants ALLOW_WITHDRAW on any victim account and drains it",
+        "mechanism_class": "",
+        "impact": "Any user can mint themselves ALLOW_ADMIN at registration and, because processAdminSetSignerPermissions trusts the caller's adminAccountId, grant ALLOW_WITHDRAW/ALLOW_TRANSFER (or ALLOW_ADMIN) on ANY victim account and drain it. Total loss of the protocol's permission model and user funds \u2014 bounded on-chain only by the trusted txBatcher/backend declining to relay the txs. There is no on-chain check enforcing that adminAccountId == SignerManager.adminAccountId(), and no delegation gate on registration-time session-key masks.",
+        "severity_recommendation": "High",
+        "claimed_severity": "High",
+        "mechanism_confirmed": true,
+        "attacker_reachable": true,
+        "severity_bearing": true,
+        "reportable": true,
+        "real_contract_deployed": true,
+        "production_source_modified": false,
+        "poc_command": "forge test --match-contract PoC_PermissionEscalation -vv",
+        "poc_status": "REPRODUCED",
+        "harness_path": "reports/tiprun-2026-06-13/harness/test/PoC_PermissionEscalation.t.sol",
+        "vulnerable_output": "N-1 escalation: non-admin mints ALLOW_ADMIN at registration, admin-sets ALLOW_WITHDRAW on victim (adminAccountId=own acct, adminAccountId()==0), drains 5000 victim collateral to attacker address. Synchronous, no approval/queue.",
+        "who_loses": "Any account holder whose collateral is drained",
+        "who_gains": "Unprivileged attacker (registers an account, self-grants ALLOW_ADMIN)",
+        "reachability_class": ""
+      },
+      "source_audit": "tiprun-2026-06-18"
     }
   ],
   "targets": [
@@ -1435,7 +1471,8 @@
       "target": "TipRun",
       "source": "contest (tiprun-contracts-main @ d5d4d2a)",
       "verdict": "candidate_finding",
-      "notes": "Off-chain-match / on-chain-settlement perp+orderbook+predict exchange. 6 PoC-reproduced findings: F-1 Critical margin-bypass (withdraw 100% collateral with open position), F-2 High risk-segment freeze (insolvent short un-liquidatable), M-1 inverted ratio de-risk DoS, M-2 oracle staleness, M-3 no liquidatable precondition, M-4 configVersion not bumped. Investigated-and-disproven: negative-amount Transfer theft (BalancePlugin amount>0 guard). Sound: EIP-712 locks, conservation, upgrade/diamond auth."
+      "notes": "Off-chain-match / on-chain-settlement perp+orderbook+predict exchange. 6 PoC-reproduced findings: F-1 Critical margin-bypass (withdraw 100% collateral with open position), F-2 High risk-segment freeze (insolvent short un-liquidatable), M-1 inverted ratio de-risk DoS, M-2 oracle staleness, M-3 no liquidatable precondition, M-4 configVersion not bumped. Investigated-and-disproven: negative-amount Transfer theft (BalancePlugin amount>0 guard). Sound: EIP-712 locks, conservation, upgrade/diamond auth.",
+      "reaudit_note": "[re-audit tiprun-2026-06-18] 1 new PoC-proven card(s): BSA-001:Privilege escalation to ALLOW_ADMIN: non-admin user register. Confirmed non-PoC (target notes, not cards): ECON-002:Settlement mints collateral per-account (synthetic*price) wi; PC-01:Capability registry silently falls back to no-op checks when."
     },
     {
       "target": "Cartha",
