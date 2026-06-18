@@ -159,6 +159,7 @@ def build(audit_id: str) -> tuple[dict, list[str]]:
     prior_owned = {e.get("candidate_id"): e for e in cf if str(e.get("candidate_id", "")).startswith(owned_prefix)}
 
     vtarget_overrides = meta.get("ledger_verifier_targets") or {}
+    report_ids = meta.get("ledger_report_ids") or {}  # finding_id -> report number (e.g. "N-1") to prefix the title
     new_cards, kept_owned_ids, added_ids, updated_ids = [], set(), [], []
     for c in proven:
         fid = c.get("id")
@@ -169,9 +170,12 @@ def build(audit_id: str) -> tuple[dict, list[str]]:
             log.append(f"  skip {fid} (contract '{contract}' already represented in the ledger — re-confirmation)")
             continue
         poc = poc_by_id.get(fid, {})
+        raw_title = c.get("title", "")
+        rid = report_ids.get(fid)
+        title = raw_title if (not rid or raw_title.startswith(rid)) else f"{rid} — {raw_title}"
         card = {
             "candidate_id": cid, "target": target, "source": "re-audit",
-            "severity": _sev(c), "title": c.get("title", ""),
+            "severity": _sev(c), "title": title,
             "status": "PoC reproduced", "submitted": False, "human_verified": False,
             "evidence": poc.get("evidence", "") or (c.get("proof_of_concept") or ""),
             "poc_path": poc.get("test_file", ""),
