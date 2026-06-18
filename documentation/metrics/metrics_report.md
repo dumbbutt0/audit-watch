@@ -1,6 +1,6 @@
 # Pipeline Metrics (cross-audit)
 
-_Generated 2026-06-18T02:18:40.253248+00:00 · 11 audits · 0 ground-truth records._
+_Generated 2026-06-18T03:06:27.529455+00:00 · 11 audits · 0 ground-truth records._
 
 > Rates are over findings that HAVE a recorded human outcome. Low ground_truth_records ⇒ metrics are directional, not yet robust.
 
@@ -25,13 +25,13 @@ _Generated 2026-06-18T02:18:40.253248+00:00 · 11 audits · 0 ground-truth recor
 
 ## Detection-lens inventory (mechanism classes — read-only capability)
 
-_98 reincorporated · 102 eval-anchored · 114 total. Lens/mechanism-class capability inventory (read-only from config/mechanism_classes.json). 'reincorporated' = authored from a real or measured eval finding (proven recall lever); 'eval_anchored' = has >=1 awarded_examples. Distinct from real-world FP/recall, which need ground-truth outcomes._
+_99 reincorporated · 103 eval-anchored · 114 total. Lens/mechanism-class capability inventory (read-only from config/mechanism_classes.json). 'reincorporated' = authored from a real or measured eval finding (proven recall lever); 'eval_anchored' = has >=1 awarded_examples. Distinct from real-world FP/recall, which need ground-truth outcomes._
 
 | Language | Total | Reincorporated | Seeded | Eval-anchored |
 |---|---|---|---|---|
 | move | 12 | 5 | 7 | 5 |
 | rust | 19 | 15 | 4 | 15 |
-| solidity | 83 | 78 | 1 | 82 |
+| solidity | 83 | 79 | 0 | 83 |
 
 ### Reincorporated lenses (proven recall levers)
 
@@ -77,6 +77,7 @@ _98 reincorporated · 102 eval-anchored · 114 total. Lens/mechanism-class capab
 | default-sentinel-reward-routing-jit | solidity | economic_attack.md | panoptic-2025-12-strict-eval:M-15 |
 | division-as-percentage-fee | solidity | arithmetic.md | traitforge-2024-07-blind:H-03 |
 | effectivebond-no-downward-correction | solidity | logic.md#16 | olas-2026-01-blind:M-09 |
+| evm-insecure-onchain-randomness | solidity | economic_attack.md#12 | eggstravaganza-2025-04-blind:H-01 |
 | external-call-return-check | solidity | logic.md#13 | badger-2024-06-holdout:M-02 |
 | fee-accounting-shared-position | solidity | economic_attack.md#8 | vultisig-2024-06-holdout:H-01 |
 | fee-charged-outside-allowance | solidity | Fee charged OUTSIDE the approved allowance (fee-on-transfer in transferFrom) | next-generation-2025-01-blind:M-01 |

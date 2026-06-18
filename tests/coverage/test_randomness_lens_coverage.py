@@ -13,19 +13,28 @@ def _classes():
     return json.loads((ROOT / "config" / "mechanism_classes.json").read_text())["classes"]
 
 
-def test_seeded_evm_and_solana_randomness_classes():
+def test_evm_randomness_class_reincorporated():
+    # EVM lens was validated on eggstravaganza H-01 (blind fleet, economic_attack cited §12) -> promoted.
     c = _classes()
-    for slug, lang, agent, section in (
-        ("evm-insecure-onchain-randomness", "solidity", "economic_attack", "economic_attack.md#12"),
-        ("solana-insecure-onchain-randomness", "rust", "solana_account_model", "solana_account_model.md#11"),
-    ):
-        assert slug in c, f"{slug} missing"
-        assert c[slug]["status"] == "seeded"
-        assert c[slug]["awarded_examples"] == []        # seeded => no eval anchor yet (honest)
-        assert c[slug]["language"] == lang
-        assert c[slug]["agent"] == agent
-        assert c[slug]["prompt_section"] == section
-        assert c[slug].get("description")               # description present (pattern_checklist crash-guard)
+    e = c["evm-insecure-onchain-randomness"]
+    assert e["status"] == "reincorporated"
+    assert "eggstravaganza-2025-04-blind:H-01" in e["awarded_examples"]
+    assert e["language"] == "solidity"
+    assert e["agent"] == "economic_attack"
+    assert e["prompt_section"] == "economic_attack.md#12"
+    assert e.get("description")
+
+
+def test_solana_randomness_class_still_seeded():
+    # Solana lens not yet eval-validated (no clonable Solana randomness contest found) -> honestly seeded.
+    c = _classes()
+    s = c["solana-insecure-onchain-randomness"]
+    assert s["status"] == "seeded"
+    assert s["awarded_examples"] == []
+    assert s["language"] == "rust"
+    assert s["agent"] == "solana_account_model"
+    assert s["prompt_section"] == "solana_account_model.md#11"
+    assert s.get("description")
 
 
 def test_move_randomness_remains_reincorporated():
