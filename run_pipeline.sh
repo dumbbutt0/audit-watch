@@ -326,6 +326,10 @@ print(json.loads(m.read_text()).get('contract_path','') if m.exists() else '')
     log "Step 1.6: Coverage manifest + dispositions (full review denominator)..."
     run_step "build_coverage_manifest"   "${PYTHON}" "${ROOT}/scripts/build_coverage_manifest.py" --contract "${CONTRACT}"
     run_step "init_coverage_dispositions" "${PYTHON}" "${ROOT}/scripts/init_coverage_dispositions.py"
+    # api-free attack surface: project the manifest's per-function attack_surface_score into
+    # output/attack_surface.json so /ite-audit + cross_agent_connector always have it (API mode gets
+    # the richer LLM-authored version from agents/attacker_mindset.md; this never clobbers that).
+    run_step "build_attack_surface"      "${PYTHON}" "${ROOT}/scripts/build_attack_surface.py"
 
     log "Step 1.7: Fuzz-lane evidence gate (normalize + cause-confirm any harness signals)..."
     run_step "fuzz_evidence_gate" "${PYTHON}" "${ROOT}/scripts/fuzz_evidence_gate.py" --summary
