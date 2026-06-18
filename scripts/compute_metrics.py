@@ -90,6 +90,53 @@ def _pipeline_decision(root: Path) -> dict[str, str]:
     return out
 
 
+def _lens_inventory() -> dict:
+    """READ-ONLY inventory of the detection lenses (mechanism classes) the system carries.
+
+    Reads config/mechanism_classes.json and reports, per language, how many classes are
+    'reincorporated' (authored after a real miss / a measured catch — the proven recall levers)
+    vs merely 'seeded' (a-priori, not yet eval-validated). Recall capability is part of what the
+    self-calibration principle says we must MEASURE, not just FP/recall on ground truth. This never
+    writes the taxonomy; it only counts it. A class counts as eval-anchored when it has at least one
+    awarded_examples entry.
+    """
+    path = _PROJECT_ROOT / "config" / "mechanism_classes.json"
+    if not path.exists():
+        return {"state": "unmeasured (config/mechanism_classes.json absent)"}
+    classes = json.loads(path.read_text()).get("classes", {})
+    by_lang: dict[str, dict] = defaultdict(lambda: {"total": 0, "reincorporated": 0, "seeded": 0,
+                                                    "eval_anchored": 0})
+    reincorporated: list[dict] = []
+    for slug, c in classes.items():
+        lang = c.get("language", "solidity")
+        status = c.get("status", "")
+        examples = c.get("awarded_examples") or []
+        b = by_lang[lang]
+        b["total"] += 1
+        if status == "reincorporated":
+            b["reincorporated"] += 1
+        elif status == "seeded":
+            b["seeded"] += 1
+        if examples:
+            b["eval_anchored"] += 1
+        if status == "reincorporated":
+            reincorporated.append({"slug": slug, "language": lang,
+                                   "prompt_section": c.get("prompt_section"),
+                                   "awarded_examples": examples})
+    reincorporated.sort(key=lambda r: (r["language"], r["slug"]))
+    return {
+        "total_classes": len(classes),
+        "reincorporated_total": sum(1 for c in classes.values() if c.get("status") == "reincorporated"),
+        "eval_anchored_total": sum(1 for c in classes.values() if c.get("awarded_examples")),
+        "by_language": {k: by_lang[k] for k in sorted(by_lang)},
+        "reincorporated_classes": reincorporated,
+        "note": "Lens/mechanism-class capability inventory (read-only from config/mechanism_classes.json). "
+                "'reincorporated' = authored from a real or measured eval finding (proven recall lever); "
+                "'eval_anchored' = has >=1 awarded_examples. Distinct from real-world FP/recall, which "
+                "need ground-truth outcomes.",
+    }
+
+
 def compute() -> dict:
     """Build and return the cross-audit metrics dict (importable by the dashboard)."""
     audits = _audit_ids()
@@ -183,6 +230,7 @@ def compute() -> dict:
         "per_agent_reliability": {a: _rel(s) for a, s in sorted(agent_stats.items())},
         "per_bug_class_reliability": {c: _rel(s) for c, s in sorted(class_stats.items())},
         "per_audit": per_audit,
+        "lens_inventory": _lens_inventory(),
     }
     return metrics
 
@@ -216,6 +264,23 @@ def main() -> int:
     md.append("| Bug class | Reliability | n |"); md.append("|---|---|---|")
     for c, s in metrics["per_bug_class_reliability"].items():
         md.append(f"| {c} | {s['reliability'] if s['reliability'] is not None else '—'} | {s['n']} |")
+
+    li = metrics.get("lens_inventory", {})
+    if "by_language" in li:
+        md.append("\n## Detection-lens inventory (mechanism classes — read-only capability)\n")
+        md.append(f"_{li['reincorporated_total']} reincorporated · {li['eval_anchored_total']} "
+                  f"eval-anchored · {li['total_classes']} total. {li['note']}_\n")
+        md.append("| Language | Total | Reincorporated | Seeded | Eval-anchored |")
+        md.append("|---|---|---|---|---|")
+        for lang, b in li["by_language"].items():
+            md.append(f"| {lang} | {b['total']} | {b['reincorporated']} | {b['seeded']} | "
+                      f"{b['eval_anchored']} |")
+        md.append("\n### Reincorporated lenses (proven recall levers)\n")
+        md.append("| Lens (mechanism class) | Lang | Prompt section | Awarded examples |")
+        md.append("|---|---|---|---|")
+        for r in li["reincorporated_classes"]:
+            ex = ", ".join(r["awarded_examples"]) if r["awarded_examples"] else "—"
+            md.append(f"| {r['slug']} | {r['language']} | {r.get('prompt_section') or '—'} | {ex} |")
     (out_dir / "metrics_report.md").write_text("\n".join(md) + "\n")
 
     print(f"Metrics — {metrics['audits_scanned']} audits, {metrics['ground_truth_records']} ground-truth records")
