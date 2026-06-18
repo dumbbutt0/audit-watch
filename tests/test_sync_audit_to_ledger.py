@@ -82,6 +82,34 @@ def test_adds_new_contract_skips_dup_preserves_outcome(patched, monkeypatch):
     assert tgt["notes"] == "curated human note" and "PC-01" in tgt["reaudit_note"]
 
 
+def test_confirmed_testable_nonpoc_becomes_card_not_note(patched, monkeypatch):
+    tmp, rw = patched
+    # a non-PoC finding that IS system-confirmed (score >= 0.6) AND testable (has a plan) -> CONFIRMED card
+    conf = {"id": "PC-01", "state": "poc_required", "title": "Capability registry no-op fallback",
+            "classification": {"severity": "High"}, "location": {"contract": "TransactionProcessor", "function": "registerPlugin"},
+            "manifest_refs": ["src/TransactionProcessor.sol:registerPlugin"],
+            "poc": {"proved": False}, "confirmation": {"score": 0.8},
+            "ice": {"exploit_path": "with no CAP_MARGIN_CHECK registered, submit a margin-reducing update; assert no-op accepts it"}}
+    # a non-PoC finding that is NOT confidently confirmed (no score) -> stays a note
+    weak = {"id": "DOS-9", "state": "candidate", "title": "overflow variant",
+            "classification": {"severity": "Medium"}, "location": {"contract": "Risky", "function": "calc"},
+            "manifest_refs": ["src/Risky.sol:calc"], "poc": {"proved": False}, "confirmation": {}}
+    _audit(tmp, "tiprun-rw", {"platform": "HackenProof", "ledger_target": "TipRun", "ledger_sync": True},
+           [conf, weak], [])
+    monkeypatch.setattr(sys, "argv", ["x", "--audit", "tiprun-rw", "--quiet"])
+    assert sal.main() == 0
+    d = json.loads(rw.read_text())
+    owned = [c for c in d["candidate_findings"] if str(c.get("candidate_id", "")).startswith("tiprun-rw:")]
+    assert [c["candidate_id"] for c in owned] == ["tiprun-rw:PC-01"]   # confirmed -> card; weak -> NOT a card
+    v = owned[0]["verifier"]
+    assert v["poc_status"] == "NOT_STARTED" and v["analysis_confirmed"] is True   # honest: not reproduced
+    assert v["confirmation_confidence"] == 0.8 and v["poc_plan"]
+    # the weak (unconfirmed) finding is kept as a target note, NOT a card
+    tgt = [t for t in d["targets"] if t["target"] == "TipRun"][0]
+    assert "DOS-9" in tgt["reaudit_note"]
+    assert not any(c.get("candidate_id") == "tiprun-rw:DOS-9" for c in d["candidate_findings"])
+
+
 def test_idempotent_second_run_is_clean_noop(patched, monkeypatch):
     tmp, rw = patched
     cands = [_cand("BSA-001", "High", "PermissionsTransLib", "processAdminSetSignerPermissions", True)]

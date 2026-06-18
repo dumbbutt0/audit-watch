@@ -46,6 +46,7 @@ _STATE_RANK = {
     "REPORTABLE_CANDIDATE": 0,
     "READY_FOR_HUMAN_REVIEW": 1,
     "REPRODUCED": 2,
+    "CONFIRMED_NEEDS_POC": 3,
     "RUNTIME_CONFIRMED": 3,
     "PRIVILEGED_ONLY": 4,
     "NEEDS_CONTEXT": 5,
@@ -182,6 +183,11 @@ def _funnel_state(rec: Dict[str, Any]) -> str:
         return "READY_FOR_HUMAN_REVIEW"
     if poc == "REPRODUCED":
         return "REPRODUCED"
+    # system-confirmed (multi-pass) + testable candidate, but no PoC yet — a real card, NOT noise. The sync only
+    # emits a NOT_STARTED/IN_PROGRESS candidate_finding when it is confidently real + testable (weak findings stay
+    # target notes), so a clean-hit candidate with no PoC maps to CONFIRMED_NEEDS_POC (honest: not reproduced).
+    if poc in ("NOT_STARTED", "IN_PROGRESS") and rec.get("conversion") in ("CLEAN_HIT", "STRONG_PARTIAL"):
+        return "CONFIRMED_NEEDS_POC"
     if rec.get("conversion") in ("CLEAN_HIT", "STRONG_PARTIAL"):
         return "INVESTIGATED"
     return pipe or "INVESTIGATED"

@@ -96,9 +96,28 @@ def _sev(c: dict) -> str:
     return (c.get("classification") or {}).get("severity") or c.get("severity") or "Medium"
 
 
-def _verifier_block(cand: dict, vtarget: str, poc: dict) -> dict:
+def _conf_threshold() -> float:
+    try:
+        pol = json.loads((ROOT / "config" / "agent_policy.json").read_text())
+        return float((pol.get("multi_pass") or {}).get("confirmation_threshold", 0.6))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return 0.6
+
+
+def _poc_plan(cand: dict) -> str:
+    # candidate records use `ice`; merged findings use `ice_chain` — check both, plus the report-readiness fields.
+    ice = cand.get("ice") if isinstance(cand.get("ice"), dict) else (cand.get("ice_chain") or {})
+    ev = cand.get("evidence") if isinstance(cand.get("evidence"), dict) else {}
+    return str(cand.get("proof_of_concept")
+               or (ice.get("exploit_path") if isinstance(ice, dict) else "")
+               or cand.get("smallest_poc_or_plan")
+               or ev.get("preconditions") or ev.get("poc_result")
+               or cand.get("description") or "").strip()
+
+
+def _verifier_block(cand: dict, vtarget: str, poc: dict, reproduced: bool, confidence=None) -> dict:
     ev = cand.get("evidence") or {}
-    return {
+    block = {
         "target": vtarget,
         "surface_function": vtarget,
         "suspected_mechanism": cand.get("description") or cand.get("title") or "",
@@ -107,14 +126,27 @@ def _verifier_block(cand: dict, vtarget: str, poc: dict) -> dict:
         "severity_recommendation": _sev(cand), "claimed_severity": _sev(cand),
         "mechanism_confirmed": True, "attacker_reachable": True, "severity_bearing": True, "reportable": True,
         "real_contract_deployed": True, "production_source_modified": False,
-        "poc_command": f"forge test --match-contract {poc.get('test_contract','')} -vv",
-        "poc_status": "REPRODUCED",
-        "harness_path": poc.get("test_file", ""),
-        "vulnerable_output": poc.get("evidence", ""),
         "who_loses": (ev.get("who_loses") if isinstance(ev, dict) else "") or "",
         "who_gains": (ev.get("who_gains") if isinstance(ev, dict) else "") or "",
         "reachability_class": cand.get("reachability_tag") or "",
     }
+    if reproduced:
+        block.update({
+            "poc_status": "REPRODUCED",
+            "poc_command": f"forge test --match-contract {poc.get('test_contract','')} -vv",
+            "harness_path": poc.get("test_file", ""),
+            "vulnerable_output": poc.get("evidence", ""),
+        })
+    else:
+        # confirmed by analysis, testable, NOT yet reproduced — honest poc_status (drives CONFIRMED_NEEDS_POC state)
+        block.update({
+            "poc_status": "NOT_STARTED",
+            "analysis_confirmed": True,
+            "confirmation_confidence": confidence,
+            "poc_plan": _poc_plan(cand),
+            "testable": True,
+        })
+    return block
 
 
 def build(audit_id: str) -> tuple[dict, list[str]]:
@@ -134,7 +166,8 @@ def build(audit_id: str) -> tuple[dict, list[str]]:
             r = json.loads(line)
             poc_by_id[r.get("finding_id")] = r
 
-    proven, nonpoc = [], []
+    thr = _conf_threshold()
+    proven, confirmed, weak = [], [], []  # cards (REPRODUCED) / cards (CONFIRMED_NEEDS_POC) / target notes
     for cp in sorted(cdir.glob("*.json")) if cdir.is_dir() else []:
         c = _load(cp, {})
         st = c.get("state")
@@ -142,8 +175,16 @@ def build(audit_id: str) -> tuple[dict, list[str]]:
             continue
         if (c.get("poc") or {}).get("proved"):
             proven.append(c)
-        elif st in ("ready", "poc_required", "human_pending"):
-            nonpoc.append(c)
+            continue
+        # Two-tier: a non-PoC finding earns a CARD only when the system is confidently sure it's real
+        # (multi-pass confirmation >= threshold) AND it is testable (has a concrete PoC plan/mechanism).
+        # Everything else real (incl. downgraded `candidate` items) is kept as a target NOTE — never dropped.
+        score = (c.get("confirmation") or {}).get("score")
+        if (st in ("ready", "poc_required", "human_pending")
+                and isinstance(score, (int, float)) and score >= thr and _poc_plan(c).strip()):
+            confirmed.append(c)
+        else:
+            weak.append(c)
 
     data = _load(RW, {})
     cf = data.get("candidate_findings") or []
@@ -161,7 +202,8 @@ def build(audit_id: str) -> tuple[dict, list[str]]:
     vtarget_overrides = meta.get("ledger_verifier_targets") or {}
     report_ids = meta.get("ledger_report_ids") or {}  # finding_id -> report number (e.g. "N-1") to prefix the title
     new_cards, kept_owned_ids, added_ids, updated_ids = [], set(), [], []
-    for c in proven:
+    for c in proven + confirmed:
+        reproduced = (c.get("poc") or {}).get("proved") is True
         fid = c.get("id")
         vt = _verifier_target(c, vtarget_overrides)
         contract = _contract_of(vt)
@@ -170,17 +212,20 @@ def build(audit_id: str) -> tuple[dict, list[str]]:
             log.append(f"  skip {fid} (contract '{contract}' already represented in the ledger — re-confirmation)")
             continue
         poc = poc_by_id.get(fid, {})
+        score = (c.get("confirmation") or {}).get("score")
         raw_title = c.get("title", "")
         rid = report_ids.get(fid)
         title = raw_title if (not rid or raw_title.startswith(rid)) else f"{rid} — {raw_title}"
         card = {
             "candidate_id": cid, "target": target, "source": "re-audit",
-            "severity": _sev(c), "title": title,
-            "status": "PoC reproduced", "submitted": False, "human_verified": False,
-            "evidence": poc.get("evidence", "") or (c.get("proof_of_concept") or ""),
-            "poc_path": poc.get("test_file", ""),
+            "severity": _sev(c),
+            "title": title if reproduced else f"{title}  [confirmed · needs PoC]",
+            "status": "PoC reproduced" if reproduced else "Confirmed by analysis; PoC not yet written (testable)",
+            "submitted": False, "human_verified": False,
+            "evidence": poc.get("evidence", "") or (c.get("proof_of_concept") or "") or _poc_plan(c),
+            "poc_path": poc.get("test_file", "") if reproduced else "",
             "writeup": meta.get("report_path", ""),
-            "verifier": _verifier_block(c, vt, poc),
+            "verifier": _verifier_block(c, vt, poc, reproduced, score),
             "source_audit": audit_id,
         }
         # preserve any human-adjudicated fields previously attached to our owned entry
@@ -202,11 +247,13 @@ def build(audit_id: str) -> tuple[dict, list[str]]:
 
     # target note (non-destructive: preserve curated `notes`, set/refresh a delimited reaudit_note).
     # NB: deterministic (no timestamp) so a re-run with no new findings produces identical content (no churn).
-    note = (f"[re-audit {audit_id}] "
-            f"{len(new_cards)} new PoC-proven card(s): " +
-            "; ".join(f"{c['id']}:{c['title'][:60]}" for c in proven if f"{audit_id}:{c['id']}" in kept_owned_ids) +
-            (". Confirmed non-PoC (target notes, not cards): " +
-             "; ".join(f"{c['id']}:{c.get('title','')[:60]}" for c in nonpoc) if nonpoc else "") + ".")
+    carded = [c for c in proven + confirmed if f"{audit_id}:{c['id']}" in kept_owned_ids]
+    note = (f"[re-audit {audit_id}] {len(carded)} card(s) "
+            f"({sum(1 for c in carded if (c.get('poc') or {}).get('proved'))} REPRODUCED, "
+            f"{sum(1 for c in carded if not (c.get('poc') or {}).get('proved'))} CONFIRMED_NEEDS_POC): " +
+            "; ".join(f"{c['id']}:{c['title'][:55]}" for c in carded) +
+            (". Lower-confidence / untestable (notes only): " +
+             "; ".join(f"{c['id']}:{c.get('title','')[:55]}" for c in weak) if weak else "") + ".")
     tgt_entry = next((t for t in tg if t.get("target") == target), None)
     note_changed = (tgt_entry or {}).get("reaudit_note") != note
     if tgt_entry is None:
@@ -222,9 +269,12 @@ def build(audit_id: str) -> tuple[dict, list[str]]:
     data["summary"] = s
 
     dirty = bool(added or updated or note_changed)
+    skipped = (len(proven) + len(confirmed)) - len(new_cards)
     log.insert(0, f"{audit_id} -> ledger target '{target}': +{added} new card(s), {updated} updated-in-place, "
-                  f"{len(proven)-len(new_cards)} skipped (re-confirmations), {len(nonpoc)} non-PoC -> target note"
-                  f"{'' if dirty else '  (no changes)'}")
+                  f"{skipped} skipped (re-confirmations), cards={len(new_cards)} "
+                  f"(REPRODUCED={sum(1 for c in proven if f'{audit_id}:'+str(c['id']) in kept_owned_ids)}, "
+                  f"CONFIRMED_NEEDS_POC={sum(1 for c in confirmed if f'{audit_id}:'+str(c['id']) in kept_owned_ids)}), "
+                  f"{len(weak)} note-only{'' if dirty else '  (no changes)'}")
     return {"data": data, "added": added, "updated": updated, "target": target, "dirty": dirty,
             "new_card_ids": [c["candidate_id"] for c in new_cards]}, log
 

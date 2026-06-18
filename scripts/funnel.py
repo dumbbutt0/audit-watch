@@ -793,7 +793,10 @@ def _records_from_real_world(data: Dict[str, Any]) -> List[Dict[str, Any]]:
             "investigation_safe": True,
             "human_readiness": "human verification + submission pending",
             "poc": {
-                "poc_status": "REPRODUCED",
+                # Default REPRODUCED (every legacy candidate_finding is PoC-proven); a card may carry an honest
+                # verifier.poc_status (e.g. NOT_STARTED for a confirmed-but-unreproduced finding) which wins —
+                # but only when it is a valid enum value (legacy entries carry free-text like "PASS (1/1)").
+                "poc_status": (verifier["poc_status"] if verifier.get("poc_status") in POC_STATUS else "REPRODUCED"),
                 "poc_artifact_dir": (poc_path.rsplit("/", 1)[0] if poc_path and "/" in poc_path else None),
                 "test_file": poc_path,
                 "test_command": verifier.get("poc_command") or "forge test",
