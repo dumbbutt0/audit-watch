@@ -27,8 +27,10 @@
 #
 # Precision / reachability-truth confirm (MANUAL; NOT wired into eval/full — see documentation/pipeline_modes.md):
 #   confirm-advisory                          — eval-mode reachability confirm: ADVISORY only, never blocks (exit 0)
-#   submission-confirm [--strict]             — real-report precision gate: min-confirm + reachability confirm;
+#   precision-gate                            — eval-mode bounty-precision axes (live-reach/novelty/design): ADVISORY (exit 0)
+#   submission-confirm [--strict]             — real-report precision gate: min-confirm + reachability confirm + precision axes;
 #                                               BLOCKS (exit 1) duplicate/unreachable/privileged/insufficient High claims
+#                                               or a confident-negative on live-reach/novelty/design (AUDITWATCH_PRECISION_OVERRIDE=1)
 #
 # Other commands:
 #   ./run_pipeline.sh status                  — print compact status
@@ -718,11 +720,25 @@ print(s.get('unassigned', 0) + s.get('assigned_only', 0) + s.get('examined', 0))
     "${PYTHON}" "${ROOT}/scripts/confirm_gate.py" --mode eval
     ;;
 
+  precision-gate)
+    # Real-world PRECISION gate in EVAL mode: advisory only, NEVER blocks (exit 0). Scores the three
+    # bounty-rejection axes (live deployment-reachability / novelty-duplicate / design-acceptance) and
+    # prints what WOULD block at submission. Live on-chain reachability is folded in when
+    # deployment_manifest.json carries an `onchain` block + a QuickNode endpoint is set.
+    require_audit
+    "${PYTHON}" "${ROOT}/scripts/live_reachability_check.py" || true
+    "${PYTHON}" "${ROOT}/scripts/submission_risk_audit.py" --quiet || true
+    "${PYTHON}" "${ROOT}/scripts/precision_gate.py" --mode eval
+    ;;
+
   submission-confirm)
     # Real-report PRECISION gate (manual): field-presence (min_confirm) + reachability-truth (confirm_gate
-    # --mode submission). BLOCKS (exit 1) on submission risk: duplicate/unreachable/privileged_only/
-    # insufficient_evidence High-Critical confirmed claims (lifecycle_only + uncertain only with --strict).
-    # NOT wired into eval/full/coverage_review_gate. Override: AUDITWATCH_CONFIRM_OVERRIDE=1.
+    # --mode submission) + bounty-rejection precision (precision_gate --mode submission: live deployment-
+    # reachability / novelty-duplicate / design-acceptance). BLOCKS (exit 1) on submission risk:
+    # duplicate/unreachable/privileged_only/insufficient_evidence High-Critical confirmed claims
+    # (lifecycle_only + uncertain only with --strict), OR a confident-negative on any precision axis
+    # (not_wired / design-match / confirmed-duplicate). NOT wired into eval/full/coverage_review_gate.
+    # Override: AUDITWATCH_CONFIRM_OVERRIDE=1 (reachability-truth) · AUDITWATCH_PRECISION_OVERRIDE=1 (precision).
     require_audit
     "${PYTHON}" "${ROOT}/scripts/confirm_inventory.py"
     "${PYTHON}" "${ROOT}/scripts/confirm_reachability.py"
@@ -732,8 +748,12 @@ print(s.get('unassigned', 0) + s.get('assigned_only', 0) + s.get('examined', 0))
     else
       "${PYTHON}" "${ROOT}/scripts/confirm_gate.py" --mode submission; cf=$?
     fi
-    [[ ${mc} -eq 0 && ${cf} -eq 0 ]] || die "submission-confirm BLOCKED — see output/min_confirm_gate.json + output/confirm/confirm_gate.json. Override: AUDITWATCH_CONFIRM_OVERRIDE=1"
-    log "submission-confirm: PASS (field-presence + reachability-truth)"
+    # bounty-rejection precision axes (live-reachability + novelty + design): refresh on-chain + advisory, then gate
+    "${PYTHON}" "${ROOT}/scripts/live_reachability_check.py" || true
+    "${PYTHON}" "${ROOT}/scripts/submission_risk_audit.py" --quiet || true
+    "${PYTHON}" "${ROOT}/scripts/precision_gate.py" --mode submission; pg=$?
+    [[ ${mc} -eq 0 && ${cf} -eq 0 && ${pg} -eq 0 ]] || die "submission-confirm BLOCKED — see output/min_confirm_gate.json + output/confirm/confirm_gate.json + output/precision_gate.json. Override: AUDITWATCH_CONFIRM_OVERRIDE=1 / AUDITWATCH_PRECISION_OVERRIDE=1"
+    log "submission-confirm: PASS (field-presence + reachability-truth + precision axes)"
     ;;
 
   eval-seal)

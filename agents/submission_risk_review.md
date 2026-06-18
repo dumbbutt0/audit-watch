@@ -29,7 +29,20 @@ file/function/contract/title and auto-decides `not_wired` (likely OOS) vs `wired
 Fields: `active_profiles` / `inactive_profiles`, `active_modules` / `inactive_modules`, `unregistered_handlers`,
 `noop_fallbacks`. Example (TipRun): `inactive_profiles:["perp"]`, `active_profiles:["predict"]`,
 `inactive_modules:["Risk","liquidation"]`, `noop_fallbacks:["NullMarginCheck"]` → the perp/Risk findings flag
-`not_wired` automatically. This is human-authored deployment knowledge; it remains advisory (never changes state).
+`not_wired` automatically. This is human-authored deployment knowledge.
+
+**Prove it on-chain — the strongest signal.** Add an `onchain` block to `deployment_manifest.json`
+(`{address, chain, targets:[{finding_id, signature}], storage_assertions:[{finding_id, slot, expect_nonzero}]}`).
+`scripts/live_reachability_check.py` then reads the DEPLOYED (proxy-resolved) bytecode and (a) confirms the
+vulnerable function's 4-byte selector is actually present, and (b) checks the gating storage slot is active. A
+live `not_wired` (selector absent / config off) overrides the heuristics. Needs a `QUICKNODE_ENDPOINT_<CHAIN>`
+env; without one it degrades to `checklist_required` (no fabricated verdict). During a live hunt you can also run
+the `mcp__onchain-context` tools (`get_bytecode` / `get_storage` / `simulate_tx`) directly to make the same call.
+
+**This axis now ENFORCES at submission.** `scripts/precision_gate.py --mode submission` (wired into
+`./run_pipeline.sh submission-confirm`) HARD-BLOCKS a READY High/Critical finding on a confident negative —
+`not_wired`, design-acceptance match, or a confirmed duplicate. `checklist_required`/`flag` only WARN. It blocks
+the command (so a human resolves), never auto-rejects or mutates state. Override: `AUDITWATCH_PRECISION_OVERRIDE=1`.
 
 ## Axis 2 — Novelty / duplicate
 Has this exact root cause already been reported (program history, public reports, known-pattern KB/solodit)?

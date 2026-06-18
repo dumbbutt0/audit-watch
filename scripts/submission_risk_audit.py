@@ -76,6 +76,14 @@ _MANIFEST_TEMPLATE = {
     "active_profiles": [], "inactive_profiles": [],
     "active_modules": [], "inactive_modules": [],
     "unregistered_handlers": [], "noop_fallbacks": [],
+    "onchain": {
+        "_note": "OPTIONAL live-deployment coordinates for scripts/live_reachability_check.py. With a QuickNode "
+                 "endpoint set it verifies each target's selector is in the deployed (proxy-resolved) bytecode "
+                 "and that gating storage is active; a live not_wired verdict overrides the heuristics below.",
+        "address": "", "chain": "ethereum",
+        "targets": [],            # [{"finding_id": "F-1", "signature": "withdraw(uint256)"}]
+        "storage_assertions": [],  # [{"finding_id": "F-1", "slot": 3, "expect_nonzero": true}]
+    },
     "notes": "",
 }
 
@@ -132,7 +140,14 @@ def _first_hit(s: str, manifest: dict, keys) -> tuple[str, str] | None:
     return None
 
 
-def _reachability_axis(path: str, locus: str, cfg: dict, manifest: dict | None) -> dict:
+def _reachability_axis(path: str, locus: str, cfg: dict, manifest: dict | None,
+                       live: dict | None = None) -> dict:
+    # 0) Live on-chain evidence (live_reachability_check.py) wins over manifest/heuristic/checklist — it is a
+    #    direct read of the deployed contract, not a guess.
+    if live and live.get("level") in ("not_wired", "wired"):
+        lvl = live["level"]
+        return {"level": lvl, "source": "onchain",
+                "rationale": live.get("rationale", f"on-chain: {lvl}")}
     # 1) Deployment manifest (human-supplied live-deployment facts) — auto-decides where it can.
     #    Module/handler terms match the PATH; profile/fallback terms match the prose LOCUS.
     if manifest:
@@ -198,6 +213,8 @@ def build() -> dict:
     cfg = _load(PATTERNS, {})
     manifest = _deployment_manifest()
     kb_present = (out_dir / "kb_crossref.md").exists()
+    live_doc = _load(out_dir / "live_reachability.json", {})
+    live_by_id = live_doc.get("findings", {}) if isinstance(live_doc, dict) else {}
 
     records = []
     for f in findings:
@@ -206,7 +223,7 @@ def build() -> dict:
             continue
         text = _finding_text(f)
         design = _design_axis(text, cfg)
-        reach = _reachability_axis(_finding_path(f), _finding_locus(f), cfg, manifest)
+        reach = _reachability_axis(_finding_path(f), _finding_locus(f), cfg, manifest, live_by_id.get(fid))
         nov = _novelty_axis(text, kb_present)
         advisories = _advisories(fid, design, reach, nov)
         # overall: high if a design/known shape matched OR reachability is not_wired/flagged; review if anything
