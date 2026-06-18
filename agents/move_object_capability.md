@@ -73,6 +73,32 @@ or calls another module's side-effecting fn). Any side-effecting helper whose on
 package's own modules must be `public(friend)` (or an `entry` with a guard); a `public` emit/log/notify helper is
 the finding. (generalized from a Sui AMM event-spoofing miss, eval sui-amm-swap-2022-11-eval)
 
+## §8 Authorization via a caller-SUPPLIED address arg instead of a verified signer (move-address-param-not-signer-auth)
+> (generalized from a Secret Vault / Aptos-Move blind-eval miss, H-02 — applies to Sui too)
+
+Authority in Move comes from POSSESSION: a `&signer` (Aptos) / `&TxContext` sender (Sui) / a `Cap` — NOT from an
+address VALUE passed in by the caller. A check like `assert!(caller == @owner)` where `caller: address` is a
+function PARAMETER is trivially bypassed: anyone calls the function and passes `caller = @owner`, so the assert
+holds for an attacker. Secret Vault H-02: `get_secret(caller: address)` asserts `caller == @owner` against an
+arg, so any account reads the secret by passing `@owner`. RULE: every owner/admin/identity check must compare
+against `signer::address_of(&signer)` (Aptos) / `tx_context::sender(ctx)` (Sui) / consume a `Cap` — NEVER against
+an address the caller supplied as an argument. Anchor: `fun f(x: address, ...) { assert!(x == @addr / x ==
+owner) }` with no `&signer`/`sender` deriving `x`. (See the FP note: reading the sender to CREDIT the caller is
+fine; the bug is AUTHORIZING off a caller-controlled address value.)
+
+## §9 On-chain storage is PUBLIC — plaintext secrets / sensitive data leak (move-onchain-data-not-private)
+> (generalized from a Secret Vault / Aptos-Move blind-eval miss, H-01 — applies to all Move/chains)
+
+All on-chain state is world-readable: any full node / RPC / indexer can read a resource's or object's fields
+regardless of the Move visibility of the functions that gate access. Storing a "secret", password, pre-image,
+seed, off-chain key, or any confidential value in plaintext in a resource/object (even behind a `#[view]` that
+checks the owner) does NOT keep it private — it is exposed the moment it is written. Secret Vault H-01: a secret
+stored in plaintext in a global `Vault` resource is readable directly from storage. RULE: flag any state field
+holding data that is meant to be confidential (secret/password/seed/key/preimage-before-reveal) — on-chain it
+must be hashed/committed/encrypted, never stored in plaintext; access-control on the getter is irrelevant to raw
+storage reads. Anchor: a struct field named/used as a secret/credential stored from user input without
+hashing/commitment.
+
 ## FP guardrails (do not over-report)
 - Re-entrancy is generally impossible in Move (no dynamic dispatch) — don't report EVM-style reentrancy unless via
   an explicit callback/hot-potato into a `public` fun.

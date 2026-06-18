@@ -1,5 +1,5 @@
 # Session Status (latest)
-_Generated 2026-06-17T16:09:22.047118+00:00_
+_Generated 2026-06-18T00:28:07.613622+00:00_
 
 **Active audit:** `sui-amm-swap-2022-11-eval` — Sui-AMM-swap (OmniBTC constant-product DEX)
 **Next action:** Run triage  (`python scripts/triage_findings.py`)
@@ -7,11 +7,12 @@ _Generated 2026-06-17T16:09:22.047118+00:00_
 ## Calibration (cross-audit)
 - FP rate: unmeasured (no ground truth)
 - Recall on valid: unmeasured (no ground truth)
-- PoC success: 0.857 (n=14)
+- PoC success: unmeasured (no ground truth)
 - Ground-truth records (all audits): 0 across 11 audits
 
 ## Backlog (this audit)
 - Ground-truth records: 0
+- Accepted findings awaiting an outcome: 0 (record via scripts/record_outcome.py to close calibration)
 - needs_human_review pending: 0
 - Unpromoted learning candidates: 0
 - Last failed gate: none
