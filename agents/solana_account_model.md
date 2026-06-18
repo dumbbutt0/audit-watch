@@ -141,8 +141,25 @@ account's rent-exempt minimum first (`lamports() - Rent::minimum_balance(account
 accounting field directly to raw `lamports()` is the finding. Anchor: a `*.lamports()` compared to a stored
 reserve/balance field with no `minimum_balance`/rent subtraction (watch for commented-out rent math).
 
+## §11 Predictable Solana randomness — Clock sysvar / slot / recent blockhash as entropy (solana-insecure-onchain-randomness)
+> (SEEDED — generalized from the Move pizza-drop M-01 finding; not yet Solana-eval-validated)
+
+A security/economic outcome (a lottery/raffle winner, a reward/airdrop amount, an NFT mint trait/rarity, a tier,
+an ordering) seeded from on-chain-observable or leader/validator-influenceable state is NOT random. On Solana the
+unsafe sources are: `Clock::get()?.unix_timestamp` and `.slot` (and `.epoch`), the `SlotHashes`/recent-blockhash
+sysvar, an account `Pubkey`, or a public counter — all known at execution time and the slot leader has latitude
+over slot timing/inclusion. The classic break is `let r = clock.unix_timestamp % N` (or hashing slot/blockhash)
+to pick a winner/amount; a caller can observe and, via a wrapper/CPI that aborts on an unfavorable draw, retry
+for free, and a leader can bias timing. RULE: flag any winner/amount/tier/trait/ordering with economic or
+security weight derived from `Clock` (unix_timestamp/slot/epoch), `SlotHashes`/recent blockhash, a `Pubkey`, or a
+public counter; correct = a VRF/oracle (e.g. Switchboard VRF) or a commit-reveal with a future, unknown-at-commit
+seed. FP note: a purely cosmetic, non-value, non-griefable choice is fine — only flag when the outcome carries
+value or security weight. Anchor: `Clock`/`slot`/`SlotHashes` feeding a `% N` or comparison that sets a
+payout/selection in the same instruction.
+
 ## How to run
 For each `pub fn` instruction handler (manifest ranks these high): list its accounts, run §1–§4 per account, then
-§5–§9 on the body (incl. init-authority cross-instruction trace §8 and duplicate-mutable-account aliasing §9).
+§5–§9 on the body (incl. init-authority cross-instruction trace §8 and duplicate-mutable-account aliasing §9),
+and §11 on any randomness/selection/reward-amount logic.
 Open the `#[derive(Accounts)]` struct alongside the handler — the constraints live there, the logic in the fn.
 Nothing in-scope skipped (full-coverage discipline). See also `solana_cpi.md` for CPI/PDA + signer seeds.

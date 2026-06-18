@@ -1,6 +1,6 @@
 # Pipeline Metrics (cross-audit)
 
-_Generated 2026-06-18T01:14:51.028771+00:00 · 11 audits · 0 ground-truth records._
+_Generated 2026-06-18T02:18:40.253248+00:00 · 11 audits · 0 ground-truth records._
 
 > Rates are over findings that HAVE a recorded human outcome. Low ground_truth_records ⇒ metrics are directional, not yet robust.
 
@@ -25,13 +25,13 @@ _Generated 2026-06-18T01:14:51.028771+00:00 · 11 audits · 0 ground-truth recor
 
 ## Detection-lens inventory (mechanism classes — read-only capability)
 
-_98 reincorporated · 102 eval-anchored · 112 total. Lens/mechanism-class capability inventory (read-only from config/mechanism_classes.json). 'reincorporated' = authored from a real or measured eval finding (proven recall lever); 'eval_anchored' = has >=1 awarded_examples. Distinct from real-world FP/recall, which need ground-truth outcomes._
+_98 reincorporated · 102 eval-anchored · 114 total. Lens/mechanism-class capability inventory (read-only from config/mechanism_classes.json). 'reincorporated' = authored from a real or measured eval finding (proven recall lever); 'eval_anchored' = has >=1 awarded_examples. Distinct from real-world FP/recall, which need ground-truth outcomes._
 
 | Language | Total | Reincorporated | Seeded | Eval-anchored |
 |---|---|---|---|---|
 | move | 12 | 5 | 7 | 5 |
-| rust | 18 | 15 | 3 | 15 |
-| solidity | 82 | 78 | 0 | 82 |
+| rust | 19 | 15 | 4 | 15 |
+| solidity | 83 | 78 | 1 | 82 |
 
 ### Reincorporated lenses (proven recall levers)
 
