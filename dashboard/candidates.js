@@ -12,7 +12,31 @@ const GROUP_LABEL = {
   "RAW/NEEDS_CONTEXT": "RAW / NEEDS_CONTEXT", "KILLED": "KILLED",
 };
 const WSL_DISTRO = "Ubuntu";
-const state = { rows: [], selected: null, fTrack: "", fText: "" };
+const state = { rows: [], selected: null, fTrack: "", fText: "", fAudit: "", fHideNoise: false };
+
+/* ---- filter persistence (per-browser; mirrors the hv_editor localStorage pattern) ---- */
+const FILTER_KEY = "hv_cand_filters";
+function loadFilters() {
+  try {
+    const s = JSON.parse(localStorage.getItem(FILTER_KEY) || "{}");
+    state.fTrack = s.fTrack || ""; state.fAudit = s.fAudit || "";
+    state.fText = s.fText || ""; state.fHideNoise = !!s.fHideNoise;
+  } catch (e) { /* ignore corrupt storage */ }
+}
+function saveFilters() {
+  try {
+    localStorage.setItem(FILTER_KEY, JSON.stringify({
+      fTrack: state.fTrack, fAudit: state.fAudit, fText: state.fText, fHideNoise: state.fHideNoise,
+    }));
+  } catch (e) { /* storage may be unavailable */ }
+}
+/* "noise" = duplicate / rejected / killed / refuted / downgraded / invalid / not-applicable.
+   Case-insensitive; covers both the per-audit (duplicate/rejected) and overview (KILLED/REFUTED) vocabularies. */
+const NOISE_RE = /(duplicate|rejected|killed|refuted|downgraded|invalid|not[_ ]?applicable)/i;
+function isNoise(r) {
+  if (/dup/i.test(String(r.duplicate_status || ""))) return true;
+  return NOISE_RE.test(`${r.state || ""} ${r.outcome || ""} ${r.lifecycle_state || ""}`);
+}
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -141,21 +165,41 @@ function editorUri(abs, line) {
 async function loadList() {
   const data = await api("/api/candidates");
   state.rows = data.candidates || [];
+  loadFilters();
+  // audit/workspace options — dynamically populated from the loaded rows (sorted unique)
+  const audits = [...new Set(state.rows.map((r) => r.audit_id).filter(Boolean))].sort();
+  const auditOpts = `<option value="">all audits</option>` +
+    audits.map((a) => `<option value="${esc(a)}"${state.fAudit === a ? " selected" : ""}>${esc(a)}</option>`).join("");
+  const trackSel = (v) => state.fTrack === v ? " selected" : "";
   $("listCol").innerHTML = `
     <div class="filterbar">
       <span id="cCount" style="font-size:11px;color:var(--muted)"></span>
       <span style="flex:1"></span>
-      <select id="cTrack"><option value="">all tracks</option><option value="runtime">runtime</option><option value="funnel">funnel</option><option value="detector">detector</option><option value="option_a_campaign">option_a_campaign</option></select>
+      <select id="cTrack"><option value="">all tracks</option><option value="runtime"${trackSel("runtime")}>runtime</option><option value="funnel"${trackSel("funnel")}>funnel</option><option value="detector"${trackSel("detector")}>detector</option><option value="option_a_campaign"${trackSel("option_a_campaign")}>option_a_campaign</option></select>
+      <select id="cAudit" title="filter by audit / workspace">${auditOpts}</select>
       <input id="cSearch" placeholder="filter…" size="12"/>
+      <label style="font-size:11px;color:var(--muted);display:inline-flex;align-items:center;gap:3px"><input type="checkbox" id="cHideNoise"/>hide noise</label>
+      <a href="#" id="cClear" style="font-size:11px">clear</a>
     </div>
     <div id="cList"></div>`;
-  $("cTrack").addEventListener("change", (e) => { state.fTrack = e.target.value; renderCards(); });
-  $("cSearch").addEventListener("input", (e) => { state.fText = e.target.value.toLowerCase(); renderCards(); });
+  $("cSearch").value = state.fText;
+  $("cHideNoise").checked = state.fHideNoise;
+  $("cTrack").addEventListener("change", (e) => { state.fTrack = e.target.value; saveFilters(); renderCards(); });
+  $("cAudit").addEventListener("change", (e) => { state.fAudit = e.target.value; saveFilters(); renderCards(); });
+  $("cSearch").addEventListener("input", (e) => { state.fText = e.target.value.toLowerCase(); saveFilters(); renderCards(); });
+  $("cHideNoise").addEventListener("change", (e) => { state.fHideNoise = e.target.checked; saveFilters(); renderCards(); });
+  $("cClear").addEventListener("click", (e) => {
+    e.preventDefault();
+    state.fTrack = ""; state.fAudit = ""; state.fText = ""; state.fHideNoise = false;
+    saveFilters(); loadList();
+  });
   renderCards();
 }
 function renderCards() {
   const rows = state.rows
     .filter((r) => (!state.fTrack || r.track === state.fTrack) &&
+      (!state.fAudit || r.audit_id === state.fAudit) &&
+      (!state.fHideNoise || !isNoise(r)) &&
       (!state.fText || `${r.candidate_surface} ${r.audit_id} ${r.candidate_id}`.toLowerCase().includes(state.fText)))
     .sort((a, b) => (a.glance_rank ?? 99) - (b.glance_rank ?? 99));  // reportable → confirmed/ready → leads → refuted
   $("cList").innerHTML = rows.map(cardHtml).join("") || `<p class="missing">none</p>`;
