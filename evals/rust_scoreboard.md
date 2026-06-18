@@ -1,6 +1,6 @@
 # Recall Lab — Rust Scoreboard
 
-_generated 2026-06-18T00:31:11Z_
+_generated 2026-06-18T00:53:08Z_
 
 Eval-only, rust-only. NEVER counted toward Solidity recall (the Solidity board routes these out). The honest non-Solidity recall number lives here.
 

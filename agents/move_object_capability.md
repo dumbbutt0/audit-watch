@@ -99,6 +99,35 @@ must be hashed/committed/encrypted, never stored in plaintext; access-control on
 storage reads. Anchor: a struct field named/used as a secret/credential stored from user input without
 hashing/commitment.
 
+## §10 Insecure / predictable on-chain randomness (move-insecure-onchain-randomness)
+> (generalized from a Pizza Drop / Aptos-Move blind-eval miss-class, M-01 — applies to all Move/chains)
+
+Any value used as "randomness" that is derived from on-chain-observable or proposer-influenceable
+state is NOT random and can be predicted or manipulated by the caller/validator. Bugs:
+`timestamp::now_microseconds()` / `now_seconds()`, block height/epoch, `tx_context` fields, an account
+address, or a counter used (often with `% N`) to pick a reward amount, a winner, a tier, or a mint
+trait. Pizza Drop M-01: the airdrop amount is `timestamp::now_microseconds() % 401`, so a caller picks
+the registration time to always get the maximum. TWO distinct failure modes, both must be checked:
+- **Predictability** — the seed is public/derivable, so the outcome is known in advance (pick the
+  favorable time / front-run). Flag ANY reward/selection/lottery/trait value computed from
+  timestamp/block/address/counter.
+- **Test-and-abort (selective abort) biasing** — on Aptos, even when the *secure*
+  `aptos_framework::randomness` API is used, a randomness-consuming function that is publicly callable
+  in a way the attacker can WRAP (a `public` `#[randomness]` entry, or callable from an attacker
+  module) lets the attacker draw the value, inspect it, and `abort` the whole transaction when the
+  draw is unfavorable — re-rolling for free until they get the result they want. The `#[randomness]`
+  annotation alone is NOT sufficient; the entry must also be gated so it can't be re-rolled
+  (private/owner-only, single-shot per subject, or commit-reveal).
+
+RULE: flag any security/economic decision (amount, winner, tier, trait, ordering) seeded from
+timestamp/block/address/counter as predictable randomness; and for Aptos `#[randomness]` functions,
+require that the function is NOT freely re-rollable (not a `public` entry an attacker can wrap and
+selectively abort). Correct patterns: `aptos_framework::randomness` from a non-wrappable
+(private/`entry` with auth) caller, or a commit-reveal scheme. Anchor: `now_*()` / block / address
+feeding a `% N` or comparison that sets a payout/selection. (FP note: randomness used for a purely
+cosmetic, non-value, non-griefable choice is acceptable — only flag when the outcome carries economic
+or security weight.)
+
 ## FP guardrails (do not over-report)
 - Re-entrancy is generally impossible in Move (no dynamic dispatch) — don't report EVM-style reentrancy unless via
   an explicit callback/hot-potato into a `public` fun.

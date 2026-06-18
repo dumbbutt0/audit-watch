@@ -1,6 +1,6 @@
 # Recall Lab — Move Scoreboard
 
-_generated 2026-06-18T00:31:11Z_
+_generated 2026-06-18T00:53:08Z_
 
 Eval-only, move-only. NEVER counted toward Solidity recall (the Solidity board routes these out). The honest non-Solidity recall number lives here.
 
@@ -31,4 +31,5 @@ Eval-only, move-only. NEVER counted toward Solidity recall (the Solidity board r
 
 | eval (non-blind) | classes reincorporated |
 |---|---|
+| pizza-drop-aptos-2025-08-blind | move-insecure-onchain-randomness |
 | secret-vault-aptos-2025-07-blind | move-address-param-not-signer-auth, move-onchain-data-not-private |

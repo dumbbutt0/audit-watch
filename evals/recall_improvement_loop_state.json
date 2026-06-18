@@ -33,7 +33,7 @@
          "missed_reincorporated": ["(none — basic Solana bugs already covered by existing specialists; high recall confirms coverage)"]}
       ], "stopped": true, "stop_reason": "2/2 DONE (target met) — CodeHawks unblocked rust #2 (rustfund).",
        "unfetchable_log": ["sherlock-audit/* Solana = git auth", "C4 Solana scarce"], "unblocked_by": "CodeHawks-Contests org (public clonable Solana/Rust)"},
-    "move":     {"fresh_blind_done": 1, "target": 2, "audits": [
+    "move":     {"fresh_blind_done": 2, "target": 2, "audits": [
         {"id": "secret-vault-aptos-2025-07-blind", "flavor": "APTOS Move (NOT Sui — transparently labeled; specialists are Sui-oriented but the system had ZERO Aptos coverage so these misses are genuine new Move lenses that also apply to Sui)",
          "scope": "1 file/37 nsloc (CodeHawks 2025-07 first-flight)", "awarded": 3,
          "blind_recall_of_surfaced": 1.0, "strong": 0.67, "pass_type": "single-auditor hand blind pass (full coverage 1/1, leakage-clean, integrity-clean)",
@@ -41,9 +41,19 @@
          "missed_reincorporated": ["(none missed — recall 1.00; but BOTH Highs were NEW Move lenses with no prior section, so reincorporated proactively as durable classes:)",
             "move-address-param-not-signer-auth -> move_object_capability.md#8 (from H-02)",
             "move-onchain-data-not-private -> move_object_capability.md#9 (from H-01)"],
-         "note": "Aptos-flavor datapoint. Recall was 1.00 on the hand pass, but the two High mechanisms had no specialist section before this run, so they are authored as general Move classes (apply to Sui too) to lock the catch for the full /ite-audit fleet on future runs."}
-      ], "tests": "tests/coverage/test_secret_vault_reincorporation.py", "stopped": false,
-       "stop_reason": "1/2 — move #1 (secret-vault, Aptos) DONE. move #2 still needs a fetchable Move source; SUI-flavor remains source-blocked (see platforms_checked). A 2nd fetchable Aptos/CodeHawks first-flight OR a Sui zip would complete the target.",
+         "note": "Aptos-flavor datapoint. Recall was 1.00 on the hand pass, but the two High mechanisms had no specialist section before this run, so they are authored as general Move classes (apply to Sui too) to lock the catch for the full /ite-audit fleet on future runs."},
+        {"id": "pizza-drop-aptos-2025-08-blind", "flavor": "APTOS Move (CodeHawks 2025-08 first-flight #47, Aptos-sponsored; same Aptos-not-Sui caveat — lenses generalize to Sui)",
+         "scope": "1 file/263 nsloc (airdrop module)", "awarded": 3,
+         "blind_recall_of_surfaced": 1.0, "strong": 1.0, "pass_type": "single-auditor hand blind pass (full coverage 1/1, leakage-clean, integrity-clean, deferred-seal counts-only)",
+         "caught": ["H-01 access-control bypass: unguarded get_random_slice entry -> self-register & drain (PD-01 STRONG)",
+            "H-02 reward in Octas-not-APT units mismatch (PD-03 STRONG; I rated Medium vs awarded High = severity under-calibration, mechanism caught)",
+            "M-01 predictable timestamp randomness (PD-02 STRONG; I rated High vs awarded Medium = severity over-calibration, mechanism caught)"],
+         "missed_reincorporated": ["(none missed — recall 1.00; H-01 covered by existing move capability/visibility/address-auth sections #1/#7/#8, H-02 by the units/decimals lens. M-01 randomness had ZERO coverage in ANY agent, so reincorporated as a durable general-Move lens:)",
+            "move-insecure-onchain-randomness -> move_object_capability.md#10 (predictability + Aptos test-and-abort/selective-abort biasing)"],
+         "severity_calibration_note": "Caught all 3 awarded mechanisms; mis-rated 2 severities (H-02 down, M-01 up). Recall measures mechanism surfacing (1.00); severity calibration is a separate, lesser axis worth watching.",
+         "tests": "tests/coverage/test_pizza_drop_reincorporation.py"}
+      ], "tests": "tests/coverage/test_secret_vault_reincorporation.py + test_pizza_drop_reincorporation.py", "stopped": true,
+       "stop_reason": "2/2 DONE (target met) — both Aptos-Move CodeHawks first-flights (secret-vault, pizza-drop) at recall 1.00. CodeHawks-Contests org unblocked Move (public clonable Aptos first-flights). SUI-flavor remains source-blocked (Sherlock-auth/Movebit-zip) but the lenses authored from these Aptos passes generalize to Sui.",
        "platforms_checked": {
          "code4rena": "cabal=Initia Move (18.6k LOC, wrong flavor)",
          "codehawks": "One Shot=Aptos Move; no Sui contest in CodeHawks-Contests org",
@@ -118,8 +128,9 @@
     "date": "2026-06-17",
     "solidity": "2/2 DONE (target met): next-generation 0.50 (caught the High), garden 0.0.",
     "rust": "2/2 DONE: pump-science 0.40 (caught H-02+M-01) + rustfund 1.00 (caught all 4 Highs). CodeHawks unblocked rust #2.",
-    "move": "1/2: secret-vault (Aptos Move, CodeHawks first-flight) DONE at recall 1.00 — caught both Highs; both were NEW Move lenses so reincorporated as move-address-param-not-signer-auth + move-onchain-data-not-private (apply to Sui too). move #2 still source-gated for a fresh fetchable Move contest (SUI-flavor = Sherlock-auth/Movebit-zip).",
-    "logic_improvements_total": "10 from genuine blind work: adjudicate bullet-parser fix; classes fee-charged-outside-allowance, forwarder-request-missing-deadline, unchecked-erc20-approve-return, solana-lamport-invariant-includes-rent, fee-tier-boundary-discontinuity, move-address-param-not-signer-auth, move-onchain-data-not-private; + class-schema regression self-caught; + 3 stub answer keys recovered (iq-ai/nudgexyz/secondswap measured blind).",
-    "honest_note": "Stopped per the user's condition (no web-fetchable sources for rust#2/move). Did NOT fabricate or force wrong-flavor/oversized audits to hit numbers. Sherlock-auth + Movebit-zip sources are the gap; a credentialed clone path would unblock rust/move."
+    "move": "2/2 DONE (target met): secret-vault (Aptos, recall 1.00 — caught both Highs, reincorporated move-address-param-not-signer-auth + move-onchain-data-not-private) + pizza-drop (Aptos CodeHawks first-flight #47, recall 1.00 — caught all 3 awarded mechanisms; reincorporated move-insecure-onchain-randomness, the only zero-coverage lens). CodeHawks-Contests org unblocked Move via public clonable Aptos first-flights. SUI-flavor still source-gated (Sherlock-auth/Movebit-zip) but authored lenses generalize to Sui.",
+    "logic_improvements_total": "11 from genuine blind work: adjudicate bullet-parser fix; classes fee-charged-outside-allowance, forwarder-request-missing-deadline, unchecked-erc20-approve-return, solana-lamport-invariant-includes-rent, fee-tier-boundary-discontinuity, move-address-param-not-signer-auth, move-onchain-data-not-private, move-insecure-onchain-randomness; + class-schema regression self-caught; + 3 stub answer keys recovered (iq-ai/nudgexyz/secondswap measured blind).",
+    "ALL_LANGUAGES_TARGET_MET": "Solidity 2/2, Rust 2/2, Move 2/2 — all 3 languages reached the narrowed 2-fresh-blind-audits target. CodeHawks-Contests org (public clonable Aptos/Solana first-flights) was the key unblock for both Rust #2 and Move 1+2.",
+    "honest_note": "Move was completed with APTOS-flavor CodeHawks first-flights (transparently labeled — specialists are Sui-oriented; the lenses authored generalize to Sui). Did NOT fabricate or force wrong-flavor/oversized audits to hit numbers. SUI-flavor source (Sherlock-auth/Movebit-zip) remains the only gap; a credentialed clone path or a Sui zip would add native-Sui datapoints."
   }
 }
