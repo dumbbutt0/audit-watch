@@ -134,6 +134,20 @@ Populate `ice_chain` on every finding:
 - Tick spacing calculations with integer division: `_tick / _spacing * _spacing`
 - Boundary violations in exponent functions (wExp overflow checks)
 
+## Piecewise fee/rate curve DISCONTINUITY at a tier boundary (fee-tier-boundary-discontinuity)
+> (generalized from a Pump Science blind-eval miss, M-03)
+
+When a fee/rate is defined PIECEWISE over time/slots/amount tiers (phase 1 flat, phase 2 linear decay, phase 3
+flat), check the VALUE AT EACH BOUNDARY for continuity: compute the formula at the last point of one phase and
+the first point of the next and confirm they meet. A linear-decay coefficient that lands the boundary value far
+from the next phase's flat value creates an abrupt jump that is exploitable as timing arbitrage (wait one
+slot/unit to cross the cliff for a much better rate) and signals a wrong slope/intercept. Pump Science M-03:
+the fee decays to 8.76% at slot 250 but phase 3 is a flat 1% from slot 251 — an abrupt 8.76%→1% cliff from an
+incorrect linear-decrease formula. RULE: for every piecewise fee/rate, evaluate f(boundary) on both sides; a
+discontinuity > a few % is the finding (the decay should reach the next phase's value). Don't just check each
+phase in isolation — check the SEAMS. Anchor: `if slots < A {..} else if slots <= B { linear } else {flat}`
+where `linear(B)` != `flat`.
+
 ### Cycle 2026-05-12 (+2000 new findings)
 
 # Arithmetic Vulnerability Patterns Summary

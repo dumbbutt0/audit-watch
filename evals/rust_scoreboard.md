@@ -1,6 +1,6 @@
 # Recall Lab — Rust Scoreboard
 
-_generated 2026-06-17T23:25:52Z_
+_generated 2026-06-17T23:50:29Z_
 
 Eval-only, rust-only. NEVER counted toward Solidity recall (the Solidity board routes these out). The honest non-Solidity recall number lives here.
 
@@ -36,3 +36,4 @@ Eval-only, rust-only. NEVER counted toward Solidity recall (the Solidity board r
 |---|---|
 | drift-zellic-2022 | solana-anchor-idl-instructions-enabled, solana-arithmetic-unchecked |
 | lz-solana-endpoint-zellic-2024 | solana-account-count-config-mismatch-panic, solana-account-substitution-confusion, solana-close-account-revival, solana-remaining-accounts-trust |
+| pump-science-2025-01-blind | solana-lamport-invariant-includes-rent |

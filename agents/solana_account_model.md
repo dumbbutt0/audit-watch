@@ -126,6 +126,21 @@ Orderly cold pass using the WOOFi-earned class, so keep applying it:
   on-chain. RULE: in any `lz_receive`/message handler, every recipient/token ACCOUNT must be `require!`-bound to
   the corresponding field of the verified message payload inside the handler body (or via a constraint).
 
+## §10 SOL/lamport-balance invariant must EXCLUDE the rent-exempt minimum (solana-lamport-invariant-includes-rent)
+> (generalized from a Pump Science blind-eval miss, M-02)
+
+When a program tracks an internal SOL accounting field (e.g. `real_sol_reserves`) and asserts it against a PDA's
+RAW lamport balance (`escrow.lamports()`), remember every PDA/account carries a rent-exempt minimum that is NOT
+spendable protocol liquidity. Comparing the accounting field to `lamports()` directly (without subtracting
+`Rent::minimum_balance(data_len)`) makes the invariant wrong by the rent amount: it can pass while the protocol
+is actually short by up to the rent (the rent pads the balance), or it can mis-measure available liquidity.
+Pump Science M-02: `BondingCurve::invariant` checks `sol_escrow_lamports < real_sol_reserves` against the raw
+escrow lamports (the rent-subtraction was commented out), so the invariant validates SOL balance incorrectly due
+to rent inclusion. RULE: any lamport-balance invariant or "available SOL" computation must subtract the
+account's rent-exempt minimum first (`lamports() - Rent::minimum_balance(account.data_len())`); comparing an
+accounting field directly to raw `lamports()` is the finding. Anchor: a `*.lamports()` compared to a stored
+reserve/balance field with no `minimum_balance`/rent subtraction (watch for commented-out rent math).
+
 ## How to run
 For each `pub fn` instruction handler (manifest ranks these high): list its accounts, run §1–§4 per account, then
 §5–§9 on the body (incl. init-authority cross-instruction trace §8 and duplicate-mutable-account aliasing §9).

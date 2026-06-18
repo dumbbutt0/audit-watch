@@ -1,17 +1,17 @@
 # Recall Lab — Scoreboard
 
-_generated 2026-06-17T23:25:52Z_
+_generated 2026-06-17T23:50:29Z_
 
 Eval-only. Does not affect the real-world dashboard.
 
 ## Headline
 - **Holdout recall — FULL-COVERAGE only (the honest number):** 0.357  (over 84 awarded findings in full-coverage projects)
-- Holdout recall — of-surfaced (may include thin passes): 0.379  (strong-only 0.126)
+- Holdout recall — of-surfaced (may include thin passes): 0.38  (strong-only 0.141)
 - **Training recall — FULL-COVERAGE only:** None  (over 0 findings); of-surfaced: 0.303 — regression set, contamination acknowledged
 
 > Honest-score policy: only cold passes that examined EVERY substantive in-scope file count toward the full-coverage headline. Thin passes inflate recall_of_surfaced by hiding coverage-gap misses, so they are shown but excluded from the honest number. Per-project coverage% is in the tables below.
 
-## Holdout  (recall 0.379, strong 0.126, misses: 0 coverage-gap / 54 reasoning-gap, pending 0)
+## Holdout  (recall 0.38, strong 0.141, misses: 1 coverage-gap / 56 reasoning-gap, pending 0)
 
 | project | recall | strong | awarded | coverage | full? | note |
 |---|---|---|---|---|---|---|
@@ -27,6 +27,7 @@ Eval-only. Does not affect the real-world dashboard.
 | nudgexyz-2025-03-blind | 0.5 | 0.0 | 4 | 100% | ✅ |  |
 | particle-2023-12-blind | 0.158 | 0.053 | 19 | 100% | ✅ |  |
 | phi-2024-08-blind | 0.4 | 0.133 | 15 | 100% | ✅ |  |
+| pump-science-2025-01-blind | 0.4 | 0.4 | 5 | 25% | thin | heuristic (auto-detected, unconfirmed) |
 | secondswap-2024-12-blind | 0.304 | 0.13 | 23 | 100% | ✅ |  |
 | traitforge-2024-07-blind | 0.24 | 0.0 | 25 | 100% | ✅ | heuristic (auto-detected, unconfirmed) |
 
@@ -50,7 +51,7 @@ Eval-only. Does not affect the real-world dashboard.
 | vultisig-2024-06-holdout | 0.833 | 0.5 | 6 | 0% | thin |  |
 | zetachain-2023-10-holdout | 0.0 | 0.0 | 48 | 0% | thin | heuristic (auto-detected, unconfirmed) |
 
-## Auto-detected misses (heuristic; incl. already-evaluated contests) — 153 total
+## Auto-detected misses (heuristic; incl. already-evaluated contests) — 158 total
 
 > Advisory miss-detection over every contest with a cold pass + an answer key (any format). Heuristic + confidence-tagged; NOT part of the confirmed headline and NOT protected by the regression gate. Use to find unexamined expert-bug families to reincorporate.
 
@@ -65,6 +66,7 @@ Eval-only. Does not affect the real-world dashboard.
 | centrifuge-2023-09-holdout | 9 | 9 | 0.0 |
 | pooltogether-2024-03-holdout | 9 | 8 | 0.111 |
 | decent-2024-01-holdout | 9 | 7 | 0.222 |
+| pump-science-2025-01-blind | 5 | 5 | 0.4 |
 | next-generation-2025-01-blind | 4 | 3 | 0.5 |
 | garden-2025-11-blind | 1 | 1 | 0.0 |
 | beanstalk-2024-05 | 12 | 0 | 1.0 |
@@ -212,4 +214,4 @@ Eval-only. Does not affect the real-world dashboard.
 | wrong-mapping-key-ownership | 1.0 | 1.0 | 1 | 0 | untagged | - |
 | wrong-variable-validated | 1.0 | 1.0 | 1 | 0 | untagged | - |
 
-**Untested classes (in taxonomy, no awarded example yet — unmeasured blind spots):** solana-missing-signer-check, solana-missing-owner-check, solana-account-substitution-confusion, solana-missing-anchor-constraint, solana-reinit-missing-init-guard, solana-close-account-revival, solana-pda-seed-collision, solana-cpi-arbitrary-program, solana-remaining-accounts-trust, solana-arithmetic-unchecked, solana-pda-signer-seeds-missing-bump, solana-init-authority-mismatch-vs-use, solana-duplicate-mutable-account-serialization, init-once-guard-missing, default-sentinel-reward-routing-jit, critical-path-math-revert-dos, unreachable-guard-branch-ordering, bad-debt-socialization-par-exit, position-nft-callback-liquidation-dos, oracle-decimal-scaling-overflow, no-min-position-size-dust-baddebt, wrong-router-method-integration-revert, cross-chain-inbound-source-unauthenticated, approve-zero-reverts-blocks-teardown, lz-ordered-execution-option-missing, solana-account-count-config-mismatch-panic, solana-ed25519-introspection-data-unbound, solana-anchor-idl-instructions-enabled, reward-folded-into-liquidation-condition, stale-snapshot-before-mutation, ported-uni-0.8-underflow-revert, blacklist-token-push-refund-dos, act-on-unowned-external-asset, division-as-percentage-fee, stale-owner-snapshot-reward-attribution, counter-reset-ignores-preexisting-entries, cap-enforced-one-path-not-sibling, read-before-init-zero-default, missing-slippage-dynamic-price-op, no-exit-path-fund-lockup, signature-missing-chainid-replay, signature-scope-gap-unsigned-params, map-entry-zeroed-not-removed-gas-dos, wrong-pausable-base-no-transfer-block, reentrancy-refund-before-state-finalize, post-commitment-config-mutation, param-sanity-cap-wrong-unit, move-clmm-liquidity-overflow, move-rounding-direction, move-signed-int-tick-math, move-coin-balance-conservation, move-hot-potato-bypass, move-capability-safety, move-object-ownership, move-constant-product-invariant-recheck, move-public-helper-visibility, fee-charged-outside-allowance, forwarder-request-missing-deadline, unchecked-erc20-approve-return
+**Untested classes (in taxonomy, no awarded example yet — unmeasured blind spots):** solana-missing-signer-check, solana-missing-owner-check, solana-account-substitution-confusion, solana-missing-anchor-constraint, solana-reinit-missing-init-guard, solana-close-account-revival, solana-pda-seed-collision, solana-cpi-arbitrary-program, solana-remaining-accounts-trust, solana-arithmetic-unchecked, solana-pda-signer-seeds-missing-bump, solana-init-authority-mismatch-vs-use, solana-duplicate-mutable-account-serialization, init-once-guard-missing, default-sentinel-reward-routing-jit, critical-path-math-revert-dos, unreachable-guard-branch-ordering, bad-debt-socialization-par-exit, position-nft-callback-liquidation-dos, oracle-decimal-scaling-overflow, no-min-position-size-dust-baddebt, wrong-router-method-integration-revert, cross-chain-inbound-source-unauthenticated, approve-zero-reverts-blocks-teardown, lz-ordered-execution-option-missing, solana-account-count-config-mismatch-panic, solana-ed25519-introspection-data-unbound, solana-anchor-idl-instructions-enabled, reward-folded-into-liquidation-condition, stale-snapshot-before-mutation, ported-uni-0.8-underflow-revert, blacklist-token-push-refund-dos, act-on-unowned-external-asset, division-as-percentage-fee, stale-owner-snapshot-reward-attribution, counter-reset-ignores-preexisting-entries, cap-enforced-one-path-not-sibling, read-before-init-zero-default, missing-slippage-dynamic-price-op, no-exit-path-fund-lockup, signature-missing-chainid-replay, signature-scope-gap-unsigned-params, map-entry-zeroed-not-removed-gas-dos, wrong-pausable-base-no-transfer-block, reentrancy-refund-before-state-finalize, post-commitment-config-mutation, param-sanity-cap-wrong-unit, move-clmm-liquidity-overflow, move-rounding-direction, move-signed-int-tick-math, move-coin-balance-conservation, move-hot-potato-bypass, move-capability-safety, move-object-ownership, move-constant-product-invariant-recheck, move-public-helper-visibility, fee-charged-outside-allowance, forwarder-request-missing-deadline, unchecked-erc20-approve-return, solana-lamport-invariant-includes-rent, fee-tier-boundary-discontinuity
