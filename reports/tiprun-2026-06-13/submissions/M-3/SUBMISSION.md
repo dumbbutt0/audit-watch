@@ -36,6 +36,16 @@ than an arbitrary attacker; it is Low if the sequencer is considered fully trust
 meant to be protected on-chain from having healthy positions seized. The missing on-chain safety invariant is
 the substance of the report.
 
+Scope caveat (deployment reachability, stated honestly): `LiquidateTransLib` and `DeleverageTransLib` live in
+`src/perp/transactions/` and resize positions through `PositionManager.updatePosition -> _marginCheck()`. The
+perp margin engine is the `CAP_MARGIN_CHECK` capability provider; when it is not registered, `_marginCheck()`
+falls back to `NullMarginCheck` (a no-op) and there is no perp risk/liquidation engine at all. So this finding is
+in scope only on a deployment that wires the perp `Risk` engine. If the in-scope deployment runs the predict/spot
+profile with `NullMarginCheck` — the same not-wired condition under which the related risk-segment finding was
+ruled out of scope — liquidation/deleverage are not active and this finding is out of scope for the same reason.
+The single deciding fact is whether `CAP_MARGIN_CHECK` is wired to the real `Risk` engine in the target
+deployment; confirm that before submitting.
+
 ## Root cause
 
 `LiquidateTransLib.process` computes deltas, applies funding, and calls `position.updatePosition(...)` plus the

@@ -140,14 +140,23 @@ dec`**; the position is left untouched. Only a de-risk large enough to reach *fu
 is allowed. With partial orderbook fills, incremental recovery is therefore blocked. All de-risk paths (trade,
 deleverage) hit this same gate via `FundingApplyLib.applyAndUpdate → PositionManager.updatePosition`.
 
-## M-2 (MEDIUM / LOW) — Oracle prices have no read-side staleness check and the monotonic-update guard is commented out
+## M-2 (LOW — defense-in-depth) — Oracle prices have no read-side staleness check and the monotonic-update guard is commented out
 
 `Oracle.getPrice` returns `exist = (timestamp > 0)` with **no freshness check**, and `Oracle.updatePrice` has its
 `timestamp > current` monotonic guard **commented out** (TODO). `Risk.getAssetValueAndRisk` treats any stored price
 as valid forever. Ingestion (`OraclePriceTickTransLib`) enforces signer-quorum + median + a ≤1-day bound, but once
 stored a price is used in all margin/liquidation math indefinitely, and a (recently-signed, ≤1-day-old) price can be
-re-applied out of order because the monotonic guard is gone. Under operator delay/failure or reorg, margin decisions
-use stale prices. Fix: enforce a max-age on read and restore the monotonic timestamp guard.
+re-applied out of order because the monotonic guard is gone.
+
+**Privilege (no permissionless route):** every write path into the Oracle is privileged — `updatePrice` is
+`onlyAuthorizedCaller` (registered plugin / owner) and the batch route is `txBatcher → multiTransactionProcessor →
+transactionProcessor → plugin` (the repo's own `testOracleRejectsUnauthorizedCaller` proves a plain EOA reverts).
+So this is **defense-in-depth (Low)**: the trusted update flow itself (operator delay/failure, reorg, backend retry)
+delivering a stale/reordered price is what stores it; there is no attacker primitive. **Downstream impact is real and
+PoC-proven**: `PoC_OracleStaleness::test_PoC_stalePriceFlipsSolvencyAndHidesLiquidation` shows an account that is
+INSOLVENT at the true price reads solvent+healthy after a rollback, so liquidation is hidden / a margin check passes.
+Fix: enforce a max-age on read and restore the monotonic timestamp guard (in both `updatePrice` and
+`OraclePriceTickTransLib`).
 
 ## M-3 (MEDIUM, trust-dependent) — Liquidate/Deleverage have no on-chain maintenance-margin precondition
 

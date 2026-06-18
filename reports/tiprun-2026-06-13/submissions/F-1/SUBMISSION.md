@@ -41,6 +41,17 @@ This is Critical because the attacker removes collateral from custody while reta
 exposure, with no privileged role and no victim interaction — losses are socialized to the protocol or
 counterparties whenever the position moves against them.
 
+Reachability note (severity is contingent on one wiring fact): `checkValidTransition` runs only when the perp
+`Risk` engine is the registered `CAP_MARGIN_CHECK` provider; when it is not, `PositionManager._marginCheck()`
+falls back to `NullMarginCheck` (a no-op) and there is no maintenance margin to bypass. So this Critical assumes
+the in-scope deployment wires the perp `Risk` margin engine. The related risk-segment finding was ruled out of
+scope on the grounds that the live deployment runs predict/spot with `NullMarginCheck` (perp not wired) — if that
+same wiring applies here, this finding faces the same reachability objection; if instead the perp engine is in
+scope (as accepting this report implies), the perp oracle-staleness and liquidation findings should be treated as
+in scope for the same reason. The single deciding fact for all of them is whether `CAP_MARGIN_CHECK` points at the
+real `Risk` engine in the target deployment — worth confirming/aligning so the perp findings are triaged
+consistently.
+
 ## Root cause
 
 `checkValidTransition` is meant to enforce maintenance margin: a position/collateral change is allowed only if

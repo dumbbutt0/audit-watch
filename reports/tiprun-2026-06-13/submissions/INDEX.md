@@ -12,7 +12,7 @@ submission are the operator's responsibility.
 |----|----------|-------|---------------------|-------------------------------------|
 | **F-1 (+M-1)** | Critical (+Medium) | Broken health-transition guard in `Risk.checkValidTransition` — collateral-withdraw bypass (A) + de-risk DoS (B) | `PoC_MarginBypassWithdraw` (A) + `PoC_DeriskDoS` (B) | `Risk.sol`, `PositionManager.sol`, `WithdrawalTransLib.sol` |
 | F-2 | High/Critical | Risk-segment freeze → insolvent short un-liquidatable (liquidation lock) | `PoC_RiskSegmentFreeze` (2 tests) | `GeneralConfig.sol`, `Risk.sol` |
-| M-2 | Medium | Oracle: no read staleness + monotonic-update guard commented out | `PoC_OracleStaleness` | `Oracle.sol`, `OraclePriceTickTransLib.sol` |
+| M-2 | Low | Oracle: no read staleness + monotonic-update guard commented out (defense-in-depth; privileged update path) | `PoC_OracleStaleness` | `Oracle.sol`, `OraclePriceTickTransLib.sol` |
 | M-3 | Medium (trust) | Liquidate/Deleverage: no on-chain maintenance-margin precondition | `PoC_NoLiquidatablePrecondition` | `LiquidateTransLib.sol`, `DeleverageTransLib.sol` |
 | M-4 | Medium/Low | `setSyntheticAssetsInfo` does not bump `configVersion` | `PoC_ConfigVersionNotBumped` | `GeneralConfig.sol`, `MultiTransactionProcessor.sol` |
 
