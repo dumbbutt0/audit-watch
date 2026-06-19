@@ -1,0 +1,78 @@
+{
+  "_generated": true,
+  "_note": "machine snapshot of the canonical candidate record \u2014 safe to overwrite; do not hand-edit",
+  "report_id": "F-2",
+  "candidate": {
+    "id": "DOS-001",
+    "schema": "candidate_record/v1",
+    "generated_at": "2026-06-18T22:37:05.598395+00:00",
+    "language": "solidity",
+    "title": "Account freeze / un-liquidatable position: getAssetValueAndRisk reverts 'Risk: no risk' once an asset's notional exceeds the top risk segment",
+    "location": {
+      "file": "reports/tiprun-2026-06-13/harness/src/core/risk/Risk.sol",
+      "function": "",
+      "contract": "Risk",
+      "line_start": null
+    },
+    "classification": {
+      "severity": "High",
+      "severity_ceiling": null,
+      "vuln_type": null,
+      "confidence": "High"
+    },
+    "ice": {
+      "impact": null,
+      "confidence": null,
+      "exploitability": null,
+      "exploit_path": "Perp; notional (price*amount) exceeds top risk segment via oracle price rise -> getRiskFactor (0,false) -> Risk reverts on every position-touching op."
+    },
+    "evidence": {
+      "attacker_model": "Leave a perp position un-liquidatable so its losses become permanent protocol bad debt, and/or freeze a victim account so it can never withdraw or reduce risk.",
+      "entrypoint": "",
+      "preconditions": "Perp; notional (price*amount) exceeds top risk segment via oracle price rise -> getRiskFactor (0,false) -> Risk reverts on every position-touching op.",
+      "who_loses": "Protocol (unrecoverable bad debt from un-liquidatable insolvent positions)",
+      "who_gains": "Account holder dodging liquidation via freeze",
+      "impact": "An unhealthy perp account whose notional crosses the top configured risk segment becomes permanently un-liquidatable AND frozen for the owner (no withdraw, no risk-reducing trade, no deleverage), because liquidation/deleverage/trade/withdrawal all evaluate the full-position risk via getAssetValueAndRisk, which reverts. Result: protocol-level bad debt that cannot be socialized away and a denial of all account operations. The margin engine reverts exactly when it is most needed.",
+      "constraints": null,
+      "poc_result": "proved L3",
+      "suggested_fix": "Clamp notional to the top risk segment instead of returning (0,false); never revert the risk engine for a held position."
+    },
+    "confirmation": {
+      "present": true,
+      "skipped": false,
+      "score": 0.9,
+      "passes": null,
+      "human_review_required": false,
+      "threshold": 0.6,
+      "required": true
+    },
+    "gates": {
+      "fp_action": "proceed",
+      "any_fail": false,
+      "fail_gates": [],
+      "warn_count": 2,
+      "min_confirm_blocked": false,
+      "reachability_status": null
+    },
+    "poc": {
+      "status": "proved",
+      "level": 3,
+      "proved": true
+    },
+    "triage_status": "submit",
+    "state": "ready",
+    "readiness_blockers": [],
+    "readiness_advisories": [
+      "submission_risk[deployment_reachability]: confirm the vulnerable path is WIRED in the live deployment (not feature-flagged off / Null-fallback / unregistered handler) \u2014 fill audits/<id>/deployment_manifest.json (run_pipeline submission-risk --init-manifest) or see agents/submission_risk_review.md",
+      "submission_risk[novelty]: KB crossref present \u2014 verify the closest known finding is not the same bug (duplicate/known) before submitting"
+    ]
+  },
+  "poc": {
+    "test_contract": "PoC_RiskSegmentFreeze",
+    "test_file": "reports/tiprun-2026-06-13/harness/test/PoC_RiskSegmentFreeze.t.sol",
+    "status": "proved"
+  },
+  "vulnerable_files": [
+    "Risk.sol"
+  ]
+}

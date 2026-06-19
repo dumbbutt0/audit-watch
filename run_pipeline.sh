@@ -392,6 +392,15 @@ print(json.loads(m.read_text()).get('contract_path','') if m.exists() else '')
     "${PYTHON}" "${ROOT}/scripts/sync_audit_to_ledger.py" "${@:2}"
     ;;
 
+  package-sync)
+    # Materialize this real-world audit's PoC-proven / confirmed findings into reports/<dir>/submissions/ so no
+    # finding is stranded in the gitignored harness, and route each for human review (REVIEW_QUEUE.md). Non-
+    # destructive (scaffolds only when missing; never clobbers human prose); real-world-gated. Pass --dry-run to
+    # preview. Also runs automatically at review-gate and via the .githooks/pre-commit hook.
+    require_audit
+    "${PYTHON}" "${ROOT}/scripts/build_submission_packages.py" "${@:2}"
+    ;;
+
   calibration-worklist)
     # READ-ONLY: enumerate real-world accepted findings with no recorded outcome + emit record_outcome.py
     # stubs (documentation/metrics/outcome_worklist.md). Closing them moves FP/recall off 'unmeasured'.
@@ -596,6 +605,7 @@ print(json.loads(m.read_text()).get('contract_path','') if m.exists() else '')
     # Keep the real-world ledger (dashboard funnel source) in sync with this audit's PoC-proven findings.
     # Non-destructive + real-world-gated (no-op for eval/blind audits); never blocks the pipeline.
     "${PYTHON}" "${ROOT}/scripts/sync_audit_to_ledger.py" --quiet 2>/dev/null || true
+    "${PYTHON}" "${ROOT}/scripts/build_submission_packages.py" --quiet 2>/dev/null || true
     "${PYTHON}" "${ROOT}/scripts/generate_review_gate.py"
     exit 0
     ;;
@@ -626,6 +636,7 @@ print(json.loads(m.read_text()).get('contract_path','') if m.exists() else '')
     # Keep the real-world ledger (dashboard funnel source) in sync with this audit's PoC-proven findings.
     # Non-destructive + real-world-gated (no-op for eval/blind audits); never blocks the pipeline.
     "${PYTHON}" "${ROOT}/scripts/sync_audit_to_ledger.py" --quiet 2>/dev/null || true
+    "${PYTHON}" "${ROOT}/scripts/build_submission_packages.py" --quiet 2>/dev/null || true
     "${PYTHON}" "${ROOT}/scripts/generate_review_gate.py"
     exit 0
     ;;

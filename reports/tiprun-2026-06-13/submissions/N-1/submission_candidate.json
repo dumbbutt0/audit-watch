@@ -1,0 +1,93 @@
+{
+  "finding_id": "N-1",
+  "internal_id": "BSA-001",
+  "title": "Privilege escalation to ALLOW_ADMIN: any user self-mints admin and drains any account via caller-named adminAccountId",
+  "root_cause": "processAdminSetSignerPermissions trusts the attacker-supplied adminAccountId (never bound to the canonical admin account), and registration-time signer masks are not delegation-gated, so any user can self-mint ALLOW_ADMIN and then grant ALLOW_WITHDRAW on any victim.",
+  "affected_contracts": [
+    "src/core/signer/transactions/PermissionsTransLib.sol",
+    "src/core/balance/transactions/WithdrawalTransLib.sol"
+  ],
+  "affected_functions": [
+    "PermissionsTransLib.processAdminSetSignerPermissions",
+    "WithdrawalTransLib (drain leg)"
+  ],
+  "attacker_entrypoint": "REGISTER_ACCOUNT (self-mint ALLOW_ADMIN) -> ADMIN_SET_SIGNER_PERMISSIONS (grant ALLOW_WITHDRAW on victim) -> WITHDRAWAL",
+  "attacker_capabilities": [
+    "register own account; submit permission + withdrawal transactions relayed by the batcher"
+  ],
+  "privilege_required": "none on-chain (self-minted at registration)",
+  "scope_status": "uncertain",
+  "in_scope_asset": "Signer/permission management (ADMIN_SET_SIGNER_PERMISSIONS)",
+  "out_of_scope_risks": [
+    "bounded on-chain only by the trusted txBatcher/backend relaying the transactions"
+  ],
+  "impact_category": "fund_loss",
+  "severity_claim": "High",
+  "severity_justification": {
+    "worst_case": "Any user grants themselves withdraw rights on any account and drains all collateral => total loss of the permission model.",
+    "realistic_case": "Same, gated on the trusted batcher relaying user-submitted permission txs.",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "TipRun",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": true,
+    "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
+  },
+  "call_trace": [
+    "REGISTER_ACCOUNT: attacker account A created with ALLOW_ADMIN session key (no delegation gate at registration)",
+    "ADMIN_SET_SIGNER_PERMISSIONS: adminAccountId=A (attacker's own), targetAccountId=victim, mask=ALLOW_WITHDRAW -> check passes (holds ALLOW_ADMIN on A)",
+    "WITHDRAWAL: attacker drains victim collateral"
+  ],
+  "state_transition": {
+    "before": "attacker unprivileged; victim holds collateral 5000",
+    "after": "attacker holds ALLOW_WITHDRAW on victim; victim collateral drained to attacker",
+    "slots_or_balances": ["victim collateral 5000 -> 0"]
+  },
+  "asset_delta": "Victim collateral fully withdrawn to an attacker address.",
+  "proof_type": "runnable_poc",
+  "poc_path": "reports/tiprun-2026-06-13/submissions/N-1/poc/PoC_PermissionEscalation.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "cd reports/tiprun-2026-06-13/harness",
+    "forge test --match-contract PoC_PermissionEscalation -vv"
+  ],
+  "duplicate_check_status": "not_searched",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [],
+  "false_positive_risks": [
+    "on-chain impact gated by the trusted batcher; verify the live deployment relays user-supplied permission txs"
+  ],
+  "invalidating_conditions": [
+    "backend rejects self-named admin accounts or strips ALLOW_ADMIN at registration off-chain",
+    "ADMIN_SET_SIGNER_PERMISSIONS / REGISTER_ACCOUNT handlers not wired in the live deployment"
+  ],
+  "defense_analysis": [
+    {
+      "defense": "owner-delegation gate on processSetSignerPermissions / processAddSignersWithPermissions",
+      "blocks_path": false,
+      "why_it_fails": "the admin path (processAdminSetSignerPermissions) does not bind adminAccountId to the canonical admin, and registration masks are not delegation-gated"
+    }
+  ],
+  "assumptions": [
+    "the live batcher relays REGISTER_ACCOUNT, ADMIN_SET_SIGNER_PERMISSIONS and WITHDRAWAL transactions as signed"
+  ],
+  "evidence_links": [
+    "src/core/signer/transactions/PermissionsTransLib.sol:processAdminSetSignerPermissions",
+    "harness/test/PoC_PermissionEscalation.t.sol",
+    "submissions/N-1/poc_output.log"
+  ],
+  "triager_summary": "Caller-supplied adminAccountId trusted without binding to the canonical admin; combined with un-gated registration masks, any user self-mints ALLOW_ADMIN and drains any account. PoC passing (drains 5000).",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Access Control: privilege escalation (caller-named admin account not bound to canonical admin) -> unauthorized withdrawal",
+  "cvss": [
+    {
+      "aspect": "Self-mint admin -> drain any account",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H",
+      "score": 8.1,
+      "severity": "High"
+    }
+  ]
+}

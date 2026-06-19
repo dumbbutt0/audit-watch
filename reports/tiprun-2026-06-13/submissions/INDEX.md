@@ -6,15 +6,19 @@ Persistent, out-of-/tmp. Each `<ID>/` is self-contained: `report.md` (standalone
 `../harness/SETUP.md`). **Nothing here is submitted** — `human_approval_required: true`; human review + KYC +
 submission are the operator's responsibility.
 
-**Submittable reports: 5 distinct root causes** (F-1+M-1 are one bug merged into a single report).
+**Submittable reports: 8 distinct root causes** (F-1+M-1 are one bug merged into a single report). The N-* findings
+are from the 2026-06-18 re-audit (`RE_AUDIT_2026-06-18.md`); all PoCs pass.
 
 | ID | Severity | Title | PoC (in `harness/`) | Vulnerable file(s) in `vulnerable/` |
 |----|----------|-------|---------------------|-------------------------------------|
 | **F-1 (+M-1)** | Critical (+Medium) | Broken health-transition guard in `Risk.checkValidTransition` — collateral-withdraw bypass (A) + de-risk DoS (B) | `PoC_MarginBypassWithdraw` (A) + `PoC_DeriskDoS` (B) | `Risk.sol`, `PositionManager.sol`, `WithdrawalTransLib.sol` |
 | F-2 | High/Critical | Risk-segment freeze → insolvent short un-liquidatable (liquidation lock) | `PoC_RiskSegmentFreeze` (2 tests) | `GeneralConfig.sol`, `Risk.sol` |
+| N-1 | High | Privilege escalation to `ALLOW_ADMIN`: any user self-mints admin (caller-named `adminAccountId`) and drains any account | `PoC_PermissionEscalation` | `PermissionsTransLib.sol`, `WithdrawalTransLib.sol` |
+| N-2 | High (perp profile) | Capability registry fails open: `_marginCheck()` no-ops when no `CAP_MARGIN_CHECK` provider and `registerPlugin` never requires one | `PoC_CapabilityRegistryNoop` | `PositionManager.sol`, `TransactionProcessor.sol`, `NullMarginCheck.sol`, `Constants.sol` |
 | M-2 | Low | Oracle: no read staleness + monotonic-update guard commented out (defense-in-depth; privileged update path) | `PoC_OracleStaleness` | `Oracle.sol`, `OraclePriceTickTransLib.sol` |
 | M-3 | Medium (trust) | Liquidate/Deleverage: no on-chain maintenance-margin precondition | `PoC_NoLiquidatablePrecondition` | `LiquidateTransLib.sol`, `DeleverageTransLib.sol` |
 | M-4 | Medium/Low | `setSyntheticAssetsInfo` does not bump `configVersion` | `PoC_ConfigVersionNotBumped` | `GeneralConfig.sol`, `MultiTransactionProcessor.sol` |
+| N-4 | Low (trust) | Settlement mints collateral at an unconstrained operator price (no oracle/signature/conservation) | `PoC_SettlementUnconstrained` | `SettlementTransLib.sol`, `SettlementPlugin.sol` |
 
 **Merge note:** F-1 and M-1 are two opposite-direction symptoms of a single inverted comparison (`Risk.sol:133`),
 so they are submitted as **one combined report** (`F-1/report.md`, with M-1 as "Manifestation B"); the `M-1/` folder
@@ -24,7 +28,7 @@ now redirects there and is retained only for reproduction. F-2 is a distinct roo
 ## Run all PoCs
 ```bash
 cd reports/tiprun-2026-06-13/harness
-forge test --match-path 'test/PoC_*.t.sol' -vv     # 7 tests pass
+forge test --match-path 'test/PoC_*.t.sol' -vv     # 9 PoC contracts pass
 ```
 
 ## View on the dashboard (candidates for review)

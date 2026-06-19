@@ -1,0 +1,78 @@
+{
+  "_generated": true,
+  "_note": "machine snapshot of the canonical candidate record \u2014 safe to overwrite; do not hand-edit",
+  "report_id": "M-3",
+  "candidate": {
+    "id": "DT-03",
+    "schema": "candidate_record/v1",
+    "generated_at": "2026-06-18T22:37:05.599113+00:00",
+    "language": "solidity",
+    "title": "Liquidate/Deleverage have no on-chain maintenance-margin precondition",
+    "location": {
+      "file": "perp/transactions/LiquidateTransLib.sol",
+      "function": "process",
+      "contract": "LiquidateTransLib",
+      "line_start": null
+    },
+    "classification": {
+      "severity": "Medium",
+      "severity_ceiling": null,
+      "vuln_type": null,
+      "confidence": "High"
+    },
+    "ice": {
+      "impact": "Medium",
+      "confidence": "High",
+      "exploitability": "Privileged (trusted operator) + perp-only",
+      "exploit_path": "Perp; operator submits LIQUIDATE/DELEVERAGE on a healthy account; no on-chain health precondition rejects it."
+    },
+    "evidence": {
+      "attacker_model": "seize a healthy account's position",
+      "entrypoint": "process",
+      "preconditions": "Perp; operator submits LIQUIDATE/DELEVERAGE on a healthy account; no on-chain health precondition rejects it.",
+      "who_loses": "Healthy account holders (positions seized)",
+      "who_gains": "Faulty/malicious operator",
+      "impact": "A faulty/malicious operator can seize or force-trade healthy accounts at a chosen price; the on-chain 'only unhealthy accounts can be liquidated' invariant is absent.",
+      "constraints": "Privileged (trusted operator) + perp-only",
+      "poc_result": "proved L3",
+      "suggested_fix": null
+    },
+    "confirmation": {
+      "present": true,
+      "skipped": false,
+      "score": 0.85,
+      "passes": null,
+      "human_review_required": false,
+      "threshold": 0.6,
+      "required": false
+    },
+    "gates": {
+      "fp_action": "proceed",
+      "any_fail": false,
+      "fail_gates": [],
+      "warn_count": 2,
+      "min_confirm_blocked": false,
+      "reachability_status": null
+    },
+    "poc": {
+      "status": "proved",
+      "level": 3,
+      "proved": true
+    },
+    "triage_status": "submit",
+    "state": "ready",
+    "readiness_blockers": [],
+    "readiness_advisories": [
+      "submission_risk[deployment_reachability]: confirm the vulnerable path is WIRED in the live deployment (not feature-flagged off / Null-fallback / unregistered handler) \u2014 fill audits/<id>/deployment_manifest.json (run_pipeline submission-risk --init-manifest) or see agents/submission_risk_review.md",
+      "submission_risk[novelty]: KB crossref present \u2014 verify the closest known finding is not the same bug (duplicate/known) before submitting"
+    ]
+  },
+  "poc": {
+    "test_contract": "PoC_NoLiquidatablePrecondition",
+    "test_file": "reports/tiprun-2026-06-13/harness/test/PoC_NoLiquidatablePrecondition.t.sol",
+    "status": "proved"
+  },
+  "vulnerable_files": [
+    "LiquidateTransLib.sol"
+  ]
+}

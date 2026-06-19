@@ -1,0 +1,99 @@
+{
+  "finding_id": "N-2",
+  "internal_id": "PC-01",
+  "title": "Capability registry silently falls back to a no-op margin check when no CAP_MARGIN_CHECK provider is registered",
+  "root_cause": "PositionManager._marginCheck() falls back to NullMarginCheck (no-op) when capabilityProvider(CAP_MARGIN_CHECK)==0, and TransactionProcessor.registerPlugin never requires a CAP_MARGIN_CHECK provider for margin-gated txTypes, so a perp deployment can run with maintenance-margin enforcement silently disabled (fail-open).",
+  "affected_contracts": [
+    "src/core/position/PositionManager.sol",
+    "src/TransactionProcessor.sol",
+    "src/core/risk/NullMarginCheck.sol",
+    "src/Constants.sol"
+  ],
+  "affected_functions": [
+    "PositionManager._marginCheck",
+    "TransactionProcessor.registerPlugin",
+    "NullMarginCheck.checkValidTransition"
+  ],
+  "attacker_entrypoint": "perp deployment with CAP_MARGIN_CHECK provider unregistered (pre-wiring window, operator error, or unregisterPlugin clearing it)",
+  "attacker_capabilities": [
+    "submit margin-gated position/withdrawal transactions on a profile with no real margin provider"
+  ],
+  "privilege_required": "none (depends on deployment misconfiguration, not attacker privilege)",
+  "scope_status": "uncertain",
+  "in_scope_asset": "PositionManager / capability registry (margin enforcement)",
+  "out_of_scope_risks": [
+    "no impact on spot/predict profiles where NullMarginCheck is the intended behavior (same not-wired condition that put F-2 out of scope)"
+  ],
+  "impact_category": "insolvency",
+  "severity_claim": "High",
+  "severity_justification": {
+    "worst_case": "On a perp profile missing CAP_MARGIN_CHECK, undercollateralized positions/withdrawals are accepted => protocol insolvency / bad debt.",
+    "realistic_case": "Conditional on a perp deployment that should have the margin engine wired but does not (misconfig / deploy window).",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "TipRun",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": true,
+    "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
+  },
+  "call_trace": [
+    "capabilityProvider(CAP_MARGIN_CHECK) == address(0)",
+    "PositionManager._marginCheck() returns NullMarginCheck (no-op)",
+    "updatePositionInDict opens short 5000 vs 1000 collateral => accepted (no revert)",
+    "riskContract.getAccountPositionStatus(view) => account value < 0 (insolvent)"
+  ],
+  "state_transition": {
+    "before": "CAP_MARGIN_CHECK provider wired; insolvent transitions rejected",
+    "after": "provider absent; insolvent short of 5000 accepted against 1000 collateral",
+    "slots_or_balances": ["account synthetic balance -> -5000 with 1000 collateral"]
+  },
+  "asset_delta": "Undercollateralized state accepted; later withdrawal/realization is unbacked => bad debt.",
+  "proof_type": "runnable_poc",
+  "poc_path": "reports/tiprun-2026-06-13/submissions/N-2/poc/PoC_CapabilityRegistryNoop.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "cd reports/tiprun-2026-06-13/harness",
+    "forge test --match-contract PoC_CapabilityRegistryNoop -vv"
+  ],
+  "duplicate_check_status": "not_searched",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [],
+  "false_positive_risks": [
+    "no impact on spot/predict (NullMarginCheck intended); requires a perp profile expected to have the margin engine"
+  ],
+  "invalidating_conditions": [
+    "target deployment is spot/predict (no maintenance margin) — fallback is correct",
+    "operator guarantees CAP_MARGIN_CHECK is always wired on perp profiles"
+  ],
+  "defense_analysis": [
+    {
+      "defense": "registerPlugin requiredCapabilities() enforcement",
+      "blocks_path": false,
+      "why_it_fails": "no plugin declares CAP_MARGIN_CHECK as required, so registration never enforces a margin provider"
+    }
+  ],
+  "assumptions": [
+    "target runs (or is intended to run) the perp margin profile"
+  ],
+  "evidence_links": [
+    "src/core/position/PositionManager.sol:_marginCheck (NullMarginCheck fallback ~76-80)",
+    "src/TransactionProcessor.sol:registerPlugin (requiredCapabilities enforcement ~62-68)",
+    "src/core/risk/NullMarginCheck.sol",
+    "harness/test/PoC_CapabilityRegistryNoop.t.sol",
+    "submissions/N-2/poc_output.log"
+  ],
+  "triager_summary": "Margin check fails open: _marginCheck() returns a no-op when CAP_MARGIN_CHECK is unregistered and registerPlugin never requires it. PoC passing (insolvent short of 5000 vs 1000 accepted). Conditional on perp profile.",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Business Logic Errors / Insecure Design: safety-critical margin check fails open (no-op fallback) with no registration-time enforcement",
+  "cvss": [
+    {
+      "aspect": "Margin check silently no-op on a misconfigured perp profile",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:N/I:H/A:H",
+      "score": 6.4,
+      "severity": "Medium-High"
+    }
+  ]
+}

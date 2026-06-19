@@ -1,0 +1,78 @@
+{
+  "_generated": true,
+  "_note": "machine snapshot of the canonical candidate record \u2014 safe to overwrite; do not hand-edit",
+  "report_id": "N-2",
+  "candidate": {
+    "id": "PC-01",
+    "schema": "candidate_record/v1",
+    "generated_at": "2026-06-18T22:37:05.598665+00:00",
+    "language": "solidity",
+    "title": "Capability registry silently falls back to no-op checks when a provider is missing or unregistered (CAP_MARGIN_CHECK and CAP_BALANCE_CHECK are 'preferred, not required')",
+    "location": {
+      "file": "PositionManager.sol",
+      "function": "",
+      "contract": "PositionManager",
+      "line_start": null
+    },
+    "classification": {
+      "severity": "High",
+      "severity_ceiling": null,
+      "vuln_type": null,
+      "confidence": "High"
+    },
+    "ice": {
+      "impact": null,
+      "confidence": null,
+      "exploitability": null,
+      "exploit_path": "Perp deployment where CAP_MARGIN_CHECK provider unregistered (or pre-wiring window); registerPlugin does not enforce a provider -> _marginCheck() falls back to NullMarginCheck no-op."
+    },
+    "evidence": {
+      "attacker_model": "An off-chain operator (or any state submitted by the trusted batcher during a misconfiguration window) extracts collateral / opens positions past maintenance margin because the margin check is a no-op.",
+      "entrypoint": "",
+      "preconditions": "Perp deployment where CAP_MARGIN_CHECK provider unregistered (or pre-wiring window); registerPlugin does not enforce a provider -> _marginCheck() falls back to NullMarginCheck no-op.",
+      "who_loses": "Protocol/users (undercollateralized state accepted)",
+      "who_gains": "Anyone acting on a deployment with unwired CAP_MARGIN_CHECK",
+      "impact": "On a perp profile with no (or temporarily no) CAP_MARGIN_CHECK provider, undercollateralized trades/withdrawals are silently allowed -> protocol insolvency / bad debt. The safety net is opt-out by omission rather than fail-closed.",
+      "constraints": null,
+      "poc_result": "proved L3",
+      "suggested_fix": "Enforce required capability providers at registerPlugin; refuse to process margin-gated txTypes when no real CAP_MARGIN_CHECK/CAP_BALANCE_CHECK provider is registered."
+    },
+    "confirmation": {
+      "present": true,
+      "skipped": false,
+      "score": 0.75,
+      "passes": null,
+      "human_review_required": false,
+      "threshold": 0.6,
+      "required": true
+    },
+    "gates": {
+      "fp_action": "proceed",
+      "any_fail": false,
+      "fail_gates": [],
+      "warn_count": 2,
+      "min_confirm_blocked": false,
+      "reachability_status": null
+    },
+    "poc": {
+      "status": "proved",
+      "level": 3,
+      "proved": true
+    },
+    "triage_status": "submit",
+    "state": "ready",
+    "readiness_blockers": [],
+    "readiness_advisories": [
+      "submission_risk[deployment_reachability]: finding text hints the path may be feature/profile-gated or behind a no-op fallback \u2014 verify it is wired in the LIVE deployment before submitting (signals: null_or_noop_fallback, profile_or_feature_gated)",
+      "submission_risk[novelty]: KB crossref present \u2014 verify the closest known finding is not the same bug (duplicate/known) before submitting"
+    ]
+  },
+  "poc": {
+    "test_contract": "PoC_CapabilityRegistryNoop",
+    "test_file": "reports/tiprun-2026-06-13/harness/test/PoC_CapabilityRegistryNoop.t.sol",
+    "status": "proved"
+  },
+  "vulnerable_files": [
+    "PositionManager.sol"
+  ]
+}

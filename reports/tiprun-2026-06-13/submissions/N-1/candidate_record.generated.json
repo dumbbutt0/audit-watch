@@ -1,0 +1,78 @@
+{
+  "_generated": true,
+  "_note": "machine snapshot of the canonical candidate record \u2014 safe to overwrite; do not hand-edit",
+  "report_id": "N-1",
+  "candidate": {
+    "id": "BSA-001",
+    "schema": "candidate_record/v1",
+    "generated_at": "2026-06-18T22:37:05.598105+00:00",
+    "language": "solidity",
+    "title": "Privilege escalation to ALLOW_ADMIN: non-admin user registers an ALLOW_ADMIN session key, then ADMIN_SET grants ALLOW_WITHDRAW on any victim account and drains it",
+    "location": {
+      "file": "reports/tiprun-2026-06-13/harness/src/core/signer/transactions/PermissionsTransLib.sol",
+      "function": "",
+      "contract": "PermissionsTransLib",
+      "line_start": null
+    },
+    "classification": {
+      "severity": "High",
+      "severity_ceiling": null,
+      "vuln_type": null,
+      "confidence": "High"
+    },
+    "ice": {
+      "impact": "Attacker withdraws the victim account's full collateral balance to an attacker-controlled address.",
+      "confidence": null,
+      "exploitability": null,
+      "exploit_path": "REGISTER_ACCOUNT (self-mint ALLOW_ADMIN session key) -> ADMIN_SET_SIGNER_PERMISSIONS (grant ALLOW_WITHDRAW on victim via caller-named adminAccountId) -> WITHDRAWAL (drain victim)"
+    },
+    "evidence": {
+      "attacker_model": "Drain any victim account's collateral by granting the attacker's session key ALLOW_WITHDRAW on the victim, after self-minting ALLOW_ADMIN.",
+      "entrypoint": "",
+      "preconditions": "REGISTER_ACCOUNT (self-mint ALLOW_ADMIN session key) -> ADMIN_SET_SIGNER_PERMISSIONS (grant ALLOW_WITHDRAW on victim via caller-named adminAccountId) -> WITHDRAWAL (drain victim)",
+      "who_loses": "Any account holder whose collateral is drained",
+      "who_gains": "Unprivileged attacker (registers an account, self-grants ALLOW_ADMIN)",
+      "impact": "Any user can mint themselves ALLOW_ADMIN at registration and, because processAdminSetSignerPermissions trusts the caller's adminAccountId, grant ALLOW_WITHDRAW/ALLOW_TRANSFER (or ALLOW_ADMIN) on ANY victim account and drain it. Total loss of the protocol's permission model and user funds \u2014 bounded on-chain only by the trusted txBatcher/backend declining to relay the txs. There is no on-chain check enforcing that adminAccountId == SignerManager.adminAccountId(), and no delegation gate on registration-time session-key masks.",
+      "constraints": null,
+      "poc_result": "proved L3",
+      "suggested_fix": "Bind processAdminSetSignerPermissions to canonical SignerManager.adminAccountId(); apply the owner-holds-the-bit delegation gate to registration-time signer masks (or strip ALLOW_ADMIN at registration)."
+    },
+    "confirmation": {
+      "present": true,
+      "skipped": false,
+      "score": 0.92,
+      "passes": null,
+      "human_review_required": false,
+      "threshold": 0.6,
+      "required": true
+    },
+    "gates": {
+      "fp_action": "proceed",
+      "any_fail": false,
+      "fail_gates": [],
+      "warn_count": 2,
+      "min_confirm_blocked": false,
+      "reachability_status": null
+    },
+    "poc": {
+      "status": "proved",
+      "level": 3,
+      "proved": true
+    },
+    "triage_status": "submit",
+    "state": "ready",
+    "readiness_blockers": [],
+    "readiness_advisories": [
+      "submission_risk[deployment_reachability]: confirm the vulnerable path is WIRED in the live deployment (not feature-flagged off / Null-fallback / unregistered handler) \u2014 fill audits/<id>/deployment_manifest.json (run_pipeline submission-risk --init-manifest) or see agents/submission_risk_review.md",
+      "submission_risk[novelty]: KB crossref present \u2014 verify the closest known finding is not the same bug (duplicate/known) before submitting"
+    ]
+  },
+  "poc": {
+    "test_contract": "PoC_PermissionEscalation",
+    "test_file": "reports/tiprun-2026-06-13/harness/test/PoC_PermissionEscalation.t.sol",
+    "status": "proved"
+  },
+  "vulnerable_files": [
+    "PermissionsTransLib.sol"
+  ]
+}

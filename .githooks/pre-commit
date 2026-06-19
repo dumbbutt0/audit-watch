@@ -16,4 +16,15 @@ if ! git diff --quiet -- "$LEDGER" 2>/dev/null; then
   git add -- "$LEDGER" 2>/dev/null || true
 fi
 
+# Materialize the active real-world audit's PoC-proven / confirmed findings into reports/<dir>/submissions/ so a
+# new finding is never stranded in the gitignored harness and every one is routed for human review. Non-destructive
+# (scaffolds only when missing; never clobbers human prose), real-world-gated, never blocks.
+"${PYTHON}" scripts/build_submission_packages.py --quiet >/dev/null 2>&1 || true
+
+# stage any new/refreshed tracked package files (scaffolds, generated snapshots, REVIEW_QUEUE.md)
+if ! git diff --quiet -- 'reports/*/submissions/' 2>/dev/null \
+   || [ -n "$(git ls-files --others --exclude-standard -- 'reports/*/submissions/' 2>/dev/null)" ]; then
+  git add -- 'reports/*/submissions/' 2>/dev/null || true
+fi
+
 exit 0

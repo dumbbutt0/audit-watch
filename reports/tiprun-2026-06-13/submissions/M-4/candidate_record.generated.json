@@ -1,0 +1,78 @@
+{
+  "_generated": true,
+  "_note": "machine snapshot of the canonical candidate record \u2014 safe to overwrite; do not hand-edit",
+  "report_id": "M-4",
+  "candidate": {
+    "id": "LOG-003",
+    "schema": "candidate_record/v1",
+    "generated_at": "2026-06-18T22:37:05.599514+00:00",
+    "language": "solidity",
+    "title": "setSyntheticAssetsInfo mutates risk-critical config (risk segments, oracle signers/quorum, funding rate) but does NOT bump configVersion, defeating the batch staleness guard",
+    "location": {
+      "file": "reports/tiprun-2026-06-13/harness/src/core/config/GeneralConfig.sol",
+      "function": "",
+      "contract": "GeneralConfig",
+      "line_start": null
+    },
+    "classification": {
+      "severity": "Medium",
+      "severity_ceiling": null,
+      "vuln_type": null,
+      "confidence": "High"
+    },
+    "ice": {
+      "impact": null,
+      "confidence": null,
+      "exploitability": null,
+      "exploit_path": null
+    },
+    "evidence": {
+      "attacker_model": "Process a batch under risk/oracle parameters it was not built against, so margin/oracle checks use a config the batch's quotes never accounted for.",
+      "entrypoint": "",
+      "preconditions": null,
+      "who_loses": null,
+      "who_gains": null,
+      "impact": "Risk-critical synthetic-asset parameters (risk segments, oracle signer set/quorum, max funding rate) can change while batches built against the prior config still validate and execute. Trades/margin checks/funding can be processed under a config the batch was never reconciled with -> mispriced risk, acceptance of orders that should be rejected under the new segments, or oracle-signer-set desync. Operator-mediated (txBatcher submits batches) but it nullifies an on-chain safety guard that exists precisely to prevent stale-config execution.",
+      "constraints": null,
+      "poc_result": "proved L3",
+      "suggested_fix": null
+    },
+    "confirmation": {
+      "present": false,
+      "skipped": false,
+      "score": null,
+      "passes": null,
+      "human_review_required": null,
+      "threshold": 0.6,
+      "required": false
+    },
+    "gates": {
+      "fp_action": "proceed",
+      "any_fail": false,
+      "fail_gates": [],
+      "warn_count": 2,
+      "min_confirm_blocked": false,
+      "reachability_status": null
+    },
+    "poc": {
+      "status": "proved",
+      "level": 3,
+      "proved": true
+    },
+    "triage_status": "downgraded",
+    "state": "candidate",
+    "readiness_blockers": [],
+    "readiness_advisories": [
+      "submission_risk[deployment_reachability]: confirm the vulnerable path is WIRED in the live deployment (not feature-flagged off / Null-fallback / unregistered handler) \u2014 fill audits/<id>/deployment_manifest.json (run_pipeline submission-risk --init-manifest) or see agents/submission_risk_review.md",
+      "submission_risk[novelty]: KB crossref present \u2014 verify the closest known finding is not the same bug (duplicate/known) before submitting"
+    ]
+  },
+  "poc": {
+    "test_contract": "PoC_ConfigVersionNotBumped",
+    "test_file": "reports/tiprun-2026-06-13/harness/test/PoC_ConfigVersionNotBumped.t.sol",
+    "status": "proved"
+  },
+  "vulnerable_files": [
+    "GeneralConfig.sol"
+  ]
+}

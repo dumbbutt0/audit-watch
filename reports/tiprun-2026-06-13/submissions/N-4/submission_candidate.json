@@ -1,0 +1,93 @@
+{
+  "finding_id": "N-4",
+  "internal_id": "ECON-002",
+  "title": "Settlement mints collateral at an unconstrained operator price with no oracle/signature binding and no aggregate conservation invariant",
+  "root_cause": "SettlementTransLib.process credits collateral = syntheticBalance * settlementPrice where settlementPrice is a raw operator input (only 0..int128.max), not bound to the oracle/resolved outcome and not subject to any YES/NO conservation or reserve-backing check.",
+  "affected_contracts": [
+    "src/predict/transactions/SettlementTransLib.sol",
+    "src/predict/plugins/SettlementPlugin.sol"
+  ],
+  "affected_functions": [
+    "SettlementTransLib.process",
+    "SettlementPlugin (process entrypoint)"
+  ],
+  "attacker_entrypoint": "operator-submitted Settlement transaction with an arbitrary settlementPrice",
+  "attacker_capabilities": [
+    "settlement operator chooses settlementPrice freely (trusted role)"
+  ],
+  "privilege_required": "privileged (settlement operator / trusted batcher)",
+  "scope_status": "uncertain",
+  "in_scope_asset": "Predict settlement (SettlementTransLib)",
+  "out_of_scope_risks": [
+    "relies on trusted operator behavior; programs may treat trusted-operator actions as out of scope"
+  ],
+  "impact_category": "accounting_corruption",
+  "severity_claim": "Low",
+  "severity_justification": {
+    "worst_case": "Mis-priced/one-sided settlement mints unbacked withdrawable collateral that drains other users' deposits.",
+    "realistic_case": "Missing on-chain invariant; impact bounded by operator honesty (no permissionless exploit).",
+    "program_table_mapping": "see official program impact table (not bundled)"
+  },
+  "bounty_program_mapping": {
+    "program": "TipRun",
+    "platform": "contest",
+    "impact_in_scope": true,
+    "privileged_roles_in_scope": true,
+    "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
+  },
+  "call_trace": [
+    "account holds synthetic 100; oracle price = 1",
+    "operator submits Settlement{ settlementPrice = 50 } (unrelated to oracle, no signature/conservation check)",
+    "collateralDelta = 100 * 50 = 5000 credited; synthetic zeroed",
+    "unbacked collateral 5000 becomes withdrawable"
+  ],
+  "state_transition": {
+    "before": "synthetic balance 100, oracle price 1",
+    "after": "synthetic 0, collateral +5000 (= balance * operator price)",
+    "slots_or_balances": ["collateral += 5000 unbacked"]
+  },
+  "asset_delta": "Unbacked collateral minted = syntheticBalance * operator-chosen price; later withdrawable, draining reserves.",
+  "proof_type": "runnable_poc",
+  "poc_path": "reports/tiprun-2026-06-13/submissions/N-4/poc/PoC_SettlementUnconstrained.t.sol",
+  "poc_status": "passing",
+  "reproduction_steps": [
+    "cd reports/tiprun-2026-06-13/harness",
+    "forge test --match-contract PoC_SettlementUnconstrained -vv"
+  ],
+  "duplicate_check_status": "not_searched",
+  "known_issue_check_status": "not_searched",
+  "prior_audit_overlap": [],
+  "false_positive_risks": [
+    "operator-trust-gated; program may treat trusted-operator actions as out of scope"
+  ],
+  "invalidating_conditions": [
+    "settlement price is validated against a signed outcome/oracle off-chain and the operator is fully trusted in scope"
+  ],
+  "defense_analysis": [
+    {
+      "defense": "settlementPrice range check (0..int128.max)",
+      "blocks_path": false,
+      "why_it_fails": "range check does not bind the price to the oracle/outcome and does not enforce aggregate conservation"
+    }
+  ],
+  "assumptions": [
+    "the operator can submit a settlement price not matching the resolved outcome"
+  ],
+  "evidence_links": [
+    "src/predict/transactions/SettlementTransLib.sol:process",
+    "harness/test/PoC_SettlementUnconstrained.t.sol",
+    "submissions/N-4/poc_output.log"
+  ],
+  "triager_summary": "Settlement payout = balance * unconstrained operator price, no oracle/signature/conservation binding. PoC passing (mints 5000 unbacked at operator price 50 vs oracle 1). Operator-trust-gated (Low).",
+  "recommended_status": "READY_FOR_HUMAN_REVIEW",
+  "human_approval_required": true,
+  "vrt_category": "Business Logic Errors: settlement payout not bound to oracle/outcome and no aggregate conservation invariant (operator-trust-gated)",
+  "cvss": [
+    {
+      "aspect": "Unconstrained settlement price mints unbacked collateral",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:N/I:L/A:L",
+      "score": 4.2,
+      "severity": "Medium"
+    }
+  ]
+}
