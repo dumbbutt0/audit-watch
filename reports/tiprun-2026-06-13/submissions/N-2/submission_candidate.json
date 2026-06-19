@@ -1,34 +1,37 @@
 {
   "finding_id": "N-2",
   "internal_id": "PC-01",
-  "title": "Capability registry silently falls back to a no-op margin check when no CAP_MARGIN_CHECK provider is registered",
-  "root_cause": "PositionManager._marginCheck() falls back to NullMarginCheck (no-op) when capabilityProvider(CAP_MARGIN_CHECK)==0, and TransactionProcessor.registerPlugin never requires a CAP_MARGIN_CHECK provider for margin-gated txTypes, so a perp deployment can run with maintenance-margin enforcement silently disabled (fail-open).",
+  "title": "Perp margin checks fail open when CAP_MARGIN_CHECK is absent, allowing insolvent trades if the Risk provider is not registered",
+  "root_cause": "PositionManager._marginCheck() falls back to NullMarginCheck (no-op) when capabilityProvider(CAP_MARGIN_CHECK)==0, and the TYPE_TRADE plugin OrderbookPlugin declares no required capabilities (BasePlugin default empty), so registerPlugin accepts the trading surface with no margin provider — a perp deployment can run with maintenance-margin enforcement silently disabled (fail-open).",
   "affected_contracts": [
     "src/core/position/PositionManager.sol",
     "src/TransactionProcessor.sol",
+    "src/orderbook/plugins/OrderbookPlugin.sol",
     "src/core/risk/NullMarginCheck.sol",
     "src/Constants.sol"
   ],
   "affected_functions": [
     "PositionManager._marginCheck",
     "TransactionProcessor.registerPlugin",
+    "OrderbookPlugin.requiredCapabilities (inherits empty BasePlugin default)",
     "NullMarginCheck.checkValidTransition"
   ],
-  "attacker_entrypoint": "perp deployment with CAP_MARGIN_CHECK provider unregistered (pre-wiring window, operator error, or unregisterPlugin clearing it)",
+  "attacker_entrypoint": "ordinary user-signed TYPE_TRADE relayed through the txBatcher, on a perp deployment with CAP_MARGIN_CHECK provider absent (pre-wiring window or profile that omits it)",
   "attacker_capabilities": [
-    "submit margin-gated position/withdrawal transactions on a profile with no real margin provider"
+    "submit a normal signed limit-order trade (no privilege); the missing-provider state is a deployment precondition, not an attacker action"
   ],
-  "privilege_required": "none (depends on deployment misconfiguration, not attacker privilege)",
+  "privilege_required": "none for the attack action (a normal user trade); the missing-provider state is a deployment precondition",
   "scope_status": "uncertain",
   "in_scope_asset": "PositionManager / capability registry (margin enforcement)",
   "out_of_scope_risks": [
-    "no impact on spot/predict profiles where NullMarginCheck is the intended behavior (same not-wired condition that put F-2 out of scope)"
+    "OUT OF SCOPE if the program treats the missing-provider state as pure owner misconfiguration (same not-wired condition that put F-2 out of scope)"
   ],
   "impact_category": "insolvency",
-  "severity_claim": "High",
+  "severity_claim": "Medium",
   "severity_justification": {
-    "worst_case": "On a perp profile missing CAP_MARGIN_CHECK, undercollateralized positions/withdrawals are accepted => protocol insolvency / bad debt.",
-    "realistic_case": "Conditional on a perp deployment that should have the margin engine wired but does not (misconfig / deploy window).",
+    "worst_case": "HIGH if an in-scope perp deployment can reach CAP_MARGIN_CHECK==0 while trading is live (deploy/upgrade window or a perp profile omitting the provider): ordinary user trades create bad debt with no margin enforcement.",
+    "realistic_case": "MEDIUM fail-open design defect: no on-chain assertion that a margin provider exists for margin-gated txTypes, and no event when checks are off.",
+    "out_of_scope_case": "If only owner-misconfiguration (forgetting/unregistering Risk) reaches the state and the program excludes admin misconfig.",
     "program_table_mapping": "see official program impact table (not bundled)"
   },
   "bounty_program_mapping": {
@@ -39,17 +42,17 @@
     "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
   },
   "call_trace": [
-    "capabilityProvider(CAP_MARGIN_CHECK) == address(0)",
-    "PositionManager._marginCheck() returns NullMarginCheck (no-op)",
-    "updatePositionInDict opens short 5000 vs 1000 collateral => accepted (no revert)",
-    "riskContract.getAccountPositionStatus(view) => account value < 0 (insolvent)"
+    "(1) txTypeToPlugin(TYPE_TRADE).requiredCapabilities().length == 0 -> registerPlugin accepts trading with no CAP_MARGIN_CHECK provider",
+    "(2) negative control with Risk wired: user-signed TYPE_TRADE via txBatcher->MTP->OrderbookPlugin->PositionManager.updatePosition REVERTS 'PM: risk inc'",
+    "(3) provider absent (deployment state): identical user-signed TYPE_TRADE ACCEPTED -> _marginCheck() no-op",
+    "(3) result: B short 5000 / collateral 5001, Risk view value 4.3e9 vs risk 9.2e22 -> far below maintenance margin (bad debt)"
   ],
   "state_transition": {
-    "before": "CAP_MARGIN_CHECK provider wired; insolvent transitions rejected",
-    "after": "provider absent; insolvent short of 5000 accepted against 1000 collateral",
-    "slots_or_balances": ["account synthetic balance -> -5000 with 1000 collateral"]
+    "before": "Risk provider wired -> the user trade is rejected (PM: risk inc)",
+    "after": "provider absent -> identical user trade accepted; account at risk 9.2e22 vs value 4.3e9 (risk >> value*FXP)",
+    "slots_or_balances": ["B synthetic -> -5000", "B collateral -> 5001", "account grossly below maintenance margin"]
   },
-  "asset_delta": "Undercollateralized state accepted; later withdrawal/realization is unbacked => bad debt.",
+  "asset_delta": "An under-margin position (bad debt) is created via a normal user trade. PoC proves position OPENING only; no withdrawal/exfiltration path is claimed.",
   "proof_type": "runnable_poc",
   "poc_path": "reports/tiprun-2026-06-13/submissions/N-2/poc/PoC_CapabilityRegistryNoop.t.sol",
   "poc_status": "passing",
@@ -71,29 +74,36 @@
     {
       "defense": "registerPlugin requiredCapabilities() enforcement",
       "blocks_path": false,
-      "why_it_fails": "no plugin declares CAP_MARGIN_CHECK as required, so registration never enforces a margin provider"
+      "why_it_fails": "OrderbookPlugin (TYPE_TRADE) declares no required capabilities (proven: requiredCapabilities().length==0), so registration never enforces a margin provider"
+    },
+    {
+      "defense": "real Risk margin check (when wired)",
+      "blocks_path": true,
+      "why_it_fails": "with the provider wired the same user trade is correctly rejected ('PM: risk inc') — the finding is precisely the fail-OPEN when it is absent"
     }
   ],
   "assumptions": [
-    "target runs (or is intended to run) the perp margin profile"
+    "the missing-provider state (CAP_MARGIN_CHECK absent while trading is live) is reachable/in-scope in the target deployment"
   ],
   "evidence_links": [
     "src/core/position/PositionManager.sol:_marginCheck (NullMarginCheck fallback ~76-80)",
     "src/TransactionProcessor.sol:registerPlugin (requiredCapabilities enforcement ~62-68)",
+    "src/orderbook/plugins/OrderbookPlugin.sol (TYPE_TRADE; no requiredCapabilities override)",
+    "src/core/plugins/BasePlugin.sol:requiredCapabilities (empty default)",
     "src/core/risk/NullMarginCheck.sol",
     "harness/test/PoC_CapabilityRegistryNoop.t.sol",
     "submissions/N-2/poc_output.log"
   ],
-  "triager_summary": "Margin check fails open: _marginCheck() returns a no-op when CAP_MARGIN_CHECK is unregistered and registerPlugin never requires it. PoC passing (insolvent short of 5000 vs 1000 accepted). Conditional on perp profile.",
+  "triager_summary": "Perp margin checks fail open: _marginCheck() returns a no-op when CAP_MARGIN_CHECK is absent and the TYPE_TRADE plugin requires no capability. Proven via the real user path: with Risk wired a normal trade reverts 'PM: risk inc'; with it absent the identical trade is accepted, leaving the account far below maintenance margin. Severity Medium (High only if the missing-provider state is in-scope reachable; OOS if pure owner misconfig). PoC proves position opening, not exfiltration.",
   "recommended_status": "READY_FOR_HUMAN_REVIEW",
   "human_approval_required": true,
   "vrt_category": "Business Logic Errors",
   "cvss": [
     {
-      "aspect": "Margin check silently no-op on a misconfigured perp profile",
-      "vector": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:N/I:H/A:H",
-      "score": 6.4,
-      "severity": "Medium-High"
+      "aspect": "Fail-open margin check; user trade creates bad debt when the provider is absent",
+      "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:H",
+      "score": 7.4,
+      "severity": "High (conditional on the missing-provider state being reachable)"
     }
   ]
 }

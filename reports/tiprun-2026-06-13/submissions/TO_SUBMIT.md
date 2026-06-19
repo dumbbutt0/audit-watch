@@ -39,17 +39,20 @@ finding leads with its reachability/scope caveat — the single thing that decid
 
 ## Tier 2 — submit only after confirming the deployment profile (same reachability axis that put F-2 OOS)
 
-### N-2 — Capability registry fails open: no-op margin check when no `CAP_MARGIN_CHECK` provider · **High (perp only)**
+### N-2 — Perp margin checks fail open when `CAP_MARGIN_CHECK` is absent · **Medium (High conditional)**
 - **Mechanism:** `PositionManager._marginCheck()` falls back to `NullMarginCheck` (no-op) when no provider is
-  registered, and `TransactionProcessor.registerPlugin` never *requires* one — so a perp deployment can run with
-  maintenance-margin enforcement silently disabled (fail-open). Insolvent positions accepted → bad debt.
-- **Reachability (decisive):** impact exists only on a deployment that *should* run the perp margin engine but
-  doesn't have it wired. On the live predict/spot profile the no-op is intended — **the exact not-wired condition
-  that put F-2 out of scope.** Submit only if the perp margin profile is in scope; otherwise it's a fail-open
-  design/hardening note.
-- **PoC:** `PoC_CapabilityRegistryNoop` (insolvent short 5000 vs 1000 accepted). Write-up: `N-2/SUBMISSION.md`.
-- **Pre-submit:** ☐ **confirm target runs the perp margin profile** ☐ identify how `CAP_MARGIN_CHECK` could be absent
-  (deploy/upgrade window, operator error) ☐ novelty ☐ otherwise submit as design note only.
+  registered, and the `TYPE_TRADE` plugin (`OrderbookPlugin`) declares **zero** required capabilities — so the trading
+  surface registers with no margin provider (fail-open). A normal user trade that the real Risk check rejects is
+  accepted → bad debt.
+- **Reachability (decisive):** the attack action is now a normal user-routed trade (not an owner call), with a negative
+  control + capability-evidence test. What's uncertain is whether the missing-provider state is in scope: **High** if
+  an in-scope perp deployment can reach it while trading is live (deploy/upgrade window, or a perp profile omitting the
+  provider); **Medium** as a fail-open design defect; **OOS** if only owner misconfig reaches it (the F-2 axis).
+- **PoCs (user path):** `PoC_CapabilityRegistryNoop` — (1) trade plugin requires no capability; (2) negative control:
+  same user trade reverts `"PM: risk inc"` with Risk wired; (3) identical trade accepted with provider absent, account
+  left far below maintenance margin. Proves position opening (bad debt), not exfiltration. Write-up: `N-2/SUBMISSION.md`.
+- **Pre-submit:** ☐ **confirm the missing-provider state is in-scope reachable** (deploy/upgrade ordering, perp profile)
+  ☐ else submit as Medium design note / treat as OOS if pure owner misconfig ☐ novelty.
 
 ### M-2 — Oracle has no read-side staleness + monotonic-update guard commented out · **Low**
 - **Mechanism:** `Oracle.updatePrice` monotonic guard is commented out and `Oracle.getPrice` has no max-age, so a

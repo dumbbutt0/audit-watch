@@ -11,10 +11,10 @@ https://github.com/hackenproof-public/tiprun-contracts
 Business Logic Errors
 
 # Field: Severity
-High (conditional on perp profile — see scope caveat)
+Medium (High only if the missing-provider state is in-scope reachable — see scope caveat)
 
 # Field: Title
-PositionManager._marginCheck() silently falls back to a no-op when no CAP_MARGIN_CHECK provider is registered, and registerPlugin never requires one, so a perp deployment can accept undercollateralized positions
+Perp margin checks fail open when CAP_MARGIN_CHECK is absent, allowing insolvent trades if the Risk provider is not registered
 
 # Field: Vulnerability details
 
@@ -37,15 +37,17 @@ that needs one. `TransactionProcessor.registerPlugin` only enforces a plugin's d
 require(capabilityProvider[required[i]] != address(0), "TransactionProcessor: missing required capability");
 ```
 
-…and no plugin declares CAP_MARGIN_CHECK as required. So the full trading surface can be registered without a margin
-provider, and the safety net is opt-out by omission — the system fails OPEN, not closed.
+…and no plugin declares CAP_MARGIN_CHECK as required. In particular the TYPE_TRADE handler OrderbookPlugin does not
+override requiredCapabilities() (inherits BasePlugin's empty default), so the full trading surface can be registered
+with no margin provider — the safety net is opt-out by omission and the system fails OPEN, not closed.
 
 ## Impact
 
-On a perp profile with no (or temporarily no) CAP_MARGIN_CHECK provider, the only maintenance-margin enforcement is
-bypassed: undercollateralized positions/withdrawals are accepted -> insolvency / bad debt. A single misconfiguration
-(or a deploy/upgrade window, or an unregisterPlugin that clears the provider) silently disables the core solvency
-check with no revert and no event.
+On a perp deployment with no CAP_MARGIN_CHECK provider, a NORMAL user-signed trade that the real Risk check would
+reject is accepted, opening a position far below maintenance margin -> bad debt the protocol absorbs. Proven via the
+ordinary user path (a relayed TYPE_TRADE, not an owner call): with the provider wired the trade reverts "PM: risk
+inc"; with it absent the identical trade is accepted, leaving maintenance risk 9.2e22 vs value 4.3e9 (risk >>
+value*FXP). The PoC proves position OPENING (bad-debt creation); it does not claim a withdrawal/exfiltration path.
 
 ## Root cause
 
@@ -65,35 +67,41 @@ The PoC runs against the project's own contracts in a local Foundry harness; all
 forge test --match-contract PoC_CapabilityRegistryNoop -vv
 ```
 
-What it proves:
+What it proves (three tests, all through the real user path):
 
-- `test_PoC_missingMarginProviderAcceptsInsolventPosition`: starting from the base harness (which wires a real
-  CAP_MARGIN_CHECK provider), the test reproduces the finding's condition by clearing the provider
-  (`unregisterPlugin(riskPlugin)` — never required by registerPlugin), then opens a short of 5000 against 1000
-  collateral. With the real margin check this is rejected; with the no-op it is accepted, and the still-deployed Risk
-  view confirms the accepted account value is negative (insolvent).
+1. test_PoC_tradePluginDoesNotRequireMarginCapability: reads the live registry — the TYPE_TRADE plugin
+   (OrderbookPlugin) declares ZERO required capabilities, so registerPlugin accepts the trading surface with no
+   CAP_MARGIN_CHECK provider (missing-provider state reachable by deployment omission).
+2. test_sameUserTradeRevertsWhenRiskProviderRegistered (negative control): with the real Risk provider wired, a
+   normal signed trade routed txBatcher -> MultiTransactionProcessor -> OrderbookPlugin -> PositionManager.updatePosition
+   is REJECTED with "PM: risk inc". The margin check, not the harness, is the only thing flipping the outcome.
+3. test_PoC_userTradeAcceptedWhenPerpMarginProviderMissing: the provider-absent state is set up via an owner call
+   (setup only, NOT the attack action); the identical normal user-signed trade is then ACCEPTED, leaving the account
+   far below maintenance margin (risk > value*FXP).
 
 Captured output (real run, all passing):
 
 ```
-Ran 3 tests for test/PoC_CapabilityRegistryNoop.t.sol:PoC_CapabilityRegistryNoop
-[PASS] testResolutionCheck()
-[PASS] testSyntheticAssetInfoCRUD()
-[PASS] test_PoC_missingMarginProviderAcceptsInsolventPosition()
+[PASS] test_PoC_tradePluginDoesNotRequireMarginCapability()
+[PASS] test_PoC_userTradeAcceptedWhenPerpMarginProviderMissing()
 Logs:
-  accepted account value at true price (FXP, negative = insolvent): negative
-  synthetic short held with no maintenance-margin enforcement: 5000
+  B synthetic short: 5000
+  B account value (FXP): 4294967296
+  B maintenance risk (FXP^2): 92233720368547758080000
+[PASS] test_sameUserTradeRevertsWhenRiskProviderRegistered()
 
 Suite result: ok. 3 passed; 0 failed; 0 skipped
 ```
 
 # Field: Scope caveat (read before submitting)
 
-This has impact only on a deployment that should run the perp Risk margin engine but does not have it registered. On
-a spot/predict profile the no-op fallback is intended (no maintenance margin) and there is no impact — the same
-not-wired condition under which the related risk-segment finding was ruled out of scope. Submit only if the perp
-margin profile is in scope for the target deployment; otherwise this is a design/hardening note (fail-open vs
-fail-closed).
+The attack action is a normal user trade and the negative control + capability tests remove the "harness manufactured
+it" objection. What remains uncertain is whether the missing-provider state is in scope:
+- HIGH if a real in-scope perp deployment can reach CAP_MARGIN_CHECK == address(0) while trading is live (e.g. a
+  deploy/upgrade window registering OrderbookPlugin before/without RiskPlugin, or a perp profile that omits it).
+- MEDIUM as a fail-open design defect (no on-chain assertion that a margin provider exists for margin-gated txTypes).
+- OUT OF SCOPE if the program treats the missing-provider state as pure owner misconfiguration — the same not-wired
+  condition under which the related risk-segment finding (F-2) was ruled out of scope. Confirm before submitting.
 
 # Field: Attachments
 - PoC_CapabilityRegistryNoop.t.sol
