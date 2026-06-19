@@ -8,7 +8,7 @@ the RAW file, not a rendered preview.
 https://github.com/hackenproof-public/tiprun-contracts
 
 # Field: Category
-Access Control / Privilege Escalation
+Broken Access Control (BAC) → Privilege Escalation
 
 # Field: Severity
 High

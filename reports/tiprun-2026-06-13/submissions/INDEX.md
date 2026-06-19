@@ -1,5 +1,9 @@
 # TipRun — submission packages (candidates for human review)
 
+> **Category field:** every `SUBMISSION.md` `# Field: Category` (and `submission_candidate.json` `vrt_category`) is
+> chosen verbatim from the canonical list in [`../../SUBMISSION_CATEGORIES.md`](../../SUBMISSION_CATEGORIES.md)
+> (HackenProof VRT). Always fill report categories from that list.
+
 Persistent, out-of-/tmp. Each `<ID>/` is self-contained: `report.md` (standalone writeup), `poc/<Name>.t.sol`,
 `poc_output.log` (captured passing run), `submission_candidate.json` (schema-conformant), `repro.md`, and
 `vulnerable/` (copies of the affected `src/` file(s)). Runnable Foundry harness: `../harness/` (see

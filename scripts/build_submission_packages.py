@@ -180,6 +180,10 @@ submitted; human review + KYC + submission are the operator's responsibility.
 def _scaffold_submission_md(c: dict, rid: str) -> str:
     return f"""<!-- {SCAFFOLD_BANNER} — replace with a platform-paste-ready writeup before submitting. -->
 
+# Field: Category
+{c.get('vrt_category') or 'Business Logic Errors'}
+<!-- MUST be a verbatim value from reports/SUBMISSION_CATEGORIES.md (HackenProof VRT). Pick the most specific. -->
+
 # Field: Severity
 {sal._sev(c)}
 

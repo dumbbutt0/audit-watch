@@ -8,7 +8,7 @@ the RAW file, not a rendered preview.
 https://github.com/hackenproof-public/tiprun-contracts
 
 # Field: Category
-Business Logic Errors / Insecure Design
+Business Logic Errors
 
 # Field: Severity
 High (conditional on perp profile — see scope caveat)
