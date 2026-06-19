@@ -4,7 +4,8 @@
 - **Contract:** `src/core/config/GeneralConfig.sol` → `setSyntheticAssetsInfo` (the `incrConfigVersionInternal()`
   call is commented out, ~lines 179-182).
 - **Severity:** Medium / Low (admin-triggered; undermines a built-in safety mechanism).
-- **PoC:** `poc/PoC_ConfigVersionNotBumped.t.sol` (passing) · log `poc_output.log`.
+- **PoC:** `poc/PoC_ConfigVersionNotBumped.t.sol` (passing — proves the missing bump **and** the resulting
+  stale-config-guard bypass) · log `poc_output.log`.
 
 ## Root cause
 `setSyntheticAssetsInfo` sets the most security-relevant per-asset config — risk-factor segments, oracle signer set,
@@ -23,9 +24,16 @@ trust. A risk-factor or oracle-signer change can take effect on already-submitte
 protection.
 
 ## PoC (passing)
-`forge test --match-contract PoC_ConfigVersionNotBumped -vv` (from `../../harness/`):
-- record `configVersion`; call `setSyntheticAssetsInfo(...)` (change the risk segment) → version **unchanged**.
-- control: `setMaxFundingRate(...)` → version **increments by 1**.
+`forge test --match-contract PoC_ConfigVersionNotBumped -vv` (from `../../harness/`). The PoC proves both the missing
+bump (L2) and the resulting guard bypass (L3):
+- **L2 — missing bump:** record `configVersion` (= 2); call `setSyntheticAssetsInfo(...)` to change the risk segment →
+  version **unchanged** (still 2). Control: `setMaxFundingRate(...)` → version **increments** (→ 3).
+- **L3 — stale-config guard bypassed:** a user batch carrying the **stale** `configVersion = 2` is submitted through
+  the real `MultiTransactionProcessor` relay path. **After `setSyntheticAssetsInfo` it is accepted** (the guard never
+  fires, so the batch executes under the new risk params). After the version-bumping `setMaxFundingRate`, the **same
+  stale batch is rejected** (`"MultiTransactionProcessor: config version mismatch"`). Identical batch, opposite
+  outcome — proving the protection exists for normal config changes and is silently missing for the most
+  security-critical one.
 
 ## Suggested fix
 Call `incrConfigVersionInternal()` at the end of `setSyntheticAssetsInfo` (restore parity with the other setters).

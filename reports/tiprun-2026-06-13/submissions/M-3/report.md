@@ -5,14 +5,17 @@
   `src/perp/transactions/DeleverageTransLib.sol` → `process`.
 - **Severity:** Medium (operator-trust dependent; Low if the sequencer is fully trusted, higher if users are meant to
   be protected on-chain from having healthy positions seized).
-- **PoC:** `poc/PoC_NoLiquidatablePrecondition.t.sol` (passing) · log `poc_output.log`.
+- **PoCs (both passing):** `poc/PoC_NoLiquidatablePrecondition.t.sol` (liquidate) and `poc/PoC_DeleverageNoConsent.t.sol`
+  (deleverage) · combined log `poc_output.log`.
 
 ## Root cause
 `LiquidateTransLib.process` never checks that the targeted account is below maintenance margin before force-resizing
 its position; it computes deltas, applies funding, and calls `position.updatePosition(...)` + executes the liquidator
 order. There is no `require(account is unhealthy)`. `DeleverageTransLib.process` is weaker still: it only calls
 `signerManager.checkSigner(...)` (i.e. "is a registered signer") for both parties — **no signature, no nonce, no
-health precondition** — so the operator can force any account to be the deleverager or the deleveraged.
+health precondition** — so the operator can force any account to be the deleverager or the deleveraged. Because an
+account's owner key is always a registered signer on that account, naming the victim's own address satisfies the
+check; the victim never signs anything.
 
 Both are gated by `onlyTxBatcher`, so exploitation requires a malicious/buggy operator. But the on-chain safety that
 "only unhealthy accounts can be liquidated/deleveraged" is absent — the contract trusts the off-chain risk engine.
@@ -22,11 +25,23 @@ A faulty or malicious sequencer can force-trade / seize positions of perfectly h
 at an operator-chosen price. Combined with F-1 (the margin check does not block value-reducing transitions on the
 liquidated account), over-seizure is not blocked either.
 
-## PoC (passing)
-`forge test --match-contract PoC_NoLiquidatablePrecondition -vv` (from `../../harness/`):
-- the target (cOwner) holds 100 collateral and a tiny long of 1 — proven **healthy** (`risk ≤ value·FXP`).
-- a `TYPE_LIQUIDATE` transaction liquidates it anyway: the position is force-closed (`assets.length == 0`) and the
-  forced trade settles against the target — no "not liquidatable" guard fires.
+## PoCs (both passing)
+From `../../harness/`:
+
+```bash
+forge test --match-contract PoC_NoLiquidatablePrecondition -vv   # liquidate
+forge test --match-contract PoC_DeleverageNoConsent -vv          # deleverage
+```
+
+**Liquidate — `PoC_NoLiquidatablePrecondition`:** the target (cOwner) holds 100 collateral and a tiny long of 1 —
+proven **healthy** (`risk ≤ value·FXP`). A `TYPE_LIQUIDATE` transaction liquidates it anyway: the position is
+force-closed (`assets.length == 0`) and the forced trade settles against the target — no "not liquidatable" guard
+fires.
+
+**Deleverage — `PoC_DeleverageNoConsent`:** the deleveragable (C_OWNER) is a normal, fully-collateralized, **healthy**
+account (100,000 collateral, no position; `risk ≤ value·FXP` asserted). A `TYPE_DELEVERAGE` transaction naming the
+victim's own owner address (a registered signer) force-trades it — collateral moves 100,000 → 100,001 and a synthetic
+position is opened on it — with **no signature from the victim, no nonce, and no health precondition**.
 
 ## Suggested fix
 Require the target to be below maintenance margin before liquidation/deleverage (compute health on-chain and revert

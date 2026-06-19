@@ -30,7 +30,8 @@ finding leads with its reachability/scope caveat — the single thing that decid
   maintenance margin, so a (mis-)submitted liquidation can seize a perfectly healthy account.
 - **Reachability:** operator/keeper-submitted, but the *missing on-chain guard* is the finding — a single bad input
   has unbounded effect with no contract-level backstop. State the trust dependency explicitly.
-- **PoC:** `PoC_NoLiquidatablePrecondition`. Write-up: `M-3/SUBMISSION.md`.
+- **PoCs:** `PoC_NoLiquidatablePrecondition` (liquidate) + `PoC_DeleverageNoConsent` (deleverage force-trades a
+  healthy account with no victim signature). Write-up: `M-3/SUBMISSION.md`.
 - **Pre-submit:** ☐ frame as missing-invariant / trust-boundary ☐ confirm program treats liquidation-keeper actions
   as in-scope ☐ novelty.
 
@@ -71,7 +72,9 @@ finding leads with its reachability/scope caveat — the single thing that decid
   `MultiTransactionProcessor` never triggers for in-flight user txs signed against the old config.
 - **Reachability:** admin-triggered (`PRIVILEGED_ONLY_REACHABLE`), but **live on all profiles** (the guard isn't
   perp-only). Undermines a built-in safety mechanism.
-- **PoC:** `PoC_ConfigVersionNotBumped`. Write-up: `M-4/SUBMISSION.md`.
+- **PoC:** `PoC_ConfigVersionNotBumped` (proves both the missing bump and the resulting stale-config-guard bypass —
+  a stale-version batch is accepted after the risk change but rejected after a normal version-bumping change).
+  Write-up: `M-4/SUBMISSION.md`.
 - **Pre-submit:** ☐ frame as admin-config / safety-mechanism-defeat ☐ confirm program treats admin-config issues as
   in-scope ☐ novelty.
 

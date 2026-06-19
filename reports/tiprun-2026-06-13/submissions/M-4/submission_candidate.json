@@ -34,16 +34,16 @@
     "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
   },
   "call_trace": [
-    "record configVersion",
-    "setSyntheticAssetsInfo (change risk segment) => version unchanged",
-    "control: setMaxFundingRate => version increments by 1"
+    "L2: record configVersion (=2); setSyntheticAssetsInfo (change risk segment) => version unchanged; control setMaxFundingRate => version increments to 3",
+    "L3: user batch carrying stale configVersion=2 -> processMultiTransactions ACCEPTS it after setSyntheticAssetsInfo (guard never fires)",
+    "L3 contrast: after the version-bumping setMaxFundingRate, the SAME stale batch is REJECTED ('config version mismatch')"
   ],
   "state_transition": {
-    "before": "configVersion = V",
-    "after": "configVersion still V after risk-param change (should be V+1)",
+    "before": "configVersion = V (=2); stale-config guard would protect in-flight batches",
+    "after": "configVersion still V after risk-param change (should be V+1); stale batch carrying V executes under the new risk params unguarded",
     "slots_or_balances": []
   },
-  "asset_delta": "In-flight user txs execute under changed risk/oracle params without the version-mismatch protection.",
+  "asset_delta": "In-flight user txs execute under changed risk/oracle params without the version-mismatch protection (proven: stale batch accepted post-change, rejected after a normal version-bumping change).",
   "proof_type": "runnable_poc",
   "poc_path": "reports/tiprun-2026-06-13/submissions/M-4/poc/PoC_ConfigVersionNotBumped.t.sol",
   "poc_status": "passing",
@@ -68,7 +68,7 @@
     }
   ],
   "assumptions": [
-    "perp profile (RiskPlugin wired as CAP_MARGIN_CHECK)"
+    "none profile-specific: the configVersion guard is in core MultiTransactionProcessor and is live on EVERY profile (perp/spot/predict), not perp-gated"
   ],
   "evidence_links": [
     "src/core/config/GeneralConfig.sol:setSyntheticAssetsInfo (incr commented out ~179-182)",
@@ -76,7 +76,7 @@
     "harness/test/PoC_ConfigVersionNotBumped.t.sol",
     "submissions/M-4/poc_output.log"
   ],
-  "triager_summary": "setSyntheticAssetsInfo does not bump configVersion, defeating the stale-config batch guard \u2014 PoC passing (PASS: configVersion unchanged after setSyntheticAssetsInfo; setMaxFundingRate increments it).",
+  "triager_summary": "setSyntheticAssetsInfo does not bump configVersion, defeating the stale-config batch guard \u2014 PoC passing (L2: version unchanged after the risk change vs +1 for setMaxFundingRate; L3: a stale-version batch is accepted after setSyntheticAssetsInfo but rejected after a version-bumping change). Core guard \u2014 live on all profiles.",
   "recommended_status": "READY_FOR_HUMAN_REVIEW",
   "human_approval_required": true,
   "vrt_category": "Business Logic Errors (`setSyntheticAssetsInfo` does not bump `configVersion`; signature/cache validation keyed on the version can pass against stale config)",

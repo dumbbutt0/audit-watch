@@ -20,7 +20,7 @@ are from the 2026-06-18 re-audit (`RE_AUDIT_2026-06-18.md`); all PoCs pass.
 | N-1 | High | Privilege escalation to `ALLOW_ADMIN`: any user self-mints admin (caller-named `adminAccountId`) and drains any account | `PoC_PermissionEscalation` | `PermissionsTransLib.sol`, `WithdrawalTransLib.sol` |
 | N-2 | High (perp profile) | Capability registry fails open: `_marginCheck()` no-ops when no `CAP_MARGIN_CHECK` provider and `registerPlugin` never requires one | `PoC_CapabilityRegistryNoop` | `PositionManager.sol`, `TransactionProcessor.sol`, `NullMarginCheck.sol`, `Constants.sol` |
 | M-2 | Low | Oracle: no read staleness + monotonic-update guard commented out (defense-in-depth; privileged update path) | `PoC_OracleStaleness` | `Oracle.sol`, `OraclePriceTickTransLib.sol` |
-| M-3 | Medium (trust) | Liquidate/Deleverage: no on-chain maintenance-margin precondition | `PoC_NoLiquidatablePrecondition` | `LiquidateTransLib.sol`, `DeleverageTransLib.sol` |
+| M-3 | Medium (trust) | Liquidate/Deleverage: no on-chain maintenance-margin precondition | `PoC_NoLiquidatablePrecondition` + `PoC_DeleverageNoConsent` | `LiquidateTransLib.sol`, `DeleverageTransLib.sol` |
 | M-4 | Medium/Low | `setSyntheticAssetsInfo` does not bump `configVersion` | `PoC_ConfigVersionNotBumped` | `GeneralConfig.sol`, `MultiTransactionProcessor.sol` |
 | N-4 | Low (trust) | Settlement mints collateral at an unconstrained operator price (no oracle/signature/conservation) | `PoC_SettlementUnconstrained` | `SettlementTransLib.sol`, `SettlementPlugin.sol` |
 

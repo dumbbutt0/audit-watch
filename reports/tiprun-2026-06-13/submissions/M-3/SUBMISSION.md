@@ -61,27 +61,38 @@ a real signature/consent model or an explicit bankrupt-state precondition.
 
 # Field: Validation steps
 
-The PoC runs against the project's own contracts in a local Foundry harness; it passes (alongside the repo's
-existing liquidate tests, all green). From the harness root:
+Two PoCs run against the project's own contracts in a local Foundry harness; both pass (alongside the repo's
+existing liquidate/deleverage suites, all green). From the harness root:
 
 ```bash
-forge test --match-contract PoC_NoLiquidatablePrecondition -vv
+forge test --match-contract PoC_NoLiquidatablePrecondition -vv   # liquidate
+forge test --match-contract PoC_DeleverageNoConsent -vv          # deleverage
 ```
 
-Steps proven: the target holds 100 collateral and a tiny long of 1 — proven healthy (`risk <= value*FXP`). A
+Liquidate: the target holds 100 collateral and a tiny long of 1 — proven healthy (`risk <= value*FXP`). A
 `TYPE_LIQUIDATE` transaction liquidates it anyway: the position is force-closed (`assets.length == 0`) and the
 forced trade settles against the target — no "not liquidatable" guard fires.
 
-Captured output (passes; the key case shown):
+Deleverage: C_OWNER is a healthy, fully-collateralized account (100,000 collateral, no position; `risk <= value*FXP`
+asserted). A `TYPE_DELEVERAGE` transaction naming the victim's OWN owner address (a registered signer) force-trades
+it — collateral 100,000 -> 100,001 and a synthetic position opened — with no signature from the victim, no nonce, and
+no health precondition.
+
+Captured output (both passing):
 
 ```
+[PASS] test_PoC_deleverageHealthyAccountWithoutConsent()
+  healthy deleveragable value before (FXP): 429496729600000
+  collateral before: 100000
+  collateral after : 100001
 [PASS] test_PoC_canLiquidatePerfectlyHealthyAccount()
   healthy target value (FXP): 433791696896
   healthy target risk  (FXP^2): 18446744073709551616
   liquidated despite being healthy: position length now 0
-Suite result: ok. 25 passed; 0 failed; 0 skipped
+Suite result: ok. 1 passed; 0 failed; 0 skipped   (each PoC)
 ```
 
 # Field: Attachments
 - PoC_NoLiquidatablePrecondition.t.sol
-- poc_output.log   (captured passing run)
+- PoC_DeleverageNoConsent.t.sol
+- poc_output.log   (captured passing run, both PoCs)

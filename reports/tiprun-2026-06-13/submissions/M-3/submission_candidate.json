@@ -34,22 +34,26 @@
     "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
   },
   "call_trace": [
-    "target is healthy (100 collateral, tiny long 1; risk <= value*FXP)",
-    "submit TYPE_LIQUIDATE for the target",
-    "liquidation succeeds; healthy account's position force-closed (no 'not liquidatable' guard)"
+    "LIQUIDATE: target healthy (100 collateral, tiny long 1; risk <= value*FXP) -> TYPE_LIQUIDATE force-closes the position (no 'not liquidatable' guard)",
+    "DELEVERAGE: deleveragable healthy (100000 collateral, no position) -> TYPE_DELEVERAGE names the victim's own owner address (a registered signer), no signature/nonce/health -> collateral 100000->100001, synthetic position opened"
   ],
   "state_transition": {
-    "before": "target healthy (collateral 100, long 1)",
-    "after": "target position force-closed (assets.length 0); forced trade settled against target",
+    "before": "both targets healthy (liquidate: collateral 100/long 1; deleverage: collateral 100000/no position)",
+    "after": "liquidate: position force-closed (assets.length 0); deleverage: force-traded (collateral 100000->100001) with no victim signature",
     "slots_or_balances": []
   },
-  "asset_delta": "Healthy users' positions can be force-seized at operator-chosen price; over-seizure not blocked (with F-1).",
+  "asset_delta": "Healthy users' positions can be force-seized / force-traded at operator-chosen price; over-seizure not blocked (with F-1).",
   "proof_type": "runnable_poc",
   "poc_path": "reports/tiprun-2026-06-13/submissions/M-3/poc/PoC_NoLiquidatablePrecondition.t.sol",
+  "poc_paths": [
+    "reports/tiprun-2026-06-13/submissions/M-3/poc/PoC_NoLiquidatablePrecondition.t.sol",
+    "reports/tiprun-2026-06-13/submissions/M-3/poc/PoC_DeleverageNoConsent.t.sol"
+  ],
   "poc_status": "passing",
   "reproduction_steps": [
     "cd reports/tiprun-2026-06-13/harness",
-    "forge test --match-contract PoC_NoLiquidatablePrecondition -vv"
+    "forge test --match-contract PoC_NoLiquidatablePrecondition -vv",
+    "forge test --match-contract PoC_DeleverageNoConsent -vv"
   ],
   "duplicate_check_status": "searched_clear",
   "known_issue_check_status": "not_searched",
@@ -75,9 +79,10 @@
     "src/perp/transactions/LiquidateTransLib.sol:process (no health check)",
     "src/perp/transactions/DeleverageTransLib.sol:process (checkSigner only; no sig/nonce/health)",
     "harness/test/PoC_NoLiquidatablePrecondition.t.sol",
+    "harness/test/PoC_DeleverageNoConsent.t.sol",
     "submissions/M-3/poc_output.log"
   ],
-  "triager_summary": "Liquidate / Deleverage have no on-chain maintenance-margin precondition \u2014 PoC passing (PASS: a provably healthy account is force-liquidated with no maintenance-margin precondition).",
+  "triager_summary": "Liquidate / Deleverage have no on-chain maintenance-margin precondition \u2014 both PoCs passing (a provably healthy account is force-liquidated, and a provably healthy account is force-deleveraged with no victim signature/nonce/health precondition).",
   "recommended_status": "READY_FOR_HUMAN_REVIEW",
   "human_approval_required": true,
   "vrt_category": "Unsecure Design \u2192 Violation of Secure Design Principles (Liquidate/Deleverage have no on-chain maintenance-margin precondition; correctness relies entirely on the trusted off-chain batcher)",

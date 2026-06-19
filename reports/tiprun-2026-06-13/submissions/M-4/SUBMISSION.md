@@ -31,7 +31,10 @@ config) execute under the new parameters, and the stale-config guard that should
 This is Low/Medium because the config-version safety guarantee is silently void for exactly the config that
 most affects margin and oracle trust: a risk-factor or oracle-signer change can take effect on already-submitted
 batches without the version-mismatch protection. It is admin-triggered (not an arbitrary-attacker drain), which
-is why it is rated Low/Medium rather than higher — but it defeats a built-in safety mechanism.
+is why it is rated Low/Medium rather than higher — but it defeats a built-in safety mechanism, and the harm lands
+on users (whose in-flight batches were meant to be protected from mid-flight parameter changes), not on the admin.
+The PoC demonstrates the consequence end to end: a user batch carrying the pre-change config version still executes
+after a risk-parameter change, whereas the identical batch is correctly rejected after any normal config change.
 
 ## Root cause
 
@@ -53,13 +56,18 @@ The PoC runs against the project's own contracts in a local Foundry harness; it 
 forge test --match-contract PoC_ConfigVersionNotBumped -vv
 ```
 
-Steps proven: record `configVersion`; call `setSyntheticAssetsInfo(...)` (change a risk segment) — version is
-unchanged. Control: `setMaxFundingRate(...)` — version increments by 1.
+Steps proven:
+- L2 (missing bump): record `configVersion` (= 2); call `setSyntheticAssetsInfo(...)` (change a risk segment) —
+  version unchanged (still 2). Control: `setMaxFundingRate(...)` — version increments to 3.
+- L3 (guard bypass): a user batch carrying the stale `configVersion = 2` is submitted to
+  `MultiTransactionProcessor.processMultiTransactions`. After `setSyntheticAssetsInfo` it is ACCEPTED (the
+  stale-config guard never fires). After the version-bumping `setMaxFundingRate`, the same stale batch is REJECTED
+  with `"MultiTransactionProcessor: config version mismatch"`. Identical batch, opposite outcome.
 
 Captured output (passes):
 
 ```
-[PASS] test_PoC_setSyntheticAssetsInfo_doesNotBumpConfigVersion()
+[PASS] test_PoC_setSyntheticAssetsInfo_doesNotBumpConfigVersion_bypassesStaleGuard()
   configVersion before setSyntheticAssetsInfo: 2
   configVersion after  setSyntheticAssetsInfo: 2
   configVersion after  setMaxFundingRate     : 3
