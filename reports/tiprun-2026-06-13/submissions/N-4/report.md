@@ -36,23 +36,33 @@ outcome or to any reserve backing.
 
 ## Impact
 Operator-mispriced or one-sided settlement mints collateral that is not offset by a matching burn and not backed by
-`LoadingZone` reserves. That unbacked collateral becomes withdrawable, so a later `WITHDRAWAL` can drain other
-users' deposited tokens. The amount is bounded only by operator honesty — there is no on-chain invariant that caps
-or conserves settlement payouts. Because the path is gated by operator trust, there is **no permissionless exploit**;
-this is a missing on-chain safety invariant (a single mis-set price or buggy settlement input has unbounded
-accounting consequence), hence Low.
+`LoadingZone` reserves. That unbacked collateral is **really withdrawable**: the second PoC proves the full path —
+an account that deposited only 100 is settled at 50× the true oracle price, then withdraws **5,000 real tokens out
+of the shared `LoadingZone` reserve** (drained 5,000; 4,900 of it belonging to other depositors). So this is
+demonstrated fund loss, not just an internal accounting number. The amount is bounded only by operator honesty —
+there is no on-chain invariant that caps or conserves settlement payouts.
 
-## PoC (passing)
+Reachability: the **trigger** (the mis-priced `Settlement` tx) is gated by operator trust, so there is **no
+permissionless exploit**; the **withdrawal** half is permissionless (the account owner). Reported as **Low** on the
+conservative reading that the trigger is a trusted-operator action; **Medium** is defensible if the program counts
+trusted-operator-triggered loss of other users' funds (the proven impact), the same operator-trust axis as M-3.
+
+## PoCs (both passing)
 From `../../harness/`:
 
 ```bash
 forge test --match-contract PoC_SettlementUnconstrained -vv
 ```
 
-`test_PoC_settlementMintsUnbackedCollateralAtOperatorPrice`: an account holds a synthetic position of 100; the oracle
-price is 1. The operator settles at an **arbitrary price of 50** (unrelated to the oracle, with no signature/oracle
-check). The synthetic is zeroed and collateral is credited by exactly `balance * operatorPrice = 5000` — unbacked,
-later-withdrawable collateral created from an operator-chosen number. See `poc_output.log`.
+- **L2 — `test_PoC_settlementMintsUnbackedCollateralAtOperatorPrice`:** an account holds a synthetic position of 100;
+  the oracle price is 1. The operator settles at an **arbitrary price of 50** (unrelated to the oracle, no
+  signature/oracle check). The synthetic is zeroed and collateral is credited by exactly `balance * operatorPrice =
+  5000` — unbacked collateral from an operator-chosen number.
+- **L3 — `test_PoC_unbackedSettlementDrainsOtherUsersDeposits`:** other users fund the shared `LoadingZone` (10,000).
+  The attacker account deposits **only 100** and holds a synthetic of 100 (true value 100 at oracle price 1). The
+  operator settles it at 50 → +5,000 collateral; the account owner then **withdraws 5,000 real tokens** to their own
+  address. Asserted: attacker receives 5,000 tokens, `LoadingZone` reserve drops by 5,000 — i.e. **4,900 of other
+  depositors' funds stolen**. See `poc_output.log`.
 
 ## Suggested fix
 - Bind `settlementPrice` to a signed resolution outcome and/or the oracle price for the asset (reject prices that
@@ -76,9 +86,10 @@ later-withdrawable collateral created from an operator-chosen number. See `poc_o
 
 | Aspect | CVSS v3.1 vector | Base score | Severity |
 |---|---|---|---|
-| Unconstrained settlement price mints unbacked collateral | `CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:N/I:L/A:L` | **4.2** | Medium (privileged) |
+| Unconstrained settlement price → withdrawable unbacked collateral drains other depositors | `CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:N/I:H/A:H` | **6.5** | Medium (privileged) |
 
-> Gated by operator trust (no permissionless exploit); reported as Low pending the program's treatment of trusted
-> operator actions. Protocol/bounty severity may differ from the CVSS band.
+> `PR:H` because the mis-priced settlement must be submitted by the trusted operator; `I:H/A:H` because the proven
+> consequence is real loss of other depositors' funds. Reported as Low on the conservative trusted-operator reading;
+> Medium is defensible given the proven impact. Protocol/bounty severity may differ from the CVSS band.
 
 <!-- END classification-cvss -->

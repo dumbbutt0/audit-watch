@@ -36,17 +36,16 @@
     "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
   },
   "call_trace": [
-    "account holds synthetic 100; oracle price = 1",
-    "operator submits Settlement{ settlementPrice = 50 } (unrelated to oracle, no signature/conservation check)",
-    "collateralDelta = 100 * 50 = 5000 credited; synthetic zeroed",
-    "unbacked collateral 5000 becomes withdrawable"
+    "L2: account holds synthetic 100, oracle price 1; operator submits Settlement{ settlementPrice=50 } (no oracle/signature/conservation check) -> collateralDelta = 100*50 = 5000 credited, synthetic zeroed",
+    "L3: other users fund LoadingZone (10000); attacker account deposits only 100, holds synthetic 100 (true value 100)",
+    "L3: operator settles attacker at 50 -> +5000 collateral; account owner withdraws 5000 -> 5000 real tokens leave LoadingZone to the attacker (reserve drops 5000; 4900 belonged to other depositors)"
   ],
   "state_transition": {
-    "before": "synthetic balance 100, oracle price 1",
-    "after": "synthetic 0, collateral +5000 (= balance * operator price)",
-    "slots_or_balances": ["collateral += 5000 unbacked"]
+    "before": "attacker deposited 100; synthetic 100 (true value 100); LoadingZone reserve funded by other users",
+    "after": "synthetic 0, +5000 collateral minted, 5000 real tokens withdrawn; LoadingZone reserve drained by 5000 (net 4900 stolen from other depositors)",
+    "slots_or_balances": ["collateral += 5000 unbacked", "LoadingZone testToken -= 5000", "attacker EOA testToken += 5000"]
   },
-  "asset_delta": "Unbacked collateral minted = syntheticBalance * operator-chosen price; later withdrawable, draining reserves.",
+  "asset_delta": "Proven end-to-end: 5000 real tokens drained from the shared LoadingZone reserve to the attacker; the attacker deposited only 100, so 4900 was other depositors' funds.",
   "proof_type": "runnable_poc",
   "poc_path": "reports/tiprun-2026-06-13/submissions/N-4/poc/PoC_SettlementUnconstrained.t.sol",
   "poc_status": "passing",
@@ -75,18 +74,20 @@
   ],
   "evidence_links": [
     "src/predict/transactions/SettlementTransLib.sol:process",
+    "src/core/risk/BasicBalanceCheck.sol:validateWithdrawal (collateral>=amount only -> minted collateral is withdrawable)",
+    "src/core/balance/LoadingZone.sol:processWithdraw (transfers real tokens from the shared pool)",
     "harness/test/PoC_SettlementUnconstrained.t.sol",
     "submissions/N-4/poc_output.log"
   ],
-  "triager_summary": "Settlement payout = balance * unconstrained operator price, no oracle/signature/conservation binding. PoC passing (mints 5000 unbacked at operator price 50 vs oracle 1). Operator-trust-gated (Low).",
+  "triager_summary": "Settlement payout = balance * unconstrained operator price, no oracle/signature/conservation binding. PoCs passing: L2 mints 5000 unbacked at operator price 50 vs oracle 1; L3 withdraws 5000 real tokens out of the shared LoadingZone (attacker deposited 100 -> 4900 stolen from other depositors). Trigger operator-trust-gated; reported Low (Medium defensible given proven fund loss).",
   "recommended_status": "READY_FOR_HUMAN_REVIEW",
   "human_approval_required": true,
   "vrt_category": "Business Logic Errors: settlement payout not bound to oracle/outcome and no aggregate conservation invariant (operator-trust-gated)",
   "cvss": [
     {
-      "aspect": "Unconstrained settlement price mints unbacked collateral",
-      "vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:N/I:L/A:L",
-      "score": 4.2,
+      "aspect": "Unconstrained settlement price -> withdrawable unbacked collateral drains other depositors",
+      "vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:N/I:H/A:H",
+      "score": 6.5,
       "severity": "Medium"
     }
   ]

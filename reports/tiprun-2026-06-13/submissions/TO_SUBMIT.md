@@ -78,15 +78,17 @@ finding leads with its reachability/scope caveat — the single thing that decid
 - **Pre-submit:** ☐ frame as admin-config / safety-mechanism-defeat ☐ confirm program treats admin-config issues as
   in-scope ☐ novelty.
 
-### N-4 — Settlement mints collateral at an unconstrained operator price · **Low**
+### N-4 — Settlement mints collateral at an unconstrained operator price · **Low (Medium defensible)**
 - **Mechanism:** `SettlementTransLib.process` credits `collateral += syntheticBalance * settlementPrice` with the
   price a raw operator input (no oracle binding, no signed-outcome binding, no aggregate YES/NO conservation), so a
-  mis-priced settlement mints unbacked, later-withdrawable collateral.
-- **Reachability:** operator-driven — **no permissionless exploit**; reported as a missing on-chain invariant.
-- **PoC:** `PoC_SettlementUnconstrained` (mints 5000 unbacked at operator price 50 vs oracle 1). Write-up:
-  `N-4/SUBMISSION.md`.
-- **Pre-submit:** ☐ frame as missing-invariant / defense-in-depth ☐ state operator-trust dependency (program may
-  treat as accepted design) ☐ novelty.
+  mis-priced settlement mints unbacked collateral that is then really withdrawable.
+- **Reachability:** the settlement **trigger** is operator-driven (no permissionless exploit); the **withdrawal** half
+  is permissionless and the fund loss is proven end-to-end.
+- **PoCs:** `PoC_SettlementUnconstrained` — L2 mints 5000 unbacked at operator price 50 vs oracle 1; **L3 withdraws
+  5,000 real tokens out of the shared LoadingZone** (attacker deposited 100 → 4,900 stolen from other depositors).
+  Write-up: `N-4/SUBMISSION.md`.
+- **Pre-submit:** ☐ frame as missing-invariant with proven fund loss ☐ state operator-trust dependency on the trigger
+  (program may treat as accepted design) ☐ novelty.
 
 ---
 
