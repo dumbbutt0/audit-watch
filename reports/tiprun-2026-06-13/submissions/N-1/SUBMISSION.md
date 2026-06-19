@@ -14,7 +14,7 @@ Broken Access Control (BAC) → Privilege Escalation
 High
 
 # Field: Title
-Any user can self-mint ALLOW_ADMIN and, because processAdminSetSignerPermissions trusts the caller-supplied adminAccountId, grant withdraw rights on any victim account and drain it
+User can self-mint ALLOW_ADMIN during registration, then grant withdraw rights on any account and drain collateral
 
 # Field: Vulnerability details
 
@@ -41,8 +41,18 @@ it already holds).
 ## Impact
 
 Complete failure of the permission model. An unprivileged user can grant themselves ALLOW_WITHDRAW / ALLOW_TRANSFER
-(or ALLOW_ADMIN) on **any** account and drain its collateral. The only on-chain bound is the trusted txBatcher /
-backend declining to relay the transactions.
+(or ALLOW_ADMIN) on **any** account and drain its collateral.
+
+The contract entry point is the trusted txBatcher, but the transactions it processes are user-signed typed-data
+actions. The PoC submits through that same relay path. No contract-side check rejects the malicious registration,
+the admin permission update, or the victim withdrawal once relayed — the backend is an off-chain mitigation, not
+part of the on-chain authorization model.
+
+This is proven against a deployment with a **real canonical admin account configured** (the PoC bootstraps the
+admin via `setAdminAddress` + admin registration, so `signerManager.adminAccountId()` is a genuine, distinct
+account). The attack does not depend on the canonical admin being unset: gap (b) never compares the caller-supplied
+`adminAccountId` against `signerManager.adminAccountId()`, so the attacker uses their own account id and still
+passes the admin check.
 
 ## Exploit path
 
@@ -72,9 +82,12 @@ forge test --match-contract PoC_PermissionEscalation -vv
 
 What it proves:
 
-- `test_PoC_nonAdminMintsAllowAdminAndDrainsVictim`: an attacker starting with zero privileges registers an account
-  with an ALLOW_ADMIN session key, uses ADMIN_SET_SIGNER_PERMISSIONS (naming their own account as the admin account)
-  to grant ALLOW_WITHDRAW on a victim, and withdraws the victim's full collateral (5000).
+- `test_PoC_nonAdminMintsAllowAdminAndDrainsVictim`: the harness first configures a **real canonical admin account**
+  (`setAdminAddress` + admin registration → `adminAccountId() == 1000`). An attacker starting with zero privileges
+  then registers their own account (uid 666) with an ALLOW_ADMIN session key, uses ADMIN_SET_SIGNER_PERMISSIONS
+  (naming **their own** account 666 as `adminAccountId`, not the canonical admin 1000) to grant ALLOW_WITHDRAW on a
+  victim, and withdraws the victim's full collateral (5000). The test asserts the attacker account is not the
+  canonical admin and that the canonical admin is unchanged.
 
 Captured output (real run, all passing):
 
@@ -84,6 +97,7 @@ Ran 3 tests for test/PoC_PermissionEscalation.t.sol:PoC_PermissionEscalation
 [PASS] testSyntheticAssetInfoCRUD()
 [PASS] test_PoC_nonAdminMintsAllowAdminAndDrainsVictim()
 Logs:
+  canonical admin account id: 1000
   attacker started with zero privileges; drained victim collateral: 5000
 
 Suite result: ok. 3 passed; 0 failed; 0 skipped

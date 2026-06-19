@@ -1,4 +1,4 @@
-# N-1 (High) — Privilege escalation to `ALLOW_ADMIN`: any user self-mints admin and drains any account
+# N-1 (High) — User self-mints `ALLOW_ADMIN` at registration, then grants withdraw rights on any account and drains collateral
 
 - **Target:** TipRun contracts (off-chain-match / on-chain-settlement exchange). Commit `d5d4d2a…`.
 - **Contract:** `src/core/signer/transactions/PermissionsTransLib.sol` → `processAdminSetSignerPermissions`
@@ -47,10 +47,13 @@ the named admin account is the real admin.
 
 ## Impact
 Complete failure of the protocol's permission/authorization model. Any unprivileged user can grant themselves
-withdraw/transfer/admin rights on **any** account and drain its collateral. The only thing standing between this and
-realized loss is the **trusted txBatcher / backend declining to relay the transactions** — there is no on-chain
-guard. On any deployment that relays user-submitted permission and withdrawal transactions, this is a direct,
-permissionless-from-the-attacker's-side drain of other users' funds.
+withdraw/transfer/admin rights on **any** account and drain its collateral.
+
+The contract entry point is the trusted txBatcher, but the transactions it processes are user-signed typed-data
+actions. The PoC submits through that same relay path. No contract-side check rejects the malicious registration,
+the admin permission update, or the victim withdrawal once relayed — the backend is an off-chain mitigation, not
+part of the on-chain authorization model. On any deployment that relays user-submitted permission and withdrawal
+transactions, this is a direct, permissionless-from-the-attacker's-side drain of other users' funds.
 
 ## PoC (passing)
 From `../../harness/`:
@@ -59,10 +62,13 @@ From `../../harness/`:
 forge test --match-contract PoC_PermissionEscalation -vv
 ```
 
-`test_PoC_nonAdminMintsAllowAdminAndDrainsVictim`: an attacker who starts with **zero privileges** registers an
-account with an `ALLOW_ADMIN` session key, uses `ADMIN_SET_SIGNER_PERMISSIONS` (naming their own account as the
-"admin account") to grant `ALLOW_WITHDRAW` on a victim, and withdraws the victim's full collateral. The test asserts
-the attacker began unprivileged and drained the victim's balance (5000). See `poc_output.log`.
+`test_PoC_nonAdminMintsAllowAdminAndDrainsVictim`: the harness first configures a **real canonical admin account**
+(`setAdminAddress` + admin registration → `signerManager.adminAccountId() == 1000`), so the exploit is shown against
+a properly bootstrapped deployment. An attacker who starts with **zero privileges** then registers their own account
+(uid 666) with an `ALLOW_ADMIN` session key, uses `ADMIN_SET_SIGNER_PERMISSIONS` (naming **their own** account 666 as
+`adminAccountId`, not the canonical admin 1000) to grant `ALLOW_WITHDRAW` on a victim, and withdraws the victim's
+full collateral. The test asserts the attacker account is not the canonical admin, the canonical admin is unchanged,
+and the victim's balance (5000) was drained. See `poc_output.log`.
 
 ## Suggested fix
 - In `processAdminSetSignerPermissions`, bind `adminAccountId` to the canonical admin account

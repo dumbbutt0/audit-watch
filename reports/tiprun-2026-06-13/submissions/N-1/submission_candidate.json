@@ -1,7 +1,7 @@
 {
   "finding_id": "N-1",
   "internal_id": "BSA-001",
-  "title": "Privilege escalation to ALLOW_ADMIN: any user self-mints admin and drains any account via caller-named adminAccountId",
+  "title": "User can self-mint ALLOW_ADMIN during registration, then grant withdraw rights on any account and drain collateral",
   "root_cause": "processAdminSetSignerPermissions trusts the attacker-supplied adminAccountId (never bound to the canonical admin account), and registration-time signer masks are not delegation-gated, so any user can self-mint ALLOW_ADMIN and then grant ALLOW_WITHDRAW on any victim.",
   "affected_contracts": [
     "src/core/signer/transactions/PermissionsTransLib.sol",
@@ -36,9 +36,10 @@
     "scope_reference": "TipRun contest (tiprun-contracts-main @ d5d4d2a); official scope list not bundled with PoC package."
   },
   "call_trace": [
-    "REGISTER_ACCOUNT: attacker account A created with ALLOW_ADMIN session key (no delegation gate at registration)",
-    "ADMIN_SET_SIGNER_PERMISSIONS: adminAccountId=A (attacker's own), targetAccountId=victim, mask=ALLOW_WITHDRAW -> check passes (holds ALLOW_ADMIN on A)",
-    "WITHDRAWAL: attacker drains victim collateral"
+    "bootstrap: setAdminAddress(adminOwner) + admin registration -> real canonical adminAccountId=1000 (distinct account)",
+    "REGISTER_ACCOUNT: attacker account 666 created with ALLOW_ADMIN session key (no delegation gate at registration)",
+    "ADMIN_SET_SIGNER_PERMISSIONS: adminAccountId=666 (attacker's own, != canonical 1000), targetAccountId=victim, mask=ALLOW_WITHDRAW -> check passes (holds ALLOW_ADMIN on 666; never compared to canonical admin)",
+    "WITHDRAWAL: attacker drains victim collateral (5000)"
   ],
   "state_transition": {
     "before": "attacker unprivileged; victim holds collateral 5000",
@@ -60,14 +61,22 @@
     "on-chain impact gated by the trusted batcher; verify the live deployment relays user-supplied permission txs"
   ],
   "invalidating_conditions": [
-    "backend rejects self-named admin accounts or strips ALLOW_ADMIN at registration off-chain",
+    "backend rejects self-named admin accounts or strips ALLOW_ADMIN at registration off-chain (off-chain mitigation only, not an on-chain guard)",
     "ADMIN_SET_SIGNER_PERMISSIONS / REGISTER_ACCOUNT handlers not wired in the live deployment"
+  ],
+  "non_invalidating_conditions": [
+    "a real canonical admin account being configured does NOT invalidate the finding — PoC proves the drain with adminAccountId()=1000 set, because the admin check never compares the caller-supplied adminAccountId to the canonical one"
   ],
   "defense_analysis": [
     {
       "defense": "owner-delegation gate on processSetSignerPermissions / processAddSignersWithPermissions",
       "blocks_path": false,
       "why_it_fails": "the admin path (processAdminSetSignerPermissions) does not bind adminAccountId to the canonical admin, and registration masks are not delegation-gated"
+    },
+    {
+      "defense": "canonical admin account configured (signerManager.adminAccountId() set)",
+      "blocks_path": false,
+      "why_it_fails": "processAdminSetSignerPermissions authorizes against the caller-supplied txData.adminAccountId, never against signerManager.adminAccountId(); the attacker passes their own account id"
     }
   ],
   "assumptions": [
