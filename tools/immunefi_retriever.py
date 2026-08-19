@@ -27,6 +27,13 @@ REQUEST_TIMEOUT = 20
 # Keyword hints for inferring vuln_type from report text when the requested type
 # doesn't match the content.  Longest/most-specific patterns listed first.
 _VULN_PATTERNS: list[tuple[str, str]] = [
+    # TON / FunC categories first (most specific): a jetton/cell/bounce/sender-spoof hit should win over the
+    # generic EVM buckets so TON DEX precedent is classified into the TON specialist lanes.
+    (r"jetton.{0,20}(steal|theft|stolen|drain|loss)|steal.{0,20}jetton|lp_account.{0,20}(steal|drain)", "jetton-theft"),
+    (r"owner_address.{0,10}spoof|spoof.{0,20}(sender|initiator)|arbitrary.{0,10}message|unauthorized.{0,20}(pool|vault|mint)|bypass.{0,10}.{0,10}lock", "sender-spoof"),
+    (r"bounce.{0,20}(messag|fund|loss|strand|deposit|balance)|ignored.{0,10}bounce|unaccounted.{0,10}bounce", "bounce-stranding"),
+    (r"malformed.{0,10}(cell|multihop)|multihop.{0,10}cell|cell.{0,20}(parse|loss)|slice.{0,10}(underflow|overflow)", "cell-parsing"),
+    (r"race.{0,20}condition|order.{0,10}depend|overwritten.{0,10}balance|message.{0,10}order", "message-race"),
     (r"oracle.{0,20}manipulat|price.{0,20}manipulat|chainlink|twap|spot.{0,10}price", "oracle-manipulation"),
     (r"flash.{0,10}loan|flashloan|atomic.{0,10}borrow", "flash-loan"),
     (r"reentranc|re-entranc|CEI|checks.effects.interactions", "reentrancy"),

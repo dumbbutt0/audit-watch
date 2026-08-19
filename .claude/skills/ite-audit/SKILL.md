@@ -92,6 +92,26 @@ Spawn all applicable specialist agents in parallel as Tasks.
   custom-math, object/capability, and economic surfaces, not plain arithmetic/reentrancy. The Move mechanism
   classes (`move-*`) in `config/mechanism_classes.json` are `status:seeded` (language:move) until the recall lab
   validates them on scored Sui/Move contests.
+- **ton** (FunC/TVM): use the **TON bundle** — `agents/ton_sender_auth.md` (jetton transfer-notification SENDER
+  bound to the contract's OWN jetton wallet, recipient/to_address derived not caller-supplied, privileged-op
+  equal_slices gating, workchain/address-format, pool-lock owner_address spoof) + `agents/ton_message_flow.md`
+  (async non-atomicity, lp_account two-deposit race, reserve-vs-swap interleaving, partial-execution, message
+  replay/reorder) + `agents/ton_bounce_handling.md` (ignored-bounce fund-stranding, bounce-no-rollback,
+  non-bounceable sends, double-count, rate-desync) + `agents/ton_carry_value.md` (gas under-forward stranding,
+  raw_reserve/carry-all drain, storage-fee, value-not-validated, excess misroute) + `agents/ton_cell_parsing.md`
+  (malformed multihop cell misparse, missing end_parse/trailing-data, slice bounds, cell-depth DoS, format
+  confusion) + `agents/ton_arithmetic.md` (TVM 257-bit muldiv overflow, rounding-direction, stableswap
+  convergence, signed-int/sqrt edge, precision scaling) — plus the language-agnostic conceptual specialists where
+  they apply (logic, economic_attack, dos, access_control as concepts; behavioral_state_analysis for
+  NatSpec/comment-vs-code). The Solidity-syntax specialists (reentrancy/storage-collision/erc4626/
+  transient_storage/upgrade_storage) and the Solana/Move bundles are **skipped** for ton — TON has **no
+  synchronous reentrancy, no flash loans, no Chainlink/slot0 oracle, no ERC-4626/proxy-delegatecall**, so their
+  core assumptions do not hold; the TON failure modes are async message races, bounce handling, jetton
+  sender-spoofing, carry-value/gas, and cell parsing. **Respect `audits/<id>/scope.json`**: do NOT surface or
+  submit OUT-OF-SCOPE classes (centralization, slippage/frontrun/backrun/sandwich, lp-jetton-wallet-standard
+  issues, rent-deletion, gas-optimization). The TON mechanism classes (`ton-*`) in
+  `config/mechanism_classes.json` are `status:seeded` (language:ton) until the recall lab validates them on
+  scored TON contests. `static.json` TON routing flags: `has_jetton`/`is_dex`/`has_multihop`/`bounce_ignored`.
 
 **Every agent MUST:**
 1. Read `output/attack_surface.json` — prioritize functions with `attack_surface_score >= 3` for DEPTH (spend your deepest reasoning here first).

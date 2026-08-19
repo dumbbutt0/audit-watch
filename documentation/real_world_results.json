@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-06-17T00:00:00Z",
+  "generated_at": "2026-06-23T03:10:53Z",
   "kind": "real_world_hunt_log",
   "disclaimer": "Real-world bounty-hunt activity. As of 2026-06-17 some findings now carry HUMAN-CONFIRMED bounty outcomes (see candidate_findings[].outcome_class + outcome_provenance). Headline: 0 paid so far; rejections cluster on DEPLOYMENT-REACHABILITY, DUPLICATE/NOVELTY, and DESIGN-ACCEPTED/known-pattern \u2014 NOT on PoC validity (the PoCs reproduced). Eval/synthetic corpora excluded.",
   "summary": {
-    "targets_engaged": 34,
-    "poc_proven_candidate_findings": 19,
-    "honest_negatives": 24,
-    "skipped": 2,
+    "targets_engaged": 39,
+    "poc_proven_candidate_findings": 22,
+    "honest_negatives": 38,
+    "skipped": 6,
     "submitted": 8,
     "human_confirmed": 8,
     "paid": 0,
@@ -1370,6 +1370,54 @@
         "vulnerable_output": "N-2: with CAP_MARGIN_CHECK provider unregistered, an insolvent short (5000 vs 1000 collateral) is accepted (NullMarginCheck no-op); Risk view shows value<0."
       },
       "source_audit": "tiprun-2026-06-18"
+    },
+    {
+      "target": "Gearbox V3.1 \u2014 Securitize RWA integration (integrations-v3 / periphery-v3)",
+      "source": "Immunefi bug bounty ($150k, gearbox)",
+      "severity": "Medium (conditional High)",
+      "title": "Securitize redemption phantom over-values pending-redemption collateral (returns max(currentBalance, min(NAV)) instead of conservative min) -> masked insolvency / pool bad debt",
+      "status": "FINALIZED \u2014 submission-ready (SUBMISSION.md); awaiting user KYC'd Immunefi filing",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "Unit PoC (real gateway/redeemer/phantom) PASS + FULL-STACK mainnet-fork PoC on Gearbox's own V3.1 attach harness PASS. Through the real CreditManagerV3: phantom reports 60,015 USDC vs 30,000 realizable; twvUSD $54k >= debt $49,987 so position is NON-liquidatable while true backing $30k < debt -> ~$20k masked pool bad debt. Bug = wrong rounding direction for collateral (NatSpec says 'minimal' but returns a maximum). Severity bounded by 10% LT buffer (DS+phantom LT 90%); pool loss requires settlement shortfall >10%.",
+      "poc_path": "audits/gearbox-v3-2026-06-22/pocs/securitize-overvaluation/SecuritizeOvervaluationE2E.attach.t.sol",
+      "writeup": "audits/gearbox-v3-2026-06-22/pocs/securitize-overvaluation/SUBMISSION.md",
+      "verifier": {
+        "target": "SecuritizeRedeemer.getRedemptionAmount",
+        "surface_function": "getRedemptionAmount() returns max(currentBalance, min(currentNAV,startingNAV))",
+        "suspected_mechanism": "For collateral the phantom must be a conservative lower bound; returning the max keeps an insolvent pending-redemption position above twvUSD>=debt in CreditManagerV3 (_revertIfNotLiquidatable requires twvUSD<totalDebtUSD), masking it from liquidation and locking in pool bad debt when Securitize settles below the on-chain NAV estimate (fee/haircut, not oracle error).",
+        "evidence_class": "fork_confirmed"
+      }
+    },
+    {
+      "target": "IPOR (yield-bearing base AMM \u2014 ipweETH/ipUSDM/ipwstETH-V2)",
+      "source": "Immunefi bug bounty ($20k, ipor)",
+      "severity": "High (latent / defensive-disclosure)",
+      "title": "Yield-bearing LP pools compute ipToken exchange rate from raw balanceOf(treasury) with no virtual offset (regression vs classic AMM's donation-immune internal accounting) -> first-depositor donation/inflation theft on an unseeded pool",
+      "status": "Confirmed-in-code, LATENT (not live-exploitable: in-scope ipweETH pool is seeded)",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "Code: AmmTreasuryBaseV1/V2.getLiquidityPoolBalance uses asset.balanceOf(treasury)-collateral; AmmLib.getExchangeRate=balance*1e18/supply, 1e18 floor only when supply==0 (no virtual offset). Classic AmmStorage uses internal add/subtractLiquidityInternal (donation-immune). Live mainnet recon: ipweETH.totalSupply()=59.05e18, weETH.balanceOf(AmmTreasuryWeEth)=59.68e18 -> seeded -> inflation needs empty pool -> not exploitable now. Latent High; exploitable on a freshly-deployed/unseeded or fully-drained yield-bearing pool.",
+      "poc_path": "(none \u2014 latent; PoC would require an empty in-scope pool)",
+      "writeup": "audits/ipor-immunefi-2026-06-22/CONCLUSION.md",
+      "verifier": {
+        "target": "AmmTreasuryBaseV1.getLiquidityPoolBalance / AmmLib.getExchangeRate",
+        "surface_function": "getExchangeRate(model, balanceOf-based liquidityPoolBalance)",
+        "suspected_mechanism": "balanceOf-based exchange rate + no virtual offset = ERC4626 first-depositor donation/inflation; blocked on existing pools by seeding (ipweETH 59e18 supply)",
+        "evidence_class": "code+live_recon"
+      }
+    },
+    {
+      "target": "Autonolas/Olas BuyBackBurner (Balancer V2 buyback)",
+      "source": "Immunefi ($5k, autonolas)",
+      "severity": "High-in-code (LATENT / defensive-disclosure)",
+      "title": "M-03 fix (updatePrice() then getTWAP() same-tx) + accumulator-less BalancerPriceOracle => getTWAP returns pure manipulable spot => permissionless buyBack slippage floor collapses => flash-loan sandwich drains buyback budget",
+      "status": "Verified-in-code, LATENT (Balancer V2 oracle un-bootstrapped on all in-scope chains -> getTWAP reverts -> path dormant; + overlaps acknowledged #14)",
+      "submitted": false,
+      "human_verified": false,
+      "evidence": "BuyBackBurner._buyOLAS L237-240 updatePrice()->getTWAP(); BalancerPriceOracle builds cumulative from spot*dt so post-updatePrice age=0->twap=spot; buyBack permissionless L528. Live: lastObservation=(0,0) Gnosis(0x7c2E..)/Base(0x36DA..)/Arbitrum(0x9311..); BBB proxy owner()=0.",
+      "poc_path": "(none \u2014 latent; PoC would require bootstrapping the oracle + funding the path)",
+      "writeup": "audits/autonolas-2026-06-22/CONCLUSION.md"
     }
   ],
   "targets": [
@@ -1550,7 +1598,8 @@
       "target": "Cartha",
       "source": "contest (cartha-vaults-main @ 4c51f2a)",
       "verdict": "candidate_finding",
-      "notes": "Bittensor SN35 liquidity vaults over 0xMarkets GM pools. C-1 High (PoC) stale/zero-TVL share mispricing -> PnL theft (reachability confirmed via 0xMarkets getMarketTokenPrice<=0). L-2 Low (PoC) orphan shares. L-1 Low (code-verified, no PoC): parent withdraw/release dust underpayment. Sound: cross-vault conservation, EIP-712 locks, upgrade/init/diamond auth, classic 1e12 inflation mitigated."
+      "notes": "Bittensor SN35 liquidity vaults over 0xMarkets GM pools. C-1 High (PoC) stale/zero-TVL share mispricing -> PnL theft (reachability confirmed via 0xMarkets getMarketTokenPrice<=0). L-2 Low (PoC) orphan shares. L-1 Low (code-verified, no PoC): parent withdraw/release dust underpayment. Sound: cross-vault conservation, EIP-712 locks, upgrade/init/diamond auth, classic 1e12 inflation mitigated.",
+      "reaudit_note": "[re-audit cartha-vaults-2026-06-23] 0 card(s) (0 REPRODUCED, 0 CONFIRMED_NEEDS_POC): . Lower-confidence / untestable (notes only): AC-001:RESCUER role can drain GM marketToken / poolToken (depl; AC-002:CarthaParentVault.executeForceExit applies an uncapped ; AC-004:ADMIN can grant itself EJECTOR / FORCE_EXITER and bypas; AR-002:First-deposit decimal-offset exponent (18 - assetDecima; AR-003:Parent _convertToShares/_convertToSharesRoundUp hardcod; AR-006:getUtilization can exceed 10000 bps (>100%) when GM los; CARTHA-SEAM-001:gmValueInUsdc returns an 18-decimal USD value but is su; DOS-001:A single child vault whose GM price read reverts bricks; DOS-002:releaseFromParent / release permanently un-callable whe; DOS-003:withdraw / releaseFromParent revert when ANY single act; DOS-005:_distributeToChildren reverts the entire lock when all ; DT-001:Share dilution via deposits during the async 0xM pool d; DT-003:removePool strands the GM-deployed portion of the paren; DT-004:GM-pricing inputs (oracle/reader/marketToken/dataStore); DT-006:No reentrancy guards; safety relies on non-callback ass; LG-002:depositAndLock bypasses the EIP-712 signature gate enti; LG-003:migratePositionShares sets position.shares = balanceOf(; LG-004:processAutoLocks re-locks an expired position (resets s; OR-001:GM price for valuing held GM uses the DEPOSIT PnL cap (; TI-004:USDC blacklist/freeze DoS on payouts is per-iteration i; TI-005:poolToken (valuation) and marketToken (router send/reca; UP-003:Parent retains a DEPRECATED `positions` mapping mid-str."
     },
     {
       "target": "0xMarkets",
@@ -1599,6 +1648,150 @@
       "source": "HackenProof bug bounty (github.com/hackenproof-public/bucket-protocol; custom Sui Move CDP stablecoin USDB; 100 rep, $500k Critical, POC required; no shipped audit). User-dropped zip; workspace bucket-2026-06-14.",
       "verdict": "honest_negative",
       "notes": "Custom decentralized CDP stablecoin (USDB) on Sui, no shipped audit. Full line-trace of every in-scope package = WELL-BUILT honest negative; sui move build (bucket_cdp + deps) EXIT 0. CDP vault.move: update_position CR(health) gate cr_check_required=memo==manage()&&(borrow>0||(withdraw>0&&debt>0)); request::new is public(package) so memo can't be abused (debtor=manage / donor=donate borrow=withdraw=0 / liquidate=liquidate). liquidate requires !position_is_healthy + proportional ceil seizure capped at coll (favors liquidator). position_is_healthy ICR=(coll/10^d)*price/(debt/10^d)>=MCR, debt incl accrued interest. reentrancy: position_locker set/removed via hot-potato request+response (no drop, same-tx). Framework liability Credit<T>/Debt<T> = hot-potato double-entry (no drop, matched-pair mint, destroy_zero aborts non-zero) = conservation-safe. USDB mint = admin-registered module witness + per-module LimitedSupply cap + version; attacker can't mint. float 1e9 mul/div FLOOR (ICR underestimated->conservative), ceil overflow-checked; interest index-based, ceil'd (dust, protocol-favoring). PSM pool swap_in/swap_out both call check_price(|price-1|<=tol) with unforgeable PriceResult; conversion floors + fee ceils (protocol-favoring) + supply/balance conservation. ORACLE-STALENESS dug + RESOLVED as structurally OUT-OF-SCOPE: bucket_oracle has NO time concept (no clock/timestamp anywhere; PriceResult holds only a Float); NO in-scope module feeds the oracle (witness-rule source adapters that would enforce per-source freshness are not in the repo - off-chain backend builds the PTB); consumers (vault liquidate/position_is_healthy, psm check_price) receive only &PriceResult<T> with no timestamp (vault's Clock is used only for interest accrual, not price); PriceResult is copy+drop but NOT store/key -> no cross-tx replay (aggregated fresh within the PTB); injection still gated (collect needs ALL registered sources present + unforgeable witness R). Aggregation (multi-source weighted avg + outlier removal + weight threshold + witness-gated sources) is itself a freshness-adjacent mitigation. No Critical/High/Medium/Low found. Nothing submitted."
+    },
+    {
+      "target": "Tokenize.it",
+      "source": "re-audit tokenize-it-2026-06-18",
+      "verdict": "candidate_finding",
+      "reaudit_note": "[re-audit tokenize-it-2026-06-18] 0 card(s) (0 REPRODUCED, 0 CONFIRMED_NEEDS_POC): . Lower-confidence / untestable (notes only): ARI-001:onTokenTransfer floors token amount but can deliver 0 t; ARI-002:Carry split floors per lead investor; rounding remainde; ECO-001:Crowdinvesting.onTokenTransfer has only OPTIONAL min-to."
+    },
+    {
+      "target": "DART",
+      "source": "re-audit dart-rwa-2026-06-18",
+      "verdict": "candidate_finding",
+      "reaudit_note": "[re-audit dart-rwa-2026-06-18] 0 card(s) (0 REPRODUCED, 0 CONFIRMED_NEEDS_POC): . Lower-confidence / untestable (notes only): AC-001:Function contracts inherit OZ ReentrancyGuard (_status ; ARI-001:DistributeYield per-batch pool guard understates batch ; DOS-001:getNFTInfos reverts on burned tokenId, but burns are ne; DOS-003:tryTransfer forwards all gas to recipient; a gas-griefi; ECO-001:Cross-product insolvency: global USDT pays one product'; ECO-002:claimPrincipal pays before zeroing escrow (CEI violatio; ECO-003:Late offering-period investor accrues first-period yiel; LOG-001:claimPrincipal burns NFTs out of cursor order, but no f."
+    },
+    {
+      "target": "Cronos",
+      "source": "re-audit cronos-vvs-2026-06-20",
+      "verdict": "candidate_finding",
+      "reaudit_note": "[re-audit cronos-fulcrom-2026-06-20] 0 card(s) (0 REPRODUCED, 0 CONFIRMED_NEEDS_POC): . Lower-confidence / untestable (notes only): ECO-001:Fulcrom broker fee charged AGAIN at liquidation on full; ECO-002:brokerFeeBasisPoints is user-supplied and uncapped (no ; ORA-001:Stale Pyth price (maxPythPriceAge=1000s) usable on perm; ORA-002:Pyth confidence-widening subtraction (price - scaledCon; ORA-003:Pyth pull-update front-running cannot inject a chosen/s."
+    },
+    {
+      "target": "DODOEX",
+      "source": "re-audit dodo-feerouteproxy-2026-06-21",
+      "verdict": "candidate_finding",
+      "reaudit_note": "[re-audit dodo-feerouteproxy-2026-06-21] 0 card(s) (0 REPRODUCED, 0 CONFIRMED_NEEDS_POC): . Lower-confidence / untestable (notes only): TI-001:Fee-on-transfer toToken bricks _routeWithdraw: 3 outgoi."
+    },
+    {
+      "target": "Gearbox V3.1 (Gearbox-protocol, Securitize RWA delta @ core-v3/integrations-v3/periphery-v3)",
+      "source": "Immunefi bug bounty (live, $150k)",
+      "verdict": "candidate_finding",
+      "notes": "Post-audit delta = the UN-audited Securitize RWA integration (Apr-Jun 2026). One valid PoC-confirmed finding: phantom collateral over-valuation -> masked insolvency/pool bad debt (Medium/cond-High, bounded by 10% LT buffer). All other candidates refuted by real code or OOS trusted-role/centralization."
+    },
+    {
+      "target": "3F 'Grunt' (3FLabs/grunt @89cbfa0)",
+      "source": "Cantina bug bounty (leveraged-RWA bridge loans)",
+      "verdict": "honest_negative",
+      "notes": "4x pre-audited (ChainSecurity x2 + Cantina x2). Full deep pass; every candidate dups a prior report (Cantina 3.3.1 USCCFund raw-balanceOf donation = acknowledged won't-fix; convertToShares = Fixed PR185; quorum0/rebalancer = semi-trusted-operator threat-model). Nothing submitted."
+    },
+    {
+      "target": "Ethena (Immunefi $3M, USDe minting V2 + sUSDe staking)",
+      "source": "Immunefi bug bounty",
+      "verdict": "honest_negative",
+      "notes": "Focused on the EthenaMinting V2 delta (EIP-1271 + stablecoin price-delta + per-asset/global caps). Residuals: cooldown-silo blacklist bypass = OOS centralization+known; EIP-712 typehash widths + nonce-bitmap truncation = Low/fail-closed; stablecoin nominal pricing = MINTER-gated. Nothing submitted."
+    },
+    {
+      "target": "Exactly (Immunefi $25k, Optimism deployed)",
+      "source": "Immunefi bug bounty",
+      "verdict": "honest_negative",
+      "notes": "Audited 28x (ABDK/Coinspect/Quantstamp...). Focused on deployed-vs-repo delta + card/installments (IssuerChecker/Refunder). CARD-001 (operation-agnostic issuer sig) killed: collect* are KEEPER-only (ERC-6900 manifest). DebtManager flash-loan callback safe. Nothing submitted."
+    },
+    {
+      "target": "Xterio (Immunefi $80k \u2014 TokenGateway + MarketplaceV2, deployed multi-chain)",
+      "source": "Immunefi bug bounty (Critical $80k / High $21-50k / Medium $20k flat)",
+      "verdict": "honest_negative",
+      "notes": "2 named deployed contracts (verified source via Etherscan). TokenGateway: no permissionless mint/freeze/seize (onlyWithMintAccess branches bootstrap-protected, gateway fundless, caller-supplied _tokenContract no escalation); 2 Low hygiene. MarketplaceV2: replay-safe sigs (chainid+marketplaceAddr bound, OZ ECDSA, all econ fields signed, shared Order), CEI+nonReentrant, fills cancel/over-fill-safe, mint double-gated. Only candidate MP-001: native-token path (_transferFT:633) ignores `from` and funds from msg.value -> native BUY/bid orders unfillable by relayer w/o caller paying; NO involuntary victim => functionality defect, NOT a payable Medium (re-checked vs corrected tiers incl Medium $20k). Real Basic-ERC721/1155/20 tokens NOT in named scope. Nothing submitted."
+    },
+    {
+      "target": "USDT0 (Immunefi $6M \u2014 omnichain USDT via LayerZero)",
+      "source": "Immunefi bug bounty",
+      "verdict": "skipped",
+      "notes": "Sourced all 3 custom contract types (OAdapterUpgradeable 15L, OUpgradeable 84L, HyperLiquidComposer 42L). THIN LayerZero deployment \u2014 ~141 lines of standard wrappers over LZ's audited OFT/Adapter/Composer stack (LZ-authored composer; OZ-audited deployment). No meaningful custom logic to audit; security rests on LayerZero core (out-of-scope/picked-over). Not a productive deep-audit target. Skipped."
+    },
+    {
+      "target": "IPOR (Immunefi $20k \u2014 interest-rate-swap AMM, deployed Ethereum)",
+      "source": "Immunefi bug bounty",
+      "verdict": "honest_negative",
+      "notes": "Deep-read core swap engine + spread/oracle + the newer base-architecture yield-bearing LP extensions (stETH/wstETH/weETH/USDM). Core well-built: PnL hard-cap (normalizePnlValue) + LP-solvency guard close every economic vector; swap engine clean in base V1/V2 too (floating leg off the IPOR rate index, not asset price -> rebase/wrap changes not exploitable). SP-001 (no index-staleness check) = OOS/non-matching-tier. LP-001 (REAL regression): base yield-bearing pools use raw balanceOf(treasury) for the ipToken exchange rate w/ NO virtual offset (classic USDC/USDT AMM uses donation-immune internal liquidityPool field) -> donation/inflation first-depositor theft, BUT LATENT: in-scope ipweETH is seeded (totalSupply 59e18, treasury 59.7e18 weETH; live mainnet read) so not exploitable on a seeded pool. Defensive-disclosure-worthy, borderline-submittable (future unseeded pool / Primacy of Impact). Nothing submitted."
+    },
+    {
+      "target": "Aave V3 on Aptos (Cantina 500k GHO \u2014 Move rewrite of Aave V3.3)",
+      "source": "Cantina bug bounty",
+      "verdict": "honest_negative",
+      "notes": "Elite-audited Move port (Certora formal verification + Spearbit + Ottersec + Cantina CTF; audits in-repo). Post-audit delta = tooling only + 1 benign treasury-accrual-rounding tweak (PR #81). Focused Move-specific pass on (A) ported ray/wad math (the Cetus $220M class) + consumers, (B) core lending logic + Move resource/auth model. BOTH CLEAN: math is faithful half-up port, overflow-guarded, casts safe, rounding consistently protocol-favoring; PR#81 delta strictly more conservative; auth via signer+ACL+public(friend); no free-aToken/debt-erasure; a/debt tokens force-frozen + no FA dispatch hooks (closes reentrancy + HF-dodge); flashloan ability-less hot-potato; HF/liquidation conservative. Faithful hardened port. Nothing submitted."
+    },
+    {
+      "target": "Morpho bundler3 (Immunefi periphery)",
+      "source": "Immunefi bug bounty (DIFF-THE-AUDIT screen)",
+      "verdict": "skipped",
+      "notes": "DIFF-THE-AUDIT fast screen: fully audited Jan-Feb 2025 (Spearbit x2 + OpenZeppelin, in-repo audits/). git diff audited-state(<=2025-02-18)->HEAD on src = 9 commits, ALL docs/comments/fmt; only non-comment change = a 1-line interface signature reformat (supplyCollateral, semantically identical). ZERO post-audit logic delta in Bundler3.sol/GeneralAdapter1/adapters. The 'permissioned-wrapping-behavior' + 'callbackHash+skipRevert' HEAD work was DOCUMENTATION-only (documenting existing sharp edges, in-scope for the Feb-2025 audits). No unaudited delta -> skip (no fleet). Demonstrates the method as a fast NO-GO screen."
+    },
+    {
+      "target": "Lombard Finance (Immunefi $250k \u2014 LBTC liquid-staked BTC, EVM)",
+      "source": "Immunefi bug bounty (DIFF-THE-AUDIT screen, picked from updatedDate:desc filter)",
+      "verdict": "skipped",
+      "notes": "DIFF-THE-AUDIT screen. Comprehensively audited (16 reports: Halborn V1/V1.5/V2, OZ V2/YB/2025_10/multipauser_04_26, Sherlock GMP+Bascule/Wrapper/YB/multipauser_bridge_04_26, Veridise V1/V2, ABDK SaB) in docs/audit. ZERO .sol changes since the latest audit (April-2026 multipauser) except a BridgeV2 README docs PR + json/deployment commits. The Dec-2025->Apr-2026 StakedLBTC/BaseLBTC churn = the multipauser pause feature = exactly what OZ_multipauser_04_26 + Sherlock_multipauser_bridge_04_26 audited. BridgeV2 (May-2025) + LBTC token arch (Jun-2025) deployed + audited. Peripheral dirs (pmm/ibc/PoR/factory/gmp/bascule) all last-changed 2025 within audited windows. No fresh unaudited code delta -> skip (no fleet). Notarization/consortium + admin OOS anyway."
+    },
+    {
+      "target": "Spark ALM Controller / Liquidity Layer (Sky ecosystem)",
+      "source": "new-un-audited-module hunt (diff-the-audit)",
+      "verdict": "skipped",
+      "notes": "NEW-MODULE-SIGNAL hunt. Spark ALM = capital allocator (ALMProxy custody + Mainnet/ForeignController + RateLimits) integrating external venues (Aave/ERC4626/PSM/CCTP/LayerZero/Curve/UniswapV4/weETH/Maple/USDe/farms) \u2014 strong Gearbox-pattern candidate (relayer assumed fully-compromised). BUT: audits EVERY version v1.0.0->v1.10.0 (Cantina + ChainSecurity each, in audits/), HEAD=v1.10.0 with its audits in-repo (added Mar-2026; only a deploy commit since). Every venue version-audited (weETH/LayerZero v1.10.0 Jan-2026; UniswapV4 Nov-2025; Curve/OTCBuffer earlier). dev NOT ahead of last audit. No un-audited module -> signal NULL -> skip."
+    },
+    {
+      "target": "Wormhole NTT EVM (Immunefi $1M \u2014 diff-the-audit v1.1.0->v2.0.0 delta)",
+      "source": "Immunefi bug bounty (new-un-audited-module hunt)",
+      "verdict": "honest_negative",
+      "notes": "DIFF-THE-AUDIT. Core bridge 21+ audits (low-EV); NTT newest in-scope. In-repo EVM audits stop at v1.1.0 -> v1.1.0->HEAD(v2.0.0+) delta (+1038/-656) is the unaudited surface (eligible v1.x/v2.x). 2 specialist deep-reads: delta is BENIGN. TrimmedAmount +80 = pure formatting (conservation dst<=src intact); additionalPayload field non-malleable+digest-bound+inert; WormholeTransceiver refactor DELETED the auto-relayer path (net-removed surface), kept audited verify/peer/replay verbatim; ManagerBase/RateLimiter/Registry = whitespace/virtual-only (byte-eq to audited). Only NTT-001 (Medium, NOT exploitable): NttManagerWethUnwrap native-ETH callback on non-nonReentrant executeMsg, but CEI holds (replay flag + rate-limit consumed before call) -> no extract/double-unlock/brick. Not payable (no demonstrable impact); defensive-disclosure hardening note. NttManagerWithExecutor = SDK/CLI not Solidity (not EVM surface). Nothing submitted."
+    },
+    {
+      "target": "SSV Network v2.0.0 (Immunefi $250k \u2014 DVT staking, ETH/EB rewrite)",
+      "source": "Immunefi bug bounty (updatedDate:desc pick; diff-the-audit soft signal)",
+      "verdict": "honest_negative",
+      "notes": "SSV audits every version (Quantstamp x5, latest v2.0.0 2026-04-10); HEAD=audited v2.0.0 (history squashed, no diffable delta) but v2.0.0=major fresh rewrite (ETH fees, oracle effective-balance charging, cSSV staking, legacy migration), 1 audit = thinnest recent surface. Deep-read new modules + cluster accounting, dedup vs Quantstamp. Staking/cSSV/migration CLEAN (cSSV 1:1 wrapper no share-math; ledgers segregated; migration owner-bound+replay-proof; CEI). 1 High candidate CLU-001 (removeValidator EB-deviation stranding -> inflated burn -> wrongful liquidation) KILLED on dedup: the 'deviation-only model' is intentional+audited, self-corrects at next oracle EB update (absolute _updateEBSnapshot), and IS Quantstamp SSV-7/SSV-8(Fixed)/SSV-17(Fixed)/SSV-18(Acknowledged) = known/ineligible. Agent over-claimed; code+audit verification cleared it. Nothing submitted."
+    },
+    {
+      "target": "Autonolas/Olas (Immunefi $5k \u2014 tokenomics POL/buyback/dispenser)",
+      "source": "Immunefi bug bounty (user-picked; full deep pass)",
+      "verdict": "honest_negative",
+      "notes": "Max $5k. Heavily audited (C4 x4 + Cantina + internal) + 25-item known-issues list. Full deep pass on freshest fix code (post-Feb-2026 C4R/internal fixes). BBB-001 (real bug, LATENT): M-03 fix calls updatePrice() then getTWAP() same-tx in BuyBackBurner._buyOLAS (V2); BalancerPriceOracle has no real accumulator so age=0 -> getTWAP=pure manipulable spot -> permissionless buyBack slippage floor collapses -> flash-loan sandwich drains buyback budget. KILLED by live recon: BalancerPriceOracle lastObservation=(0,0) on Gnosis+Base+Arbitrum (updatePrice never called -> getTWAP reverts -> path dormant); BuyBackBurnerBalancer Gnosis proxy owner()=0. Also overlaps acknowledged #14 (oracle steerability, escalation anticipated). Defensive-disclosure only. LM-001 (Medium, self-limiting): checkPoolAndGetCenterPrice staleness branch reads newest not oldest obs -> V3 deviation guard fails open on idle pools; self-defeating for single-tx sandwich. Cross-chain dispenser/Bridge2Burner clean (M-1 fix correct). Nothing cleanly submittable. RE-CHECK (Medium $5k tier): LM-001 live-checked \u2014 in-scope Base addrs are IMPLEMENTATIONS (owner/olas=0, storage empty; V3 immutables set in bytecode so code-enabled; active proxy separate). DECISIVE: LM-001 is SELF-DEFEATING (attacker's slot0-skew swap writes a fresh observation -> pool 'active' -> deviation guard runs -> reverts; only an organic-skew leak the attacker can't trigger) -> no deterministic attacker-PoC -> NOT a payable Medium despite Autonolas paying Medium $5k. Confirms original dismissal."
+    },
+    {
+      "target": "YO Protocol (Immunefi $10k \u2014 Base yield-optimizer vaults)",
+      "source": "Immunefi bug bounty (LIVE-STATE-FIRST filter)",
+      "verdict": "honest_negative",
+      "notes": "LIVE-STATE-FIRST filter applied: cast-read TVL BEFORE deep-read -> PASSED (yoUSD ~$11.5M, yoETH ~4822 WETH, yoBTC ~112 cbBTC = ~$35M+ live funded). Deep-read yoVault (async-ERC4626) + YoGateway. WELL-BUILT: no permissionless theft/insolvency/freeze. Instant-redeem pays floored fair value (fee from it not added); receiver-keyed pending = gift-not-theft (attacker funds own); escrow drops balanceOf (no double-spend); fees Ceil toward protocol; +1 virtual offset + high TVL kills inflation. Only residual = stale-oracle instant-redeem extraction = OOS (oracle/operator-trust/centralization all excluded; manage/onUnderlyingBalanceUpdate/fulfill all requiresAuth). YoGateway = clean thin router (nonReentrant, allowlisted, slippage-checked). HIGH-QUALITY negative: genuinely live+funded+my-edge target (filter prevented wasted effort on a dormant deployment). Nothing submitted."
+    },
+    {
+      "target": "Impossible Cloud Network / ICN (Immunefi $25k \u2014 Base DePIN staking/rewards/booking)",
+      "source": "Immunefi bug bounty (LIVE-STATE-FIRST + diamond-facet resolution)",
+      "verdict": "honest_negative",
+      "notes": "LIVE-STATE-FIRST passed: ~7.82M ICNT staked + 1.88M treasury + 763k reserve + 3.84M delegated (~$5-10M+). Diamond proxy. 4 specialist deep-reads ALL CLEAN: HP rewards (checkpoint-before-pay, swap-pop CEI), Link NFT staking/rewards (monotonic stakeId+per-tokenId bitmap, expiry-capped), booking+custody (pay-atomically, NO refund path, ReservePool.withdraw diamond-gated+per-claim-bound+CEI, treasury privileged-only), AND the hidden HPDelegationICNT facet (resolved via implementations[selector] storage slot @0xb81ea0ee; collateral conserves principal returned by facet not reserve, reward claims consume accumulator, APY matched by real lock, era-gated reclaim, pointer-after-push safe). Known issues (ScalerNode capacity/extend-booking-price/tokenID-uint32) dedup'd; residuals operator/oracle-trust OOS. COMPLETE high-quality negative on a live+funded target. Nothing submitted."
+    },
+    {
+      "target": "Reserve Index DTF / Folio (Cantina/Immunefi \u2014 on-chain index funds)",
+      "source": "bug bounty (diff-the-audit r4->r5 delta + live-state)",
+      "verdict": "honest_negative",
+      "notes": "Audits cover <=v4.0.0 (ToB/Pashov/Trust/Cantina); HEAD r5.0.0+post-r5 = unaudited delta (Folio+465/RebalancingLib+203/StakingVault+148). Headline lead = circuit-breaker revert #185 at HEAD (added I-04 fill floor-check May25, reverted Jun18). Traced => SAFE REDUNDANCY: trusted-fill floor set at open (createTrustedFill->_getBid->filler.initialize(sellAmount,buyAmount=sellAmount*auctionPrice)) + enforced INSIDE the registry-approved CowSwapFiller (isValidSignature orderPrice>=price + swapActive() blocks close until pro-rata floor met, incl partial fills); targetFiller registry-validated (gov-only) => no arbitrary-filler drain; closeTrustedFill only recorded => breaker redundant. openAuctionUnrestricted gives opener ZERO price/weight choice (spot/initial forced); conservation rounding basket-favorable; StakingVault delta=UUPS+burn(self-harm); no freeze. Well-built. Nothing submitted."
+    },
+    {
+      "target": "Maple CCIP Cross-Chain Receiver (Immunefi $500k \u2014 cross-chain syrupUSDC)",
+      "source": "Immunefi bug bounty (Gearbox-signature/fresh-module hunt)",
+      "verdict": "honest_negative",
+      "notes": "Fresh module (maple-cross-chain-receiver, Oct-2025) on live+funded Maple, my cross-chain edge. BUT audited TWICE (Dedaub Nov-2025 + SigmaPrime Jan-2026, only Lows, all resolved) + no post-Jan logic delta. Deep-read MapleCCIPReceiver.sol (1611) = HONEST NEGATIVE: source auth self-binds (_normalizeToBytes32(message.sender)==universalSenderAddress -> credits/redemptions/recovery all route to the CCIP-verified sender, no spoof/victim); deposit credits only from CCIP destTokenAmounts + exact balance-delta assert (no mint-without-tokens); redemption requestId sender-bound + executor-gated; failed-msg recovery single-consume to cached original sender (no double-send/redirect); SVM->EVM addr truncation guarded. Stripped Chainlink trusted-sender allowlist = not exploitable (permissionless self-binding model). Nothing submitted."
+    },
+    {
+      "target": "0x Settler (Immunefi $1M \u2014 swap settlement router + fresh bridge layer)",
+      "source": "Immunefi bug bounty (diff-the-audit post-Jan2026 + bridge)",
+      "verdict": "honest_negative",
+      "notes": "Confirmed $1M, Crit/High only, 4 audits + Nethermind Jun-2026. diff-the-audit freshest surfaces: (1) the Jun-2026 Nethermind bug FIXES (action smuggling/Pancake/EkuboV2/MaverickV2 - all fixed=known/ineligible), (2) the NEW bridge action layer (post-Jan-audit). Deep-read both. Action-smuggling fix COMPLETE (hash loop byte-identical to execute loop; >=4-byte check forecloses underflow; AllowedSlippage memory=no aliasing). Bridge layer SAFE: BridgeSettler taker-submitted+single-tx+self-authored (fund owner=action author -> no relayer redirection), fixed selectors+reentrancy guard (no arbitrary-call), dest receiver owner+Merkle bound. DEX callbacks all gated. ONE real sibling: EkuboV3.unsafeForward calldata length 0x104 vs 0xa4 (Pancake-class in new EkuboV3) but SUB-MEDIUM (delta-driven settlement insulates; ext tolerates; 0x DOES pay Medium $5k flat, but EkuboV3 has NO security impact (delta-driven settlement; extension ignores trailing bytes) -> Low/Info not a payable Medium -> courtesy disclosure. Nothing submitted."
+    },
+    {
+      "target": "BattleChain",
+      "source": "re-audit bc-confidence-pools-2026-07",
+      "verdict": "candidate_finding",
+      "reaudit_note": "[re-audit bc-confidence-pools-2026-07] 0 card(s) (0 REPRODUCED, 0 CONFIRMED_NEEDS_POC): . Lower-confidence / untestable (notes only): BSA-001:One-way latches not persisted when observing tx reverts; EC-001:First-to-observe UNDER_ATTACK depositor seals riskWindo; TI-001:Balance-diff comment overstates rebasing defense."
     }
   ],
   "calibration_lessons": {

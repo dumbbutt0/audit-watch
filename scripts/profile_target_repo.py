@@ -22,6 +22,11 @@ def detect_language(root: Path) -> str:
     # Move (Sui/Aptos): Move.toml is unambiguous; check before Cargo.toml since some Move repos vendor Rust tools.
     if (root / "Move.toml").exists() or list(root.rglob("Move.toml"))[:1]:
         return "move"
+    # TON (FunC/Tolk): blueprint.config.ts is the canonical project marker; *.fc/*.tolk sources are unambiguous.
+    # Check before the package.json fallback — a TON Blueprint repo carries package.json+typescript and would
+    # otherwise misdetect as "typescript".
+    if (root / "blueprint.config.ts").exists() or list(root.rglob("*.fc"))[:1] or list(root.rglob("*.tolk"))[:1]:
+        return "ton"
     if (root / "Cargo.toml").exists():
         return "rust"
     if (root / "foundry.toml").exists() or list(root.rglob("*.sol"))[:1]:
@@ -70,6 +75,11 @@ def detect_framework(root: Path, language: str) -> str:
             except Exception:
                 pass
         return "sui"
+    if language == "ton":
+        # Blueprint is the standard TON dev/test framework (bundles the FunC compiler + @ton/sandbox).
+        if (root / "blueprint.config.ts").exists() or (root / "blueprint.config.ts.js").exists():
+            return "blueprint"
+        return "blueprint"
     return "other"
 
 

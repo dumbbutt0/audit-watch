@@ -1,0 +1,81 @@
+# Malicious / risky lifecycle & build script rules.
+# Scoped to config + script files (package.json, Makefile, *.sh, foundry.toml, etc.).
+
+# npm/yarn/pnpm lifecycle hooks that auto-run on install — the prime supply-chain vector.
+npm_lifecycle_hooks:
+  - preinstall
+  - install
+  - postinstall
+  - prepare
+  - prepublish
+  - prepublishOnly
+
+# Commands that execute remote or dynamic code. HIGH on their own; the pipe-to-shell ones are worst.
+dangerous_commands:
+  # pipe-remote-to-shell (download-and-execute) — highest signal
+  - pattern: '(curl|wget)\s+[^|&;]*\|\s*(sudo\s+)?(ba)?sh'
+    category: remote_exec
+    severity: HIGH
+    message: 'Downloads and pipes a remote script directly into a shell (curl|bash).'
+  - pattern: '(curl|wget)\b[^\n]*\b-O-?\b[^\n]*\|\s*(ba)?sh'
+    category: remote_exec
+    severity: HIGH
+    message: 'Fetches a remote payload and executes it.'
+  # eval of command substitution
+  - pattern: 'eval\s+["'']?\$\('
+    category: dynamic_exec
+    severity: HIGH
+    message: 'Evaluates the output of a command substitution (eval $(...)).'
+  - pattern: '\b(ba)?sh\s+-c\s+["'']?\$\('
+    category: dynamic_exec
+    severity: HIGH
+    message: 'Runs a dynamically-built command string (sh -c "$(...)").'
+  - pattern: '\bnode\s+-e\b'
+    category: dynamic_exec
+    severity: MEDIUM
+    message: 'Executes an inline Node.js program (node -e).'
+  - pattern: '\bpython3?\s+-c\b'
+    category: dynamic_exec
+    severity: MEDIUM
+    message: 'Executes an inline Python program (python -c).'
+  - pattern: '\bchild_process\b'
+    category: dynamic_exec
+    severity: MEDIUM
+    message: 'Spawns OS subprocesses from JS (child_process).'
+  # encoded payloads
+  - pattern: 'base64\s+(--?d(ecode)?\b|-D\b)'
+    category: encoded_payload
+    severity: MEDIUM
+    message: 'Decodes a base64 blob in a script (often used to hide a payload).'
+  # destructive
+  - pattern: '\brm\s+-rf\s+'
+    category: destructive
+    severity: MEDIUM
+    message: 'Recursive force-delete in a setup/build script.'
+  - pattern: '\bchmod\s+(\+x|777)\b'
+    category: perms
+    severity: LOW
+    message: 'Marks a file executable / opens permissions in a script.'
+  # remote fetch during setup/test (network-in-setup; feeds the exfiltration escalation)
+  - pattern: '\b(curl|wget|nc|netcat|scp|ssh)\b'
+    category: network_in_setup
+    severity: LOW
+    message: 'Network access from a setup/build/test path. Review and run network-disabled first.'
+
+# foundry FFI: lets Solidity tests shell out during compile/test.
+foundry_ffi_pattern: 'ffi\s*=\s*true'
+
+# npm dependency typosquats — EXACT package-name match (full name, including scope).
+# Exact match avoids false positives on legit scoped packages (e.g. @nomiclabs/hardhat-ethers).
+typosquats:
+  - "@openzepplin/contracts"      # missing 'e' in openzeppelin
+  - "openzepplin-contracts"
+  - "ethers-js"                   # official is `ethers`
+  - "@chainlnk/contracts"         # missing 'i' in chainlink
+  - "solmate-contracts"           # official is `solmate` / `@rari-capital/solmate`
+
+# Risky npm dependency specifiers (local forks / arbitrary git) — review provenance.
+risky_dep_specifiers:
+  - 'git\+https?:'
+  - '^file:'
+  - '^github:'

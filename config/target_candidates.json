@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "description": "Candidate bounty/contest programs to rank via scripts/target_acquisition.py (4-axis advisory scorer). ADVISORY INPUT — this file feeds a RANKING, never a gate. The scorer degrades gracefully on missing fields (records which were absent). Populate `candidates` by sourcing live programs (Code4rena / Sherlock / Cantina for Solana rust; Immunefi/HackenProof for EVM/TON).",
+  "_honesty_note": "target_acquisition RANKS targets; the human SELECTS. It never routes, gates, submits, or sets severity. Axis-4 REJECTS already-seen / pre-cutoff targets so the recall number stays honest.",
+  "_field_schema": {
+    "name": "required — program/protocol name",
+    "lang": "required — solidity|rust|move|ton (solana=>rust)",
+    "platform": "code4rena|sherlock|cantina|immunefi|hackenproof|self-hosted",
+    "repo": "optional — source repo / scope url",
+    "ecosystem": "optional — chain/ecosystem",
+    "cap": "optional — max reward USD (power-law; higher=better EV)",
+    "tvl": "optional — USD; very-high-TVL is a Digger target (archetype down-weight)",
+    "treasury": "optional — USD",
+    "launch_date": "optional — YYYY-MM-DD (post-2026-01-31 = post-cutoff)",
+    "audit_count": "optional — prior audits (heavily-audited => archetype down-weight)",
+    "prior_criticals": "optional — # prior Critical findings (MORE => more bugs likely)",
+    "basic_issue_density": "optional — 0..1 sloppiness signal (MORE => more bugs likely)",
+    "loc": "optional — in-scope lines of code",
+    "components": "optional — # components/modules",
+    "cross_chain": "optional bool",
+    "math_heavy": "optional bool",
+    "assembly_unsafe": "optional bool — assembly / unsafe / manual memory",
+    "innovation_tags": "optional [] — new_lang,new_vm,port,young_ecosystem,rwa,zk,ai,novel_design,new_yield,consensus",
+    "scope_clear": "optional bool",
+    "active_bounty": "optional bool — false => fewer eyes => more findable",
+    "obscure_chain": "optional bool",
+    "prior_disputes": "optional bool — payout-fairness red flag",
+    "live": "optional bool — false => hard-reject non_live_chain",
+    "reject_flags": "optional [] — explicit 'What Not to Hunt': deprecated_unused, old_impl_behind_proxy, code_ne_deployed, non_live_chain, in_dev_unshipped, trusted_role_gated_only, temp_dos_griefing_only, third_party_gated, offchain_mitigated, informational_only"
+  },
+  "_sourced": "2026-07-06 PAYOUT-PATH sweep (operator chose live Solana bug bounty). Cantina bounties API (cantina.xyz/api/v0/bounties, 70 bounties w/ totalFindings as a less-reviewed proxy) + Immunefi scope pages (WebFetch-able) + gh repo verification. Filtered to LIVE + Solana on-chain rust + less-audited (low finding count / no prior audits) + meaningful cap. These are ONGOING bounties (no answer key) — payout path, not the eval/#5b bed.",
+  "candidates": [
+    {
+      "name": "OnRe (ONyc)", "lang": "rust", "platform": "immunefi",
+      "repo": "github.com/onre-finance/onre-sol", "ecosystem": "solana",
+      "cap": 100000, "launch_date": "2026-06-01",
+      "audit_count": 0, "loc": 5000, "components": 6,
+      "math_heavy": true, "assembly_unsafe": false,
+      "innovation_tags": ["new_yield", "rwa"],
+      "scope_clear": true, "active_bounty": true, "obscure_chain": false,
+      "_note": "Immunefi $100k Crit/High. SINGLE Anchor program programs/onreapp (64 rust files, actively pushed 2026-07-03). Governs on-chain NAV + mint-authority + offer/take (incl take_offer_permissionless = attacker-reachable) + redemption + vault accounting. NO prior audits mentioned. ONyc = reinsurance-backed yield token. Public repo, PoC via litesvm/solana-program-test, KYC. TOP payout candidate: high cap x least-audited x focused single-program rust surface."
+    },
+    {
+      "name": "Perena / USD*", "lang": "rust", "platform": "cantina",
+      "repo": "github.com/perena", "ecosystem": "solana",
+      "cap": 25000, "launch_date": "2026-04-02",
+      "basic_issue_density": 0.3, "math_heavy": true,
+      "innovation_tags": ["new_yield"], "scope_clear": true, "active_bounty": true,
+      "_note": "Cantina bounty (fresh 2026-04-02). USD* unified stablecoin on Solana mainnet: mint/redeem/yield-distribution/pool-mgmt. Crit $25k / High $10k / Med $2.5k. 82 findings (moderate). Solana rust. Lower cap but genuine less-audited DeFi surface."
+    },
+    {
+      "name": "KAST", "lang": "rust", "platform": "immunefi",
+      "ecosystem": "solana", "cap": 50000, "launch_date": "2026-01-15",
+      "innovation_tags": ["young_ecosystem", "new_yield"], "active_bounty": true,
+      "_note": "Immunefi $50k. Newer Solana stablecoin financial network (recently partnered w/ Immunefi). Less-audited (new). Scope not yet deep-read."
+    },
+    {
+      "name": "Light Protocol", "lang": "rust", "platform": "immunefi",
+      "ecosystem": "solana", "cap": 50000, "launch_date": "2026-01-15",
+      "math_heavy": true, "innovation_tags": ["zk"], "active_bounty": true,
+      "_note": "Immunefi $50k, updated Jan-2026. ZK/privacy layer on Solana. HARD/niche surface (ZK) — high complexity but our ZK lens is weak (see zk_boundary.md); scope page 404'd on fetch."
+    }
+  ]
+}

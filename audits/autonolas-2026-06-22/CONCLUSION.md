@@ -1,0 +1,22 @@
+# Autonolas/Olas — Immunefi bug bounty — audit conclusion
+
+**Target:** Autonolas/Olas (Immunefi, **max $5k**; Critical=theft of funds/insolvency). Deployed Ethereum + 7 L2s. Repos: autonolas-tokenomics/registries/governance/marketplace. Focus (full deep pass): the freshest in-scope fund-handling code = the POL/buyback/dispenser system, deduped vs the 25-item known-issues list + Code4rena (Feb-2026) + internal audits.
+**Method:** diff-the-audit → the post-Feb-2026 commits are the team FIXING C4R/internal findings (V3 price guards, TWAP refresh M-03, slippage H-02, Bridge2Burner M-1) through May-2026 → that fix code is the freshest, likely-not-re-audited surface. 3 specialist deep-reads (buyback, POL/LiquidityManager, cross-chain dispenser/bridge) + live on-chain recon.
+
+## Verdict: no clean current payout (2 findings; strongest is latent, others clean/known)
+
+### BBB-001 (High in code, but LATENT + contestable vs #14) — buyback slippage floor collapses to manipulable spot
+The M-03 fix (`BuyBackBurner._buyOLAS`, V2 path) calls `IOracle.updatePrice()` immediately before `IOracle.getTWAP()` in the same tx. `BalancerPriceOracle` has no native accumulator — it builds the cumulative from `spot*dt` at update time. So after `updatePrice()` succeeds (dt≥minUpdateInterval), the in-tx `getTWAP()` computes `age=0` → `twap = pure current spot` (verified by re-derivation). `amountOutMin` is then `secondTokenAmount * spot * (1-slippage)` — derived from the attacker-controllable value, with no separate deviation guard on the V2 path. `buyBack` is permissionless → a flash-loan sandwich on the Balancer pool drains the buyback budget (protocol funds).
+**Why NOT a clean payout:**
+- **LATENT (live recon):** the in-scope `BalancerPriceOracle` on Gnosis, Base, AND Arbitrum all have `lastObservation=(0,0)` & `prevObservation=(0,0)` — `updatePrice()` has never been called → `getTWAP()` reverts → the Balancer V2 buyback path **reverts today** (not exploitable until the oracle is bootstrapped with 2 updates ≥900s apart AND the path is funded). `BuyBackBurnerBalancer` Gnosis proxy returns `owner()=0` (uninitialized). The path is dormant everywhere checkable.
+- **Contestable vs #14:** the BalancerPriceOracle spot-steerability is acknowledged (#14, Medium, "track via monitoring") and its escalation clause anticipated "escalates to High if updatePrice becomes consumed at tighter cadence" — which the M-03 fix did. So Olas may treat BBB-001 as the realized escalation of acknowledged #14 (dup) rather than novel — though the deterministic 100%-spot (vs #14's diluted ~50%) is materially worse and was introduced post-#14 by the M-03 fix.
+- **Disposition:** real bug, strong **defensive-disclosure** (fix the updatePrice-then-getTWAP-same-tx pattern / add a V2 deviation guard BEFORE activating the Balancer V2 buyback). Long-shot submission at best (dormant path = no current impact + #14 overlap; max $5k anyway).
+
+### LM-001 (Medium, self-limiting) — V3 deviation-guard fail-open on idle pools
+`LiquidityManagerCore.checkPoolAndGetCenterPrice` staleness branch reads the NEWEST observation (slot0 index) rather than the oldest, so the ±10% TWAP deviation guard early-returns raw slot0 (guard off) when a pool has been idle > SECONDS_AGO. On the permissionless `buyBack` V3 path the minOut then anchors to manipulable slot0. Novel vs #15/#16/C4R-#17/#18. **Capped at Medium:** a single-tx sandwich is largely self-defeating (manipulating the pool writes a fresh observation that re-arms the guard); realized leak is the conditional organic-skew case. V3 path live-status also uncertain.
+
+### Cross-chain dispensers / Bridge2Burner — clean (0 findings)
+Message auth (canonical relayer + l1DepositProcessor immutables, per-chain sender checks, processedHashes replay), withheldAmount accounting, the M-1 Polygon-L1-destination fix (routes to the real governance mediator), access control, and freeze-resistance all hold. M-1 fix correct + complete.
+
+## Submission
+**Nothing cleanly submittable.** BBB-001 is the best find — a real, verified code bug (M-03 fix + spot oracle → pure-spot slippage floor on permissionless buyBack) — but live recon shows the Balancer V2 path is dormant on all in-scope chains (oracle un-bootstrapped → getTWAP reverts), so it's latent/not currently exploitable, and it overlaps acknowledged #14. Worth a defensive disclosure to Olas. LM-001 is Medium/self-limiting. The cross-chain surface is clean. (Recurring session pattern: real bug-in-code, killed by live recon / dormant deployment.)

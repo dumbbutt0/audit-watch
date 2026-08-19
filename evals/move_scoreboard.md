@@ -1,6 +1,6 @@
 # Recall Lab — Move Scoreboard
 
-_generated 2026-06-18T00:53:08Z_
+_generated 2026-07-06T16:02:31Z_
 
 Eval-only, move-only. NEVER counted toward Solidity recall (the Solidity board routes these out). The honest non-Solidity recall number lives here.
 

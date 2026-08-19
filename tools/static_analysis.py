@@ -650,13 +650,17 @@ if __name__ == "__main__":
         print("Usage: python tools/static_analysis.py <contract.sol|contracts/>")
         sys.exit(1)
 
-    # Language dispatch: rust audits use the Rust/Solana adapter, which writes the SAME
-    # static.json schema. The Solidity path below is byte-unchanged for language=solidity.
+    # Language dispatch: rust/ton audits use their own adapter, which writes the SAME static.json
+    # schema. The Solidity path below is byte-unchanged for language=solidity.
     try:
         from audit_context import audit_language as _audit_language
-        if _audit_language() == "rust":
+        _lang = _audit_language()
+        if _lang == "rust":
             import static_analysis_rust  # noqa: WPS433  (tools/ on sys.path via the file's own dir)
             sys.exit(static_analysis_rust.main())
+        if _lang == "ton":
+            import static_analysis_ton  # noqa: WPS433
+            sys.exit(static_analysis_ton.main())
     except SystemExit:
         raise
     except Exception as _e:  # noqa: BLE001  — never break the Solidity path on a dispatch hiccup

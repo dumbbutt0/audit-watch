@@ -299,11 +299,17 @@ def scan_file(sol_file: Path) -> list[dict]:
 
 
 def scan_path(target: Path) -> dict:
-    """Scan a file or directory tree and return the aggregated result."""
+    """Scan a file or directory tree and return the aggregated result.
+
+    Covers Solidity (.sol) and the cross-language source extensions the pipeline now supports — Rust (.rs),
+    Move (.move), Vyper (.vy), and TON/FunC (.fc/.func/.tolk). The prompt-injection regexes are language-agnostic
+    (they scan comments/strings/text), so the only change needed per language is recognizing its file extension.
+    """
+    src_exts = (".sol", ".rs", ".move", ".vy", ".fc", ".func", ".tolk")
     if target.is_file():
-        sol_files = [target] if target.suffix == ".sol" else []
+        sol_files = [target] if target.suffix in src_exts else []
     elif target.is_dir():
-        sol_files = list(target.rglob("*.sol"))
+        sol_files = [p for p in target.rglob("*") if p.is_file() and p.suffix in src_exts]
     else:
         return {"error": f"Path does not exist: {target}"}
 

@@ -1,0 +1,54 @@
+{
+  "program": "STON.fi dex-core-v2 (HackenProof, Trusted Payer)",
+  "version": "v2.2.0",
+  "repo": "ston-fi/dex-core-v2",
+  "commit": "af0a955",
+  "language": "ton",
+  "rewards_usd": { "critical": 100000, "high": 20000, "medium": 5000, "low": 0 },
+  "poc_required": true,
+  "report_within_hours": 24,
+  "disclosure": "none — no public or partial disclosure permitted",
+  "in_scope_contracts": [
+    "contracts/router.fc",
+    "contracts/vault.fc",
+    "contracts/pool.fc",
+    "contracts/lp_account.fc",
+    "contracts/lp_wallet.fc"
+  ],
+  "in_scope_note": "Each named .fc is a thin entry that #includes its subtree (contracts/router/**, contracts/pool/** incl. 5 pool types, contracts/lp_account/**, contracts/lp_wallet/**, contracts/common/**). The compiled contract = entry + includes, so the included handlers are in scope.",
+  "in_scope_impacts": {
+    "critical": ["direct theft of any user funds", "permanent freezing of funds", "protocol insolvency"],
+    "high": ["theft of unclaimed yield", "freeze ability of other users to trade", "temporary freezing of funds"],
+    "medium": ["griefing (no profit motive for attacker, but damage to users/protocol)"]
+  },
+  "out_of_scope_classes": [
+    "lack of liquidity",
+    "best-practice critiques",
+    "centralization risks",
+    "disguising one asset as another asset",
+    "optimization / logic-improvement / coding-style",
+    "lp jetton wallet issues (jetton-wallet standard itself)",
+    "contract deletion caused by inability to pay rent",
+    "gas optimisation",
+    "loss of funds caused by price slippage: frontrunning, backrunning, sandwich attacks"
+  ],
+  "out_of_scope_note": "lp_wallet.fc is in the asset table (Critical) BUT 'issues related to lp jetton wallets' are OOS — in-scope ONLY where lp_wallet mis-interacts with lp_account/pool (e.g. wrong burn/mint accounting feeding the pool), NOT the TEP-74/89 jetton-wallet standard behavior itself.",
+  "prohibited_activities": [
+    "any testing with mainnet",
+    "any testing with pricing oracles or third-party smart contracts",
+    "any denial-of-service attacks against live systems",
+    "automated testing generating significant traffic"
+  ],
+  "testing_policy": "Local @ton/sandbox (in-process TVM) only — no broadcasts, no keys. Read-only get-method recon of the testnet router (kQAFpeGFJQA9KqiCxXZ8J4l__vSYAxFSirSOvPHn6SSX4ztn) is permitted (no transactions).",
+  "prior_audit_dedup": {
+    "source": "TrailOfBits 2025-01 STON.fi TON AMM DEX V2 Review",
+    "note": "Likely fixed in v2.2.0 — verify each fix is complete (diff-the-audit). Do not re-submit a known/fixed issue.",
+    "findings": [
+      "[High] steal jettons from lp_account via custom to_address on cross_provide_lp (router/msgs/jetton.fc route_dex_messages)",
+      "[Med] lock jettons in router with cross-router swaps",
+      "[Med] protocol fees withdrawable by LPs",
+      "[Low] weighted-stableswap convergence threshold too large",
+      "[Low] math::int::sqrt returns a result for negative input"
+    ]
+  }
+}

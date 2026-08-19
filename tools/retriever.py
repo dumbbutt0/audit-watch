@@ -27,6 +27,10 @@ VALID_VULN_TYPES = [
     "reentrancy", "access-control", "arithmetic", "oracle-manipulation",
     "flash-loan", "logic-error", "gas-griefing", "dos", "signature-replay",
     "storage-collision", "proxy-upgrade", "front-running", "other",
+    # TON / FunC categories (populated by scripts/retag_ton_findings.py from the FunC/Tact corpus the
+    # solodit scraper already ingests). The EVM-category $eq filter could never reach these — they sat in
+    # "other" — so the TON specialists query these types directly to surface real TON DEX precedent.
+    "jetton-theft", "sender-spoof", "bounce-stranding", "message-race", "cell-parsing",
 ]
 
 VALID_SOURCES = ["solodit", "code4rena", "sherlock", "immunefi"]

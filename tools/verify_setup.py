@@ -359,6 +359,18 @@ def main():
         all_ok &= check("cargo", False, "not found — PoC tests won't run")
         print("    → Install Rust: https://rustup.rs")
 
+    # 6t. TON/FunC toolchain (only needed for TON audits; non-fatal otherwise). The FunC compiler + @ton/sandbox
+    # ship via Blueprint (npm), so node/npx is the right thing to check — `func`/`fift` are bundled per-project.
+    node_result = subprocess.run(["node", "--version"], capture_output=True, text=True)
+    if node_result.returncode == 0:
+        check("node (TON/Blueprint PoCs)", True, node_result.stdout.strip()[:40])
+        npx_result = subprocess.run(["npx", "--version"], capture_output=True, text=True)
+        check("npx (Blueprint runner)", npx_result.returncode == 0,
+              npx_result.stdout.strip()[:40] if npx_result.returncode == 0 else "not found")
+    else:
+        check("node (TON/Blueprint PoCs)", False, "not found — optional unless auditing TON/FunC")
+        print("    → For TON PoCs: install Node ≥18 then `bash scripts/setup_ton_deps.sh <repo>`")
+
     # 6s. Deep invariant analysis agent specs
     deep_agent_specs = [
         "agents/invariant_extractor.md",

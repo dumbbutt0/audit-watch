@@ -1,0 +1,33 @@
+{
+  "audit_id": "onre-onyc-2026-07",
+  "protocol": "OnRe / ONyc (tokenized reinsurance yield on Solana)",
+  "platform": "Immunefi",
+  "source": "https://immunefi.com/bug-bounty/onre/scope/ (fetched 2026-07-06)",
+  "primacy": "Primacy of Impact on the DEPLOYED program (no pinned commit).",
+  "deployed_program": "onreuGhHHgVzMWSkj2oQDLDtvvGvoepBPkqyaubFcwe",
+  "source_repo": "github.com/onre-finance/onre-sol",
+  "source_commit": "361cd588ba48b89a44236801140cdc2b5d110251 (master, 2026-03-06)",
+  "language": "rust",
+  "framework": "anchor-0.32.1",
+  "live_state": "VERIFIED live+funded: ~$167M TVL (DefiLlama, all Solana); ONyc Kamino market >$150M; deployed+executable+upgradeable on mainnet. LIVE-STATE-FIRST PASSED.",
+  "max_reward_usd": 100000,
+  "in_scope_files": [
+    {"file": "programs/onreapp/src/instructions/mint_authority/", "note": "mint_to, transfer_mint_authority — unauthorized-mint surface"},
+    {"file": "programs/onreapp/src/instructions/offer/", "note": "make_offer, take_offer, TAKE_OFFER_PERMISSIONLESS (attacker-reachable), offer vectors, fees"},
+    {"file": "programs/onreapp/src/instructions/redemption/", "note": "create/cancel/fulfill redemption request, make_redemption_offer"},
+    {"file": "programs/onreapp/src/instructions/market_info/", "note": "get_nav, get_nav_adjustment, get_tvl, get_apy, get_circulating_supply — NAV/accounting"},
+    {"file": "programs/onreapp/src/instructions/vault_operations/", "note": "vault accounting"},
+    {"file": "programs/onreapp/src/instructions/state_operations/", "note": "state mutations"},
+    {"file": "programs/onreapp/src/instructions/initialization/", "note": "initialize, permissionless authority init"}
+  ],
+  "critical_categories": ["direct theft of funds", "permanent freezing of funds", "protocol insolvency", "unauthorized minting", "bypassing redemption controls", "role manipulation", "governance manipulation"],
+  "high_categories": ["role manipulation", "theft of unclaimed yield/royalties", "permanent freezing of unclaimed assets"],
+  "OUT_OF_SCOPE": [
+    "centralization risks / trusted-role (boss/admin/approver) actions — the admin set (add_admin/add_approver/propose_boss) is TRUSTED; do NOT submit admin-can-do-X",
+    "basic economic attacks",
+    "oracle manipulation (with limited exceptions) — NAV/price manipulation via external oracle is OOS; on-chain NAV CALCULATION LOGIC errors may still qualify",
+    "impacts requiring leaked credentials without production proof"
+  ],
+  "targeting_guidance": "OOS constraints REDIRECT the hunt to PERMISSIONLESS attacker paths and pure-logic bugs: (1) take_offer_permissionless + take_offer reachability/accounting, (2) unauthorized mint via mint_authority PDA seed/CPI confusion, (3) redemption bypass/double-fulfill/cancel races, (4) NAV/vault accounting conservation errors (not oracle manip), (5) PDA seed collisions / account substitution / missing signer or owner checks (Solana account-model lenses), (6) offer-vector arithmetic (fees, MAX_VECTORS=10, PRICE_DECIMALS=9, MAX_ALLOWED_FEE_BPS=1000). Every High/Critical must be reachable WITHOUT a trusted role and needs a runnable PoC (litesvm / solana-program-test) + KYC.",
+  "poc_requirement": "Runnable PoC REQUIRED (litesvm / solana-program-test / anchor-bankrun). KYC required to submit."
+}

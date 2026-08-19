@@ -91,6 +91,10 @@ def load_repo_profile() -> dict:
         lang = _al()
         if lang == "move":
             return {"language": "move", "framework": "sui"}
+        if lang == "ton":
+            # TON/FunC audits get the @ton/sandbox Blueprint PoC template (templates/ton_poc/, `npx jest`)
+            # instead of the Soroban default.
+            return {"language": "ton", "framework": "blueprint"}
     except Exception:
         pass
     return {"language": "rust", "framework": "soroban"}

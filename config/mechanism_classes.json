@@ -7,9 +7,10 @@
   },
   "_solana_seed_note": "The solana-* classes below are SEEDED (language:rust, status:seeded) from public Solana audit knowledge; they are scaffolding for the Rust recall-lab bootstrap (P4) and are validated/upgraded to 'reincorporated' only when a scored Solana contest confirms them. They never count toward Solidity recall.",
   "_move_seed_note": "The move-* classes below are SEEDED (language:move, status:seeded) from Sui/Move audit knowledge (Cetus $220M CLMM class + general Sui object/capability review); scaffolding for the Move recall-lab bootstrap. They are language-tagged so they NEVER count toward Solidity or Rust recall scoring.",
+  "_ton_seed_note": "The ton-* classes below are SEEDED (language:ton, status:seeded) from the public TON DEX/jetton audit corpus (STON.fi/TONCO/Swap Coffee/PixelSwap/FIVA TrailOfBits & Quantstamp reviews). They scaffold the TON recall-lab bootstrap and never count toward Solidity recall; upgraded to 'reincorporated' only when a scored TON contest confirms them.",
   "classes": {
     "move-address-param-not-signer-auth": {
-      "description": "an owner/admin/identity check compares against an address VALUE supplied by the caller as a function parameter (e.g. assert!(caller == @owner) where caller: address is an arg) instead of deriving authority from possession — signer::address_of(&signer) (Aptos) / tx_context::sender (Sui) / a Cap — so any account passes the privileged address and the assert holds for an attacker",
+      "description": "an owner/admin/identity check compares against an address VALUE supplied by the caller as a function parameter (e.g. assert!(caller == @owner) where caller: address is an arg) instead of deriving authority from possession \u2014 signer::address_of(&signer) (Aptos) / tx_context::sender (Sui) / a Cap \u2014 so any account passes the privileged address and the assert holds for an attacker",
       "agent": "move_object_capability",
       "prompt_section": "move_object_capability.md#8",
       "status": "reincorporated",
@@ -19,7 +20,7 @@
       ]
     },
     "evm-insecure-onchain-randomness": {
-      "description": "an EVM security/economic outcome (lottery/raffle winner, reward/airdrop amount, NFT trait/rarity, tier, ordering) is seeded from on-chain-observable or proposer-influenceable state - block.timestamp, block.number, blockhash (0 outside 256 blocks), block.prevrandao/difficulty (known to the proposer pre-build, biasable by slot-skipping), msg.sender, or a public counter - so it is predictable/manipulable (incl. revert-to-re-roll via a wrapper contract); correct = Chainlink VRF or commit-reveal. Generalized from the Move pizza-drop M-01 finding; EVM-eval-validated on eggstravaganza H-01 (blind fleet, economic_attack cited §12).",
+      "description": "an EVM security/economic outcome (lottery/raffle winner, reward/airdrop amount, NFT trait/rarity, tier, ordering) is seeded from on-chain-observable or proposer-influenceable state - block.timestamp, block.number, blockhash (0 outside 256 blocks), block.prevrandao/difficulty (known to the proposer pre-build, biasable by slot-skipping), msg.sender, or a public counter - so it is predictable/manipulable (incl. revert-to-re-roll via a wrapper contract); correct = Chainlink VRF or commit-reveal. Generalized from the Move pizza-drop M-01 finding; EVM-eval-validated on eggstravaganza H-01 (blind fleet, economic_attack cited \u00a712).",
       "agent": "economic_attack",
       "prompt_section": "economic_attack.md#12",
       "status": "reincorporated",
@@ -37,7 +38,7 @@
       "awarded_examples": []
     },
     "move-insecure-onchain-randomness": {
-      "description": "a security/economic outcome (reward amount, winner, tier, NFT trait, ordering) is seeded from on-chain-observable or proposer-influenceable state — timestamp::now_*(), block height/epoch, an address, or a counter (often with % N) — so it is predictable/manipulable; ALSO covers the Aptos test-and-abort (selective-abort) biasing where a publicly-wrappable #[randomness] entry lets an attacker re-roll for free by aborting unfavorable draws. Correct = aptos_framework::randomness from a non-wrappable caller, or commit-reveal.",
+      "description": "a security/economic outcome (reward amount, winner, tier, NFT trait, ordering) is seeded from on-chain-observable or proposer-influenceable state \u2014 timestamp::now_*(), block height/epoch, an address, or a counter (often with % N) \u2014 so it is predictable/manipulable; ALSO covers the Aptos test-and-abort (selective-abort) biasing where a publicly-wrappable #[randomness] entry lets an attacker re-roll for free by aborting unfavorable draws. Correct = aptos_framework::randomness from a non-wrappable caller, or commit-reveal.",
       "agent": "move_object_capability",
       "prompt_section": "move_object_capability.md#10",
       "status": "reincorporated",
@@ -47,7 +48,7 @@
       ]
     },
     "move-onchain-data-not-private": {
-      "description": "a value meant to be confidential (secret/password/seed/off-chain key/preimage-before-reveal) is stored in plaintext in an on-chain resource/object; all on-chain state is world-readable by any full node/RPC/indexer regardless of the Move visibility of the gating functions, so the data leaks the moment it is written — access-control on a #[view]/getter is irrelevant to raw storage reads (must be hashed/committed/encrypted)",
+      "description": "a value meant to be confidential (secret/password/seed/off-chain key/preimage-before-reveal) is stored in plaintext in an on-chain resource/object; all on-chain state is world-readable by any full node/RPC/indexer regardless of the Move visibility of the gating functions, so the data leaks the moment it is written \u2014 access-control on a #[view]/getter is irrelevant to raw storage reads (must be hashed/committed/encrypted)",
       "agent": "move_object_capability",
       "prompt_section": "move_object_capability.md#9",
       "status": "reincorporated",
@@ -1094,6 +1095,150 @@
       "awarded_examples": [
         "pump-science-2025-01-blind:M-03"
       ]
+    },
+    "ton-jetton-sender-spoof": {
+      "description": "a jetton transfer_notification handler does not verify the message SENDER is the contract's OWN jetton wallet for the claimed asset, so an attacker sends a forged notification (no real tokens) and triggers a swap/LP-credit = fake-deposit theft (TON has no msg.sender ambient trust; authority = SENDER bound to a derived/known address)",
+      "agent": "ton_sender_auth",
+      "prompt_section": "ton_sender_auth.md#1",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-recipient-substitution": {
+      "description": "a swap/provide op takes the payout recipient (to_address/owner) from caller-supplied payload instead of deriving it from the verified sender or pool state, so funds/LP credit an attacker-chosen or victim lp_account",
+      "agent": "ton_sender_auth",
+      "prompt_section": "ton_sender_auth.md#3",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-pool-lock-bypass": {
+      "description": "a multi-message swap keys its lock/owner on a caller-suppliable address (owner_address), letting forged/concurrent swaps bypass the lock and corrupt reserves (TONCO swapOperation class)",
+      "agent": "ton_sender_auth",
+      "prompt_section": "ton_sender_auth.md#5",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-async-state-desync": {
+      "description": "a multi-message flow commits a reservation/credit before an outbound message whose response re-reads stale state; an interleaved message mutates the shared state between steps -> accounting desync/double-spend (FIVA YT-swap race)",
+      "agent": "ton_message_flow",
+      "prompt_section": "ton_message_flow.md#1",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-lp-account-race": {
+      "description": "a per-user accumulator (lp_account) collects two deposits in separate messages before minting LP; an interleaved deposit/withdraw/reset mints wrong LP or captures another user's partial deposit",
+      "agent": "ton_message_flow",
+      "prompt_section": "ton_message_flow.md#2",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-message-replay-reorder": {
+      "description": "an op/query_id is not bound to a one-shot, so a message can be replayed or arrive out of expected order (Storm Trade replay / overwritten-balance class)",
+      "agent": "ton_message_flow",
+      "prompt_section": "ton_message_flow.md#5",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-bounce-ignored": {
+      "description": "recv_internal ignores/short-circuits a bounced message (if IS_BOUNCED return) on a contract that already debited/reserved/credited value, so a downstream failure strands the user's funds or desyncs reserved state (Crouton/Torch ignored-bounce loss class)",
+      "agent": "ton_bounce_handling",
+      "prompt_section": "ton_bounce_handling.md#1",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-bounce-no-rollback": {
+      "description": "a bounce branch exists but does not REVERSE the optimistic pre-send state change (un-reserve/refund/decrement), so the reservation leaks",
+      "agent": "ton_bounce_handling",
+      "prompt_section": "ton_bounce_handling.md#2",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-bounce-rate-desync": {
+      "description": "LP-token rate / reserves / supply are not corrected when a mint/transfer bounces (Storm Trade LP-rate-on-bounce)",
+      "agent": "ton_bounce_handling",
+      "prompt_section": "ton_bounce_handling.md#5",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-reserve-mode-drain": {
+      "description": "a carry-all send (mode 128 / QCARRY_ALL_BALANCE) or raw_reserve is miscomputed so a caller sweeps more of the contract's balance than owed (TONCO proxy-TON-balance theft / PixelSwap balance drain)",
+      "agent": "ton_carry_value",
+      "prompt_section": "ton_carry_value.md#2",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-gas-stranding": {
+      "description": "a handler under-forwards gas/value to the next hop so the async chain stalls mid-flow and the user's coins strand (PixelSwap balance-not-checked-before-send)",
+      "agent": "ton_carry_value",
+      "prompt_section": "ton_carry_value.md#1",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-value-check-missing": {
+      "description": "an op proceeds with insufficient/zero attached value, stranding the user or letting a free action through (PixelSwap value-not-checked-positive)",
+      "agent": "ton_carry_value",
+      "prompt_section": "ton_carry_value.md#4",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-multihop-cell-misparse": {
+      "description": "a multihop swap-route ref-chain is parsed hop-by-hop without validating each hop's pool/recipient, so a malformed cell routes funds to an attacker address or a dead-end (TONCO malformed-multihop-cell jetton loss)",
+      "agent": "ton_cell_parsing",
+      "prompt_section": "ton_cell_parsing.md#1",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-slice-trailing-data": {
+      "description": "a message body is parsed without end_parse(), letting an attacker append extra bits/refs that a downstream handler mis-reads (STON.fi custom-payload class; TONCO unsupported-op kept-jettons)",
+      "agent": "ton_cell_parsing",
+      "prompt_section": "ton_cell_parsing.md#2",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-cell-depth-dos": {
+      "description": "parsing attacker-controlled nested refs (or an attacker-sized dict) in a loop exhausts gas and freezes a shared path (in-scope: freeze others' ability to trade)",
+      "agent": "ton_cell_parsing",
+      "prompt_section": "ton_cell_parsing.md#4",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-math-overflow": {
+      "description": "an intermediate muldiv/product in liquidity<->amount or swap math exceeds the TVM 257-bit range -> throw on a critical path (DoS) or a corrupted amount via an unchecked builtin (TONCO getMaxLiquidity overflow; FIVA invariant)",
+      "agent": "ton_arithmetic",
+      "prompt_section": "ton_arithmetic.md#1",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-rounding-direction": {
+      "description": "swap output / LP-mint shares / fee rounded in the user's favor (output rounds up, fee rounds down) lets repeated calls extract value (TONCO fee-mismatch / rounding-vs-Uniswap)",
+      "agent": "ton_arithmetic",
+      "prompt_section": "ton_arithmetic.md#2",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
+    },
+    "ton-convergence": {
+      "description": "a loose convergence threshold or early-exit in a stableswap Newton invariant solver mis-prices swaps (STON.fi weighted-stableswap convergence; FIVA curve unusable)",
+      "agent": "ton_arithmetic",
+      "prompt_section": "ton_arithmetic.md#3",
+      "status": "seeded",
+      "language": "ton",
+      "awarded_examples": []
     }
   }
 }

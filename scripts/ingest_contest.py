@@ -51,7 +51,7 @@ def main() -> int:
     ap.add_argument("--scope-json", help="path to a JSON with the in-scope file list (Sherlock contest detail "
                     "with scope[].files[], or {\"in_scope_files\":[...]}) -> writes audits/<id>/scope.json so the "
                     "cold-pass full-coverage gate has an accurate denominator")
-    ap.add_argument("--language", default="solidity", choices=["solidity", "rust", "vyper", "move"],
+    ap.add_argument("--language", default="solidity", choices=["solidity", "rust", "vyper", "move", "ton"],
                     help="audit language (routes the manifest taxonomy + ite-audit specialist set + coverage gate)")
     args = ap.parse_args()
 

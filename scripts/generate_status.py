@@ -109,6 +109,17 @@ def build_status() -> Dict[str, Any]:
 
     meta = audit_context.get_audit_meta()
 
+    # ── structured scope flag (custom-delta / partial runs) ───────────────────
+    # A run that intentionally skips the full pipeline (e.g. a custom-delta
+    # review) otherwise falls through to layer=0 / "Not started" — a silent 0
+    # indistinguishable from a never-started audit. Read an explicit scope flag
+    # so build_status can emit a disposition instead of a bare 0. Additive:
+    # absent on normal full-pipeline audits (scope_tag == "", full_pipeline True).
+    scope_tag = str(meta.get("scope") or "").strip()
+    full_pipeline = meta.get("full_pipeline", True)
+    if isinstance(full_pipeline, str):
+        full_pipeline = full_pipeline.strip().lower() not in ("false", "0", "no")
+
     def _ap(*parts: str) -> Path:
         return audit_context.audit_path(*parts)
 
@@ -284,6 +295,18 @@ def build_status() -> Dict[str, Any]:
         next_action = "Review and submit"
         next_command = "# Review output/submission_pack.md then submit"
 
+    # ── scope disposition (explicit, never a silent 0) ────────────────────────
+    disposition = None
+    if scope_tag or full_pipeline is False:
+        disp_scope = scope_tag or "custom-delta"
+        disposition = f"scope={disp_scope}, full pipeline skipped"
+        if layer == 0:
+            # nothing on the standard pipeline ran — say so explicitly instead
+            # of the default "Not started" that reads like an abandoned audit
+            last_completed = f"Custom-scope run ({disp_scope}) — full pipeline intentionally skipped"
+            next_action = "Review custom-scope findings directly (no standard pipeline layer applies)"
+            next_command = "# custom-delta review — see data/findings/ and output/"
+
     # ── sort top findings ─────────────────────────────────────────────────────
     def _sort_key(f: Dict[str, Any]):
         is_submit = (f["triage_status"] == "submit")
@@ -300,7 +323,10 @@ def build_status() -> Dict[str, Any]:
         "platform":          meta.get("platform", ""),
         "deadline":          meta.get("deadline", ""),
         "current_layer":     layer,
-        "current_layer_label": _layer_label(layer),
+        "current_layer_label": disposition if (disposition and layer == 0) else _layer_label(layer),
+        "scope":             scope_tag or None,
+        "full_pipeline":     bool(full_pipeline),
+        "disposition":       disposition,
         "last_completed":    last_completed,
         "next_action":       next_action,
         "next_command":      next_command,

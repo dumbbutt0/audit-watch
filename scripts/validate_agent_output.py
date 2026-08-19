@@ -60,6 +60,13 @@ AGENT_PREFIX_MAP = {
     "report_synthesis":            "RS-",
     "attacker_mindset":            "AM-",
     "supply_chain_check":          "SC-",
+    # TON / FunC specialist bundle (language:ton — spawned by the ite-audit ton branch)
+    "ton_sender_auth":             "TSA-",
+    "ton_message_flow":            "TMF-",
+    "ton_bounce_handling":         "TBH-",
+    "ton_carry_value":             "TCV-",
+    "ton_cell_parsing":            "TCP-",
+    "ton_arithmetic":              "TAR-",
 }
 
 # Shell execution pattern — only flag Python code execution APIs that would never appear in
@@ -82,6 +89,65 @@ def load_policy() -> dict:
     if POLICY_PATH.exists():
         return json.loads(POLICY_PATH.read_text())
     return {"max_agent_output_size_bytes": 524288, "forbidden_in_agent_output": []}
+
+
+def _conf_to_float(conf) -> float:
+    """Map a finding's confidence (float or Confirmed/High/Medium/Low/Speculative) to 0.0–1.0."""
+    if isinstance(conf, (int, float)):
+        return max(0.0, min(1.0, float(conf)))
+    return {"confirmed": 0.95, "high": 0.85, "medium": 0.6, "low": 0.35,
+            "speculative": 0.25}.get(str(conf or "").strip().lower(), 0.5)
+
+
+def emit_specialist_events(agent_name: str, findings: list) -> int:
+    """Reasoning-graph telemetry for a Step-2 specialist's findings: HYPOTHESIS_BORN per finding +
+    EVIDENCE_ATTACHED per manifest ref. Fire-and-forget — no-ops unless VIZ_SESSION_ID is set, and
+    NEVER raises (telemetry must not affect the validation gate). Returns hypotheses emitted.
+    Mirrors the emit pattern in scripts/cross_agent_connector.py (Step 2.5)."""
+    root = str(Path(__file__).resolve().parent.parent)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    try:
+        from viz.event_emitter import emit
+    except Exception:
+        return 0
+    n = 0
+    for f in findings:
+        if not isinstance(f, dict) or not f.get("id"):
+            continue
+        fid = f["id"]
+        try:
+            loc = f.get("location", {}) or {}
+            linked = [x for x in (loc.get("contract"), loc.get("file")) if x] if isinstance(loc, dict) else []
+            emit("HYPOTHESIS_BORN", source_agent=agent_name or "specialist", target_node_id=fid,
+                 payload={
+                     "hypothesis_text": str(f.get("title", ""))[:200],
+                     "severity_ceiling": f.get("severity", ""),
+                     "exploit_class": f.get("vuln_type", ""),
+                     "confidence": _conf_to_float(f.get("confidence")),
+                     "linked_contracts": linked,
+                 })
+            n += 1
+            # The finding's own cited evidence (location + PoC/description) — the primary evidence at
+            # this pre-merge boundary (manifest_refs are attached later in the pipeline).
+            loc_str = ""
+            if isinstance(loc, dict):
+                loc_str = loc.get("file", "") + (f":{loc.get('function')}" if loc.get("function") else "")
+            else:
+                loc_str = str(loc)
+            evidence = (f.get("proof_of_concept") or f.get("description") or "")
+            if loc_str or evidence:
+                emit("EVIDENCE_ATTACHED", source_agent=agent_name or "specialist", target_node_id=None,
+                     payload={"attached_to": fid, "evidence_type": "code_locus",
+                              "content": (f"{loc_str} — {evidence}").strip(" —")[:200],
+                              "source": loc_str, "confidence_delta": 0.0})
+            for ev in (f.get("manifest_refs") or [])[:8]:
+                emit("EVIDENCE_ATTACHED", source_agent=agent_name or "specialist", target_node_id=None,
+                     payload={"attached_to": fid, "evidence_type": "manifest_ref",
+                              "content": str(ev)[:200], "confidence_delta": 0.0})
+        except Exception:
+            continue
+    return n
 
 
 def validate_file(findings_path: Path, strict: bool = False) -> dict:
@@ -184,6 +250,11 @@ def validate_file(findings_path: Path, strict: bool = False) -> dict:
     result["valid"] = len(result["errors"]) == 0
     result["finding_count"] = len(findings)
     result["agent"] = agent_name
+
+    # Reasoning-graph telemetry (Step 2) — fire-and-forget; no-ops without VIZ_SESSION_ID; never
+    # affects the validation outcome above. This is the Python ingest boundary for the 13 Markdown
+    # specialists, which cannot emit themselves.
+    emit_specialist_events(agent_name, findings)
 
     return result
 

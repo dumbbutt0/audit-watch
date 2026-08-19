@@ -1,0 +1,27 @@
+# Programmatic network access in build/test/CI paths.
+# Scope: test files, scripts, CI workflows, and build config — NOT general app source
+# (runtime network calls in app code are expected and not a pre-audit execution risk).
+# Shell curl/wget/nc in install/build config is owned by the lifecycle_scripts detector.
+
+network_calls:
+  - pattern: '\bfetch\s*\('
+    message: 'HTTP fetch() call.'
+  - pattern: '\baxios\.(get|post|put|delete|request|create)\b'
+    message: 'axios HTTP client call.'
+  - pattern: '\brequests\.(get|post|put|delete|head|patch|request|session)\b'
+    message: 'Python requests HTTP call.'
+  - pattern: '\burllib\.request\b|\burlopen\s*\(|\bhttplib\b|\bhttp\.client\b'
+    message: 'Python urllib/http.client network call.'
+  - pattern: '\bhttps?\.(get|request)\s*\('
+    message: 'Node http(s) request.'
+  - pattern: '\bnew\s+WebSocket\s*\(|\bwebsocket\.(connect|create)\b'
+    message: 'WebSocket connection.'
+  - pattern: '\bnet\.(connect|createConnection)\s*\(|\bsocket\.(connect|create_connection)\s*\('
+    message: 'Raw socket connection.'
+  - pattern: '\bXMLHttpRequest\b'
+    message: 'XMLHttpRequest network call.'
+  - pattern: '\bnc\b\s+-[a-z]*e|\bnetcat\b'
+    message: 'netcat invocation (possible reverse shell / exfiltration).'
+
+# Severity: build/test/CI network is the exfiltration/payload-fetch risk auditors care about.
+severity: MEDIUM

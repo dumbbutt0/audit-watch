@@ -78,12 +78,12 @@ def build() -> dict:
             aid = entry["id"]
             merged = ROOT / "audits" / aid / "output" / "merged_findings.json"
             doc = _adj(aid)
-            # Cross-language separation: rust/Solana AND move/Sui adjudications NEVER mix into the Solidity
-            # scoreboard — they are tracked in their own per-language scoreboards. Skip them here (keyed on the
-            # adjudication's `language` field set by the rust/move recall-lab).
+            # Cross-language separation: rust/Solana, move/Sui AND ton/FunC adjudications NEVER mix into the
+            # Solidity scoreboard — they are tracked in their own per-language scoreboards. Skip them here (keyed
+            # on the adjudication's `language` field set by the rust/move/ton recall-lab).
             _alang = str(doc.get("language", "")).lower() if doc else ""
-            if _alang in ("rust", "move"):
-                _sb = "evals/rust_scoreboard.md" if _alang == "rust" else "evals/move_scoreboard.md"
+            if _alang in ("rust", "move", "ton"):
+                _sb = f"evals/{_alang}_scoreboard.md"
                 projects.append({"id": aid, "status": f"{_alang} (see {_sb})"})
                 continue
             no_cold = not merged.exists()
@@ -358,7 +358,7 @@ if __name__ == "__main__":
     print(f"holdout_recall={d['headline']['holdout_recall']} "
           f"training_recall={d['headline']['training_recall']} "
           f"classes={len(d['by_mechanism_class'])} -> {OUT_MD.relative_to(ROOT)}")
-    for _lang in ("move", "rust"):
+    for _lang in ("move", "rust", "ton"):
         ld = build_language(_lang)
         if ld:
             print(f"{_lang}_recall(full-cov)={ld['full_coverage_aggregate']['recall_of_surfaced']} "

@@ -1,0 +1,40 @@
+# Destructive / catastrophic filesystem operations.
+# Scope: scripts + source + config. Focuses on HIGH-signal patterns so it complements
+# (rather than duplicates) lifecycle_scripts' generic build `rm -rf` (MEDIUM).
+
+patterns:
+  # catastrophic — almost never legitimate
+  - pattern: ':\s*\(\s*\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:'
+    category: fork_bomb
+    severity: CRITICAL
+    message: 'Fork bomb pattern.'
+  - pattern: '\bdd\s+if=.*\bof=/dev/'
+    category: disk_overwrite
+    severity: CRITICAL
+    message: 'dd writing directly to a device (disk overwrite).'
+  - pattern: '\bmkfs(\.\w+)?\s'
+    category: disk_overwrite
+    severity: CRITICAL
+    message: 'mkfs invocation (formats a filesystem).'
+  - pattern: '>\s*/dev/(sd|nvme|disk|hd)'
+    category: disk_overwrite
+    severity: CRITICAL
+    message: 'Redirect to a raw block device.'
+  # rm -rf targeting sensitive/root/home/glob paths (HIGH); generic build rm -rf is left to lifecycle (MEDIUM)
+  - pattern: '\brm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+(/|~|\$HOME|\$\{HOME\}|/etc|/usr|/var|/bin|/boot|\*|--no-preserve-root)'
+    category: destructive_rm
+    severity: HIGH
+    message: 'Recursive force-delete targeting a sensitive/root/home path.'
+  # language-level recursive deletes
+  - pattern: '\bshutil\.rmtree\s*\('
+    category: recursive_delete
+    severity: HIGH
+    message: 'Python shutil.rmtree (recursive delete).'
+  - pattern: '\bfs\.(rmSync|rm)\s*\([^)]*recursive\s*:\s*true'
+    category: recursive_delete
+    severity: HIGH
+    message: 'Node fs recursive delete.'
+  - pattern: '\bchmod\s+-R\s+777\b'
+    category: perms
+    severity: MEDIUM
+    message: 'Recursive chmod 777 (world-writable).'

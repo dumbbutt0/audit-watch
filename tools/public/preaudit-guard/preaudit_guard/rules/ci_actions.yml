@@ -1,0 +1,26 @@
+# GitHub Actions workflow risks (.github/workflows/*.yml only).
+
+patterns:
+  - pattern: '\bpull_request_target\b'
+    category: pull_request_target
+    severity: HIGH
+    message: 'pull_request_target trigger: runs with repo secrets in the context of an untrusted PR.'
+  - pattern: '\$\{\{[^}]*github\.event\.[^}]*\.(body|title|head_ref|label|name|email|ref_name)\b[^}]*\}\}'
+    category: script_injection
+    severity: HIGH
+    message: 'Attacker-controlled GitHub event field interpolated into a workflow (script-injection vector).'
+  - pattern: '\bgithub\.head_ref\b'
+    category: script_injection
+    severity: MEDIUM
+    message: 'github.head_ref is attacker-controlled; unsafe if used in a run: step.'
+  - pattern: '(curl|wget)\s+[^|&;]*\|\s*(sudo\s+)?(ba)?sh'
+    category: remote_exec
+    severity: HIGH
+    message: 'Workflow run step downloads and pipes a remote script into a shell.'
+
+# Third-party action pinning: uses: owner/repo@<ref>. A ref that is not a 40-hex commit SHA
+# is movable (tag/branch) -> supply-chain best-practice gap. LOW (very common, not an exploit).
+unpinned_action:
+  pattern: 'uses:\s*([A-Za-z0-9._-]+/[A-Za-z0-9._/-]+)@([^\s#"'']+)'
+  severity: LOW
+  message: 'Third-party action is not pinned to a full commit SHA (tag/branch refs are movable).'

@@ -65,7 +65,9 @@ def search_findings(vuln_type: str = "other", query: str = "", top_k: int = 5) -
     Args:
         vuln_type: Vulnerability category — one of: reentrancy, access-control, arithmetic,
                    oracle-manipulation, flash-loan, logic-error, gas-griefing, dos,
-                   signature-replay, storage-collision, proxy-upgrade, front-running, other
+                   signature-replay, storage-collision, proxy-upgrade, front-running, other.
+                   TON/FunC categories (real STON.fi/TONCO/Swap Coffee precedent): jetton-theft,
+                   sender-spoof, bounce-stranding, message-race, cell-parsing
         query: Natural language description of the pattern you're investigating
         top_k: Number of results to return (default 5, max 20)
     """

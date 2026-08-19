@@ -233,7 +233,12 @@ case "${CMD}" in
     "${PYTHON}" "${ROOT}/scripts/update_session.py" --step "0-scope" 2>/dev/null || true
 
     log "Step 0.5: Sandbox check (FATAL on flags)..."
-    if ! "${PYTHON}" "${ROOT}/scripts/sandbox_check.py" "${CONTRACT}"; then
+    SANDBOX_ARGS=()
+    if [ "${AUDITWATCH_SANDBOX_ALLOW_FLAGGED:-0}" = "1" ]; then
+      SANDBOX_ARGS+=(--allow-flagged)
+      log "  (AUDITWATCH_SANDBOX_ALLOW_FLAGGED=1 — flags downgraded to warnings; justify in writing)"
+    fi
+    if ! "${PYTHON}" "${ROOT}/scripts/sandbox_check.py" "${CONTRACT}" "${SANDBOX_ARGS[@]}"; then
       die "Sandbox check flagged the contract. Review flags above. Use --allow-flagged only with explicit justification."
     fi
     "${PYTHON}" "${ROOT}/scripts/update_session.py" --step "0.5" 2>/dev/null || true
@@ -840,6 +845,33 @@ print(s.get('unassigned', 0) + s.get('assigned_only', 0) + s.get('examined', 0))
     "${PYTHON}" "${ROOT}/scripts/eval_scoreboard.py"
     ;;
 
+  eval-suppression)
+    # Recall Lab: additive "two-budget" false-suppression instrumentation. For each precision filter
+    # (3.4 ICE / 3.6 fp_pattern_check / 3.7 gates / 3.8 dedup) report cut_rate + false-suppression_rate.
+    # MEASUREMENT ONLY — changes no pipeline behavior.
+    #   eval-suppression [holdout|all]      — over the holdout eval corpus (oracle = adjudication answer key)
+    #   eval-suppression audit <audit-id>   — over a real audit (oracle = that audit's confirmed submit/ready)
+    #   eval-suppression sweep              — corpus-wide over every workspace (does any filter suppress a keeper?)
+    "${PYTHON}" "${ROOT}/scripts/suppression_report.py" "${@:2}"
+    ;;
+
+  contest-fit)
+    # ADVISORY (is_gate:false, research-only): score how well our detector portfolio fits a candidate
+    # contest's language + surface. Inferred from language + in-scope files (no contest mechanism tags).
+    # Never selects/routes/gates. Writes audits/<id>/output/contest_fit.json (or stdout with --scope).
+    #   contest-fit --audit <id> [--language <lang>]
+    #   contest-fit --scope <scope.json> --language <solidity|rust|move|ton>
+    "${PYTHON}" "${ROOT}/scripts/contest_fit.py" "${@:2}"
+    ;;
+
+  target-acquisition)
+    # ADVISORY (is_gate:false): 4-axis target-sourcing scorer — bug-likelihood (White Mage rubric) +
+    # detector-fit (reuses contest_fit) + payout-EV + eval-cleanliness HARD GATE (rejects already-seen /
+    # pre-cutoff targets). RANKS candidate programs; the human SELECTS. Never routes/gates/submits.
+    #   target-acquisition [--candidates config/target_candidates.json]
+    "${PYTHON}" "${ROOT}/scripts/target_acquisition.py" "${@:2}"
+    ;;
+
   eval-regression)
     # Recall Lab regression guard: fail (exit 1) if any protected TRAINING catch regressed to MISSED.
     # Run --snapshot to (re)capture the baseline after locking in new catches.
@@ -1098,6 +1130,9 @@ Recall Lab (eval against scored projects — eval-only, never affects the real-w
   eval-adjudicate <id>|--all   Build/refresh adjudication.json (awarded vs cold-pass) for eval project(s)
   eval-detect-misses <id>|--all-evaluated   Heuristic miss-detection for already-evaluated contests (any answer-key format)
   eval-scoreboard              Honest recall scoreboard: training/holdout + per-mechanism-class (evals/scoreboard.md)
+  eval-suppression [all]       Two-budget false-suppression: per-filter cut_rate + suppression_rate (evals/suppression_report.md)
+  contest-fit --audit <id>|--scope <f> [--language <l>]   ADVISORY detector-portfolio fit for a contest (is_gate:false)
+  target-acquisition [--candidates <f>]   ADVISORY 4-axis target-sourcing scorer -> evals/target_shortlist.md (is_gate:false)
   eval-regression [--snapshot] Regression guard: fail if a previously-caught training finding is now MISSED
   eval-iterate                 Print one Recall Lab iteration checklist (see documentation/recall_lab.md)
   eval-loop <build|status|next|done <id>|enqueue-ingest|cold-coverage <id>|pattern-checklist <id>>   Resumable loop over ALL past contests (one per fire)

@@ -125,6 +125,48 @@ MOVE_TYPE_DECL = re.compile(r"\b(module|struct)\s+([A-Za-z_][\w:]*)")
 MOVE_CONST_RE = re.compile(r"\bconst\s+([A-Z][A-Za-z0-9_]*)\s*:")
 MOVE_INIT_NAMES = {"init", "initialize", "new", "create", "create_pool", "open_position"}
 
+# --- TON / FunC taxonomy + extraction (cross-language; selected by audit language) ---------------------------
+# Tag names REUSE the Solidity scoring names where the concept maps (accounting/token/permissions/config/
+# decimals/amm_pol/arithmetic) so add()'s value-at-risk score ranks DEX message-handlers and swap/LP/jetton
+# math to the top, and add TON-native lenses (message_handler/bounce/cell/gas) that the specialists read.
+# TON DEX lesson (KB: STON.fi/TONCO/Swap Coffee TrailOfBits reviews): loss-of-funds concentrates in (a) jetton
+# transfer-notification sender validation, (b) async message ordering / bounce handling, (c) multihop swap-route
+# cell parsing, (d) liquidity/swap integer math — so those keyword clusters are tagged aggressively.
+TON_TAG_KEYWORDS = {
+    "permissions":     ("equal_slices", "sender", "admin", "owner", "authoriz", "check_workchain",
+                        "throw_unless", "throw_if", "valid", "verify", "route_dex", "is_admin", "only"),
+    "token":           ("jetton", "transfer_notification", "transfer", "internal_transfer", "burn_notification",
+                        "ft::", "wallet", "provide_wallet", "mint", "burn", "excesses", "payout"),
+    "amm_pol":         ("swap", "liquidity", "pool", "provide_lp", "reserve", "lp", "tick", "sqrt", "sqrt_price",
+                        "exchange", "amount_out", "amount_in", "add_liquidity", "remove_liquidity", "ratio",
+                        "invariant", "stableswap", "constant_product", "weighted"),
+    "accounting":      ("balance", "amount", "coins", "deposit", "withdraw", "fee", "reserves", "supply", "debt",
+                        "collected", "protocol_fee", "refund"),
+    "arithmetic":      ("muldiv", "mul_div", "math", "overflow", "sqrt", "precision", "scale", "newton",
+                        "converge", "pow", "calc", "rounding"),
+    "config":          ("storage", "op::", "const", "init", "state_init", "code", "upgrade", "params", "version"),
+    "message_handler": ("recv_internal", "recv_external", "handle_", "route_", "_messages", "_message", "opcode",
+                        "on_bounce", "notification"),
+    "bounce":          ("bounce", "bounced", "is_bounced", "on_bounce", "carry_all"),
+    "cell":            ("load_ref", "load_dict", "begin_parse", "end_parse", "load_msg_addr", "load_coins",
+                        "load_uint", "slice", "cell", "udict", "multihop", "store_ref", "slice_refs"),
+    "gas":             ("gas", "storage_fee", "carry", "reserve_at_most", "my_balance", "msg_value",
+                        "compute_fee", "rawreserve", "raw_reserve"),
+}
+# FunC has no `function`/`fun`/`fn` keyword: a definition is `<return-type> <name>(<params>) <specifiers> {`.
+# Negative lookahead drops statement lines that begin with a keyword then `name(` (e.g. `return foo(...)`).
+FUNC_FN_RE = re.compile(
+    r"^[ \t]*"
+    r"(?!(?:return|if|ifnot|while|repeat|do|until|else|elseif|throw|throw_if|throw_unless|begin_cell)\b)"
+    r"(?:\([^;{}]*\)|_|var|int|slice|cell|builder|tuple|cont|[A-Za-z_][\w:]*)"  # return type(s)
+    r"[ \t]+"
+    r"(~?[A-Za-z_][\w:?'$]*)"                                                    # function name
+    r"[ \t]*\("                                                                  # opening param paren
+)
+FUNC_CONST_RE  = re.compile(r"\bconst\s+(?:[a-z_]+\s+)?([A-Za-z_][\w:?'$]*)\s*=")
+FUNC_GLOBAL_RE = re.compile(r"\bglobal\s+(?:[a-z_]+\s+)?([A-Za-z_][\w:?'$]*)\s*;")
+TON_INIT_NAMES = {"init", "initialize", "deploy", "state_init", "build_state_init"}
+
 # Active taxonomy — defaults to Solidity; main() swaps to RUST_TAG_KEYWORDS for a rust audit. _tags_for() and
 # add() read this so the Solidity path is byte-behavior-unchanged when language is solidity.
 ACTIVE_TAG_KEYWORDS = TAG_KEYWORDS
@@ -160,30 +202,45 @@ def _move_files(root: Path) -> list[Path]:
                   and not p.name.endswith("_test.move") and not p.name.endswith("_tests.move"))
 
 
+def _ton_files(root: Path) -> list[Path]:
+    if root.is_file():
+        return [root] if root.suffix in (".fc", ".func", ".tolk") else []
+    skip = ("/test/", "/tests/", "/build/", "/.git/", "/node_modules/")
+    return sorted(p for p in root.rglob("*")
+                  if p.is_file() and p.suffix in (".fc", ".func", ".tolk")
+                  and not any(s in p.as_posix() for s in skip))
+
+
 def _source_files(root: Path, lang: str) -> list[Path]:
     """Language-dispatched source enumeration. Solidity default keeps _sol_files byte-identical."""
     if lang == "rust":
         return _rust_files(root)
     if lang == "move":
         return _move_files(root)
+    if lang == "ton":
+        return _ton_files(root)
     return _sol_files(root)
 
 
 def _infer_language(root: Path) -> str:
     """Infer audit language from the source tree (used when meta.language is unset/solidity but the tree is
-    Rust/Move). Conservative: only returns a non-Solidity language when there are NO .sol files and there ARE
+    Rust/Move/TON). Conservative: only returns a non-Solidity language when there are NO .sol files and there ARE
     files of that language. Solidity remains the default."""
     if root.is_file():
         if root.suffix == ".rs":
             return "rust"
         if root.suffix == ".move":
             return "move"
+        if root.suffix in (".fc", ".func", ".tolk"):
+            return "ton"
         return "solidity"
     if not _sol_files(root):
         if _rust_files(root):
             return "rust"
         if _move_files(root):
             return "move"
+        if _ton_files(root):
+            return "ton"
     return "solidity"
 
 
@@ -451,16 +508,18 @@ def main() -> int:
     global ACTIVE_TAG_KEYWORDS
     lang = audit_language()
     inferred = _infer_language(croot)
-    if inferred in ("rust", "move") and inferred != lang:
-        # the targeted tree is clearly rust/move and differs from the active audit -> trust the tree
+    if inferred in ("rust", "move", "ton") and inferred != lang:
+        # the targeted tree is clearly rust/move/ton and differs from the active audit -> trust the tree
         lang = inferred
-    elif lang not in ("rust", "move"):
+    elif lang not in ("rust", "move", "ton"):
         lang = inferred
     # set explicitly so the swap is idempotent if main() is called more than once in-process
     if lang == "rust":
         ACTIVE_TAG_KEYWORDS = RUST_TAG_KEYWORDS
     elif lang == "move":
         ACTIVE_TAG_KEYWORDS = MOVE_TAG_KEYWORDS
+    elif lang == "ton":
+        ACTIVE_TAG_KEYWORDS = TON_TAG_KEYWORDS
     else:
         ACTIVE_TAG_KEYWORDS = TAG_KEYWORDS
 
@@ -669,7 +728,60 @@ def main() -> int:
             it["contract_type"] = "move_module"
             items.append(it)
 
-    for fpath in (_sol_files(croot) if lang not in ("rust", "move") else []):
+    # --- TON / FunC parse path (cross-language). Produces the same item schema via add(); the value-at-risk
+    # score rewards jetton/swap/LP/auth/arithmetic tags so message-handlers rank to the top. FunC has no
+    # contract/module keyword, so items attribute to the file's compilation-unit path (the entry .fc #includes
+    # its tree, so each included file's handlers are enumerated as in-scope items).
+    for fpath in (_ton_files(croot) if lang == "ton" else []):
+        src = fpath.read_text(encoding="utf-8", errors="replace")
+        lines = src.splitlines()
+        file_rel = _rel(fpath, ROOT)
+        in_scope, scope_reason = _in_scope(file_rel, False, exclude_globs, scope_allow, scope_deny)
+        # FunC "contract" analog: the path under the contract root (disambiguates the many like-named
+        # get.fc/storage.fc/pool.fc files); falls back to the file stem.
+        try:
+            cunit = fpath.relative_to(croot).with_suffix("").as_posix() if croot.is_dir() else fpath.stem
+        except ValueError:
+            cunit = fpath.stem
+        produced: list[dict] = []
+        for idx, ln in enumerate(lines):
+            s = ln.lstrip()
+            # FunC comments: ';;' line and '{- -}' block. Skip comment/blank/directive lines.
+            if s.startswith((";;", "{-", "-}", "#")) or not s:
+                continue
+            fm = FUNC_FN_RE.match(ln)
+            if fm:
+                name = fm.group(1)
+                sig, _end_decl, body_end, method = _signature_block(lines, idx)
+                low = sig.lower()
+                # externally-reachable surface: message entrypoints + off-chain get-methods.
+                is_entry = name in ("recv_internal", "recv_external")
+                is_getter = "method_id" in low
+                vis = "external" if (is_entry or is_getter) else "internal"
+                # impure = state-changing/side-effecting; non-impure compute/getters are view-like.
+                mut = "" if "impure" in low else "view"
+                mods = [m for m in ("impure", "inline_ref", "inline", "method_id") if m in low]
+                kind = "initializer" if name.lower() in TON_INIT_NAMES else "function"
+                it, _ = add(kind, cunit, name, file_rel, idx + 1, body_end, method, vis, mut, mods, sig)
+                produced.append(it)
+                continue
+            cm = FUNC_CONST_RE.search(ln)
+            if cm:
+                it, _ = add("constant", cunit, cm.group(1), file_rel, idx + 1, idx + 1,
+                            "regex_start_only", signature=ln.strip(), extra_tags={"constant"})
+                produced.append(it)
+            gm = FUNC_GLOBAL_RE.search(ln)
+            if gm:
+                it, _ = add("constant", cunit, gm.group(1), file_rel, idx + 1, idx + 1,
+                            "regex_start_only", signature=ln.strip(), extra_tags={"constant", "config"})
+                produced.append(it)
+        for it in produced:
+            it["in_scope"] = in_scope
+            it["scope_reason"] = scope_reason
+            it["contract_type"] = "func_contract"
+            items.append(it)
+
+    for fpath in (_sol_files(croot) if lang not in ("rust", "move", "ton") else []):
         src = fpath.read_text(encoding="utf-8", errors="replace")
         lines = src.splitlines()
         file_rel = _rel(fpath, ROOT)

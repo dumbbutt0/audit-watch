@@ -1,0 +1,60 @@
+# Prompt-injection / AI-agent-targeting rules.
+# Patterns fire only against PROSE surfaces (doc files, comments, string literals),
+# never arbitrary code identifiers — this keeps false positives low.
+
+# Direct attempts to override an agent's instructions / methodology / output.
+instruction_patterns:
+  - 'ignore\s+(all\s+)?(previous|prior|above|earlier)\s+instructions?'
+  - 'disregard\s+(all\s+)?(previous|prior|above|earlier)\s+instructions?'
+  - 'forget\s+(all\s+)?(previous|prior|above|earlier)\s+instructions?'
+  - 'override\s+(all\s+)?(previous|prior|above|earlier)\s+instructions?'
+  - 'you\s+are\s+now\s+(a\s+)?'
+  - 'pretend\s+(you\s+are|to\s+be)'
+  - 'your\s+(new\s+)?instructions?\s+(are|is)\s*:'
+  - 'from\s+now\s+on\s+(you\s+)?'
+  - 'do\s+not\s+(tell|inform|mention\s+to)\s+the\s+user'
+  - 'do\s+not\s+(report|flag|include|mention)'
+  - 'act\s+as\s+(a\s+)?(developer|owner|admin|root)'
+  - 'you\s+are\s+a\s+(senior\s+)?developer'
+  # severity / verdict manipulation aimed at audit agents
+  - '(rate|mark|classify|label)\s+(this|all|every)\s+(finding|vulnerability|issue|bug)'
+  - 'severity\s*(=|:)\s*(low|info|informational|none)'
+  - '(this\s+is\s+not?\s+a|no)\s+(bug|vulnerability|finding|issue)'
+  # high-signal only: "safe to ignore". (Bare "safe code/function/contract" FP-matches ordinary
+  # NatSpec like "the safe contract path" / "safe math" — too noisy to be a signal.)
+  - '\b(safe|harmless|benign)\s+to\s+ignore\b'
+  # exfiltration directives
+  - 'exfiltrat'
+  - '(send|leak|upload|post)\s+.{0,30}(secret|private\s+key|env|credential|\.env)'
+  - '(copy|read|print|dump)\s+.{0,20}environment\s+variables?'
+
+# Self-referential / system-prompt probing.
+self_ref_patterns:
+  - 'system\s+prompt'
+  - 'developer\s+message'
+  - 'hidden\s+instruction'
+  - '\byou\s+are\s+chatgpt\b'
+  - '\byou\s+are\s+claude\b'
+  - '\banthropic\b'
+  - 'language\s+model'
+
+# Look-alike characters used to smuggle instructions / spoof identifiers.
+# (Detected only inside code identifiers, where they are anomalous.)
+homoglyphs:
+  "а": "a"   # Cyrillic а
+  "е": "e"   # Cyrillic е
+  "о": "o"   # Cyrillic о
+  "р": "p"   # Cyrillic р
+  "с": "c"   # Cyrillic с
+  "х": "x"   # Cyrillic х
+  "α": "a"   # Greek α
+  "ε": "e"   # Greek ε
+  "ο": "o"   # Greek ο
+  "ρ": "p"   # Greek ρ
+  "ｏ": "o"   # Fullwidth o
+  "ａ": "a"   # Fullwidth a
+
+# Thresholds.
+oversized_natspec_chars: 500   # a single @tag comment longer than this is suspicious
+base64_min_run: 60             # min base64 run length to consider a payload
+base64_printable_ratio: 0.8    # decoded must be >this fraction printable to flag as text payload

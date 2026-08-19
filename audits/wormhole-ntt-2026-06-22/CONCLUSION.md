@@ -1,0 +1,23 @@
+# Wormhole NTT (EVM) — Immunefi bug bounty — audit conclusion
+
+**Target:** Wormhole NTT (Native Token Transfers), Immunefi ($1M; Critical = extract TVL / permanently brick TVL access). Repo github.com/wormhole-foundation/native-token-transfers, EVM (Solidity). Workspace audits/wormhole-ntt-2026-06-22/.
+**Method: DIFF-THE-AUDIT (new-un-audited-module signal).** The 4-yr core Wormhole bridge is 21+ audits deep (post the 2022 $325M hack) — elite, low-EV. NTT is the newest in-scope asset (added 5 Feb 2025). The in-repo EVM audits (audits/evm: Cyfrin + Cantina) stop at **v1.1.0 (Jul-2024)** — so the **v1.1.0 → HEAD (v2.0.0+) delta is the unaudited surface** (eligible: scope allows v1.x/v2.x tagged releases). Focused the entire pass on that delta (+1038/-656 across evm/src), in our strongest edge (Solidity).
+
+## Scope notes
+Eligible: NTT EVM v1.x/v2.x tagged releases (anchored v2.0.0+evm). OOS: v3.x, NTT forks, NFT bridge, CCQ, IBC, admin/privileged, dependencies, known issues (CosmWasm accountant gas), upstream-fork patch gaps. (The `NttManagerWithExecutor` from the recent commits is SDK/CLI-level wiring to Wormhole's Executor — NOT a Solidity contract in this repo, so not the EVM surface.)
+
+## Verdict: honest negative — the unaudited delta is benign
+Two zero-trust specialist deep-reads of the v1.1.0→HEAD delta:
+
+### Trimming / encoding / transceiver delta — 0 findings
+- `TrimmedAmount.sol` (+80) = **pure parameter reformatting, zero logic change**. trim floors-down on source; untrim multiplies by exactly 10^(localDec−wireDecimals) → **dst-minted ≤ src-locked** (conservation intact); SafeCast reverts >u64.
+- `TransceiverStructs.sol` (+126): the one real change is the optional `NativeTokenTransfer.additionalPayload` — non-malleable (replay/quorum digest is keccak over the RAW received bytes + checkLength, not a re-encode), parsed after the fixed-offset econ fields (can't forge amount/recipient/toChain), and economically inert in base NttManager (`_handleAdditionalPayload` is an empty virtual; mint uses only `amount`).
+- WormholeTransceiver/State (−184/−173): the v2 refactor **deleted the auto-relayer delivery path (net-removed attack surface)** and kept the audited model verbatim — `parseAndVerifyVM` → registered-peer check → `consumedVAAs` replay on `vm.hash` → `recipientNttManager` match → `_verifyPeer`; per-(digest,transceiver) attestation reverts on repeat (no quorum inflation); digest/recipient/source/toChain all bound (no cross-chain/cross-manager replay). New `ICustomConsistencyLevel` is send-side only.
+
+### Manager / rate-limiter / variants delta — 1 Medium (NOT exploitable)
+- `ManagerBase.sol`/`RateLimiter.sol`/`TransceiverRegistry.sol` changes are **whitespace/doc/`virtual`-marker only** (git diff -w byte-equivalent to audited v1.1.0) — the threshold/attestation/replay + rate-limit capacity/queue math are the audited code. So the queue (double-release/brick) and threshold hypotheses reduce to already-audited logic.
+- The real new surface = the two NEW variants. `NttManagerNoRateLimiting` (disables the throttle) is a safe design choice — the limiter does no fund-safety accounting beyond the cap. `NttManagerWethUnwrap._unlockTokens` does `weth.withdraw()` + `recipient.call{value}` (arbitrary native callback to the attacker).
+- **NTT-001 (Medium, latent / not exploitable):** the inbound redeem path (`executeMsg`/`attestationReceived` → `_mintOrUnlockToRecipient`) is **not `nonReentrant`**, so `NttManagerWethUnwrap`'s native-ETH callback hands control to an attacker mid-redeem with no guard. **CEI holds today** — `_replayProtect` (executed flag) + `_consumeInboundAmount` (rate limit) are committed BEFORE the native call; same-digest reentry early-returns; cross-function reentry (transfer/complete*) yields no value (delete-before-unlock, one consume per digest). So **no double-unlock / extract / brick**. It's a defense-in-depth hardening gap (a missing `nonReentrant` backstop on an arbitrary-call path) — the class where one future ordering change or an integrator's `_handleAdditionalPayload`/`_handleMsg` override flips it to Critical.
+
+## Submission
+**Nothing submitted (honest negative).** No extract-TVL / brick-TVL path in the unaudited delta — it's mostly refactor + a net-removed auto-relayer surface + an inert payload field + symmetric trimming. NTT-001 is **not payable** (Immunefi requires demonstrated impact + PoC; CEI makes it unexploitable) — worth a **defensive-disclosure** hardening note to Wormhole (add `nonReentrant` to the inbound redeem path now that an arbitrary-native-call variant exists). The diff-the-audit method worked: it isolated the right ~1700-line surface on a $1M target in minutes and the deep-read was tight.

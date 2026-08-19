@@ -177,15 +177,108 @@ def _reachability_axis(path: str, locus: str, cfg: dict, manifest: dict | None,
                          "(run_pipeline submission-risk --init-manifest) or see agents/submission_risk_review.md"}
 
 
-def _novelty_axis(text: str, kb_present: bool) -> dict:
-    if not kb_present:
-        return {"level": "checklist_required",
-                "rationale": "no KB/solodit crossref on disk — manually check for a prior/duplicate public "
-                             "report before submitting"}
-    # KB crossref present: a real similarity read would go here; conservatively prompt verification.
-    return {"level": "checklist_required",
-            "rationale": "KB crossref present — verify the closest known finding is not the same bug "
-                         "(duplicate/known) before submitting"}
+_DUP_REGISTRY = ROOT / "data" / "duplicate_registry.jsonl"
+_WORD = re.compile(r"[a-z0-9]{3,}")
+
+# advisory thresholds (mirror existing conventions: retriever emits KB_MATCH >0.75;
+# Hermes treats KB similarity <0.4 as novel)
+_KB_DUP = 0.75   # >= => likely the same known bug
+_KB_NEAR = 0.40  # >= => close enough to verify by hand
+_REG_OVERLAP = 0.30  # token-Jaccard vs one of OUR prior submitted root-cause signatures
+
+
+def _kb_max_similarity(vuln_type: str, text: str) -> tuple:
+    """Best KB similarity for this finding, or (None, ...) if the KB can't be read.
+    Returns (max_similarity_score | None, closest_title, closest_protocol)."""
+    try:
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
+        from tools.retriever import query_kb
+    except Exception:
+        return (None, "", "")
+    try:
+        results = query_kb(vuln_type or "", text[:800], top_k=5)
+    except Exception:
+        return (None, "", "")
+    if not isinstance(results, list) or not results or results[0].get("error"):
+        return (None, "", "")
+    scored = [r for r in results if isinstance(r, dict) and isinstance(r.get("similarity_score"), (int, float))]
+    if not scored:
+        return (None, "", "")
+    top = max(scored, key=lambda r: r["similarity_score"])
+    return (float(top["similarity_score"]), top.get("title", ""), top.get("protocol", ""))
+
+
+def _registry_overlap(text: str) -> tuple:
+    """Token-Jaccard of the finding against OUR previously-submitted findings' root-cause signatures.
+    A high hit means we (or the dedup registry) already reported this shape. Returns (overlap, registry_id, title)."""
+    ftok = set(_WORD.findall(text))
+    if not ftok:
+        return (0.0, "", "")
+    best = (0.0, "", "")
+    for line in _load_jsonl(_DUP_REGISTRY):
+        sig = str(line.get("root_cause_signature") or line.get("title") or "").lower()
+        stok = set(_WORD.findall(sig))
+        if not stok:
+            continue
+        j = len(ftok & stok) / len(ftok | stok)
+        if j > best[0]:
+            best = (round(j, 3), line.get("registry_id", ""), line.get("title", ""))
+    return best
+
+
+def _load_jsonl(p: Path) -> list:
+    out = []
+    try:
+        for ln in p.read_text().splitlines():
+            ln = ln.strip()
+            if ln:
+                try:
+                    out.append(json.loads(ln))
+                except json.JSONDecodeError:
+                    continue
+    except OSError:
+        pass
+    return out
+
+
+def _novelty_axis(text: str, vuln_type: str, kb_present: bool) -> dict:
+    """Advisory novelty read. novelty_score = 1 - max(KB similarity, registry overlap); higher = more novel.
+    Falls back to the prior checklist_required prompt when the KB can't be read (fully additive)."""
+    reg_j, reg_id, reg_title = _registry_overlap(text)
+    kb_sim, kb_title, kb_proto = _kb_max_similarity(vuln_type, text)
+
+    if kb_sim is None:
+        # KB unreadable (no Chroma / empty / error) — preserve prior behavior, but fold in a registry hit.
+        base_rat = ("no KB/solodit crossref on disk — manually check for a prior/duplicate public report "
+                    "before submitting") if not kb_present else \
+                   ("KB present but not queryable (run the scraper / index) — verify the closest known finding "
+                    "is not the same bug before submitting")
+        out = {"level": "checklist_required", "novelty_score": None, "kb_max_similarity": None,
+               "registry_overlap": reg_j, "rationale": base_rat}
+        if reg_j >= _REG_OVERLAP:
+            out["level"] = "likely_duplicate"
+            out["rationale"] = (f"overlaps our prior finding {reg_id} ('{reg_title}', Jaccard {reg_j}) — "
+                                f"likely a re-report of a shape we already submitted")
+        return out
+
+    max_sim = max(kb_sim, reg_j)
+    novelty = round(1.0 - max_sim, 3)
+    src = f"KB '{kb_title}'" + (f" [{kb_proto}]" if kb_proto else "") if kb_sim >= reg_j else \
+          f"our prior {reg_id} ('{reg_title}')"
+
+    if kb_sim >= _KB_DUP or reg_j >= _REG_OVERLAP:
+        level, rat = "likely_duplicate", (f"closest prior = {src} at similarity {round(max_sim,3)} "
+                                          f"(novelty {novelty}) — verify this is not the SAME bug before submitting")
+    elif kb_sim >= _KB_NEAR:
+        level, rat = "checklist_required", (f"near-match to {src} at similarity {round(kb_sim,3)} "
+                                            f"(novelty {novelty}) — confirm it's a distinct root cause")
+    else:
+        level, rat = "novel", (f"no close prior (best {src} at {round(max_sim,3)}, novelty {novelty}) — "
+                               f"looks original")
+    return {"level": level, "novelty_score": novelty, "kb_max_similarity": round(kb_sim, 3),
+            "registry_overlap": reg_j, "closest_known": kb_title, "closest_protocol": kb_proto,
+            "rationale": rat}
 
 
 def _advisories(fid: str, design: dict, reach: dict, nov: dict) -> list[str]:
@@ -201,7 +294,9 @@ def _advisories(fid: str, design: dict, reach: dict, nov: dict) -> list[str]:
                    f"(signals: {', '.join(reach['signals'])})")
     elif reach["level"] == "checklist_required":
         out.append(f"submission_risk[deployment_reachability]: {reach['rationale']}")
-    if nov["level"] == "checklist_required":
+    if nov["level"] == "likely_duplicate":
+        out.append(f"submission_risk[novelty]: LIKELY DUPLICATE/KNOWN — {nov['rationale']}")
+    elif nov["level"] == "checklist_required":
         out.append(f"submission_risk[novelty]: {nov['rationale']}")
     return out
 
@@ -224,11 +319,11 @@ def build() -> dict:
         text = _finding_text(f)
         design = _design_axis(text, cfg)
         reach = _reachability_axis(_finding_path(f), _finding_locus(f), cfg, manifest, live_by_id.get(fid))
-        nov = _novelty_axis(text, kb_present)
+        nov = _novelty_axis(text, f.get("vuln_type") or "", kb_present)
         advisories = _advisories(fid, design, reach, nov)
-        # overall: high if a design/known shape matched OR reachability is not_wired/flagged; review if anything
-        # needs a human checklist; low otherwise. (Advisory severity only — never a gate verdict.)
-        if design["level"] == "match" or reach["level"] in ("not_wired", "flag"):
+        # overall: high if a design/known shape matched OR reachability is not_wired/flagged OR novelty flags a
+        # likely duplicate; review if anything needs a human checklist; low otherwise. (Advisory only — never a gate.)
+        if design["level"] == "match" or reach["level"] in ("not_wired", "flag") or nov["level"] == "likely_duplicate":
             overall = "high"
         elif any(x["level"] == "checklist_required" for x in (reach, nov)):
             overall = "review"

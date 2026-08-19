@@ -194,7 +194,7 @@ def get_audit_meta() -> dict:
         return {}
 
 
-_KNOWN_LANGUAGES = {"solidity", "rust", "vyper", "move"}
+_KNOWN_LANGUAGES = {"solidity", "rust", "vyper", "move", "ton"}
 
 
 def audit_language(audit_id: str | None = None) -> str:

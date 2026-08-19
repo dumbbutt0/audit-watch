@@ -1,0 +1,372 @@
+{
+  "decisions": [
+    {
+      "finding_id": "LOG-001",
+      "triage_status": "submit",
+      "recommended_severity": "High",
+      "decision_reason": "F-1 margin-bypass: inverted checkValidTransition lets collateral withdrawal leave account under margin. perp-only (CAP_MARGIN_CHECK=Risk). Needs L3 PoC. [PoC proved L3 -> promoted poc_required->submit]",
+      "ice": {
+        "impact": "High",
+        "confidence": "High",
+        "exploitability": "Conditional (perp-only: CAP_MARGIN_CHECK=Risk)"
+      },
+      "follow_up_packet": "Entrypoint: signed WITHDRAWAL via txBatcher on an account with an open position. Preconditions: perp deployment, initTotalRisk>0. PoC: open leveraged position, submit full-collateral withdrawal, assert collateral=0 + position open + under maintenance margin (reuses PoC_MarginBypassWithdraw).",
+      "impact": {
+        "victim": "Protocol/counterparties (bad debt)"
+      },
+      "attacker_model": {
+        "attacker_type": "Account holder withdrawing collateral while keeping leveraged exposure"
+      }
+    },
+    {
+      "finding_id": "DT-01",
+      "triage_status": "merged",
+      "recommended_severity": "High",
+      "decision_reason": "Same root cause as LOG-001 (deep_trace duplicate)."
+    },
+    {
+      "finding_id": "DOS-001",
+      "triage_status": "submit",
+      "recommended_severity": "High",
+      "decision_reason": "F-2 freeze: getRiskFactor (0,false) -> Risk reverts -> account frozen/un-liquidatable. perp-only. Needs PoC. [PoC proved L3 -> promoted poc_required->submit]",
+      "ice": {
+        "impact": "High",
+        "confidence": "High",
+        "exploitability": "Conditional (perp-only)"
+      },
+      "follow_up_packet": "Entrypoint: oracle price tick raises notional past the top risk segment (or liquidation on such an account). Preconditions: perp; notional can exceed top segment. PoC: open short within cap, raise price so notional>cap, assert getAccountPositionStatus + liquidation revert 'Risk: no risk' (reuses PoC_RiskSegmentFreeze).",
+      "impact": {
+        "victim": "Protocol (unrecoverable bad debt from un-liquidatable insolvent positions)"
+      },
+      "attacker_model": {
+        "attacker_type": "Account holder dodging liquidation via freeze"
+      }
+    },
+    {
+      "finding_id": "DT-02",
+      "triage_status": "merged",
+      "recommended_severity": "High",
+      "decision_reason": "Same as DOS-001 (freeze)."
+    },
+    {
+      "finding_id": "LOG-002",
+      "triage_status": "merged",
+      "recommended_severity": "High",
+      "decision_reason": "Same as DOS-001 (freeze)."
+    },
+    {
+      "finding_id": "DOS-002",
+      "triage_status": "downgraded",
+      "recommended_severity": "Medium",
+      "decision_reason": "Triple-product overflow before boundary check -> revert/freeze; perp-only, operator/oracle-mediated. Variant of the freeze class."
+    },
+    {
+      "finding_id": "AR-001",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "Same overflow root as DOS-002."
+    },
+    {
+      "finding_id": "AR-002",
+      "triage_status": "merged",
+      "recommended_severity": "Medium",
+      "decision_reason": "Same overflow root as DOS-002."
+    },
+    {
+      "finding_id": "BSA-001",
+      "triage_status": "submit",
+      "recommended_severity": "High",
+      "decision_reason": "NEW: registration mints arbitrary signer masks (incl ALLOW_ADMIN, no delegation gate) + processAdminSetSignerPermissions trusts caller-supplied adminAccountId -> any account can admin-set permissions on any account -> drain. core-shared (LIVE). No on-chain gate. Needs PoC. [PoC proved L3 -> promoted poc_required->submit]",
+      "ice": {
+        "impact": "High",
+        "confidence": "High",
+        "exploitability": "Operator-relayed; core-shared (LIVE)"
+      },
+      "follow_up_packet": "Entrypoint: REGISTER_ACCOUNT then ADMIN_SET_SIGNER_PERMISSIONS via txBatcher. Preconditions: operator relays user-signed txs without off-chain mask validation (no on-chain gate). PoC: register account A with SignerInit{key2,ALLOW_ADMIN}; key2 signs ADMIN_SET(adminAccountId=A,target=victim,mask=ALLOW_TRANSFER); assert victim perms changed; move/withdraw victim funds.",
+      "impact": {
+        "victim": "Any account holder whose collateral is drained"
+      },
+      "attacker_model": {
+        "attacker_type": "Unprivileged attacker (registers an account, self-grants ALLOW_ADMIN)"
+      }
+    },
+    {
+      "finding_id": "AC-001",
+      "triage_status": "merged",
+      "recommended_severity": "High",
+      "decision_reason": "Same escalation chain as BSA-001 (registration mask gap)."
+    },
+    {
+      "finding_id": "AC-002",
+      "triage_status": "merged",
+      "recommended_severity": "High",
+      "decision_reason": "Same escalation chain as BSA-001 (adminAccountId not bound to canonical)."
+    },
+    {
+      "finding_id": "BSA-002",
+      "triage_status": "merged",
+      "recommended_severity": "Medium",
+      "decision_reason": "Registration delegation-gap, component of BSA-001."
+    },
+    {
+      "finding_id": "SG-003",
+      "triage_status": "merged",
+      "recommended_severity": "Medium",
+      "decision_reason": "ALLOW_ADMIN freely grantable (documented), component of BSA-001."
+    },
+    {
+      "finding_id": "ORC-001",
+      "triage_status": "downgraded",
+      "recommended_severity": "Low",
+      "decision_reason": "M-2 oracle staleness/rollback. perp-only consumer; defense-in-depth (trusted update flow). Honest Low."
+    },
+    {
+      "finding_id": "ORC-002",
+      "triage_status": "merged",
+      "recommended_severity": "Medium",
+      "decision_reason": "Oracle tick replay within 24h - same M-2 monotonicity root as ORC-001."
+    },
+    {
+      "finding_id": "DT-04",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "Same as ORC-001 (M-2)."
+    },
+    {
+      "finding_id": "ECON-001",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "Same as ORC-001 (oracle monotonicity)."
+    },
+    {
+      "finding_id": "SG-001",
+      "triage_status": "merged",
+      "recommended_severity": "Medium",
+      "decision_reason": "Same commented-out oracle monotonic guard (ORC-001)."
+    },
+    {
+      "finding_id": "SG-002",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "OraclePriceTickTransLib monotonic guard (component of ORC-001)."
+    },
+    {
+      "finding_id": "DT-03",
+      "triage_status": "submit",
+      "recommended_severity": "Medium",
+      "decision_reason": "M-3: no on-chain maintenance-margin precondition on liquidate/deleverage; deleverage only checkSigner. perp-only, trust-dependent.",
+      "ice": {
+        "impact": "Medium",
+        "confidence": "High",
+        "exploitability": "Privileged (operator) + perp-only"
+      },
+      "follow_up_packet": "Entrypoint: TYPE_LIQUIDATE/DELEVERAGE via txBatcher on a healthy account. Preconditions: perp. PoC: open healthy account, submit TYPE_LIQUIDATE, assert position force-closed despite health (reuses PoC_NoLiquidatablePrecondition).",
+      "impact": {
+        "victim": "Healthy account holders (positions seized)"
+      },
+      "attacker_model": {
+        "attacker_type": "Faulty/malicious operator"
+      }
+    },
+    {
+      "finding_id": "AC-004",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "Weak deleverage auth - component of DT-03."
+    },
+    {
+      "finding_id": "LOG-003",
+      "triage_status": "downgraded",
+      "recommended_severity": "Low",
+      "decision_reason": "M-4: setSyntheticAssetsInfo omits configVersion bump. core-shared mechanism; high-value configs are perp/oracle. Low."
+    },
+    {
+      "finding_id": "DT-05",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "Same as LOG-003 (M-4)."
+    },
+    {
+      "finding_id": "SG-005",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "Same as LOG-003 (M-4)."
+    },
+    {
+      "finding_id": "ECON-002",
+      "triage_status": "submit",
+      "recommended_severity": "Medium",
+      "decision_reason": "Settlement mints synthetic*price collateral with no aggregate conservation, no signature/oracle binding, raw scale, on the LIVE predict path. Operator-trusted but the largest unconstrained-authority surface live.",
+      "ice": {
+        "impact": "Medium",
+        "confidence": "High",
+        "exploitability": "Privileged (operator); predict/spot LIVE"
+      },
+      "follow_up_packet": "Entrypoint: TYPE_SETTLEMENT via txBatcher. Preconditions: predict deployment. PoC: hold synthetic, submit Settlement{price}, assert collateral minted=balance*price with no aggregate conservation / oracle / signature constraint; FXP-scaled price over-credits 2^32.",
+      "impact": {
+        "victim": "Predict users/protocol (unbacked collateral minted)"
+      },
+      "attacker_model": {
+        "attacker_type": "Operator submitting a mis-priced settlement"
+      }
+    },
+    {
+      "finding_id": "DT-06",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "Same as ECON-002 (settlement price)."
+    },
+    {
+      "finding_id": "LOG-004",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "Settlement scale mismatch - component of ECON-002."
+    },
+    {
+      "finding_id": "BSA-003",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "Settlement unconstrained authority - component of ECON-002."
+    },
+    {
+      "finding_id": "PC-01",
+      "triage_status": "submit",
+      "recommended_severity": "Medium",
+      "decision_reason": "NEW: capability registry silently degrades to NullMarginCheck/NullBalanceCheck; registerPlugin never enforces a provider exists -> a perp deployment with unwired CAP_MARGIN_CHECK accepts undercollateralized actions. Deployment-config/owner-trusted.",
+      "ice": {
+        "impact": "Medium",
+        "confidence": "High",
+        "exploitability": "Deployment-config (owner)"
+      },
+      "follow_up_packet": "Entrypoint: position-mutating tx when CAP_MARGIN_CHECK provider is unregistered. Preconditions: perp deployment with unwired/missing CAP_MARGIN_CHECK; registerPlugin doesn't enforce a provider. PoC: with no CAP_MARGIN_CHECK, submit margin-reducing update, assert _marginCheck()==NullMarginCheck no-op accepts undercollateralized state.",
+      "impact": {
+        "victim": "Protocol/users (undercollateralized state accepted)"
+      },
+      "attacker_model": {
+        "attacker_type": "Anyone acting on a deployment with unwired CAP_MARGIN_CHECK"
+      }
+    },
+    {
+      "finding_id": "TOK-001",
+      "triage_status": "downgraded",
+      "recommended_severity": "Low",
+      "decision_reason": "Fee-on-transfer/rebasing token over-credits ledger. depositToken owner-set (config-bounded, standard stablecoin expected)."
+    },
+    {
+      "finding_id": "TOK-002",
+      "triage_status": "downgraded",
+      "recommended_severity": "Low",
+      "decision_reason": "No-bool (USDT-style) token bricks deposit/withdraw. Config-bounded (owner-set token)."
+    },
+    {
+      "finding_id": "TOK-003",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "Permit front-run griefing - component of token-handling (TOK-001/2)."
+    },
+    {
+      "finding_id": "TOK-004",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "depositForWithPermit beneficiary binding - component of token handling."
+    },
+    {
+      "finding_id": "SG-009",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "depositWithPermit permit griefing - same as TOK-003."
+    },
+    {
+      "finding_id": "RE-001",
+      "triage_status": "downgraded",
+      "recommended_severity": "Low",
+      "decision_reason": "LoadingZone CEI hygiene (credit after token call); trust-bounded (owner-set token), no exploit. Informational."
+    },
+    {
+      "finding_id": "PC-02",
+      "triage_status": "downgraded",
+      "recommended_severity": "Low",
+      "decision_reason": "Unscoped isAuthorizedCaller (any registered plugin can call any manager). Owner-gated centralization."
+    },
+    {
+      "finding_id": "PC-03",
+      "triage_status": "downgraded",
+      "recommended_severity": "Low",
+      "decision_reason": "No timelock on plugin/capability remap. Owner-trust centralization."
+    },
+    {
+      "finding_id": "UPG-001",
+      "triage_status": "downgraded",
+      "recommended_severity": "Low",
+      "decision_reason": "initialize defaults owner=msg.sender on address(0); front-run only if deploy not atomic (deploy process out of scope)."
+    },
+    {
+      "finding_id": "SG-004",
+      "triage_status": "rejected",
+      "recommended_severity": "Info",
+      "decision_reason": "TransferTransLib missing require(amount>0).",
+      "disproof": "Sole caller BalancePlugin (line ~121) enforces amount>0 before dispatch; latent regression only, not reachable."
+    },
+    {
+      "finding_id": "SG-006",
+      "triage_status": "rejected",
+      "recommended_severity": "Info",
+      "decision_reason": "SignaturesLib lacks zero-address/low-s check.",
+      "disproof": "Recovered signer is always compared against an expected address (owner/signer-permission/known-signer); a malleated or zero recovery cannot match, so no auth bypass. Nonce-bound. Contained."
+    },
+    {
+      "finding_id": "SG-007",
+      "triage_status": "rejected",
+      "recommended_severity": "Info",
+      "decision_reason": "PositionManager dead require(assetId>=0) on uint64.",
+      "disproof": "Always-true on uint64; dead code, no impact."
+    },
+    {
+      "finding_id": "SG-008",
+      "triage_status": "rejected",
+      "recommended_severity": "Info",
+      "decision_reason": "LimitOrderLib documents two off-chain-deferred protections (no abs fee cap; no per-fill re-check).",
+      "disproof": "Documented design under the trusted-operator model; fee bound is proportional/signature-bounded; not a vuln."
+    },
+    {
+      "finding_id": "AR-003",
+      "triage_status": "rejected",
+      "recommended_severity": "Info",
+      "decision_reason": "Funding single truncating division rounding.",
+      "disproof": "Bounded <1 collateral unit per apply, non-compounding; negligible."
+    },
+    {
+      "finding_id": "AC-003",
+      "triage_status": "rejected",
+      "recommended_severity": "Info",
+      "decision_reason": "Order/permission signature scope.",
+      "disproof": "EIP-712 binds accountId+params+chainId+verifyingContract; nonce single-use per signer; no cross-account replay (verified)."
+    },
+    {
+      "finding_id": "AC-005",
+      "triage_status": "rejected",
+      "recommended_severity": "Info",
+      "decision_reason": "Create2Factory.deploy permissionless.",
+      "disproof": "Standalone deployment helper with no protocol authority; CREATE2 address derivation is caller+salt+bytecode bound; no impact on the exchange."
+    },
+    {
+      "finding_id": "AC-006",
+      "triage_status": "merged",
+      "recommended_severity": "Low",
+      "decision_reason": "Operator-only settlement - component of ECON-002."
+    },
+    {
+      "finding_id": "ORC-003",
+      "triage_status": "rejected",
+      "recommended_severity": "Info",
+      "decision_reason": "SignaturesLib zero-addr/low-s + nonzero-signer config.",
+      "disproof": "Only weaponizable under admin misconfig (owner-trusted); not attacker-reachable. Same as SG-006."
+    },
+    {
+      "finding_id": "DOS-003",
+      "triage_status": "downgraded",
+      "recommended_severity": "Low",
+      "decision_reason": "One reverting tx aborts the whole batch (no per-tx try/catch). Trusted-batcher can re-simulate/drop; head-of-line griefing only. core-shared."
+    }
+  ]
+}

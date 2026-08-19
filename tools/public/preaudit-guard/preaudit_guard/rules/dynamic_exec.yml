@@ -1,0 +1,41 @@
+# Dynamic / unsafe code execution and deserialization.
+# Scope: source + script files.
+
+patterns:
+  - pattern: '\beval\s*\('
+    category: eval
+    severity: MEDIUM
+    message: 'Dynamic eval() of a string.'
+  - pattern: '\bexec\s*\('
+    category: exec
+    severity: MEDIUM
+    message: 'Dynamic exec() of a string.'
+  - pattern: '\bos\.system\s*\('
+    category: os_system
+    severity: HIGH
+    message: 'os.system() shell execution.'
+  - pattern: '\bsubprocess\.(run|call|Popen|check_output|check_call)\s*\([^)]*shell\s*=\s*True'
+    category: subprocess_shell
+    severity: HIGH
+    message: 'subprocess(..., shell=True) — shell injection risk.'
+  - pattern: '\bpickle\.loads?\s*\('
+    category: insecure_deserialize
+    severity: HIGH
+    message: 'pickle deserialization (arbitrary-code-execution vector).'
+  - pattern: '\byaml\.load\s*\('
+    category: insecure_deserialize
+    severity: MEDIUM
+    message: 'yaml.load without SafeLoader (code-execution vector).'
+    skip_if_nearby: 'SafeLoader|Loader\s*='
+  - pattern: '\bnew\s+Function\s*\('
+    category: dynamic_function
+    severity: MEDIUM
+    message: 'new Function(...) builds code from a string.'
+  - pattern: '\bvm\.runIn\w+\s*\('
+    category: dynamic_function
+    severity: MEDIUM
+    message: 'Node vm.runIn* executes a code string.'
+  - pattern: '\brequire\s*\(\s*[''"]child_process[''"]\s*\)|\bchild_process\.(exec|execSync|spawn)\b'
+    category: subprocess
+    severity: MEDIUM
+    message: 'Spawns OS subprocesses (child_process).'
